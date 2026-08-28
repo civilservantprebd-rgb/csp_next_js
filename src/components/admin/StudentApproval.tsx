@@ -3,8 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { EnrollmentRequest, AllowedStudent } from "@/types/student";
 import { getEnrollRequests, approveEnrollRequest } from "@/actions/enroll-actions";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, doc, deleteDoc, setDoc } from "firebase/firestore";
+import {
+  getAllAllowedStudents,
+  addAllowedStudentManual,
+  deleteAllowedStudent
+} from "@/actions/student-actions";
 import { Bell, Check, UserPlus, Trash2, Edit2, RotateCw } from "lucide-react";
 import { parseBengaliDigits, toBengaliDigits } from "@/lib/utils";
 
@@ -25,17 +28,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
     const reqs = await getEnrollRequests();
     setRequests(reqs);
 
-    const snap = await getDocs(collection(db, "allowed_students"));
-    const list: AllowedStudent[] = [];
-    snap.forEach((d) => {
-      const data = d.data();
-      list.push({
-        docId: d.id,
-        id: data.id || d.id,
-        name: data.name || "শিক্ষার্থী",
-        courses: data.courses || (data.course ? [data.course] : ["ALL"]),
-      });
-    });
+    const list = await getAllAllowedStudents();
     list.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
     setStudents(list);
     setIsLoading(false);
@@ -56,27 +49,22 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
     const cleanId = parseBengaliDigits(newId).trim();
     if (!cleanId || !newName.trim()) return;
 
-    await setDoc(
-      doc(db, "allowed_students", cleanId),
-      {
-        id: cleanId,
-        name: newName.trim(),
-        courses: [newCourse],
-        createdAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    const res = await addAllowedStudentManual(cleanId, newName.trim(), newCourse);
+    alert(res.message);
 
     setNewId("");
     setNewName("");
     loadData();
-    alert("শিক্ষার্থী তালিকাভুক্ত হয়েছে।");
   };
 
   const handleDelete = async (id: string) => {
     if (confirm(`আপনি কি এই শিক্ষার্থীকে (${id}) মুছে ফেলতে চান?`)) {
-      await deleteDoc(doc(db, "allowed_students", id));
-      loadData();
+      const ok = await deleteAllowedStudent(id);
+      if (ok) {
+        loadData();
+      } else {
+        alert("শিক্ষার্থী ডিলিট করতে সমস্যা হয়েছে।");
+      }
     }
   };
 

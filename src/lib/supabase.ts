@@ -14,3 +14,21 @@ export const supabase = createClient(
     }
   }
 );
+
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (session?.user) {
+      const studentUser = {
+        uid: session.user.id,
+        name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "নামহীন শিক্ষার্থী",
+        email: session.user.email || "",
+        photoURL: session.user.user_metadata?.avatar_url || ""
+      };
+      localStorage.setItem("bcs_student_user", JSON.stringify(studentUser));
+      window.dispatchEvent(new Event("storage"));
+    } else if (event === "SIGNED_OUT") {
+      localStorage.removeItem("bcs_student_user");
+      window.dispatchEvent(new Event("storage"));
+    }
+  });
+}

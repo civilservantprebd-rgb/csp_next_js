@@ -11,11 +11,7 @@ import {
   EyeOff,
   Loader2
 } from "lucide-react";
-import { auth } from "@/lib/firebase";
-import {
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail
-} from "firebase/auth";
+import { supabase } from "@/lib/supabase";
 
 interface TeacherLoginModalProps {
   isOpen: boolean;
@@ -44,8 +40,14 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
     setIsLoading(true);
 
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      onLoginSuccess({ email: userCred.user.email || "শিক্ষক", role: "admin" });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      onLoginSuccess({ email: data.user?.email || "শিক্ষক", role: "admin" });
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message || "অথেনটিকেশনে সমস্যা হয়েছে।");
@@ -62,14 +64,17 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
     }
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+
+      if (error) throw error;
+
       setInfoMsg(`আপনার ইমেইল (${email})-এ একটি পাসওয়ার্ড রিসেট লিংক পাঠানো হয়েছে।`);
     } catch (err: any) {
       setErrorMsg(err.message || "পাসওয়ার্ড রিসেট লিংক পাঠাতে সমস্যা হয়েছে।");
     }
   };
-
-
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 font-bengali">
@@ -88,7 +93,7 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
           <h3 className="text-lg sm:text-xl font-bold text-slate-900">
             শিক্ষক প্যানেল লগইন
           </h3>
-          <p className="text-xs text-slate-500">Firebase Authentication দ্বারা সুরক্ষিত এক্সেস</p>
+          <p className="text-xs text-slate-500">Supabase Authentication দ্বারা সুরক্ষিত এক্সেস</p>
         </div>
 
         {errorMsg && (
@@ -164,8 +169,6 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
             )}
           </button>
         </form>
-
-
       </div>
     </div>
   );

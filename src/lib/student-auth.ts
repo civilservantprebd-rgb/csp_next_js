@@ -1,5 +1,4 @@
-import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { auth } from "./firebase";
+import { supabase } from "./supabase";
 
 export interface StudentUser {
   uid: string;
@@ -9,23 +8,23 @@ export interface StudentUser {
 }
 
 /**
- * Handle Google Sign-In and persist session
+ * Handle Google Sign-In and persist session using Supabase OAuth
  */
 export async function loginWithGoogle(): Promise<StudentUser | null> {
   try {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) throw error;
     
-    const studentUser: StudentUser = {
-      uid: user.uid,
-      name: user.displayName || "নামহীন শিক্ষার্থী",
-      email: user.email || "",
-      photoURL: user.photoURL || ""
-    };
-    
-    localStorage.setItem("bcs_student_user", JSON.stringify(studentUser));
-    return studentUser;
+    // Oauth redirects the browser, so we return null here. 
+    // The onAuthStateChange listener in supabase.ts will automatically
+    // pick up the session and set localStorage when redirected back.
+    return null;
   } catch (err) {
     console.error("Google login error:", err);
     return null;
@@ -62,8 +61,9 @@ export function updateLocalStudentName(name: string): StudentUser | null {
  */
 export async function logoutStudentUser(): Promise<void> {
   try {
-    await signOut(auth);
+    await supabase.auth.signOut();
     localStorage.removeItem("bcs_student_user");
+    window.dispatchEvent(new Event("storage"));
   } catch (err) {
     console.error("Logout error:", err);
   }

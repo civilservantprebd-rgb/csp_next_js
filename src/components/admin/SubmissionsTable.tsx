@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Submission } from "@/types/submission";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
-import { clearAllSubmissions } from "@/actions/admin-actions";
+import { clearAllSubmissions, getAllSubmissions } from "@/actions/admin-actions";
 import { Trash2, RotateCw } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
@@ -14,16 +12,7 @@ export const SubmissionsTable: React.FC = () => {
 
   const loadSubmissions = async () => {
     setIsLoading(true);
-    const q = query(
-      collection(db, "submissions"),
-      orderBy("timestamp", "desc"),
-      limit(200)
-    );
-    const snap = await getDocs(q);
-    const list: Submission[] = [];
-    snap.forEach((d) => {
-      list.push({ id: d.id, ...(d.data() as Submission) });
-    });
+    const list = await getAllSubmissions();
     setSubmissions(list);
     setIsLoading(false);
   };

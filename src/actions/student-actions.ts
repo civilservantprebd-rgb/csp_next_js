@@ -189,3 +189,69 @@ export async function updateStudentName(uid: string, newName: string): Promise<b
     return false;
   }
 }
+
+export async function getAllAllowedStudents(): Promise<AllowedStudent[]> {
+  try {
+    const { data, error } = await supabase
+      .from("allowed_students")
+      .select("*")
+      .order("id", { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map((row) => ({
+      docId: row.id,
+      id: row.id,
+      name: row.name,
+      courses: row.courses || []
+    }));
+  } catch (err) {
+    console.error("Fetch all allowed students error:", err);
+    return [];
+  }
+}
+
+export async function addAllowedStudentManual(
+  id: string,
+  name: string,
+  course: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cleanId = parseBengaliDigits(id).trim();
+    if (!cleanId || !name.trim()) {
+      return { success: false, message: "আইডি এবং নাম প্রদান করা আবশ্যক।" };
+    }
+
+    const { data: existing } = await supabase
+      .from("allowed_students")
+      .select("courses")
+      .eq("id", cleanId)
+      .maybeSingle();
+
+    const courses = existing ? Array.from(new Set([...(existing.courses || []), course])) : [course];
+
+    const { error } = await supabase.from("allowed_students").upsert({
+      id: cleanId,
+      name: name.trim(),
+      courses,
+      approved_at: getTrueDate().toISOString()
+    });
+
+    if (error) throw error;
+    return { success: true, message: "শিক্ষার্থী তালিকাভুক্ত হয়েছে।" };
+  } catch (err) {
+    console.error("Add student manual error:", err);
+    return { success: false, message: "শিক্ষার্থী তালিকাভুক্ত করতে সমস্যা হয়েছে।" };
+  }
+}
+
+export async function deleteAllowedStudent(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from("allowed_students").delete().eq("id", id);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("Delete allowed student error:", err);
+    return false;
+  }
+}

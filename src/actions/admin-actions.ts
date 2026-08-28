@@ -3,6 +3,7 @@
 import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, QuestionSolution, TopicQuestion } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
+import { Submission } from "@/types/submission";
 
 let cachedConfig: AppConfigData | null = null;
 let lastFetchTime = 0;
@@ -590,5 +591,39 @@ export async function clearAllSubmissions(): Promise<boolean> {
   } catch (err) {
     console.error("Clear submissions error:", err);
     return false;
+  }
+}
+
+export async function getAllSubmissions(): Promise<Submission[]> {
+  try {
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("*")
+      .order("submitted_at", { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    return (data || []).map((row) => ({
+      id: row.id,
+      studentName: row.student_name,
+      studentId: row.student_id,
+      examKey: row.exam_key,
+      examTitle: row.exam_title,
+      score: Number(row.score ?? 0),
+      correct: Number(row.correct ?? 0),
+      incorrect: Number(row.incorrect ?? 0),
+      totalQuestions: Number(row.total_questions ?? 0),
+      timeSpent: row.time_spent,
+      answers: Array.isArray(row.answers)
+        ? row.answers.map((v: any) => (v === -1 || v === null ? null : Number(v)))
+        : [],
+      isPendingEvaluation: row.is_pending_evaluation,
+      isLiveSubmission: row.is_live_submission,
+      submittedAtISO: row.submitted_at
+    }));
+  } catch (err) {
+    console.error("Fetch all submissions error:", err);
+    return [];
   }
 }
