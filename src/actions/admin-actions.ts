@@ -67,10 +67,18 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
     driveSyllabusUrl: "https://drive.google.com"
   };
 
+  const timeoutPromise = new Promise<null>((_, reject) =>
+    setTimeout(() => reject(new Error("Firestore timeout")), 2500)
+  );
+
   inflightFetch = (async () => {
     try {
-      const snap = await getDoc(doc(db, "app_config", "bcs_data"));
-      if (snap.exists()) {
+      const snap = await Promise.race([
+        getDoc(doc(db, "app_config", "bcs_data")),
+        timeoutPromise
+      ]);
+
+      if (snap && snap.exists()) {
         const data = snap.data() as AppConfigData;
         if (Array.isArray(data.topics)) {
           data.topics = data.topics
@@ -85,10 +93,15 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
         return data;
       }
     } catch (err) {
-      console.error("Fetch app config error:", err);
+      console.warn("Fetch app config timed out or failed, using cache/default:", err);
     } finally {
       inflightFetch = null;
     }
+
+    if (cachedConfig) {
+      return cachedConfig;
+    }
+
     cachedConfig = defaultData;
     lastFetchTime = Date.now();
     return defaultData;
