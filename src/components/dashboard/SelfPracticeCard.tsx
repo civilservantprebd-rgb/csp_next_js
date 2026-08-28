@@ -70,11 +70,8 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
                 </span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-emerald-950 mt-1 tracking-tight">
-                বিষয়ভিত্তিক সেলফ-প্র্যাকটিস ও কুইজ
+                সেলফ-প্র্যাকটিস ও কুইজ
               </h2>
-              <p className="text-xs sm:text-sm text-slate-800 mt-0.5 font-medium">
-                টপিক নির্বাচন করে যেকোনো সময় প্র্যাকটিস ও কুইজ দিয়ে নিজের প্রস্তুতি ঝালাই করুন।
-              </p>
             </div>
           </div>
         </div>
