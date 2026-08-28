@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-leaderboard,
+  #printable-leaderboard * {
+    visibility: visible;
+  }
+
+  #printable-leaderboard {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
