@@ -273,7 +273,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
                   }}
                   className="text-indigo-600 hover:text-indigo-800 font-bold underline underline-offset-2 transition cursor-pointer"
                 >
-                  কোর্সে এনরোল করুন
+                  Enroll Now
                 </button>
               </p>
             </div>

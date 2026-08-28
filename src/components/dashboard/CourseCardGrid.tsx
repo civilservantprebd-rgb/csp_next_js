@@ -130,7 +130,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                     className="self-start sm:self-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md hover:shadow-emerald-500/20 transition flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
-                    <span>কোর্স এনরোল করুন</span>
+                    <span>Enroll Now</span>
                   </button>
                 </div>
               </div>

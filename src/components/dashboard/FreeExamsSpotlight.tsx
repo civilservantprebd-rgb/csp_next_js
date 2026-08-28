@@ -46,7 +46,7 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
               className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-[0.98]"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>এনরোল করুন</span>
+              <span>Enroll Now</span>
             </button>
           )}
           <div className="shrink-0 bg-white px-3.5 py-1.5 rounded-xl border border-amber-300 text-xs font-semibold text-amber-950 flex items-center gap-1.5 shadow-2xs">
