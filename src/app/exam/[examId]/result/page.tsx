@@ -12,6 +12,8 @@ import { Award, ListChecks, Trophy, Home, Loader2, Clock, X, Lock, Sparkles, Ale
 import { toBengaliDigits } from "@/lib/utils";
 import { PrintableMarksheetModal } from "@/components/exam/PrintableMarksheetModal";
 
+import { saveMistakesFromSubmission } from "@/lib/mistake-bookmark-store";
+
 export default function ExamResultPage() {
   const params = useParams();
   const router = useRouter();
@@ -60,6 +62,16 @@ export default function ExamResultPage() {
     if (!solutions) {
       const data = await getExamSolutions(examId);
       setSolutions(data || []);
+      if (data && resultData?.studentId) {
+        saveMistakesFromSubmission(
+          resultData.studentId,
+          exam.title,
+          exam.questions || [],
+          data,
+          resultData.answers || [],
+          exam.subject
+        );
+      }
     }
     setShowReview(!showReview);
   };

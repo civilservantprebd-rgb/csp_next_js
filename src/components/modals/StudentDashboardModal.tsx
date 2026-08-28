@@ -9,13 +9,43 @@ import {
   Calendar,
   FileText,
   Lock,
-  Loader2
+  Loader2,
+  Bookmark,
+  AlertOctagon,
+  Trash2,
+  RotateCcw,
+  BookOpen,
+  CheckCircle2,
+  XCircle,
+  Play
 } from "lucide-react";
 import { getStudentSubmissions } from "@/actions/student-actions";
 import { Submission } from "@/types/submission";
 import { toBengaliDigits } from "@/lib/utils";
 import { isAnswerTimeReached } from "@/actions/exam-actions";
 import { Exam } from "@/types/exam";
+import {
+  getStudentMistakes,
+  getStudentBookmarks,
+  removeStudentMistake,
+  clearAllStudentMistakes,
+  toggleQuestionBookmark,
+  MistakeQuestionItem
+} from "@/lib/mistake-bookmark-store";
+import {
+  calculateStudentAnalytics,
+  StudentAnalyticsResult
+} from "@/lib/student-analytics";
+import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
+import { PracticeQuestion, generatePracticeQuestions } from "@/lib/practice-helper";
+import { fetchAppConfig } from "@/actions/admin-actions";
+import {
+  BarChart3,
+  TrendingUp,
+  AlertTriangle,
+  Lightbulb,
+  Sparkles as SparklesIcon
+} from "lucide-react";
 
 interface StudentDashboardModalProps {
   isOpen: boolean;
@@ -36,18 +66,37 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   onClose,
   onSelectSubmissionDetail,
 }) => {
+  const [activeTab, setActiveTab] = useState<"history" | "analytics" | "mistakes" | "bookmarks">("history");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [mistakes, setMistakes] = useState<MistakeQuestionItem[]>([]);
+  const [bookmarks, setBookmarks] = useState<MistakeQuestionItem[]>([]);
+  const [analytics, setAnalytics] = useState<StudentAnalyticsResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Re-quiz modal state
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<PracticeQuestion[]>([]);
+  const [quizTitle, setQuizTitle] = useState("");
+
+  const refreshStores = () => {
+    if (studentId) {
+      setMistakes(getStudentMistakes(studentId));
+      setBookmarks(getStudentBookmarks(studentId));
+    }
+  };
 
   useEffect(() => {
     if (isOpen && studentId) {
       setIsLoading(true);
-      getStudentSubmissions(studentId).then((data) => {
+      getStudentSubmissions(studentId).then(async (data) => {
         setSubmissions(data);
+        const analyticsRes = await calculateStudentAnalytics(data, exams);
+        setAnalytics(analyticsRes);
         setIsLoading(false);
       });
+      refreshStores();
     }
-  }, [isOpen, studentId]);
+  }, [isOpen, studentId, exams]);
 
   if (!isOpen) return null;
 
@@ -70,13 +119,82 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
   const avgScore = releasedSubs.length > 0 ? (totalScore / releasedSubs.length).toFixed(1) : "০";
   const avgAcc = releasedSubs.length > 0 ? Math.round(totalAccSum / releasedSubs.length) : 0;
+  const optLabels = ["ক", "খ", "গ", "ঘ"];
+
+  // Launch Re-test quiz
+  const handleStartMistakesQuiz = () => {
+    if (mistakes.length === 0) return;
+    const questionsForQuiz: PracticeQuestion[] = mistakes.map((m, idx) => ({
+      id: m.id || `m_${idx}`,
+      q: m.q,
+      opts: m.opts,
+      correct: m.correct,
+      exp: m.exp,
+      subject: m.subject || "ভুল উত্তরের খাতা",
+      topic: m.topic
+    }));
+    setQuizQuestions(questionsForQuiz);
+    setQuizTitle("ভুল উত্তরের খাতা অনুশীলন");
+    setIsQuizModalOpen(true);
+  };
+
+  const handleStartBookmarksQuiz = () => {
+    if (bookmarks.length === 0) return;
+    const questionsForQuiz: PracticeQuestion[] = bookmarks.map((b, idx) => ({
+      id: b.id || `b_${idx}`,
+      q: b.q,
+      opts: b.opts,
+      correct: b.correct,
+      exp: b.exp,
+      subject: b.subject || "বুকমার্ককৃত প্রশ্ন",
+      topic: b.topic
+    }));
+    setQuizQuestions(questionsForQuiz);
+    setQuizTitle("বুকমার্ক প্রশ্ন অনুশীলন");
+    setIsQuizModalOpen(true);
+  };
+
+  const handleStartSubjectPractice = async (subjectName: string) => {
+    setIsLoading(true);
+    const config = await fetchAppConfig();
+    const questions = await generatePracticeQuestions(config, subjectName, 15);
+    setIsLoading(false);
+
+    if (questions.length === 0) {
+      alert(`'${subjectName}' বিষয়ে এই মুহূর্তে কোনো প্রশ্ন পাওয়া যায়নি।`);
+      return;
+    }
+
+    setQuizQuestions(questions);
+    setQuizTitle(`${subjectName} - দুর্বলতা নিরাময় প্র্যাকটিস`);
+    setIsQuizModalOpen(true);
+  };
+
+  const handleRemoveMistake = (id: string) => {
+    const updated = removeStudentMistake(studentId, id);
+    setMistakes(updated);
+  };
+
+  const handleClearAllMistakes = () => {
+    if (confirm("আপনি কি ভুল উত্তরের খাতার সকল প্রশ্ন মুছে ফেলতে চান?")) {
+      clearAllStudentMistakes(studentId);
+      setMistakes([]);
+    }
+  };
+
+  const handleToggleBookmark = (item: MistakeQuestionItem) => {
+    toggleQuestionBookmark(studentId, item);
+    refreshStores();
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-4 font-bengali">
-      <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100">
+        
+        {/* Header */}
         <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
           <div className="flex items-center space-x-3">
-            <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-xl flex items-center justify-center font-bold">
+            <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-2xs">
               <GraduationCap className="w-6 h-6 text-violet-700" />
             </div>
             <div>
@@ -89,120 +207,556 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-grow pr-1 space-y-4">
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-3">
-            <div>
-              <h4 className="font-bold text-emerald-950 text-sm">রুটিন ও সিলেবাস ডাউনলোড</h4>
-              <p className="text-[11px] text-emerald-700">গুগল ড্রাইভ থেকে আপডেটেড সিলেবাস ও পরীক্ষার রুটিন পান</p>
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <a
-                href={routineUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 sm:flex-none text-center bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
-              >
-                <Calendar className="w-3.5 h-3.5" /> রুটিন
-              </a>
-              <a
-                href={syllabusUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 sm:flex-none text-center bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
-              >
-                <FileText className="w-3.5 h-3.5" /> সিলেবাস
-              </a>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center">
-              <span className="text-[10px] sm:text-xs text-slate-500 block">অংশগ্রহণকৃত এক্সাম</span>
-              <span className="text-base sm:text-lg font-bold text-slate-800">{toBengaliDigits(submissions.length)}</span>
-            </div>
-            <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-center">
-              <span className="text-[10px] sm:text-xs text-emerald-600 block">গড় পারসেন্টেজ</span>
-              <span className="text-base sm:text-lg font-bold text-emerald-700">{toBengaliDigits(avgAcc)}%</span>
-            </div>
-            <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-200 text-center">
-              <span className="text-[10px] sm:text-xs text-indigo-600 block">সর্বোচ্চ স্কোর</span>
-              <span className="text-base sm:text-lg font-bold text-indigo-700">{toBengaliDigits(bestScore)}</span>
-            </div>
-            <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 text-center">
-              <span className="text-[10px] sm:text-xs text-amber-600 block">গড় স্কোর</span>
-              <span className="text-base sm:text-lg font-bold text-amber-700">{toBengaliDigits(avgScore)}</span>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <History className="w-4 h-4 text-violet-600" /> সাম্প্রতিক পরীক্ষার পারফরম্যান্স
-              </span>
-              <span className="text-[11px] text-slate-400 font-normal">(ক্লিক করে সমাধান দেখুন)</span>
-            </h4>
-
-            <div className="space-y-2">
-              {isLoading ? (
-                <div className="text-center py-6 text-slate-400 flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" /> পারফরম্যান্স লোড হচ্ছে...
-                </div>
-              ) : submissions.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">আপনার কোনো পরীক্ষার রেকর্ড পাওয়া যায়নি।</p>
-              ) : (
-                submissions.map((sub, sIdx) => {
-                  const ex = exams[sub.examKey];
-                  const canShow = ex ? isAnswerTimeReached(ex) : true;
-
-                  return (
-                    <button
-                      key={sIdx}
-                      onClick={() => onSelectSubmissionDetail(sub)}
-                      className="w-full text-left p-3.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-violet-50/60 transition flex justify-between items-center group shadow-xs cursor-pointer"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition">
-                            {toBengaliDigits(sIdx + 1)}. {sub.examTitle}
-                          </h4>
-                          {sub.isLiveSubmission === false && (
-                            <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                              অনুশীলন
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-mono">সময়কাল: {sub.timeSpent}</p>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        {canShow ? (
-                          <span className="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-xl text-xs font-mono">
-                            স্কোর: {toBengaliDigits(sub.score)}
-                          </span>
-                        ) : (
-                          <span className="bg-amber-100 text-amber-800 font-semibold px-2.5 py-1 rounded-xl text-xs flex items-center gap-1">
-                            <Lock className="w-3 h-3" /> ফলাফল গোপন
-                          </span>
-                        )}
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-violet-600 transition" />
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-3 border-t border-slate-100 mt-4 text-right">
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-2 flex-wrap">
           <button
-            onClick={onClose}
-            className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-6 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+            type="button"
+            onClick={() => setActiveTab("history")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "history"
+                ? "bg-violet-600 text-white shadow-xs"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+            }`}
           >
-            বন্ধ করুন
+            <History className="w-3.5 h-3.5" />
+            <span>পরীক্ষার ফলাফল ({toBengaliDigits(submissions.length)})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("analytics")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "analytics"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/80"
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>শক্তি ও দুর্বলতা বিশ্লেষণ</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("mistakes")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "mistakes"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200/80"
+            }`}
+          >
+            <AlertOctagon className="w-3.5 h-3.5" />
+            <span>ভুল উত্তরের খাতা ({toBengaliDigits(mistakes.length)})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("bookmarks")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "bookmarks"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80"
+            }`}
+          >
+            <Bookmark className="w-3.5 h-3.5" />
+            <span>বুকমার্কসমূহ ({toBengaliDigits(bookmarks.length)})</span>
           </button>
         </div>
+
+        {/* Tab Body */}
+        <div className="overflow-y-auto flex-grow pr-1 space-y-4">
+          
+          {/* TAB 1: EXAM HISTORY */}
+          {activeTab === "history" && (
+            <>
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div>
+                  <h4 className="font-bold text-emerald-950 text-sm">রুটিন ও সিলেবাস ডাউনলোড</h4>
+                  <p className="text-[11px] text-emerald-700">গুগল ড্রাইভ থেকে আপডেটেড সিলেবাস ও পরীক্ষার রুটিন পান</p>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <a
+                    href={routineUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 sm:flex-none text-center bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    <Calendar className="w-3.5 h-3.5" /> রুটিন
+                  </a>
+                  <a
+                    href={syllabusUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 sm:flex-none text-center bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> সিলেবাস
+                  </a>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center">
+                  <span className="text-[10px] sm:text-xs text-slate-500 block">অংশগ্রহণকৃত এক্সাম</span>
+                  <span className="text-base sm:text-lg font-bold text-slate-800">{toBengaliDigits(submissions.length)}</span>
+                </div>
+                <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-center">
+                  <span className="text-[10px] sm:text-xs text-emerald-600 block">গড় পারসেন্টেজ</span>
+                  <span className="text-base sm:text-lg font-bold text-emerald-700">{toBengaliDigits(avgAcc)}%</span>
+                </div>
+                <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-200 text-center">
+                  <span className="text-[10px] sm:text-xs text-indigo-600 block">সর্বোচ্চ স্কোর</span>
+                  <span className="text-base sm:text-lg font-bold text-indigo-700">{toBengaliDigits(bestScore)}</span>
+                </div>
+                <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 text-center">
+                  <span className="text-[10px] sm:text-xs text-amber-600 block">গড় স্কোর</span>
+                  <span className="text-base sm:text-lg font-bold text-amber-700">{toBengaliDigits(avgScore)}</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <History className="w-4 h-4 text-violet-600" /> সাম্প্রতিক পরীক্ষার পারফরম্যান্স
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-normal">(ক্লিক করে সমাধান ও মার্কশিট দেখুন)</span>
+                </h4>
+
+                <div className="space-y-2">
+                  {isLoading ? (
+                    <div className="text-center py-6 text-slate-400 flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> পারফরম্যান্স লোড হচ্ছে...
+                    </div>
+                  ) : submissions.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-6">আপনার কোনো পরীক্ষার রেকর্ড পাওয়া যায়নি।</p>
+                  ) : (
+                    submissions.map((sub, sIdx) => {
+                      const ex = exams[sub.examKey];
+                      const canShow = ex ? isAnswerTimeReached(ex) : true;
+
+                      return (
+                        <button
+                          key={sIdx}
+                          onClick={() => onSelectSubmissionDetail(sub)}
+                          className="w-full text-left p-3.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-violet-50/60 transition flex justify-between items-center group shadow-xs cursor-pointer"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition">
+                                {toBengaliDigits(sIdx + 1)}. {sub.examTitle}
+                              </h4>
+                              {sub.isLiveSubmission === false && (
+                                <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                  অনুশীলন
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5 font-mono">সময়কাল: {sub.timeSpent}</p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {canShow ? (
+                              <span className="bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-xl text-xs font-mono">
+                                স্কোর: {toBengaliDigits(sub.score)}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[11px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                                <Lock className="w-3 h-3" /> ফলাফল প্রকাশের অপেক্ষায়
+                              </span>
+                            )}
+                            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-violet-600 transition" />
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* TAB 2: ANALYTICS & WEAKNESS BREAKDOWN */}
+          {activeTab === "analytics" && (
+            <div className="space-y-5">
+              {!analytics || analytics.totalExams === 0 ? (
+                <div className="text-center py-12 text-slate-400 space-y-2 bg-slate-50 rounded-2xl border border-slate-200">
+                  <BarChart3 className="w-10 h-10 mx-auto text-indigo-400" />
+                  <h4 className="font-bold text-slate-700 text-sm">পর্যাপ্ত ডেটা নেই</h4>
+                  <p className="text-xs max-w-sm mx-auto">
+                    কমপক্ষে ১টি পরীক্ষায় অংশগ্রহণ করলে আপনার শক্তি ও দুর্বলতার স্বয়ংক্রিয় অ্যানালিটিক্স রিপোর্ট এখানে তৈরি হবে।
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Top 3 Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        <span>সবচেয়ে শক্তিশালী বিষয়</span>
+                      </div>
+                      <h4 className="text-base font-black text-emerald-950 truncate">
+                        {analytics.strongestSubject || "সবগুলোতে সমান"}
+                      </h4>
+                      <p className="text-[10px] text-emerald-700">সর্বোচ্চ সঠিক উত্তরের হার</p>
+                    </div>
+
+                    <div className="p-3.5 bg-rose-50/80 rounded-2xl border border-rose-200 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800">
+                        <AlertTriangle className="w-4 h-4 text-rose-600" />
+                        <span>মনোযোগ প্রয়োজন (দুর্বল)</span>
+                      </div>
+                      <h4 className="text-base font-black text-rose-950 truncate">
+                        {analytics.weakestSubject || "নেই"}
+                      </h4>
+                      <p className="text-[10px] text-rose-700">ভুলের হার তুলনামূলক বেশি</p>
+                    </div>
+
+                    <div className="p-3.5 bg-indigo-50/80 rounded-2xl border border-indigo-200 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
+                        <SparklesIcon className="w-4 h-4 text-indigo-600" />
+                        <span>সার্বিক অ্যাকুরেসি</span>
+                      </div>
+                      <h4 className="text-base font-black text-indigo-950">
+                        {toBengaliDigits(analytics.overallAccuracy)}%
+                      </h4>
+                      <p className="text-[10px] text-indigo-700">
+                        মোট {toBengaliDigits(analytics.totalAttemptedQuestions)}টি প্রশ্নের বিশ্লেষণে
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Smart Prep Recommendation Box */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-slate-50 to-purple-50 border border-indigo-100 flex items-start gap-3 shadow-2xs">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Lightbulb className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h5 className="text-xs font-bold text-indigo-950">স্মার্ট প্রস্তুতি পরামর্শ (AI Recommendation):</h5>
+                      <p className="text-xs text-slate-600 leading-relaxed">{analytics.recommendation}</p>
+                    </div>
+                  </div>
+
+                  {/* Subject Breakdown List */}
+                  <div className="space-y-3 pt-1">
+                    <h4 className="font-bold text-xs sm:text-sm text-slate-800 flex items-center justify-between">
+                      <span>বিষয়ভিত্তিক দক্ষতা ও পারফরম্যান্স ছক:</span>
+                      <span className="text-[11px] text-slate-400 font-normal">অ্যাকুরেসি অনুযায়ী সাজানো</span>
+                    </h4>
+
+                    <div className="space-y-3">
+                      {analytics.subjectBreakdown.map((item, idx) => {
+                        const isStrong = item.status === "strong";
+                        const isWeak = item.status === "weak";
+
+                        const barColor = isStrong
+                          ? "bg-emerald-500"
+                          : isWeak
+                          ? "bg-rose-500"
+                          : "bg-amber-500";
+
+                        const badgeClass = isStrong
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                          : isWeak
+                          ? "bg-rose-100 text-rose-800 border-rose-200"
+                          : "bg-amber-100 text-amber-800 border-amber-200";
+
+                        const statusText = isStrong
+                          ? "🟢 শক্তিশালী প্রস্তুতি"
+                          : isWeak
+                          ? "🔴 দুর্বলতা চিহ্নিত"
+                          : "🟡 সন্তোষজনক";
+
+                        return (
+                          <div
+                            key={idx}
+                            className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs text-xs"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h5 className="font-bold text-slate-900 text-xs sm:text-sm">
+                                    {item.subject}
+                                  </h5>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeClass}`}>
+                                    {statusText}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                  মোট প্রশ্ন: <strong>{toBengaliDigits(item.totalQuestions)}টি</strong> • সঠিক:{" "}
+                                  <strong className="text-emerald-700">{toBengaliDigits(item.correct)}টি</strong> • ভুল:{" "}
+                                  <strong className="text-rose-600">{toBengaliDigits(item.incorrect)}টি</strong>
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2.5 self-end sm:self-center">
+                                <span className="font-black text-slate-900 text-xs sm:text-sm font-mono">
+                                  {toBengaliDigits(item.accuracy)}%
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartSubjectPractice(item.subject)}
+                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold px-3 py-1.5 rounded-xl text-[11px] flex items-center gap-1 transition cursor-pointer shadow-2xs shrink-0"
+                                >
+                                  <Play className="w-3 h-3 text-indigo-600 fill-indigo-600" />
+                                  <span>অনুশীলন</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Accuracy Visual Progress Bar */}
+                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                              <div
+                                className={`${barColor} h-full rounded-full transition-all duration-500`}
+                                style={{ width: `${Math.max(5, item.accuracy)}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: MISTAKE NOTEBOOK */}
+          {activeTab === "mistakes" && (
+            <div className="space-y-4">
+              <div className="bg-rose-50/80 p-4 rounded-2xl border border-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-rose-950 text-sm flex items-center gap-1.5">
+                    <AlertOctagon className="w-4 h-4 text-rose-600" /> ভুল উত্তরের খাতা (Mistake Bank)
+                  </h4>
+                  <p className="text-xs text-rose-700">
+                    পরীক্ষায় ভুল হওয়া প্রশ্নগুলো এখানে স্বয়ংক্রিয়ভাবে সংরক্ষিত থাকে রিভিশন দেওয়ার জন্য।
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {mistakes.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleStartMistakesQuiz}
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                        <span>ভুলগুলোর পরীক্ষা দিন ({toBengaliDigits(mistakes.length)})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearAllMistakes}
+                        title="সকল ভুল মুছে ফেলুন"
+                        className="p-2 rounded-xl bg-white hover:bg-rose-100 text-rose-700 border border-rose-200 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {mistakes.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 space-y-2">
+                  <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" />
+                  <h4 className="font-bold text-slate-700 text-sm">কোনো ভুল সংরক্ষিত নেই!</h4>
+                  <p className="text-xs max-w-sm mx-auto">
+                    পরীক্ষা দেওয়ার সময় যে প্রশ্নগুলো ভুল করবেন সেগুলো স্বয়ংক্রিয়ভাবে এখানে যুক্ত হবে।
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {mistakes.map((m, idx) => (
+                    <div
+                      key={m.id || idx}
+                      className="p-4 rounded-2xl border border-rose-200 bg-white space-y-3 shadow-2xs text-xs"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                              {m.examTitle}
+                            </span>
+                            {m.topic && (
+                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
+                                টপিক: {m.topic}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
+                            {toBengaliDigits(idx + 1)}. {m.q}
+                          </h4>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleBookmark(m)}
+                            title="বুকমার্ক"
+                            className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
+                          >
+                            <Bookmark className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMistake(m.id)}
+                            title="ভুলের তালিকা থেকে বাদ দিন (Mastered)"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Options with Wrong vs Right Highlight */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {m.opts.map((opt, optIdx) => {
+                          const isCorrect = optIdx === m.correct;
+                          const isUserWrong = m.userAns === optIdx;
+
+                          return (
+                            <div
+                              key={optIdx}
+                              className={`p-2 rounded-lg border flex items-center justify-between ${
+                                isCorrect
+                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-bold"
+                                  : isUserWrong
+                                  ? "bg-rose-50 border-rose-300 text-rose-950 font-semibold"
+                                  : "bg-slate-50 border-slate-200 text-slate-600"
+                              }`}
+                            >
+                              <span>
+                                ({optLabels[optIdx]}) {opt}
+                              </span>
+                              {isCorrect && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                              {isUserWrong && <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {m.exp && (
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 leading-relaxed">
+                          <strong>ব্যাখ্যা:</strong> {m.exp}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: BOOKMARKS */}
+          {activeTab === "bookmarks" && (
+            <div className="space-y-4">
+              <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-amber-950 text-sm flex items-center gap-1.5">
+                    <Bookmark className="w-4 h-4 text-amber-600" /> বুকমার্ককৃত প্রশ্নাবলী
+                  </h4>
+                  <p className="text-xs text-amber-700">
+                    গুরুত্বপূর্ণ যেসব প্রশ্ন আপনি পরবর্তীতে রিভিশনের জন্য বুকমার্ক করে রেখেছেন।
+                  </p>
+                </div>
+
+                {bookmarks.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleStartBookmarksQuiz}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-white" />
+                    <span>বুকমার্কগুলোর পরীক্ষা দিন ({toBengaliDigits(bookmarks.length)})</span>
+                  </button>
+                )}
+              </div>
+
+              {bookmarks.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 space-y-2">
+                  <Bookmark className="w-10 h-10 mx-auto text-amber-400" />
+                  <h4 className="font-bold text-slate-700 text-sm">কোনো বুকমার্ক প্রশ্ন নেই</h4>
+                  <p className="text-xs max-w-sm mx-auto">
+                    পরীক্ষার উত্তর পর্যালোচনার সময় যেকোনো গুরুত্বপূর্ণ প্রশ্ন বুকমার্ক করে এখানে সংরক্ষণ করতে পারেন।
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {bookmarks.map((b, idx) => (
+                    <div
+                      key={b.id || idx}
+                      className="p-4 rounded-2xl border border-amber-200 bg-white space-y-3 shadow-2xs text-xs"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          {b.topic && (
+                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded inline-block mb-1">
+                              টপিক: {b.topic}
+                            </span>
+                          )}
+                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
+                            {toBengaliDigits(idx + 1)}. {b.q}
+                          </h4>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBookmark(b)}
+                          className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          <Bookmark className="w-3 h-3 fill-amber-500 text-amber-600" />
+                          <span>মুছুন</span>
+                        </button>
+                      </div>
+
+                      {/* Options with Correct Highlight */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {b.opts.map((opt, optIdx) => {
+                          const isCorrect = optIdx === b.correct;
+
+                          return (
+                            <div
+                              key={optIdx}
+                              className={`p-2 rounded-lg border flex items-center justify-between ${
+                                isCorrect
+                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-bold"
+                                  : "bg-slate-50 border-slate-200 text-slate-600"
+                              }`}
+                            >
+                              <span>
+                                ({optLabels[optIdx]}) {opt}
+                              </span>
+                              {isCorrect && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {b.exp && (
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 leading-relaxed">
+                          <strong>ব্যাখ্যা:</strong> {b.exp}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+
       </div>
+
+      {/* Re-Quiz Modal for Mistakes / Bookmarks */}
+      <SelfPracticeModal
+        isOpen={isQuizModalOpen}
+        onClose={() => setIsQuizModalOpen(false)}
+        questions={quizQuestions}
+        subjectName={quizTitle}
+        mode="instant"
+        onRestart={() => setIsQuizModalOpen(true)}
+      />
     </div>
   );
 };

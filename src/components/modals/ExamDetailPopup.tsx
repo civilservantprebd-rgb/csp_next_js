@@ -7,6 +7,8 @@ import { Exam, QuestionSolution } from "@/types/exam";
 import { getExamSolutions, isAnswerTimeReached } from "@/actions/exam-actions";
 import { toBengaliDigits } from "@/lib/utils";
 import { PrintableMarksheetModal } from "@/components/exam/PrintableMarksheetModal";
+import { BookmarkButton } from "@/components/shared/BookmarkButton";
+import { saveMistakesFromSubmission } from "@/lib/mistake-bookmark-store";
 
 interface ExamDetailPopupProps {
   isOpen: boolean;
@@ -31,9 +33,19 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
       getExamSolutions(submission.examKey).then((data) => {
         setSolutions(data);
         setIsLoading(false);
+        if (data && exam?.questions && submission.studentId) {
+          saveMistakesFromSubmission(
+            submission.studentId,
+            submission.examTitle,
+            exam.questions,
+            data,
+            submission.answers || [],
+            exam.subject
+          );
+        }
       });
     }
-  }, [isOpen, submission]);
+  }, [isOpen, submission, exam]);
 
   if (!isOpen || !submission) return null;
 
@@ -141,7 +153,23 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                     <h4 className="font-bold text-xs sm:text-sm text-slate-800">
                       {toBengaliDigits(qIdx + 1)}. {q.q}
                     </h4>
-                    {statusBadge}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <BookmarkButton
+                        size="sm"
+                        studentId={submission.studentId}
+                        question={{
+                          q: q.q,
+                          opts: q.opts,
+                          correct: sol.correct,
+                          exp: sol.exp,
+                          userAns: studentAnsIdx,
+                          examTitle: submission.examTitle,
+                          topic: q.topic,
+                          subject: exam.subject
+                        }}
+                      />
+                      {statusBadge}
+                    </div>
                   </div>
                   <p className="text-[11px] sm:text-xs text-slate-600">
                     <strong>আপনার উত্তর:</strong>{" "}

@@ -3,6 +3,7 @@
 import React from "react";
 import { QuestionItem, QuestionSolution } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
+import { BookmarkButton } from "@/components/shared/BookmarkButton";
 
 interface ReviewCardProps {
   questions: QuestionItem[];
@@ -34,11 +35,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
         return (
           <div
             key={idx}
-            className="p-6 rounded-3xl border-2 border-slate-200 bg-white space-y-4 shadow-sm"
+            className="p-5 sm:p-6 rounded-3xl border border-slate-200 bg-white space-y-4 shadow-2xs"
           >
-            <div className="flex justify-between items-start gap-4">
-              <div className="space-y-1">
-                <h4 className="font-bold text-xl sm:text-2xl text-slate-900 leading-relaxed">
+            <div className="flex justify-between items-start gap-3 flex-wrap sm:flex-nowrap">
+              <div className="space-y-1 flex-grow">
+                <h4 className="font-bold text-base sm:text-lg text-slate-900 leading-relaxed">
                   {toBengaliDigits(idx + 1)}. {q.q}
                 </h4>
                 {q.topic && (
@@ -47,9 +48,23 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                   </span>
                 )}
               </div>
-              <span className={`text-sm px-3 py-1.5 rounded-full font-black uppercase shrink-0 ${badgeClass}`}>
-                {badgeText}
-              </span>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <BookmarkButton
+                  size="sm"
+                  question={{
+                    q: q.q,
+                    opts: q.opts,
+                    correct: sol.correct,
+                    exp: sol.exp,
+                    userAns: ans,
+                    topic: q.topic
+                  }}
+                />
+                <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase shrink-0 ${badgeClass}`}>
+                  {badgeText}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2 p-4 bg-slate-50 rounded-2xl">

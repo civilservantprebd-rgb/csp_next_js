@@ -11,98 +11,127 @@ export interface PracticeQuestion {
   topic?: string;
 }
 
-/**
- * Extract all unique subjects available from both exams and topic questions
- */
-export function getAvailablePracticeSubjects(config: AppConfigData): string[] {
-  const subjectSet = new Set<string>();
-
-  // From registered subjects
-  if (config.subjects && config.subjects.length > 0) {
-    config.subjects.forEach((s) => {
-      if (s.name?.trim()) subjectSet.add(s.name.trim());
-    });
-  }
-
-  // From exams
-  if (config.exams) {
-    Object.values(config.exams).forEach((ex) => {
-      if (ex.subject?.trim()) subjectSet.add(ex.subject.trim());
-    });
-  }
-
-  // From topic questions
-  if (config.topicQuestions) {
-    config.topicQuestions.forEach((tq) => {
-      if (tq.originalSubject?.trim()) subjectSet.add(tq.originalSubject.trim());
-      if (tq.topic?.trim()) subjectSet.add(tq.topic.trim());
-    });
-  }
-
-  return Array.from(subjectSet);
+export interface TopicOption {
+  name: string;
+  count: number;
 }
 
 /**
- * Generate a randomized practice question pool for the chosen subject/topic
+ * Extract all unique topics and their total question count from topicQuestions and exams
+ */
+export function getAvailablePracticeTopics(config: AppConfigData): TopicOption[] {
+  const topicCountMap = new Map<string, number>();
+
+  // 1. Registered topic list in config
+  if (config.topics && config.topics.length > 0) {
+    config.topics.forEach((t) => {
+      const trimmed = t.trim();
+      if (trimmed && !topicCountMap.has(trimmed)) {
+        topicCountMap.set(trimmed, 0);
+      }
+    });
+  }
+
+  // 2. Count from permanent topicQuestions repository
+  if (config.topicQuestions && config.topicQuestions.length > 0) {
+    config.topicQuestions.forEach((tq) => {
+      const t = (tq.topic || "").trim();
+      if (t) {
+        topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+      }
+    });
+  }
+
+  // 3. Count from exams where question has a topic tag
+  if (config.exams) {
+    Object.values(config.exams).forEach((ex) => {
+      (ex.questions || []).forEach((q) => {
+        const t = (q.topic || "").trim();
+        if (t) {
+          // If already in map, we increment only if this question wasn't already mirrored in topicQuestions
+          if (!config.topicQuestions?.some((tq) => tq.q === q.q && tq.topic === t)) {
+            topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+          }
+        }
+      });
+    });
+  }
+
+  const result: TopicOption[] = [];
+  topicCountMap.forEach((count, name) => {
+    result.push({ name, count });
+  });
+
+  // Sort topics alphabetically or by question count
+  return result.sort((a, b) => (b.count !== a.count ? b.count - a.count : a.name.localeCompare(b.name, "bn")));
+}
+
+/**
+ * Generate a randomized practice question pool specifically filtered by selected Topic
  */
 export async function generatePracticeQuestions(
   config: AppConfigData,
-  selectedSubject: string,
+  selectedTopic: string,
   count: number
 ): Promise<PracticeQuestion[]> {
   const pool: PracticeQuestion[] = [];
-  const normalizedSubject = selectedSubject.trim().toLowerCase();
-  const isAll = !selectedSubject || selectedSubject === "all" || selectedSubject === "সকল বিষয়";
+  const normalizedTopic = selectedTopic.trim().toLowerCase();
+  const isAll =
+    !selectedTopic ||
+    selectedTopic === "all" ||
+    selectedTopic === "সকল বিষয় (মিক্সড)" ||
+    selectedTopic === "সকল টপিক (মিক্সড)";
 
-  // 1. Collect from topicQuestions first (they already have correct answer and explanation!)
+  // 1. Collect from persistent Topic Questions repository
   if (config.topicQuestions && config.topicQuestions.length > 0) {
     config.topicQuestions.forEach((tq, idx) => {
-      const matchSubject =
-        isAll ||
-        (tq.originalSubject && tq.originalSubject.toLowerCase().includes(normalizedSubject)) ||
-        (tq.topic && tq.topic.toLowerCase().includes(normalizedSubject));
+      const t = (tq.topic || "").trim().toLowerCase();
+      const matchTopic = isAll || t === normalizedTopic || t.includes(normalizedTopic);
 
-      if (matchSubject && tq.q && tq.opts && tq.opts.length >= 2) {
+      if (matchTopic && tq.q && tq.opts && tq.opts.length >= 2) {
         pool.push({
           id: tq.id || `tq_${idx}`,
           q: tq.q,
           opts: tq.opts,
           correct: Number(tq.correct ?? 0),
           exp: tq.exp || "",
-          subject: tq.originalSubject || tq.topic || "সাধারণ",
+          subject: tq.originalSubject || tq.topic || "টপিক ভিত্তিক",
           topic: tq.topic
         });
       }
     });
   }
 
-  // 2. Also collect from exams matching the subject
+  // 2. Also collect from exams where question has the matching topic
   if (config.exams) {
-    const matchingExamEntries = Object.entries(config.exams).filter(([_, ex]) => {
-      if (isAll) return true;
-      const exSub = (ex.subject || "").toLowerCase();
-      const exCourse = (ex.course || "").toLowerCase();
-      return exSub.includes(normalizedSubject) || exCourse.includes(normalizedSubject);
-    });
-
-    for (const [examKey, ex] of matchingExamEntries) {
+    for (const [examKey, ex] of Object.entries(config.exams)) {
       if (!ex.questions || ex.questions.length === 0) continue;
 
-      // fetch solutions for this exam
-      const solutions = (await getExamSolutions(examKey)) || [];
-
+      const matchingIndices: number[] = [];
       ex.questions.forEach((qItem, qIdx) => {
-        const sol = solutions[qIdx] || { correct: 0, exp: "" };
-        pool.push({
-          id: `ex_${examKey}_${qIdx}`,
-          q: qItem.q,
-          opts: qItem.opts,
-          correct: Number(sol.correct ?? 0),
-          exp: sol.exp || "",
-          subject: ex.subject || "সাধারণ",
-          topic: qItem.topic
-        });
+        const t = (qItem.topic || "").trim().toLowerCase();
+        const matchTopic = isAll ? (t.length > 0) : (t === normalizedTopic || t.includes(normalizedTopic));
+        if (matchTopic) {
+          matchingIndices.push(qIdx);
+        }
       });
+
+      if (matchingIndices.length > 0) {
+        const solutions = (await getExamSolutions(examKey)) || [];
+        matchingIndices.forEach((qIdx) => {
+          const qItem = ex.questions![qIdx];
+          const sol = solutions[qIdx] || { correct: 0, exp: "" };
+          pool.push({
+            id: `ex_${examKey}_${qIdx}`,
+            q: qItem.q,
+            opts: qItem.opts,
+            correct: Number(sol.correct ?? 0),
+            exp: sol.exp || "",
+            subject: ex.subject || qItem.topic || "টপিক ভিত্তিক",
+            topic: qItem.topic
+          });
+        });
+      }
     }
   }
 

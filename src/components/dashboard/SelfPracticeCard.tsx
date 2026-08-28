@@ -14,9 +14,10 @@ import {
 } from "lucide-react";
 import { AppConfigData } from "@/types/exam";
 import {
-  getAvailablePracticeSubjects,
+  getAvailablePracticeTopics,
   generatePracticeQuestions,
-  PracticeQuestion
+  PracticeQuestion,
+  TopicOption
 } from "@/lib/practice-helper";
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
 import { toBengaliDigits } from "@/lib/utils";
@@ -28,11 +29,11 @@ interface SelfPracticeCardProps {
 const QUESTION_COUNTS = [10, 20, 30, 50];
 
 export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) => {
-  const availableSubjects = useMemo(() => {
-    return getAvailablePracticeSubjects(config);
+  const availableTopics = useMemo(() => {
+    return getAvailablePracticeTopics(config);
   }, [config]);
 
-  const [selectedSubject, setSelectedSubject] = useState("সকল বিষয় (মিক্সড)");
+  const [selectedTopic, setSelectedTopic] = useState("সকল টপিক (মিক্সড)");
   const [selectedCount, setSelectedCount] = useState(10);
   const [practiceMode, setPracticeMode] = useState<"instant" | "exam">("instant");
 
@@ -42,7 +43,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
 
   const handleStartPractice = async () => {
     setIsLoading(true);
-    const questions = await generatePracticeQuestions(config, selectedSubject, selectedCount);
+    const questions = await generatePracticeQuestions(config, selectedTopic, selectedCount);
     setPracticeQuestions(questions);
     setIsLoading(false);
     setIsModalOpen(true);
@@ -72,7 +73,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
                 বিষয়ভিত্তিক সেলফ-প্র্যাকটিস ও কুইজ
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                আপনার পছন্দের বিষয় ও প্রশ্নের সংখ্যা সিলেক্ট করে যেকোনো সময় তাৎক্ষণিক কুইজ দিন।
+                টপিক নির্বাচন করে যেকোনো সময় প্র্যাকটিস ও কুইজ দিয়ে নিজের প্রস্তুতি ঝালাই করুন।
               </p>
             </div>
           </div>
@@ -81,20 +82,20 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
         {/* Practice Config Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           
-          {/* 1. Subject Selector */}
+          {/* 1. Topic Selector */}
           <div className="space-y-2 bg-white/80 p-4 rounded-2xl border border-emerald-100/90 shadow-2xs">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-teal-600" /> ১. বিষয় বা টপিক নির্বাচন করুন:
+              <BookOpen className="w-3.5 h-3.5 text-teal-600" /> ১. টপিক নির্বাচন করুন:
             </label>
             <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
+              value={selectedTopic}
+              onChange={(e) => setSelectedTopic(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
             >
-              <option value="সকল বিষয় (মিক্সড)">সকল বিষয় (মিক্সড মডেল টেস্ট)</option>
-              {availableSubjects.map((sub) => (
-                <option key={sub} value={sub}>
-                  {sub}
+              <option value="সকল টপিক (মিক্সড)">সকল টপিক (মিক্সড মডেল টেস্ট)</option>
+              {availableTopics.map((top) => (
+                <option key={top.name} value={top.name}>
+                  {top.name} {top.count > 0 ? `(${toBengaliDigits(top.count)}টি প্রশ্ন)` : ""}
                 </option>
               ))}
             </select>
@@ -162,7 +163,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
         {/* Action Call to Action Button */}
         <div className="mt-6 pt-4 border-t border-emerald-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-slate-500 text-center sm:text-left">
-            🎯 নির্বাচিত: <strong className="text-teal-900 font-semibold">{selectedSubject}</strong> •{" "}
+            🎯 নির্বাচিত: <strong className="text-teal-900 font-semibold">{selectedTopic}</strong> •{" "}
             <strong>{toBengaliDigits(selectedCount)}টি প্রশ্ন</strong> •{" "}
             <span>{practiceMode === "instant" ? "ইনস্ট্যান্ট উত্তর ও ব্যাখ্যা" : "টাইমারসহ মক টেস্ট"}</span>
           </div>
@@ -194,7 +195,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         questions={practiceQuestions}
-        subjectName={selectedSubject}
+        subjectName={selectedTopic}
         mode={practiceMode}
         onRestart={handleStartPractice}
       />
