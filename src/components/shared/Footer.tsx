@@ -44,14 +44,14 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTeacherLogin }) => {
               onClick={onOpenTeacherLogin}
               className="bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <Shield className="w-4 h-4 text-amber-300" /> শিক্ষক প্যানেল
+              <Shield className="w-4 h-4 text-amber-300" /> Teacher Panel
             </button>
           ) : (
             <Link
               href="/admin"
               className="bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <Shield className="w-4 h-4 text-amber-300" /> শিক্ষক প্যানেল
+              <Shield className="w-4 h-4 text-amber-300" /> Teacher Panel
             </Link>
           )}
         </div>

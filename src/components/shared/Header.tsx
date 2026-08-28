@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               }}
               className="bg-white/10 hover:bg-white/20 border border-indigo-400/30 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm backdrop-blur-sm"
             >
-              <Contact className="w-4 h-4 text-indigo-300" /> স্টুডেন্ট পোর্টাল
+              <Contact className="w-4 h-4 text-indigo-300" /> Student Portal
             </button>
           ) : (
             <Link
@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               onClick={handleStudentPortalClick}
               className="bg-white/10 hover:bg-white/20 border border-indigo-400/30 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm backdrop-blur-sm"
             >
-              <Contact className="w-4 h-4 text-indigo-300" /> স্টুডেন্ট পোর্টাল
+              <Contact className="w-4 h-4 text-indigo-300" /> Student Portal
             </Link>
           )}
 
