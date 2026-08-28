@@ -139,11 +139,11 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
               <div className="p-5 sm:p-6 space-y-5 flex-grow">
                 {/* Subject Selector Chips */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-600 flex items-center justify-between">
+                  <label className="text-xs font-black text-black flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <BookOpen className="w-3.5 h-3.5 text-indigo-600" /> সাবজেক্ট নির্বাচন করুন:
+                      <BookOpen className="w-3.5 h-3.5 text-indigo-650" /> সাবজেক্ট নির্বাচন করুন:
                     </span>
-                    <span className="text-[11px] text-slate-400 font-normal">
+                    <span className="text-[11px] text-black font-bold">
                       {courseSubjects.length > 0
                         ? `${toBengaliDigits(courseSubjects.length)}টি বিষয়`
                         : "বিষয় যোগ হয়নি"}
@@ -154,10 +154,10 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                     <button
                       type="button"
                       onClick={() => handleSubjectSelect(courseName, "ALL")}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
                         activeSubject === "ALL"
                           ? "bg-indigo-600 text-white shadow-sm"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                          : "bg-white border border-slate-300 text-black hover:bg-slate-50"
                       }`}
                     >
                       সকল বিষয় ({toBengaliDigits(courseAllExams.length)})
@@ -170,16 +170,16 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                           key={`${s.name}_${sIdx}`}
                           type="button"
                           onClick={() => handleSubjectSelect(courseName, s.name)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-1 ${
                             isSelected
-                              ? "bg-indigo-600 text-white shadow-sm font-bold"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                              ? "bg-indigo-600 text-white shadow-sm"
+                              : "bg-white border border-slate-300 text-black hover:bg-slate-50"
                           }`}
                         >
                           <span>{s.name}</span>
                           <span
                             className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                              isSelected ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
+                              isSelected ? "bg-white/20 text-white" : "bg-slate-200 text-black font-black"
                             }`}
                           >
                             {toBengaliDigits(count)}
@@ -192,9 +192,9 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
 
                 {/* Exam List Selection */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-600 flex items-center justify-between">
+                  <label className="text-xs font-black text-black flex items-center justify-between">
                     <span>পরীক্ষা নির্বাচন করুন:</span>
-                    <span className="text-[11px] text-indigo-600 font-semibold">
+                    <span className="text-[11px] text-black font-black">
                       {filteredExams.length > 0
                         ? `${toBengaliDigits(filteredExams.length)}টি পরীক্ষা পাওয়া গেছে`
                         : "পরীক্ষা নেই"}
@@ -202,7 +202,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                   </label>
 
                   {filteredExams.length === 0 ? (
-                    <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6 text-center text-xs text-slate-500">
+                    <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6 text-center text-xs text-black font-bold">
                       এই বিষয়ে বর্তমানে কোনো পরীক্ষা যুক্ত নেই। শীঘ্রই যুক্ত করা হবে।
                     </div>
                   ) : (
@@ -216,28 +216,28 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                             onClick={() => handleExamSelect(courseName, eKey)}
                             className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between gap-3 ${
                               isSelected
-                                ? "bg-indigo-50/70 border-indigo-600 shadow-sm"
-                                : "bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-slate-100/70"
+                                ? "bg-indigo-50/70 border-indigo-650 shadow-sm"
+                                : "bg-white border-slate-300 hover:border-slate-400 hover:bg-slate-50"
                             }`}
                           >
                             <div className="min-w-0 space-y-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h5 className="font-bold text-slate-900 text-sm truncate">{ex.title}</h5>
+                                <h5 className="font-black text-black text-sm truncate">{ex.title}</h5>
                                 {ex.isFree && (
-                                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                                  <span className="bg-emerald-100 text-emerald-950 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">
                                     <Sparkles className="w-2.5 h-2.5" /> ফ্রি
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-3 text-[11px] text-slate-500 font-medium">
+                              <div className="flex items-center gap-3 text-[11px] text-black font-bold">
                                 <span className="flex items-center gap-1">
-                                  <BookOpen className="w-3 h-3 text-slate-400" /> {ex.subject}
+                                  <BookOpen className="w-3.5 h-3.5 text-black" /> {ex.subject}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3 text-amber-500" /> {toBengaliDigits(ex.timerMinutes)} মি.
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" /> {toBengaliDigits(ex.timerMinutes)} মি.
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <CircleHelp className="w-3 h-3 text-indigo-500" /> {toBengaliDigits(qCount)} টি প্রশ্ন
+                                  <CircleHelp className="w-3.5 h-3.5 text-indigo-700" /> {toBengaliDigits(qCount)} টি প্রশ্ন
                                 </span>
                               </div>
                             </div>
@@ -247,7 +247,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                                 className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                                   isSelected
                                     ? "border-indigo-600 bg-indigo-600 text-white"
-                                    : "border-slate-300 bg-white"
+                                    : "border-slate-350 bg-white"
                                 }`}
                               >
                                 {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
@@ -270,7 +270,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                   className={`w-full py-3.5 px-5 rounded-2xl font-black text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 shadow-lg cursor-pointer ${
                     activeExamKey
                       ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-slate-950 shadow-amber-500/20 active:scale-[0.99]"
-                      : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                      : "bg-slate-250 text-slate-400 cursor-not-allowed shadow-none"
                   }`}
                 >
                   <PlayCircle className="w-5 h-5" />
