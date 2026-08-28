@@ -42,8 +42,15 @@ export async function calculateStudentAnalytics(
   let totalIncorrectCount = 0;
   let totalScoreSum = 0;
 
+  const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+
   for (const sub of submissions) {
     const ex = exams[sub.examKey];
+    // If exam is still pending release and result is not published/ended, skip from analytics
+    if (ex && !isAnswerTimeReached(ex) && sub.isPendingEvaluation) {
+      continue;
+    }
+
     const subjectName = (ex?.subject || "সাধারণ বিষয়").trim();
 
     totalScoreSum += typeof sub.score === "number" ? sub.score : 0;

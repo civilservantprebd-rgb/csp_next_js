@@ -135,7 +135,20 @@ export async function syncBangladeshNetworkTime(): Promise<boolean> {
 }
 
 export function isAnswerTimeReached(exam: Exam): boolean {
-  return exam.isResultPublished === true;
+  // ১. শিক্ষক প্যানেল থেকে যদি রেজাল্ট ম্যানুয়ালি প্রকাশ/রিলিজ করা থাকে
+  if (exam.isResultPublished === true) return true;
+
+  // ২. পরীক্ষার নির্ধারিত শেষ সময় (endTime বা leaderboardEndTime) যদি পার হয়ে যায়
+  const now = getTrueDate();
+  if (exam.endTime) {
+    const endTime = parseBangladeshDateTime(exam.endTime);
+    if (endTime && now >= endTime) return true;
+  } else if (exam.leaderboardEndTime) {
+    const endTime = parseBangladeshDateTime(exam.leaderboardEndTime);
+    if (endTime && now >= endTime) return true;
+  }
+
+  return false;
 }
 
 export function isExamCurrentlyLive(exam: Exam): boolean {

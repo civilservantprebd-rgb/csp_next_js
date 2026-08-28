@@ -135,8 +135,33 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
       submittedAtISO: row.submitted_at
     }));
 
+    const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+
+    // Fetch exams info for evaluating only released/completed exams
+    const { data: examDataList } = await supabase.from("exams").select("*");
+    const examsMap: Record<string, any> = {};
+    (examDataList || []).forEach((ex) => {
+      examsMap[ex.id] = {
+        id: ex.id,
+        course: ex.course,
+        subject: ex.subject,
+        title: ex.title,
+        timerMinutes: ex.timer_minutes,
+        isFree: ex.is_free,
+        passMark: Number(ex.pass_mark),
+        startTime: ex.start_time,
+        endTime: ex.end_time,
+        isResultPublished: ex.is_result_published,
+        leaderboardStartTime: ex.leaderboard_start_time,
+        leaderboardEndTime: ex.leaderboard_end_time
+      };
+    });
+
     for (const s of subs) {
-      if (s.isPendingEvaluation || s.score === undefined) {
+      const examObj = examsMap[s.examKey];
+      const isReleased = examObj ? isAnswerTimeReached(examObj) : true;
+
+      if (isReleased && (s.isPendingEvaluation || s.score === undefined)) {
         const solutions = await getExamSolutions(s.examKey);
         if (solutions && s.answers) {
           let cor = 0;

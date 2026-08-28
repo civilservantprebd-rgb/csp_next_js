@@ -42,15 +42,54 @@ export default function ExamResultPage() {
       }
     }
 
-    fetchAppConfig().then((data) => {
-      const ex = data.exams?.[examId];
-      if (ex) {
-        setExam(ex);
-      }
-    });
+    const checkExamStatus = () => {
+      fetchAppConfig(true).then(async (data) => {
+        const ex = data.exams?.[examId];
+        if (ex) {
+          setExam(ex);
+          // If exam reached answer release time, fetch solutions and calculate score if not already available
+          if (isAnswerTimeReached(ex)) {
+            const raw = sessionStorage.getItem("last_result");
+            if (raw) {
+              const currentRes = JSON.parse(raw);
+              if (currentRes && typeof currentRes.score !== "number" && Array.isArray(currentRes.answers)) {
+                const solList = await getExamSolutions(examId);
+                if (solList) {
+                  setSolutions(solList);
+                  let cor = 0;
+                  let incor = 0;
+                  currentRes.answers.forEach((ans: number | null, idx: number) => {
+                    const sol = solList[idx];
+                    if (ans !== null && sol) {
+                      if (ans === sol.correct) cor++;
+                      else incor++;
+                    }
+                  });
+                  const evaluatedScore = Math.max(0, cor - incor * 0.5);
+                  const updatedRes = {
+                    ...currentRes,
+                    score: evaluatedScore,
+                    correct: cor,
+                    incorrect: incor,
+                    isLive: false
+                  };
+                  setResultData(updatedRes);
+                  sessionStorage.setItem("last_result", JSON.stringify(updatedRes));
+                  getExamCandidateRank(examId, evaluatedScore, updatedRes.timeSpent || "").then(setRankInfo);
+                }
+              }
+            }
+          }
+        }
+      });
+    };
+
+    checkExamStatus();
+    const interval = setInterval(checkExamStatus, 15000); // Poll every 15s for live exam completion
+    return () => clearInterval(interval);
   }, [examId]);
 
-  // যদি পরীক্ষা লাইভ না হয় অথবা লাইভ হলেও রেজাল্ট পাবলিশ করা হয়ে থাকে, তবে স্কোর ও সঠিক/ভুল দেখাবে
+  // যদি পরীক্ষা লাইভ না হয় অথবা লাইভ হলেও রেজাল্ট পাবলিশ/সময় সমাপ্ত করা হয়ে থাকে, তবে স্কোর ও সঠিক/ভুল দেখাবে
   const isPublished = exam 
     ? (isAnswerTimeReached(exam) || !resultData?.isLive)
     : !resultData?.isLive;
