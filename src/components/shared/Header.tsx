@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { GraduationCap, Contact, Trophy } from "lucide-react";
 
@@ -10,8 +10,28 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeaderboard }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setIsVisible(false);
+      } else {
+        setIsVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
+
   return (
-    <header className="bg-indigo-900/95 backdrop-blur-md text-white shadow-lg sticky top-0 z-40 border-b border-indigo-800/50">
+    <header className={`bg-indigo-900/95 backdrop-blur-md text-white shadow-lg sticky top-0 z-40 border-b border-indigo-800/50 transition-transform duration-300 ${
+      isVisible ? "translate-y-0" : "-translate-y-full"
+    }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
         <Link href="/" className="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start cursor-pointer group">
           <div className="flex items-center space-x-3">

@@ -2,26 +2,26 @@
 
 import React, { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
+import { getTrueNowMs } from "@/lib/bangladesh-time";
 
 interface ExamTimerProps {
-  initialMinutes: number;
+  initialSeconds: number;
   onTimeExpire: () => void;
   onTimeUpdate?: (secondsLeft: number) => void;
 }
 
 export const ExamTimer: React.FC<ExamTimerProps> = ({
-  initialMinutes,
+  initialSeconds,
   onTimeExpire,
   onTimeUpdate
 }) => {
-  const [secondsRemaining, setSecondsRemaining] = useState(initialMinutes * 60);
+  const [secondsRemaining, setSecondsRemaining] = useState(initialSeconds);
 
   useEffect(() => {
-    const totalDurationSecs = initialMinutes * 60;
-    const endTime = performance.now() + totalDurationSecs * 1000;
+    const endServerTime = getTrueNowMs() + initialSeconds * 1000;
 
     const interval = setInterval(() => {
-      const remainingMs = Math.max(0, endTime - performance.now());
+      const remainingMs = Math.max(0, endServerTime - getTrueNowMs());
       const remainingSecs = Math.ceil(remainingMs / 1000);
 
       setSecondsRemaining(remainingSecs);
@@ -36,10 +36,10 @@ export const ExamTimer: React.FC<ExamTimerProps> = ({
     }, 500);
 
     return () => clearInterval(interval);
-  }, [initialMinutes, onTimeExpire, onTimeUpdate]);
+  }, [initialSeconds, onTimeExpire, onTimeUpdate]);
 
-  const m = Math.floor(secondsRemaining / 60);
-  const s = secondsRemaining % 60;
+  const m = Math.max(0, Math.floor(secondsRemaining / 60));
+  const s = Math.max(0, secondsRemaining % 60);
   const timeFormatted = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 
   return (

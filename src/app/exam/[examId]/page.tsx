@@ -7,7 +7,8 @@ import { Footer } from "@/components/shared/Footer";
 import { ExamTimer } from "@/components/exam/ExamTimer";
 import { QuestionList } from "@/components/exam/QuestionList";
 import { fetchAppConfig } from "@/actions/admin-actions";
-import { submitExamAnswers } from "@/actions/exam-actions";
+import { submitExamAnswers, isExamCurrentlyLive } from "@/actions/exam-actions";
+import { parseBangladeshDateTime, getTrueNowMs } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
 import { CheckCheck, Loader2 } from "lucide-react";
 
@@ -39,7 +40,18 @@ export default function ExamPage() {
       }
       setExam(ex);
       setStudentAnswers(new Array(ex.questions?.length || 0).fill(null));
-      setSecondsRemaining(ex.timerMinutes * 60);
+
+      let initialSecs = ex.timerMinutes * 60;
+      if (isExamCurrentlyLive(ex) && ex.startTime) {
+        const startTime = parseBangladeshDateTime(ex.startTime);
+        if (startTime) {
+          const durationMs = ex.timerMinutes * 60 * 1000;
+          const endMs = startTime.getTime() + durationMs;
+          const nowMs = getTrueNowMs();
+          initialSecs = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+        }
+      }
+      setSecondsRemaining(initialSecs);
     });
   }, [examId, router]);
 
@@ -123,7 +135,7 @@ export default function ExamPage() {
             </div>
 
             <ExamTimer
-              initialMinutes={exam.timerMinutes}
+              initialSeconds={secondsRemaining}
               onTimeExpire={handleFinishExam}
               onTimeUpdate={setSecondsRemaining}
             />

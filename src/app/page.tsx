@@ -7,7 +7,6 @@ import { Footer } from "@/components/shared/Footer";
 import { FreeExamsSpotlight } from "@/components/dashboard/FreeExamsSpotlight";
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
-import { StatCards } from "@/components/dashboard/StatCards";
 import { EnrollModal } from "@/components/modals/EnrollModal";
 import { StudentAuthModal } from "@/components/modals/StudentAuthModal";
 import { StudentPortalLoginModal } from "@/components/modals/StudentPortalLoginModal";
@@ -105,12 +104,14 @@ export default function HomePage() {
         <LiveExamGrid
           exams={examsObj}
           onSelectLiveExam={handleStartExamByKey}
+          onOpenEnrollModal={handleOpenEnrollModal}
         />
 
         {/* Free Exams Spotlight Box (Eye-catching spotlight for all free exams across all courses) */}
         <FreeExamsSpotlight
           exams={examsObj}
           onStartExam={handleStartExamByKey}
+          onOpenEnrollModal={handleOpenEnrollModal}
         />
 
         {/* Dynamic Course Card Grid (Each course is a box with subjects, exams, enroll button & start exam button) */}
@@ -120,12 +121,6 @@ export default function HomePage() {
           exams={examsObj}
           onStartExam={handleStartExamByKey}
           onOpenEnrollModal={handleOpenEnrollModal}
-        />
-
-        {/* Aggregate Stats */}
-        <StatCards
-          currentExam={currentExam}
-          onOpenLeaderboard={() => router.push(`/leaderboard/${selectedExamKey || "exam_01"}`)}
         />
       </main>
 

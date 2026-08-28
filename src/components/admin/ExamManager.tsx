@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Exam, SubjectItem } from "@/types/exam";
 import { createExam, updateExam, deleteExam } from "@/actions/admin-actions";
-import { Plus, Trash2, Edit3, Share2, Copy, Bolt } from "lucide-react";
+import { Plus, Trash2, Edit3, Share2, Copy, Bolt, X, Settings } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface ExamManagerProps {
@@ -33,7 +33,57 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   const [isFree, setIsFree] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Edit form states
+  const [editingExamKey, setEditingExamKey] = useState<string | null>(null);
+  const [editCourse, setEditCourse] = useState("");
+  const [editSubject, setEditSubject] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editTimerMinutes, setEditTimerMinutes] = useState(10);
+  const [editPassMark, setEditPassMark] = useState(1);
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editAnswerReleaseTime, setEditAnswerReleaseTime] = useState("");
+  const [editIsFree, setEditIsFree] = useState(false);
+
   const filteredSubjects = subjects.filter((s) => s.course === course);
+  const editFilteredSubjects = subjects.filter((s) => s.course === editCourse);
+
+  const startEdit = (key: string, ex: Exam) => {
+    setEditingExamKey(key);
+    setEditCourse(ex.course);
+    setEditSubject(ex.subject);
+    setEditTitle(ex.title);
+    setEditTimerMinutes(ex.timerMinutes);
+    setEditPassMark(ex.passMark || 1);
+    setEditStartTime(ex.startTime || "");
+    setEditAnswerReleaseTime(ex.answerReleaseTime || "");
+    setEditIsFree(!!ex.isFree);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExamKey || !editTitle.trim()) return;
+
+    setIsLoading(true);
+    const success = await updateExam(editingExamKey, {
+      course: editCourse,
+      subject: editSubject,
+      title: editTitle.trim(),
+      timerMinutes: Number(editTimerMinutes) || 10,
+      passMark: Number(editPassMark) || 1,
+      startTime: editStartTime,
+      answerReleaseTime: editAnswerReleaseTime,
+      isFree: editIsFree
+    });
+    setIsLoading(false);
+
+    if (success) {
+      setEditingExamKey(null);
+      onRefresh();
+      alert("এক্সাম সেট সফলভাবে আপডেট করা হয়েছে।");
+    } else {
+      alert("এক্সাম সেট আপডেট করতে সমস্যা হয়েছে।");
+    }
+  };
 
   const applyPreset = (type: "now" | "evening" | "night" | "clear") => {
     if (type === "clear") {
@@ -306,6 +356,12 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
                 <div className="flex flex-wrap gap-1.5 w-full sm:w-auto justify-end">
                   <button
+                    onClick={() => startEdit(k, ex)}
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                  >
+                    <Settings className="w-3 h-3" /> এডিট
+                  </button>
+                  <button
                     onClick={() => onSelectExamForQuestions(k)}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-medium px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
@@ -329,6 +385,170 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
           })}
         </div>
       </div>
+
+      {editingExamKey && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 font-bengali">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-4 relative border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => setEditingExamKey(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-lg p-1 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-1.5">
+                <Edit3 className="w-5 h-5 text-indigo-600" /> এক্সাম সেট এডিট করুন
+              </h3>
+              <p className="text-xs text-slate-500">পরীক্ষার নাম, কোর্স, সাবজেক্ট এবং সময়সীমা পরিবর্তন করুন</p>
+            </div>
+
+            <form onSubmit={handleUpdate} className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">কোর্স</label>
+                  <select
+                    value={editCourse}
+                    onChange={(e) => {
+                      const newCourseName = e.target.value;
+                      setEditCourse(newCourseName);
+                      const matchedSubjects = subjects.filter((s) => s.course === newCourseName);
+                      if (matchedSubjects.length > 0) {
+                        setEditSubject(matchedSubjects[0].name);
+                      } else {
+                        setEditSubject("");
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+                  >
+                    {editCourse && !courses.includes(editCourse) && (
+                      <option value={editCourse}>
+                        {editCourse} (মুছে ফেলা কোর্স)
+                      </option>
+                    )}
+                    {courses.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">সাবজেক্ট</label>
+                  <select
+                    value={editSubject}
+                    onChange={(e) => setEditSubject(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+                  >
+                    {editSubject && !editFilteredSubjects.some((s) => s.name === editSubject) && (
+                      <option value={editSubject}>
+                        {editSubject} (মুছে ফেলা সাবজেক্ট)
+                      </option>
+                    )}
+                    {editFilteredSubjects.map((s, idx) => (
+                      <option key={`${s.name}_${idx}`} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">এক্সামের নাম</label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">সময় (মিনিট)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={180}
+                    required
+                    value={editTimerMinutes}
+                    onChange={(e) => setEditTimerMinutes(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">পাস মার্কস</label>
+                  <input
+                    type="number"
+                    step={0.5}
+                    required
+                    value={editPassMark}
+                    onChange={(e) => setEditPassMark(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">পরীক্ষা শুরুর সময়</label>
+                  <input
+                    type="datetime-local"
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">উত্তর প্রকাশের সময়</label>
+                  <input
+                    type="datetime-local"
+                    value={editAnswerReleaseTime}
+                    onChange={(e) => setEditAnswerReleaseTime(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="admin-edit-exam-is-free"
+                  checked={editIsFree}
+                  onChange={(e) => setEditIsFree(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer"
+                />
+                <label htmlFor="admin-edit-exam-is-free" className="text-xs font-medium text-slate-700 cursor-pointer">
+                  ফ্রি পরীক্ষা (আইডি ছাড়াই)
+                </label>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingExamKey(null)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm transition shadow disabled:opacity-50 cursor-pointer"
+                >
+                  {isLoading ? "সংরক্ষণ হচ্ছে..." : "পরিবর্তন সংরক্ষণ করুন"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

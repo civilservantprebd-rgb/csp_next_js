@@ -5,7 +5,9 @@ import {
   setDoc,
   deleteDoc,
   collection,
-  getDocs
+  getDocs,
+  updateDoc,
+  deleteField
 } from "firebase/firestore";
 import { AppConfigData, Exam, QuestionItem, QuestionSolution } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
@@ -120,7 +122,11 @@ export async function deleteExam(examKey: string): Promise<boolean> {
     const config = await fetchAppConfig();
     if (config.exams && config.exams[examKey]) {
       delete config.exams[examKey];
-      await saveAppConfig({ exams: config.exams });
+      const ref = doc(db, "app_config", "bcs_data");
+      await updateDoc(ref, {
+        [`exams.${examKey}`]: deleteField()
+      });
+      invalidateConfigCache();
       await deleteDoc(doc(db, "exam_solutions", examKey)).catch(() => {});
       return true;
     }

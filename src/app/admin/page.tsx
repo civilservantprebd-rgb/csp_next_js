@@ -17,7 +17,10 @@ import {
   Plus,
   Trash2,
   Link2,
-  Loader2
+  Loader2,
+  Edit3,
+  Check,
+  X
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
@@ -34,6 +37,15 @@ export default function AdminPage() {
   const [newSubjectName, setNewSubjectName] = useState("");
   const [driveRoutine, setDriveRoutine] = useState("");
   const [driveSyllabus, setDriveSyllabus] = useState("");
+
+  // Subject editing state
+  const [editingSubjectIdx, setEditingSubjectIdx] = useState<number | null>(null);
+  const [editSubjectName, setEditSubjectName] = useState("");
+  const [editSubjectCourse, setEditSubjectCourse] = useState("");
+
+  // Course editing state
+  const [editingCourseIdx, setEditingCourseIdx] = useState<number | null>(null);
+  const [editCourseName, setEditCourseName] = useState("");
 
   const loadData = async () => {
     const rawUser = sessionStorage.getItem("teacher_user");
@@ -96,10 +108,61 @@ export default function AdminPage() {
     }
     if (confirm(`আপনি কি '${courseName}' কোর্সটি মুছে ফেলতে চান?`)) {
       const nextCourses = config.courses.filter((c) => c !== courseName);
-      const nextSubjects = config.subjects.filter((s) => s.course !== courseName);
-      await saveAppConfig({ courses: nextCourses, subjects: nextSubjects });
+      await saveAppConfig({ courses: nextCourses });
       loadData();
     }
+  };
+
+  const startEditCourse = (idx: number, oldName: string) => {
+    setEditingCourseIdx(idx);
+    setEditCourseName(oldName);
+  };
+
+  const handleSaveCourseEdit = async (idx: number) => {
+    const newVal = editCourseName.trim();
+    if (!newVal) return;
+
+    const oldVal = config.courses[idx];
+    if (newVal === oldVal) {
+      setEditingCourseIdx(null);
+      return;
+    }
+
+    if (config.courses.includes(newVal)) {
+      alert("এই নামের একটি কোর্স ইতিমধ্যেই রয়েছে।");
+      return;
+    }
+
+    // 1. Update courses array
+    const nextCourses = [...config.courses];
+    nextCourses[idx] = newVal;
+
+    // 2. Update subjects assigned to this course
+    const nextSubjects = config.subjects.map((sub) => {
+      if (sub.course === oldVal) {
+        return { ...sub, course: newVal };
+      }
+      return sub;
+    });
+
+    // 3. Update exams assigned to this course
+    const nextExams = { ...config.exams };
+    Object.keys(nextExams).forEach((key) => {
+      if (nextExams[key].course === oldVal) {
+        nextExams[key] = { ...nextExams[key], course: newVal };
+      }
+    });
+
+    // Save updated configurations to Firestore
+    await saveAppConfig({
+      courses: nextCourses,
+      subjects: nextSubjects,
+      exams: nextExams
+    });
+
+    setEditingCourseIdx(null);
+    loadData();
+    alert("কোর্স সফলভাবে আপডেট করা হয়েছে।");
   };
 
   // Add Subject
@@ -130,6 +193,28 @@ export default function AdminPage() {
       await saveAppConfig({ subjects: nextSubjects });
       loadData();
     }
+  };
+
+  const startEditSubject = (idx: number, sub: { name: string; course: string }) => {
+    setEditingSubjectIdx(idx);
+    setEditSubjectName(sub.name);
+    setEditSubjectCourse(sub.course);
+  };
+
+  const handleSaveSubjectEdit = async (idx: number) => {
+    const nameVal = editSubjectName.trim();
+    if (!nameVal) return;
+
+    const nextSubjects = [...config.subjects];
+    nextSubjects[idx] = {
+      name: nameVal,
+      course: editSubjectCourse
+    };
+
+    await saveAppConfig({ subjects: nextSubjects });
+    setEditingSubjectIdx(null);
+    loadData();
+    alert("সাবজেক্ট সফলভাবে আপডেট করা হয়েছে।");
   };
 
   // Drive links
@@ -226,22 +311,63 @@ export default function AdminPage() {
                 <div>
                   <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2.5">বিদ্যমান কোর্সসমূহ:</h4>
                   <div className="space-y-2">
-                    {config.courses.map((course, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center text-xs sm:text-sm"
-                      >
-                        <span className="font-bold text-slate-800">
-                          {toBengaliDigits(idx + 1)}. {course}
-                        </span>
-                        <button
-                          onClick={() => handleDeleteCourse(course)}
-                          className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                    {config.courses.map((course, idx) => {
+                      const isEditing = editingCourseIdx === idx;
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-xl border transition-all ${
+                            isEditing ? "border-indigo-400 bg-indigo-50/20" : "border-slate-200 bg-slate-50"
+                          } flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" /> মুছুন
-                        </button>
-                      </div>
-                    ))}
+                          {isEditing ? (
+                            <div className="flex flex-col sm:flex-row gap-2 w-full">
+                              <input
+                                type="text"
+                                value={editCourseName}
+                                onChange={(e) => setEditCourseName(e.target.value)}
+                                className="flex-grow px-3 py-1.5 rounded-lg border border-slate-300 text-xs sm:text-sm bg-white"
+                                required
+                              />
+                              <div className="flex gap-1.5 sm:ml-auto">
+                                <button
+                                  onClick={() => handleSaveCourseEdit(idx)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <Check className="w-3.5 h-3.5" /> সংরক্ষণ
+                                </button>
+                                <button
+                                  onClick={() => setEditingCourseIdx(null)}
+                                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <X className="w-3.5 h-3.5" /> বাতিল
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="font-bold text-slate-800">
+                                {toBengaliDigits(idx + 1)}. {course}
+                              </span>
+                              <div className="flex gap-2 justify-end sm:ml-auto">
+                                <button
+                                  onClick={() => startEditCourse(idx, course)}
+                                  className="text-amber-600 hover:text-amber-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" /> এডিট
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCourse(course)}
+                                  className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> মুছুন
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -293,27 +419,84 @@ export default function AdminPage() {
                 <div>
                   <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2.5">বিদ্যমান সাবজেক্টসমূহ:</h4>
                   <div className="space-y-2">
-                    {config.subjects.map((sub, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center text-xs sm:text-sm"
-                      >
-                        <div>
-                          <span className="font-bold text-slate-800">
-                            {toBengaliDigits(idx + 1)}. {sub.name}
-                          </span>
-                          <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded ml-2">
-                            {sub.course}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteSubject(idx)}
-                          className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                    {config.subjects.map((sub, idx) => {
+                      const isEditing = editingSubjectIdx === idx;
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-xl border transition-all ${
+                            isEditing ? "border-indigo-400 bg-indigo-50/20" : "border-slate-200 bg-slate-50"
+                          } flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" /> মুছুন
-                        </button>
-                      </div>
-                    ))}
+                          {isEditing ? (
+                            <div className="flex flex-col sm:flex-row gap-2 w-full">
+                              <input
+                                type="text"
+                                value={editSubjectName}
+                                onChange={(e) => setEditSubjectName(e.target.value)}
+                                className="flex-grow px-3 py-1.5 rounded-lg border border-slate-300 text-xs sm:text-sm bg-white"
+                                required
+                              />
+                              <select
+                                value={editSubjectCourse}
+                                onChange={(e) => setEditSubjectCourse(e.target.value)}
+                                className="px-2 py-1.5 rounded-lg border border-slate-300 text-xs sm:text-sm bg-white"
+                              >
+                                {!config.courses.includes(editSubjectCourse) && (
+                                  <option value={editSubjectCourse}>
+                                    {editSubjectCourse} (মুছে ফেলা কোর্স)
+                                  </option>
+                                )}
+                                {config.courses.map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="flex gap-1.5 sm:ml-auto">
+                                <button
+                                  onClick={() => handleSaveSubjectEdit(idx)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <Check className="w-3.5 h-3.5" /> সংরক্ষণ
+                                </button>
+                                <button
+                                  onClick={() => setEditingSubjectIdx(null)}
+                                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <X className="w-3.5 h-3.5" /> বাতিল
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div>
+                                <span className="font-bold text-slate-800">
+                                  {toBengaliDigits(idx + 1)}. {sub.name}
+                                </span>
+                                <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded ml-2">
+                                  {sub.course}
+                                </span>
+                              </div>
+                              <div className="flex gap-2 justify-end sm:ml-auto">
+                                <button
+                                  onClick={() => startEditSubject(idx, sub)}
+                                  className="text-amber-600 hover:text-amber-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" /> এডিট
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSubject(idx)}
+                                  className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> মুছুন
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
