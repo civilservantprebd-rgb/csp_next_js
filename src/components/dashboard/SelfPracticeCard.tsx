@@ -79,18 +79,18 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
         {/* Practice Config Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* 1. Topic Selector */}
-          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-white/70 shadow-xs">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-slate-500" /> ১. টপিক নির্বাচন করুন:
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-xs">
+            <label className="text-xs font-black text-black flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-black" /> ১. টপিক নির্বাচন করুন:
             </label>
             <select
               value={selectedTopic}
               onChange={(e) => setSelectedTopic(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white/80 text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800 font-semibold"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white/80 text-black focus:outline-none focus:ring-2 focus:ring-black font-black"
             >
-              <option value="সকল টপিক (মিক্সড)">সকল টপিক (মিক্সড মডেল টেস্ট)</option>
+              <option value="সকল টপিক (মিক্সড)" className="text-black font-bold">সকল টপিক (মিক্সড মডেল টেস্ট)</option>
               {availableTopics.map((top) => (
-                <option key={top.name} value={top.name}>
+                <option key={top.name} value={top.name} className="text-black font-bold">
                   {top.name} {top.count > 0 ? `(${toBengaliDigits(top.count)}টি)` : ""}
                 </option>
               ))}
@@ -98,9 +98,9 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
           </div>
 
           {/* 2. Question Count Selector */}
-          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-white/70 shadow-xs">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-slate-500" /> ২. প্রশ্নের সংখ্যা:
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-xs">
+            <label className="text-xs font-black text-black flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-black" /> ২. প্রশ্নের সংখ্যা:
             </label>
             <div className="grid grid-cols-4 gap-1.5">
               {QUESTION_COUNTS.map((cnt) => (
@@ -108,10 +108,10 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
                   key={cnt}
                   type="button"
                   onClick={() => setSelectedCount(cnt)}
-                  className={`py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                  className={`py-1.5 rounded-xl text-xs font-black transition cursor-pointer border-2 ${
                     selectedCount === cnt
-                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
-                      : "bg-white/80 border-slate-200 text-slate-700 hover:bg-slate-50"
+                      ? "bg-black border-black text-white shadow-xs"
+                      : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
                   }`}
                 >
                   {toBengaliDigits(cnt)}টি
@@ -121,35 +121,35 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
           </div>
 
           {/* 3. Mode Selector */}
-          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-white/70 shadow-xs">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-slate-500" /> ৩. অনুশীলনের ধরন:
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-xs">
+            <label className="text-xs font-black text-black flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-black" /> ৩. অনুশীলনের ধরন:
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setPracticeMode("instant")}
-                className={`p-2 rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer border text-center flex flex-col items-center justify-center ${
+                className={`p-2 rounded-xl text-[10px] sm:text-xs font-black transition cursor-pointer border-2 text-center flex flex-col items-center justify-center ${
                   practiceMode === "instant"
-                    ? "bg-slate-950 border-slate-950 text-white shadow-sm"
-                    : "bg-white/80 border-slate-200 text-slate-650 hover:bg-slate-50"
+                    ? "bg-black border-black text-white shadow-sm"
+                    : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
                 }`}
               >
                 <span>ইনস্ট্যান্ট মোড</span>
-                <span className={`text-[9px] font-normal ${practiceMode === "instant" ? "text-slate-300" : "text-slate-400"}`}>ক্লিক করলেই উত্তর</span>
+                <span className={`text-[9px] font-bold ${practiceMode === "instant" ? "text-slate-300" : "text-black"}`}>ক্লিক করলেই উত্তর</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPracticeMode("exam")}
-                className={`p-2 rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer border text-center flex flex-col items-center justify-center ${
+                className={`p-2 rounded-xl text-[10px] sm:text-xs font-black transition cursor-pointer border-2 text-center flex flex-col items-center justify-center ${
                   practiceMode === "exam"
-                    ? "bg-slate-950 border-slate-950 text-white shadow-sm"
-                    : "bg-white/80 border-slate-200 text-slate-650 hover:bg-slate-50"
+                    ? "bg-black border-black text-white shadow-sm"
+                    : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
                 }`}
               >
                 <span>মক টেস্ট মোড</span>
-                <span className={`text-[9px] font-normal ${practiceMode === "exam" ? "text-slate-300" : "text-slate-400"}`}>টাইমারসহ পরীক্ষা</span>
+                <span className={`text-[9px] font-bold ${practiceMode === "exam" ? "text-slate-300" : "text-black"}`}>টাইমারসহ পরীক্ষা</span>
               </button>
             </div>
           </div>
