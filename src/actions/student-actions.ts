@@ -215,6 +215,52 @@ export async function updateStudentName(uid: string, newName: string): Promise<b
   }
 }
 
+export async function syncStudentLogin(payload: {
+  uid: string;
+  name: string;
+  email: string;
+  photoURL?: string;
+}): Promise<{ success: boolean }> {
+  try {
+    const cleanId = payload.uid.trim();
+    if (!cleanId) return { success: false };
+
+    const { data: existing } = await supabase
+      .from("allowed_students")
+      .select("id, name, email, courses")
+      .or(`id.eq.${cleanId},email.eq.${payload.email.trim()}`)
+      .maybeSingle();
+
+    const now = getTrueDate().toISOString();
+    const existingCourses = existing?.courses || [];
+
+    const { error } = await supabase.from("allowed_students").upsert({
+      id: existing?.id || cleanId,
+      name: payload.name.trim() || existing?.name || "শিক্ষার্থী",
+      email: payload.email.trim() || existing?.email || "",
+      courses: existingCourses,
+      last_login_at: now,
+      photo_url: payload.photoURL || ""
+    });
+
+    if (error) {
+      // Fallback if photo_url or last_login_at columns are missing in older Supabase schema
+      const { error: fallbackErr } = await supabase.from("allowed_students").upsert({
+        id: existing?.id || cleanId,
+        name: payload.name.trim() || existing?.name || "শিক্ষার্থী",
+        email: payload.email.trim() || existing?.email || "",
+        courses: existingCourses
+      });
+      if (fallbackErr) throw fallbackErr;
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("Sync student login error:", err);
+    return { success: false };
+  }
+}
+
 export async function getAllAllowedStudents(): Promise<AllowedStudent[]> {
   try {
     const { data, error } = await supabase
@@ -228,11 +274,39 @@ export async function getAllAllowedStudents(): Promise<AllowedStudent[]> {
       docId: row.id,
       id: row.id,
       name: row.name,
-      courses: row.courses || []
+      email: row.email || "",
+      courses: row.courses || [],
+      lastLoginAt: row.last_login_at || row.approved_at || "",
+      photoURL: row.photo_url || ""
     }));
   } catch (err) {
     console.error("Fetch all allowed students error:", err);
     return [];
+  }
+}
+
+export async function batchEnrollStudents(
+  studentIds: string[],
+  courses: string[]
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!studentIds.length) {
+      return { success: false, message: "কোনো শিক্ষার্থী নির্বাচন করা হয়নি।" };
+    }
+
+    const updatedCourses = courses.includes("ALL") ? ["ALL"] : Array.from(new Set(courses));
+
+    for (const sid of studentIds) {
+      await supabase
+        .from("allowed_students")
+        .update({ courses: updatedCourses })
+        .eq("id", sid);
+    }
+
+    return { success: true, message: `${studentIds.length} জন শিক্ষার্থীর কোর্স সফলভাবে আপডেট করা হয়েছে।` };
+  } catch (err) {
+    console.error("Batch enroll error:", err);
+    return { success: false, message: "কোর্স আপডেট করতে সমস্যা হয়েছে।" };
   }
 }
 

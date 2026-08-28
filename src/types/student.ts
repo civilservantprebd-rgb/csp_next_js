@@ -11,7 +11,11 @@ export interface AllowedStudent {
   docId?: string;
   id: string;
   name: string;
+  email?: string;
   courses: string[];
+  lastLoginAt?: string;
+  photoURL?: string;
+  approvedAt?: string;
 }
 
 export interface EnrollmentRequest {

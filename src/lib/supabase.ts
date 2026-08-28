@@ -16,7 +16,7 @@ export const supabase = createClient(
 );
 
 if (typeof window !== "undefined") {
-  supabase.auth.onAuthStateChange((event, session) => {
+  supabase.auth.onAuthStateChange(async (event, session) => {
     // If teacher is logged in, do NOT treat the auth session as a student session
     const isTeacherLoggedIn = sessionStorage.getItem("teacher_user");
     if (isTeacherLoggedIn) {
@@ -26,15 +26,30 @@ if (typeof window !== "undefined") {
     if (session?.user) {
       // Ensure we have a valid metadata name or it's not a teacher-like account
       const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name || "নামহীন শিক্ষার্থী";
+      const email = session.user.email || "";
+      const photoURL = session.user.user_metadata?.avatar_url || "";
       
       const studentUser = {
         uid: session.user.id,
         name: name,
-        email: session.user.email || "",
-        photoURL: session.user.user_metadata?.avatar_url || ""
+        email: email,
+        photoURL: photoURL
       };
       localStorage.setItem("bcs_student_user", JSON.stringify(studentUser));
       window.dispatchEvent(new Event("storage"));
+
+      // Sync student profile to backend Supabase database automatically on login
+      try {
+        const { syncStudentLogin } = await import("@/actions/student-actions");
+        await syncStudentLogin({
+          uid: session.user.id,
+          name: name,
+          email: email,
+          photoURL: photoURL
+        });
+      } catch (err) {
+        console.error("Auto sync student to DB failed:", err);
+      }
     } else if (event === "SIGNED_OUT") {
       localStorage.removeItem("bcs_student_user");
       window.dispatchEvent(new Event("storage"));
