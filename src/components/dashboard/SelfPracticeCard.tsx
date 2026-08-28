@@ -70,7 +70,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
                 </span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-emerald-950 mt-1 tracking-tight">
-                সেলফ-প্র্যাকটিস ও কুইজ
+                সেলফ-প্র্যাকটিস
               </h2>
             </div>
           </div>
