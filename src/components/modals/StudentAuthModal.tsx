@@ -55,12 +55,13 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setErrorMsg("");
-    const user = await loginWithGoogle();
-    setIsLoading(false);
-    if (user) {
-      setStudentUser(user);
-    } else {
-      setErrorMsg("গুগল লগইন সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।");
+    try {
+      await loginWithGoogle();
+      // Browser redirects to Google login, so we don't turn off loading or set studentUser here.
+    } catch (err) {
+      console.error(err);
+      setIsLoading(false);
+      setErrorMsg("সার্ভারে সংযোগ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     }
   };
 
