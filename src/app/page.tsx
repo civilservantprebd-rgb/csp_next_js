@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { FreeExamsSpotlight } from "@/components/dashboard/FreeExamsSpotlight";
+import { SelfPracticeCard } from "@/components/dashboard/SelfPracticeCard";
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
 import { EnrollModal } from "@/components/modals/EnrollModal";
@@ -113,6 +114,9 @@ export default function HomePage() {
           onStartExam={handleStartExamByKey}
           onOpenEnrollModal={handleOpenEnrollModal}
         />
+
+        {/* Custom Subject Self-Practice Card */}
+        <SelfPracticeCard config={config} />
 
         {/* Dynamic Course Card Grid (Each course is a box with subjects, exams, enroll button & start exam button) */}
         <CourseCardGrid
