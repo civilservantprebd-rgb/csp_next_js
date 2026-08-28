@@ -1,9 +1,9 @@
 "use client";
-
-import React from "react";
-import { Zap, Clock, BookOpen, CircleHelp, UserPlus } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Zap, Clock, BookOpen, CircleHelp, UserPlus, Calendar } from "lucide-react";
 import { Exam } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
+import { parseBangladeshDateTime, getTrueDate } from "@/lib/bangladesh-time";
 
 interface LiveExamGridProps {
   exams: Record<string, Exam>;
@@ -16,12 +16,30 @@ export const LiveExamGrid: React.FC<LiveExamGridProps> = ({
   onSelectLiveExam,
   onOpenEnrollModal,
 }) => {
-  // Find current active live exams based on current time
-  const nowStr = new Date().toISOString();
+  const [currentDate, setCurrentDate] = useState<Date>(() => getTrueDate());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDate(getTrueDate());
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Find current active live exams based on accurate Bangladesh time
   const liveKeys = Object.entries(exams)
     .filter(([_, ex]) => {
-      if (!ex.startTime || !ex.endTime) return false;
-      return nowStr >= ex.startTime && nowStr <= ex.endTime;
+      if (!ex.startTime) return false;
+      const start = parseBangladeshDateTime(ex.startTime);
+      if (!start || currentDate < start) return false;
+
+      if (ex.endTime) {
+        const end = parseBangladeshDateTime(ex.endTime);
+        if (end && currentDate > end) return false;
+      } else if (ex.leaderboardEndTime) {
+        const end = parseBangladeshDateTime(ex.leaderboardEndTime);
+        if (end && currentDate > end) return false;
+      }
+      return true;
     })
     .map(([k]) => k);
 
