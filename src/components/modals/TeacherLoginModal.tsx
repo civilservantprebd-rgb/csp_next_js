@@ -64,7 +64,10 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
     }
 
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const siteUrl = typeof window !== "undefined" && window.location.hostname.includes("localhost")
+        ? "http://localhost:3000"
+        : "https://xmetriex.vercel.app";
+        
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: siteUrl
       });

@@ -12,7 +12,11 @@ export interface StudentUser {
  */
 export async function loginWithGoogle(): Promise<StudentUser | null> {
   try {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    // লাইভ সাইট হলে সরাসরি ডোমেন, অন্যথায় লোকালহোস্ট
+    const siteUrl = typeof window !== "undefined" && window.location.hostname.includes("localhost")
+      ? "http://localhost:3000"
+      : "https://xmetriex.vercel.app";
+      
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
