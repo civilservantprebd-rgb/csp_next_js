@@ -8,9 +8,7 @@ import {
   Users,
   PlusCircle,
   BarChart3,
-  Link2,
-  Lock,
-  UserCheck
+  Link2
 } from "lucide-react";
 
 export type AdminTabType =
@@ -20,30 +18,25 @@ export type AdminTabType =
   | "students"
   | "questions"
   | "submissions"
-  | "drivelinks"
-  | "subadmins"
-  | "security";
+  | "drivelinks";
 
 interface AdminNavProps {
   activeTab: AdminTabType;
-  role: "admin" | "subadmin";
   onTabChange: (tab: AdminTabType) => void;
 }
 
-export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, role, onTabChange }) => {
-  const tabs: { id: AdminTabType; label: string; icon: any; adminOnly?: boolean }[] = [
-    { id: "exams", label: "এক্সাম সেট", icon: FileText, adminOnly: true },
-    { id: "courses", label: "কোর্স", icon: GraduationCap, adminOnly: true },
-    { id: "subjects", label: "সাবজেক্ট", icon: BookOpen, adminOnly: true },
+export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) => {
+  const tabs: { id: AdminTabType; label: string; icon: any }[] = [
+    { id: "exams", label: "এক্সাম সেট", icon: FileText },
+    { id: "courses", label: "কোর্স", icon: GraduationCap },
+    { id: "subjects", label: "সাবজেক্ট", icon: BookOpen },
     { id: "students", label: "আইডি ও রিকোয়েস্ট", icon: Users },
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
-    { id: "submissions", label: "ফলাফল", icon: BarChart3, adminOnly: true },
-    { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2, adminOnly: true },
-    { id: "subadmins", label: "সাব-এডমিন", icon: UserCheck, adminOnly: true },
-    { id: "security", label: "পাসওয়ার্ড", icon: Lock, adminOnly: true },
+    { id: "submissions", label: "ফলাফল", icon: BarChart3 },
+    { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2 },
   ];
 
-  const visibleTabs = tabs.filter((t) => (role === "subadmin" ? !t.adminOnly : true));
+  const visibleTabs = tabs;
 
   return (
     <div className="flex border-b border-slate-200 space-x-1 sm:space-x-2 overflow-x-auto pb-px font-bengali">

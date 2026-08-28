@@ -16,9 +16,7 @@ import {
   Users,
   Plus,
   Trash2,
-  Lock,
   Link2,
-  ShieldAlert,
   Loader2
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
@@ -28,7 +26,7 @@ export default function AdminPage() {
   const [config, setConfig] = useState<AppConfigData | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabType>("exams");
   const [selectedExamKey, setSelectedExamKey] = useState("");
-  const [teacherUser, setTeacherUser] = useState<{ email: string; role: "admin" | "subadmin" } | null>(null);
+  const [teacherUser, setTeacherUser] = useState<{ email: string } | null>(null);
 
   // Sub-forms state
   const [newCourseName, setNewCourseName] = useState("");
@@ -36,10 +34,6 @@ export default function AdminPage() {
   const [newSubjectName, setNewSubjectName] = useState("");
   const [driveRoutine, setDriveRoutine] = useState("");
   const [driveSyllabus, setDriveSyllabus] = useState("");
-  const [currPass, setCurrPass] = useState("");
-  const [newPass, setNewPass] = useState("");
-  const [subAdminName, setSubAdminName] = useState("");
-  const [subAdminPass, setSubAdminPass] = useState("");
 
   const loadData = async () => {
     const rawUser = sessionStorage.getItem("teacher_user");
@@ -49,10 +43,6 @@ export default function AdminPage() {
     }
     const parsedUser = JSON.parse(rawUser);
     setTeacherUser(parsedUser);
-
-    if (parsedUser.role === "subadmin") {
-      setActiveTab("students");
-    }
 
     const data = await fetchAppConfig();
     setConfig(data);
@@ -152,48 +142,7 @@ export default function AdminPage() {
     alert("গুগল ড্রাইভ লিংক সফলভাবে আপডেট করা হয়েছে।");
   };
 
-  // Change Password
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (currPass !== config.teacherPass) {
-      alert("বর্তমান পাসওয়ার্ড সঠিক নয়।");
-      return;
-    }
-    await saveAppConfig({ teacherPass: newPass.trim() });
-    setCurrPass("");
-    setNewPass("");
-    alert("পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে।");
-  };
 
-  // Sub Admins
-  const handleAddSubAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = subAdminName.trim();
-    const pass = subAdminPass.trim();
-    if (!name || !pass) return;
-
-    const list = config.subAdmins || [];
-    if (pass === config.teacherPass || list.some((s) => s.pass === pass)) {
-      alert("এই পাসওয়ার্ডটি ইতিমধ্যে ব্যবহৃত হচ্ছে।");
-      return;
-    }
-
-    list.push({ name, pass });
-    await saveAppConfig({ subAdmins: list });
-    setSubAdminName("");
-    setSubAdminPass("");
-    loadData();
-    alert("নতুন সাব-এডমিন যোগ করা হয়েছে।");
-  };
-
-  const handleDeleteSubAdmin = async (idx: number) => {
-    if (confirm("আপনি কি এই সাব-এডমিনকে মুছে ফেলতে চান?")) {
-      const list = [...(config.subAdmins || [])];
-      list.splice(idx, 1);
-      await saveAppConfig({ subAdmins: list });
-      loadData();
-    }
-  };
 
   return (
     <>
@@ -219,9 +168,6 @@ export default function AdminPage() {
                   <p className="text-[11px] sm:text-xs font-bold text-indigo-950 truncate max-w-[120px] sm:max-w-[180px]">
                     {teacherUser.email}
                   </p>
-                  <span className="text-[9px] sm:text-[10px] text-indigo-600 font-semibold block">
-                    {teacherUser.role === "subadmin" ? "সাব-এডমিন" : "এডমিন"}
-                  </span>
                 </div>
               </div>
 
@@ -235,7 +181,7 @@ export default function AdminPage() {
           </div>
 
           {/* Tab Navigation */}
-          <AdminNav activeTab={activeTab} role={teacherUser.role} onTabChange={setActiveTab} />
+          <AdminNav activeTab={activeTab} onTabChange={setActiveTab} />
 
           {/* Tab Content */}
           <div className="pt-2">
@@ -425,112 +371,7 @@ export default function AdminPage() {
               </div>
             )}
 
-            {activeTab === "subadmins" && (
-              <div className="space-y-5">
-                <div className="bg-indigo-50 p-4 sm:p-5 rounded-2xl border border-indigo-100 space-y-3">
-                  <h3 className="font-bold text-indigo-900 text-xs sm:text-sm flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4" /> নতুন সাব-এডমিন তৈরি করুন
-                  </h3>
-                  <form onSubmit={handleAddSubAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-700 mb-1">সাব-এডমিনের নাম</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="যেমন: সহকারি শিক্ষক ১"
-                        value={subAdminName}
-                        onChange={(e) => setSubAdminName(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-indigo-200 text-xs sm:text-sm bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-700 mb-1">লগইন পাসওয়ার্ড</label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="পাসওয়ার্ড দিন"
-                        value={subAdminPass}
-                        onChange={(e) => setSubAdminPass(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-indigo-200 text-xs sm:text-sm bg-white"
-                      />
-                    </div>
-                    <div>
-                      <button
-                        type="submit"
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow cursor-pointer"
-                      >
-                        সাব-এডমিন যোগ করুন
-                      </button>
-                    </div>
-                  </form>
-                </div>
 
-                <div>
-                  <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2.5">বিদ্যমান সাব-এডমিন তালিকা:</h4>
-                  <div className="space-y-2">
-                    {!config.subAdmins || config.subAdmins.length === 0 ? (
-                      <p className="text-xs text-slate-400 text-center py-3">কোনো সাব-এডমিন তৈরি করা হয়নি।</p>
-                    ) : (
-                      config.subAdmins.map((sub, idx) => (
-                        <div
-                          key={idx}
-                          className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center text-xs sm:text-sm"
-                        >
-                          <div>
-                            <span className="font-bold text-slate-800">{sub.name}</span>
-                            <span className="text-slate-400 font-mono text-[11px] ml-2">
-                              (পাসওয়ার্ড: {sub.pass})
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteSubAdmin(idx)}
-                            className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" /> মুছুন
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "security" && (
-              <div className="max-w-md bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
-                <h3 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-indigo-600" /> পাসওয়ার্ড পরিবর্তন করুন
-                </h3>
-                <form onSubmit={handleChangePassword} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">বর্তমান পাসওয়ার্ড</label>
-                    <input
-                      type="password"
-                      required
-                      value={currPass}
-                      onChange={(e) => setCurrPass(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">নতুন পাসওয়ার্ড</label>
-                    <input
-                      type="password"
-                      required
-                      value={newPass}
-                      onChange={(e) => setNewPass(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl text-xs sm:text-sm transition shadow cursor-pointer"
-                  >
-                    পাসওয়ার্ড আপডেট করুন
-                  </button>
-                </form>
-              </div>
-            )}
           </div>
         </div>
       </main>

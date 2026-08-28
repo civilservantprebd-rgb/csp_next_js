@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
-import { HeroBanner } from "@/components/dashboard/HeroBanner";
 import { FreeExamsSpotlight } from "@/components/dashboard/FreeExamsSpotlight";
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
@@ -102,9 +101,6 @@ export default function HomePage() {
       />
 
       <main className="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 md:p-6 space-y-10">
-        {/* Top Hero Showcase */}
-        <HeroBanner />
-
         {/* Live Exams (if any) */}
         <LiveExamGrid
           exams={examsObj}
@@ -158,8 +154,6 @@ export default function HomePage() {
 
       <TeacherLoginModal
         isOpen={isTeacherLoginOpen}
-        teacherPass={config.teacherPass}
-        subAdmins={config.subAdmins}
         onClose={() => setIsTeacherLoginOpen(false)}
         onLoginSuccess={(user) => {
           sessionStorage.setItem("teacher_user", JSON.stringify(user));

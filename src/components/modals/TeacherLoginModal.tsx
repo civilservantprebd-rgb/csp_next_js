@@ -9,7 +9,6 @@ import {
   Key,
   Eye,
   EyeOff,
-  ShieldAlert,
   Loader2
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
@@ -17,28 +16,21 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { SubAdmin } from "@/types/exam";
 
 interface TeacherLoginModalProps {
   isOpen: boolean;
-  teacherPass?: string;
-  subAdmins?: SubAdmin[];
   onClose: () => void;
   onLoginSuccess: (user: { email: string; role: "admin" | "subadmin" }) => void;
 }
 
 export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
   isOpen,
-  teacherPass = "1234",
-  subAdmins = [],
   onClose,
   onLoginSuccess,
 }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [pin, setPin] = useState("");
-  const [showPinSection, setShowPinSection] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [infoMsg, setInfoMsg] = useState("");
@@ -77,28 +69,7 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
     }
   };
 
-  const handlePinLogin = () => {
-    setErrorMsg("");
-    if (!pin.trim()) {
-      setErrorMsg("দয়া করে পিন বা পাসওয়ার্ড দিন।");
-      return;
-    }
 
-    if (pin.trim() === teacherPass) {
-      onLoginSuccess({ email: "প্রধান এডমিন (পিন)", role: "admin" });
-      onClose();
-      return;
-    }
-
-    const matched = subAdmins.find((s) => s.pass === pin.trim());
-    if (matched) {
-      onLoginSuccess({ email: matched.name, role: "subadmin" });
-      onClose();
-      return;
-    }
-
-    setErrorMsg("প্রদত্ত পিন বা পাসওয়ার্ডটি সঠিক নয়।");
-  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 font-bengali">
@@ -194,37 +165,7 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
           </button>
         </form>
 
-        <div className="pt-2 border-t border-slate-100 text-center">
-          <button
-            type="button"
-            onClick={() => setShowPinSection(!showPinSection)}
-            className="text-[11px] text-slate-500 hover:text-indigo-600 font-medium transition inline-flex items-center gap-1 cursor-pointer"
-          >
-            <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" /> সাব-এডমিন পাসওয়ার্ড / পিন দিয়ে প্রবেশ করুন
-          </button>
 
-          {showPinSection && (
-            <div className="mt-3 p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-left">
-              <label className="block text-[11px] font-semibold text-slate-600">সাব-এডমিন পাসওয়ার্ড / পিন</label>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  placeholder="পিন দিন"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={handlePinLogin}
-                  className="bg-slate-800 hover:bg-slate-900 text-white font-medium px-4 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer"
-                >
-                  প্রবেশ
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
