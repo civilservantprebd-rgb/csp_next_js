@@ -148,27 +148,27 @@ export default function ExamPage() {
 
       <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali">
         <div className="bg-white rounded-3xl p-4 sm:p-8 shadow-md border border-slate-200 space-y-6">
-          <div className="flex flex-row justify-between items-center pb-3 border-b border-slate-100 gap-2 sticky top-14 sm:top-16 bg-white z-30 py-2.5 px-1">
+          <div className="flex flex-row justify-between items-center pb-3 border-b border-slate-100 gap-2 sticky top-14 sm:top-16 bg-white z-30 py-0 px-1">
             {/* Left: Title */}
-            <div className="flex-1 text-left min-w-0">
-              <span className="inline-block text-[10px] sm:text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full uppercase truncate max-w-full">
+            <div className="flex-1 text-left min-w-0 py-3">
+              <span className="inline-block text-xs sm:text-sm md:text-base font-bold text-indigo-700 bg-indigo-50 px-3.5 py-1.5 rounded-full uppercase truncate max-w-full">
                 {exam.title}
               </span>
             </div>
 
-            {/* Center: Submit Button */}
-            <div className="flex-shrink-0 text-center">
+            {/* Center: Submit Button (Sticky to top) */}
+            <div className="flex-shrink-0 text-center self-start">
               <button
                 onClick={handleManualSubmit}
                 disabled={isSubmitting}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-bold px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-6 sm:px-10 py-3.5 rounded-t-none rounded-b-2xl transition-all shadow-md hover:shadow-lg cursor-pointer disabled:opacity-50 active:scale-98"
               >
                 {isSubmitting ? "জমা হচ্ছে..." : "জমা দিন (Submit)"}
               </button>
             </div>
 
             {/* Right: Timer */}
-            <div className="flex-1 flex justify-end">
+            <div className="flex-1 flex justify-end py-3">
               <ExamTimer
                 initialSeconds={secondsRemaining}
                 onTimeExpire={handleAutoSubmit}
