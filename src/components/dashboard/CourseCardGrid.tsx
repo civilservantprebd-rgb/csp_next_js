@@ -73,10 +73,10 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100/90 text-indigo-950 border border-indigo-200 text-xs font-bold shadow-2xs">
             <Layers className="w-3.5 h-3.5 text-indigo-700" />
-            <span>উপলব্ধ সকল কোর্সসমূহ</span>
+            <span>কোর্স ভিত্তিক মডেল টেস্ট</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-indigo-950">
-            আমাদের ব্যাচ
+            Our Batches
           </h3>
         </div>
       </div>
