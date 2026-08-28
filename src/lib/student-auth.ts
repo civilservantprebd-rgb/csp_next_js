@@ -16,10 +16,10 @@ export async function loginWithGoogle(targetExamId?: string): Promise<StudentUse
       sessionStorage.setItem("target_exam_intent", targetExamId);
     }
 
-    // লাইভ সাইট হলে সরাসরি ডোমেন, অন্যথায় লোকালহোস্ট
-    const siteUrl = typeof window !== "undefined" && window.location.hostname.includes("localhost")
-      ? "http://localhost:3000"
-      : "https://xmetriex.vercel.app";
+    // ইউজারের বর্তমান অরিজিন (যেমন: https://aarohon.com বা http://localhost:3000) ডায়নামিকালি রিডাইরেক্ট ইউআরএল হিসেবে ব্যবহার হবে
+    const siteUrl = typeof window !== "undefined"
+      ? window.location.origin
+      : "https://aarohon.com";
       
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
