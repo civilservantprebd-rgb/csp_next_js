@@ -13,21 +13,20 @@ import { parseBengaliDigits } from "@/lib/utils";
 import { getTrueDate } from "@/lib/bangladesh-time";
 
 export async function submitEnrollRequest(payload: {
-  mobile: string;
+  uid: string;
+  email: string;
   name: string;
   course: string;
   trxId: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    const rawMobile = payload.mobile.trim();
-    const normalizedMobile = parseBengaliDigits(rawMobile).trim();
-
-    if (!normalizedMobile || !payload.name || !payload.trxId) {
+    if (!payload.uid || !payload.name || !payload.trxId) {
       return { success: false, message: "দয়া করে সকল তথ্য সঠিকভাবে পূরণ করুন।" };
     }
 
     await addDoc(collection(db, "enroll_requests"), {
-      id: normalizedMobile,
+      id: payload.uid,
+      email: payload.email,
       name: payload.name.trim(),
       course: payload.course,
       trxId: payload.trxId.trim().toUpperCase(),
@@ -60,12 +59,13 @@ export async function getEnrollRequests(): Promise<EnrollmentRequest[]> {
 
 export async function approveEnrollRequest(
   docId: string,
-  studentId: string,
+  uid: string,
   name: string,
-  course: string
+  course: string,
+  email?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cleanId = parseBengaliDigits(String(studentId).trim()).trim();
+    const cleanId = uid.trim();
 
     let existingCourses: string[] = [];
     const existingSnap = await getDoc(doc(db, "allowed_students", cleanId));
@@ -81,6 +81,7 @@ export async function approveEnrollRequest(
       {
         id: cleanId,
         name: name,
+        email: email || "",
         courses: mergedCourses,
         approvedAt: getTrueDate().toISOString()
       },
@@ -91,7 +92,7 @@ export async function approveEnrollRequest(
       await deleteDoc(doc(db, "enroll_requests", docId));
     }
 
-    return { success: true, message: `${name} (${cleanId})-কে "${course}" কোর্সে অনুমোদন দেওয়া হয়েছে।` };
+    return { success: true, message: `${name} (${email || cleanId})-কে "${course}" কোর্সে অনুমোদন দেওয়া হয়েছে।` };
   } catch (err) {
     console.error("Approve enroll request error:", err);
     return { success: false, message: "অনুমোদনে সমস্যা হয়েছে।" };

@@ -21,4 +21,5 @@ export interface EnrollmentRequest {
   course: string;
   trxId: string;
   timestamp: string;
+  email?: string;
 }

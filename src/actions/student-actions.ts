@@ -3,7 +3,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  collection
+  collection,
+  setDoc
 } from "firebase/firestore";
 import { AllowedStudent } from "@/types/student";
 import { Submission } from "@/types/submission";
@@ -142,5 +143,19 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
   } catch (err) {
     console.error("Fetch student submissions error:", err);
     return [];
+  }
+}
+
+export async function updateStudentName(uid: string, newName: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, "allowed_students", uid);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      await setDoc(docRef, { name: newName }, { merge: true });
+    }
+    return true;
+  } catch (err) {
+    console.error("Update student name error:", err);
+    return false;
   }
 }

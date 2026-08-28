@@ -148,18 +148,33 @@ export default function ExamPage() {
 
       <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali">
         <div className="bg-white rounded-3xl p-4 sm:p-8 shadow-md border border-slate-200 space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-center pb-3 border-b border-slate-100 gap-2 sticky top-16 bg-white z-30 py-2">
-            <div>
-              <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full uppercase">
-                পরীক্ষা চলমান: {exam.title}
+          <div className="flex flex-row justify-between items-center pb-3 border-b border-slate-100 gap-2 sticky top-14 sm:top-16 bg-white z-30 py-2.5 px-1">
+            {/* Left: Title */}
+            <div className="flex-1 text-left min-w-0">
+              <span className="inline-block text-[10px] sm:text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full uppercase truncate max-w-full">
+                {exam.title}
               </span>
             </div>
 
-            <ExamTimer
-              initialSeconds={secondsRemaining}
-              onTimeExpire={handleAutoSubmit}
-              onTimeUpdate={(s) => setSecondsRemaining(s)}
-            />
+            {/* Center: Submit Button */}
+            <div className="flex-shrink-0 text-center">
+              <button
+                onClick={handleManualSubmit}
+                disabled={isSubmitting}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-bold px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {isSubmitting ? "জমা হচ্ছে..." : "জমা দিন (Submit)"}
+              </button>
+            </div>
+
+            {/* Right: Timer */}
+            <div className="flex-1 flex justify-end">
+              <ExamTimer
+                initialSeconds={secondsRemaining}
+                onTimeExpire={handleAutoSubmit}
+                onTimeUpdate={(s) => setSecondsRemaining(s)}
+              />
+            </div>
           </div>
 
           <QuestionList

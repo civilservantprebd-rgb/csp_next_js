@@ -18,6 +18,7 @@ import { fetchAppConfig } from "@/actions/admin-actions";
 import { AppConfigData, Exam } from "@/types/exam";
 import { Submission } from "@/types/submission";
 import { syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
+import { getLocalStudentUser } from "@/lib/student-auth";
 
 export default function HomePage() {
   const router = useRouter();
@@ -50,6 +51,12 @@ export default function HomePage() {
   useEffect(() => {
     loadData();
     const interval = setInterval(syncBangladeshNetworkTime, 60000);
+
+    const localUser = getLocalStudentUser();
+    if (localUser) {
+      setActivePortalStudentId(localUser.uid);
+    }
+
     return () => clearInterval(interval);
   }, []);
 
@@ -85,7 +92,13 @@ export default function HomePage() {
   };
 
   const handleOpenStudentPortal = () => {
-    setIsStudentPortalLoginOpen(true);
+    const localUser = getLocalStudentUser();
+    if (localUser) {
+      setActivePortalStudentId(localUser.uid);
+      setIsStudentDashOpen(true);
+    } else {
+      setIsStudentPortalLoginOpen(true);
+    }
   };
 
   const handleStudentPortalLoginSuccess = (id: string) => {

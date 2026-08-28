@@ -17,9 +17,12 @@ import {
   BookOpen,
   CheckCircle2,
   XCircle,
-  Play
+  Play,
+  Edit3,
+  Save,
+  LogOut
 } from "lucide-react";
-import { getStudentSubmissions } from "@/actions/student-actions";
+import { getStudentSubmissions, updateStudentName } from "@/actions/student-actions";
 import { Submission } from "@/types/submission";
 import { toBengaliDigits } from "@/lib/utils";
 import { isAnswerTimeReached } from "@/actions/exam-actions";
@@ -39,6 +42,7 @@ import {
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
 import { PracticeQuestion, generatePracticeQuestions } from "@/lib/practice-helper";
 import { fetchAppConfig } from "@/actions/admin-actions";
+import { getLocalStudentUser, updateLocalStudentName, logoutStudentUser, StudentUser } from "@/lib/student-auth";
 import {
   BarChart3,
   TrendingUp,
@@ -78,6 +82,10 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   const [quizQuestions, setQuizQuestions] = useState<PracticeQuestion[]>([]);
   const [quizTitle, setQuizTitle] = useState("");
 
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
+
   const refreshStores = () => {
     if (studentId) {
       setMistakes(getStudentMistakes(studentId));
@@ -88,6 +96,12 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   useEffect(() => {
     if (isOpen && studentId) {
       setIsLoading(true);
+      const localUser = getLocalStudentUser();
+      setStudentUser(localUser);
+      if (localUser) {
+        setNewName(localUser.name);
+      }
+
       getStudentSubmissions(studentId).then(async (data) => {
         setSubmissions(data);
         const analyticsRes = await calculateStudentAnalytics(data, exams);
@@ -97,6 +111,29 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
       refreshStores();
     }
   }, [isOpen, studentId, exams]);
+
+  const handleSaveName = async () => {
+    if (!newName.trim() || !studentUser) return;
+    setIsLoading(true);
+    const success = await updateStudentName(studentUser.uid, newName.trim());
+    setIsLoading(false);
+    if (success) {
+      const updated = updateLocalStudentName(newName.trim());
+      setStudentUser(updated);
+      setEditingName(false);
+      alert("আপনার নাম সফলভাবে পরিবর্তন করা হয়েছে!");
+    } else {
+      alert("নাম পরিবর্তন করা যায়নি।");
+    }
+  };
+
+  const handleLogout = async () => {
+    if (confirm("আপনি কি স্টুডেন্ট পোর্টাল থেকে লগআউট করতে চান?")) {
+      await logoutStudentUser();
+      onClose();
+      window.location.reload();
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -193,18 +230,72 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         
         {/* Header */}
         <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
-          <div className="flex items-center space-x-3">
-            <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-2xs">
-              <GraduationCap className="w-6 h-6 text-violet-700" />
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-2xs shrink-0">
+              {studentUser?.photoURL ? (
+                <img src={studentUser.photoURL} alt="Avatar" className="w-8 h-8 rounded-full" />
+              ) : (
+                <GraduationCap className="w-6 h-6 text-violet-700" />
+              )}
             </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">স্টুডেন্ট ড্যাশবোর্ড</h3>
-              <p className="text-xs text-slate-500 font-mono">স্টুডেন্ট আইডি: {studentId}</p>
+            <div className="min-w-0 flex-1">
+              {editingName ? (
+                <div className="flex items-center gap-1.5 max-w-sm mt-0.5">
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-600 bg-white text-slate-900 font-bold"
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                    title="সংরক্ষণ করুন"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingName(false);
+                      if (studentUser) setNewName(studentUser.name);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                    {studentUser?.name || "স্টুডেন্ট ড্যাশবোর্ড"}
+                  </h3>
+                  <button
+                    onClick={() => setEditingName(true)}
+                    className="text-slate-400 hover:text-violet-600 p-0.5 transition cursor-pointer"
+                    title="নাম এডিট করুন"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-500 font-mono truncate">
+                {studentUser?.email || `আইডি: ${studentId}`}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleLogout}
+              className="text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/50 p-2 rounded-xl text-xs flex items-center gap-1 font-semibold transition cursor-pointer"
+              title="লগআউট করুন"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">লগআউট</span>
+            </button>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation Tabs */}

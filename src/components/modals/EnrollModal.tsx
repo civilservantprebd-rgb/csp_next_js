@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, UserPlus, CheckCircle2, ShieldCheck, ArrowRight, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, UserPlus, CheckCircle2, ShieldCheck, ArrowRight, Sparkles, LogIn } from "lucide-react";
 import { submitEnrollRequest } from "@/actions/enroll-actions";
+import { getLocalStudentUser, loginWithGoogle, StudentUser } from "@/lib/student-auth";
 
 interface EnrollModalProps {
   isOpen: boolean;
@@ -20,14 +21,24 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   onSuccess,
 }) => {
   const [course, setCourse] = useState(initialCourse || courses[0] || "সাধারণ কোর্স");
-  const [mobile, setMobile] = useState("");
+  const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
   const [name, setName] = useState("");
   const [trxId, setTrxId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    if (isOpen) {
+      const user = getLocalStudentUser();
+      setStudentUser(user);
+      if (user) {
+        setName(user.name);
+      }
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (initialCourse && courses.includes(initialCourse)) {
       setCourse(initialCourse);
     } else if (courses.length > 0 && !courses.includes(course)) {
@@ -42,16 +53,34 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
     onClose();
   };
 
+  const handleGoogleLogin = async () => {
+    setErrorMsg("");
+    const user = await loginWithGoogle();
+    if (user) {
+      setStudentUser(user);
+      setName(user.name);
+    } else {
+      setErrorMsg("গুগল লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+    
+    if (!studentUser) {
+      setErrorMsg("এনরোল করতে প্রথমে লগইন করুন।");
+      return;
+    }
+
     setIsLoading(true);
 
     const res = await submitEnrollRequest({
+      uid: studentUser.uid,
+      email: studentUser.email,
       course,
-      mobile,
       name,
       trxId,
     });
@@ -95,7 +124,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                 এনরোলমেন্ট সফলভাবে জমা হয়েছে!
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-                শিক্ষক প্যানেল থেকে অনুমোদন দিলে আপনি এই মোবাইল নম্বর দিয়ে <strong>{course}</strong>-এর সকল মডেল টেস্টে অংশ নিতে পারবেন।
+                শিক্ষক প্যানেল থেকে অনুমোদন দিলে আপনি আপনার এই গুগল অ্যাকাউন্ট দিয়ে লগইন করে <strong>{course}</strong>-এর সকল মডেল টেস্টে অংশ নিতে পারবেন।
               </p>
             </div>
 
@@ -110,8 +139,8 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                 <span className="font-semibold text-slate-800">{name}</span>
               </div>
               <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
-                <span className="text-slate-500">মোবাইল (স্টুডেন্ট আইডি):</span>
-                <span className="font-mono font-bold text-slate-800">{mobile}</span>
+                <span className="text-slate-500">ইমেইল ঠিকানা:</span>
+                <span className="font-semibold text-slate-800">{studentUser?.email}</span>
               </div>
               <div className="flex justify-between items-center py-1">
                 <span className="text-slate-500">ট্রান্সেকশন আইডি:</span>
@@ -130,7 +159,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
             </div>
           </div>
         ) : (
-          /* Enrollment Form View */
+          /* Enrollment / Login View */
           <>
             {/* Header */}
             <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 p-5 sm:p-6 text-white relative">
@@ -147,7 +176,6 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
               </p>
             </div>
 
-            {/* Form */}
             <div className="p-5 sm:p-6 space-y-4 bg-white">
               {errorMsg && (
                 <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-medium">
@@ -155,77 +183,114 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    কোর্স নির্বাচন করুন
-                  </label>
-                  <select
-                    value={course}
-                    onChange={(e) => setCourse(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-slate-50/50 hover:bg-white focus:bg-white transition cursor-pointer"
-                  >
-                    {courses.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    আপনার পূর্ণ নাম <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="যেমন: আব্দুর রহিম"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-slate-50/50 hover:bg-white focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    মোবাইল নম্বর (স্টুডেন্ট আইডি হিসেবে ব্যবহৃত হবে) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="যেমন: 017XXXXXXXX"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm font-mono bg-slate-50/50 hover:bg-white focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    বিকাশ/নগদ ট্রান্সেকশন আইডি (TrxID) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="যেমন: 9H8G7F6E"
-                    value={trxId}
-                    onChange={(e) => setTrxId(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm font-mono uppercase bg-slate-50/50 hover:bg-white focus:bg-white transition"
-                  />
-                </div>
-
-                <div className="pt-2">
+              {!studentUser ? (
+                /* Google Sign In Requirement View */
+                <div className="text-center py-6 space-y-4">
+                  <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-2xs">
+                    <LogIn className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-slate-800">লগইন প্রয়োজন</h3>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                      এনরোলমেন্ট রিকোয়েস্ট সাবমিট করতে প্রথমে আপনার গুগল অ্যাকাউন্ট দিয়ে লগইন করুন।
+                    </p>
+                  </div>
                   <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition text-xs sm:text-sm shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-200 shadow-2xs transition flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
                   >
-                    <span>{isLoading ? "জমা হচ্ছে..." : "রিকোয়েস্ট সাবমিট করুন"}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.68 1.54 14.98 1 12 1 7.35 1 3.37 3.67 1.39 7.56l3.89 3.02C6.21 7.42 8.87 5.04 12 5.04z"
+                      />
+                      <path
+                        fill="#4285F4"
+                        d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.7-4.99 3.7-8.62z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.28 14.78a7.02 7.02 0 0 1-.37-2.22c0-.77.13-1.51.37-2.22L1.39 7.32A11.96 11.96 0 0 0 0 12c0 1.72.36 3.35.99 4.83l4.29-3.05z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.1.74-2.51 1.18-4.23 1.18-3.13 0-5.79-2.38-6.73-5.54l-3.89 3.02C3.37 20.33 7.35 23 12 23z"
+                      />
+                    </svg>
+                    <span>গুগল দিয়ে লগইন করুন</span>
                   </button>
                 </div>
-              </form>
+              ) : (
+                /* Enrollment Form */
+                <form onSubmit={handleSubmit} className="space-y-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      গুগল অ্যাকাউন্ট
+                    </label>
+                    <div className="bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl text-xs flex items-center justify-between">
+                      <span className="text-slate-600 truncate max-w-[200px]">{studentUser.email}</span>
+                      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-100">সংযুক্ত</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      কোর্স নির্বাচন করুন
+                    </label>
+                    <select
+                      value={course}
+                      onChange={(e) => setCourse(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-slate-50/50 hover:bg-white focus:bg-white transition cursor-pointer"
+                    >
+                      {courses.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      আপনার পূর্ণ নাম <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: আব্দুর রহিম"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-slate-50/50 hover:bg-white focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      বিকাশ/নগদ ট্রান্সেকশন আইডি (TrxID) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: 9H8G7F6E"
+                      value={trxId}
+                      onChange={(e) => setTrxId(e.target.value.toUpperCase())}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm font-mono uppercase bg-slate-50/50 hover:bg-white focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition text-xs sm:text-sm shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                    >
+                      <span>{isLoading ? "জমা হচ্ছে..." : "রিকোয়েস্ট সাবমিট করুন"}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </>
         )}

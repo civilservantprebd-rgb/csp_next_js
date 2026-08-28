@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   Clock,
@@ -10,21 +10,23 @@ import {
   ArrowRight,
   X,
   User,
-  Phone,
   ShieldCheck,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  LogIn
 } from "lucide-react";
 import { verifyStudentAccess } from "@/actions/student-actions";
 import { checkStudentAlreadySubmitted, isExamCurrentlyLive } from "@/actions/exam-actions";
 import { Exam } from "@/types/exam";
-import { toBengaliDigits, parseBengaliDigits } from "@/lib/utils";
+import { toBengaliDigits } from "@/lib/utils";
+import { getLocalStudentUser, loginWithGoogle, StudentUser } from "@/lib/student-auth";
 
 interface StudentAuthModalProps {
   isOpen: boolean;
   exam: Exam;
   onClose: () => void;
   onVerified: (student: { id: string; name: string }) => void;
+  onOpenEnrollModal?: () => void;
 }
 
 export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
@@ -32,247 +34,249 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
   exam,
   onClose,
   onVerified,
+  onOpenEnrollModal
 }) => {
   const isFree = !!exam.isFree;
-  const [authMode, setAuthMode] = useState<"no_id" | "with_id">("no_id");
-  const [name, setName] = useState("");
-  const [studentId, setStudentId] = useState("");
+  const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setStudentUser(getLocalStudentUser());
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const qCount = exam.questions?.length || 0;
-  const isFreeNoId = isFree && authMode === "no_id";
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setErrorMsg("");
+    const user = await loginWithGoogle();
+    setIsLoading(false);
+    if (user) {
+      setStudentUser(user);
+    } else {
+      setErrorMsg("গুগল লগইন সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।");
+    }
+  };
 
   const handleStartExam = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
 
-    const cleanInput = studentId.trim();
-    if (!cleanInput) {
-      setErrorMsg(
-        isFreeNoId
-          ? "ফলাফল সংরক্ষণের জন্য দয়া করে মোবাইল নাম্বারটি দিন।"
-          : "দয়া করে অনুমোদিত স্টুডেন্ট আইডি বা মোবাইল নাম্বার প্রদান করুন।"
-      );
+    if (!studentUser) {
+      setErrorMsg("পরীক্ষা শুরু করতে প্রথমে গুগল দিয়ে লগইন করুন।");
       return;
     }
 
     const isLive = isExamCurrentlyLive(exam);
 
-    if (isFreeNoId) {
-      const normalizedPhone = parseBengaliDigits(cleanInput).trim();
-      if (normalizedPhone.length < 6) {
-        setErrorMsg("দয়া করে সঠিক মোবাইল নাম্বার লিখুন।");
-        return;
-      }
-
+    if (isFree) {
+      // Free exam: anyone logged in with Google can take it
       if (isLive) {
         setIsLoading(true);
-        const already = await checkStudentAlreadySubmitted(exam.id, normalizedPhone || cleanInput);
+        const already = await checkStudentAlreadySubmitted(exam.id, studentUser.uid);
         setIsLoading(false);
         if (already) {
-          setErrorMsg("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক আইডি বা মোবাইল নম্বর দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
+          setErrorMsg("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
           return;
         }
       }
 
       onVerified({
-        name: name.trim() || `পরীক্ষার্থী (${normalizedPhone.slice(-4)})`,
-        id: normalizedPhone || cleanInput,
+        name: studentUser.name,
+        id: studentUser.uid,
       });
       return;
     }
 
-    // With Enrolled ID verification (for paid exams OR enrolled students taking free exam)
+    // Paid exam: Verify enrollment in allowed_students using Google UID
     setIsLoading(true);
-    const res = await verifyStudentAccess(cleanInput, exam.course);
+    const res = await verifyStudentAccess(studentUser.uid, exam.course);
 
     if (res.allowed) {
-      const targetId = res.normalizedId || cleanInput;
+      const targetId = res.normalizedId || studentUser.uid;
 
       if (isLive) {
         const already = await checkStudentAlreadySubmitted(exam.id, targetId);
         setIsLoading(false);
         if (already) {
-          setErrorMsg("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক আইডি বা মোবাইল নম্বর দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
+          setErrorMsg("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
           return;
         }
-      } else {
-        setIsLoading(false);
       }
 
+      setIsLoading(false);
       onVerified({
-        name: name.trim() || res.studentName || "পরীক্ষার্থী",
+        name: res.studentName || studentUser.name,
         id: targetId,
       });
     } else {
       setIsLoading(false);
-      setErrorMsg(res.message || "এই কোর্সের পরীক্ষায় অংশ নেওয়ার জন্য আপনার অনুমতি নেই।");
+      setErrorMsg(res.message || "এই কোর্সের পেইড পরীক্ষায় অংশ নিতে আপনার অনুমোদন নেই।");
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl relative border border-slate-100 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs font-bengali animate-in fade-in duration-200">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
         {/* Close Button */}
         <button
           onClick={onClose}
           type="button"
           aria-label="বন্ধ করুন"
-          className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 text-slate-700 flex items-center justify-center transition cursor-pointer"
+          className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
 
-        {/* Modal Header */}
-        <div className="p-5 sm:p-6 bg-slate-50/80 border-b border-slate-100 relative">
-          <div className="space-y-2 pr-6">
-            <div className="flex items-center gap-2 flex-wrap">
-              {isFree ? (
-                <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-2xs">
-                  <Sparkles className="w-3 h-3 text-emerald-600" /> ফ্রি পরীক্ষা
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                  <ShieldCheck className="w-3 h-3 text-indigo-600" /> এনরোল্ড পরীক্ষা
-                </span>
-              )}
-              <span className="bg-white text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md border border-slate-200">
-                {exam.course}
+        {/* Elegant Hero Banner */}
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 p-5 text-white relative">
+          <div className="flex items-center gap-2 mb-1.5">
+            {isFree ? (
+              <span className="inline-flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                🎁 সম্পূর্ণ ফ্রি মক
               </span>
-            </div>
+            ) : (
+              <span className="inline-flex items-center gap-1 bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                👑 প্রিমিয়াম এক্সাম ({exam.course})
+              </span>
+            )}
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
+            {exam.title}
+          </h2>
+          <p className="text-[11px] text-indigo-300 mt-1 font-medium">
+            বিষয়: {exam.subject}
+          </p>
+        </div>
 
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-              {exam.title}
-            </h2>
-
-            {/* Exam Meta Info Chips */}
-            <div className="flex items-center gap-2 flex-wrap pt-0.5 text-[11px] text-slate-600">
-              <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                <BookOpen className="w-3 h-3 text-slate-400" /> {exam.subject}
-              </span>
-              <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                <Clock className="w-3 h-3 text-slate-400" /> {toBengaliDigits(exam.timerMinutes)} মিনিট
-              </span>
-              <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                <CircleHelp className="w-3 h-3 text-slate-400" /> {toBengaliDigits(qCount)} টি প্রশ্ন
-              </span>
-            </div>
+        {/* Exam Metrics Row */}
+        <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-100 py-3 text-center text-xs">
+          <div className="border-r border-slate-200/60">
+            <span className="text-[10px] text-slate-500 block">মোট প্রশ্ন</span>
+            <strong className="text-slate-800 font-bold">{toBengaliDigits(qCount)} টি</strong>
+          </div>
+          <div className="border-r border-slate-200/60">
+            <span className="text-[10px] text-slate-500 block">সময় বরাদ্দ</span>
+            <strong className="text-slate-800 font-bold">{toBengaliDigits(exam.timerMinutes)} মিনিট</strong>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 block">পূর্ণমান</span>
+            <strong className="text-slate-800 font-bold">{toBengaliDigits(qCount)} নম্বর</strong>
           </div>
         </div>
 
-        {/* Modal Body & Form */}
-        <div className="p-5 sm:p-6 space-y-4 bg-white">
-          {/* Segmented Mode Switcher for Free Exams */}
-          {isFree && (
-            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl gap-1 border border-slate-200/60">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("no_id");
-                  setErrorMsg("");
-                }}
-                className={`py-2 px-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                  authMode === "no_id"
-                    ? "bg-white text-emerald-700 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5 fill-emerald-500 text-emerald-500" /> আইডি ছাড়া (ফ্রি)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("with_id");
-                  setErrorMsg("");
-                }}
-                className={`py-2 px-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                  authMode === "with_id"
-                    ? "bg-white text-indigo-700 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" /> এনরোল্ড আইডি দিয়ে
-              </button>
-            </div>
-          )}
-
+        {/* Info or Form Body */}
+        <div className="p-5 space-y-4">
           {errorMsg && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-medium flex items-center gap-2">
-              <span>⚠️</span> {errorMsg}
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-medium">
+              ⚠️ {errorMsg}
             </div>
           )}
 
-          <form onSubmit={handleStartExam} className="space-y-3.5">
-            {!isFreeNoId && (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-slate-500" />
-                  আপনার পূর্ণ নাম <span className="text-slate-400 font-normal">(ঐচ্ছিক)</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="যেমন: মোঃ আব্দুল্লাহ"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-slate-50/50 hover:bg-white focus:bg-white transition"
-                />
+          {!studentUser ? (
+            /* Google Login required */
+            <div className="text-center py-4 space-y-4">
+              <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-2xs">
+                <LogIn className="w-5 h-5" />
               </div>
-            )}
-
-            <div>
-              <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-1.5 flex items-center gap-1.5">
-                <Phone className={`w-4 h-4 ${isFreeNoId ? "text-emerald-600" : "text-indigo-600"}`} />
-                {isFreeNoId ? "আপনার মোবাইল নম্বর দিন" : "অনুমোদিত স্টুডেন্ট আইডি / মোবাইল"}{" "}
-                <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="tel"
-                required
-                autoFocus
-                placeholder={isFreeNoId ? "01XXXXXXXXX" : "যেমন: 017XXXXXXXX বা আইডি"}
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                className={`w-full px-4 py-3 rounded-2xl border text-sm font-mono transition ${
-                  isFreeNoId
-                    ? "border-emerald-200 focus:ring-2 focus:ring-emerald-500 bg-emerald-50/20 focus:bg-white"
-                    : "border-slate-200 focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 focus:bg-white"
-                } focus:outline-none placeholder:text-slate-400`}
-              />
-              <p className="text-[11px] text-slate-500 mt-1.5">
-                {isFreeNoId
-                  ? "💡 কোনো পূর্বানুমতি লাগবে না। এই নম্বরে ফলাফল সংরক্ষিত থাকবে ও স্টুডেন্ট পোর্টাল থেকে দেখা যাবে।"
-                  : "💡 আপনার অনুমোদিত আইডি দিলে প্রোফাইলে ও ড্যাশবোর্ডে ফলাফল স্বয়ংক্রিয়ভাবে যুক্ত হবে।"}
-              </p>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-800">গুগল লগইন আবশ্যক</h3>
+                <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                  পরীক্ষায় অংশ নিতে এবং আপনার ব্যক্তিগত প্রোফাইল ও ভুল উত্তরের খাতা সুরক্ষিত রাখতে গুগল দিয়ে লগইন করুন।
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-200 shadow-2xs transition flex items-center justify-center gap-2.5 text-xs sm:text-sm cursor-pointer"
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.68 1.54 14.98 1 12 1 7.35 1 3.37 3.67 1.39 7.56l3.89 3.02C6.21 7.42 8.87 5.04 12 5.04z"
+                  />
+                  <path
+                    fill="#4285F4"
+                    d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.7-4.99 3.7-8.62z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.78a7.02 7.02 0 0 1-.37-2.22c0-.77.13-1.51.37-2.22L1.39 7.32A11.96 11.96 0 0 0 0 12c0 1.72.36 3.35.99 4.83l4.29-3.05z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.1.74-2.51 1.18-4.23 1.18-3.13 0-5.79-2.38-6.73-5.54l-3.89 3.02C3.37 20.33 7.35 23 12 23z"
+                  />
+                </svg>
+                <span>গুগল দিয়ে লগইন করুন</span>
+              </button>
             </div>
+          ) : (
+            /* Logged in student starting form */
+            <form onSubmit={handleStartExam} className="space-y-4">
+              <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center gap-2">
+                  {studentUser.photoURL ? (
+                    <img src={studentUser.photoURL} alt="Student avatar" className="w-8 h-8 rounded-full border border-indigo-200" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                      <User className="w-4 h-4" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-slate-800 truncate">{studentUser.name}</h4>
+                    <p className="text-[10px] text-slate-500 truncate">{studentUser.email}</p>
+                  </div>
+                </div>
+              </div>
 
-            <div className="pt-1">
+              {/* Instructions summary */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-600 text-xs space-y-2 leading-relaxed">
+                <p className="font-bold text-slate-800 text-center border-b border-slate-200 pb-1.5 mb-1.5">⏰ পরীক্ষার নিয়মাবলী</p>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-indigo-600">•</span>
+                  <span>প্রতিটি ভুল উত্তরের জন্য <strong>০.৫০ নম্বর</strong> কাটা হবে।</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-indigo-600">•</span>
+                  <span>সময় শেষ হলে উত্তরপত্র স্বয়ংক্রিয়ভাবে জমা হয়ে যাবে।</span>
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full font-bold py-3.5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer disabled:opacity-50 active:scale-[0.99] ${
-                  isFreeNoId
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25"
-                    : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/25"
-                }`}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-xs transition duration-150 flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer disabled:opacity-50"
               >
-                {isFreeNoId ? (
-                  <>
-                    <Zap className="w-4 h-4 fill-amber-300 text-amber-300" />
-                    <span>{isLoading ? "শুরু হচ্ছে..." : "ফ্রি পরীক্ষা শুরু করুন"}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="w-4 h-4" />
-                    <span>{isLoading ? "যাচাই করা হচ্ছে..." : "যাচাই করে পরীক্ষা শুরু করুন"}</span>
-                  </>
-                )}
+                <span>{isLoading ? "যাচাই করা হচ্ছে..." : "পরীক্ষা শুরু করুন"}</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
+            </form>
+          )}
+
+          {/* Payment CTA for non-allowed students */}
+          {!isFree && studentUser && (
+            <div className="pt-2 border-t border-slate-100 text-center">
+              <p className="text-xs text-slate-500">
+                এই কোর্সে অংশ নেওয়ার অনুমতি নেই?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (onOpenEnrollModal) onOpenEnrollModal();
+                  }}
+                  className="text-indigo-600 hover:text-indigo-800 font-bold underline underline-offset-2 transition cursor-pointer"
+                >
+                  কোর্সে এনরোল করুন
+                </button>
+              </p>
             </div>
-          </form>
+          )}
         </div>
       </div>
     </div>
