@@ -10,6 +10,8 @@ import { QuestionBuilder } from "@/components/admin/QuestionBuilder";
 import { BulkQuestionImporterModal } from "@/components/admin/BulkQuestionImporterModal";
 import { StudentApproval } from "@/components/admin/StudentApproval";
 import { SubmissionsTable } from "@/components/admin/SubmissionsTable";
+import { QuestionBankManager } from "@/components/admin/QuestionBankManager";
+import { AdminAnalyticsDashboard } from "@/components/admin/AdminAnalyticsDashboard";
 import { fetchAppConfig, fetchAppConfigLite, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
 import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
@@ -465,6 +467,10 @@ export default function AdminPage() {
                 }}
                 onRefresh={loadData}
               />
+            )}
+
+            {activeTab === "analytics" && (
+              <AdminAnalyticsDashboard />
             )}
 
             {activeTab === "courses" && (

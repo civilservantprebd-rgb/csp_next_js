@@ -9,10 +9,12 @@ import {
   PlusCircle,
   Layers,
   BarChart3,
+  FileCheck,
   Link2
 } from "lucide-react";
 
 export type AdminTabType =
+  | "analytics"
   | "exams"
   | "courses"
   | "subjects"
@@ -29,13 +31,14 @@ interface AdminNavProps {
 
 export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) => {
   const tabs: { id: AdminTabType; label: string; icon: any }[] = [
+    { id: "analytics", label: "অ্যানালিটিক্স", icon: BarChart3 },
     { id: "exams", label: "এক্সাম সেট", icon: FileText },
     { id: "courses", label: "কোর্স", icon: GraduationCap },
     { id: "subjects", label: "সাবজেক্ট", icon: BookOpen },
     { id: "topics", label: "টপিক", icon: Layers },
     { id: "students", label: "আইডি ও রিকোয়েস্ট", icon: Users },
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
-    { id: "submissions", label: "ফলাফল", icon: BarChart3 },
+    { id: "submissions", label: "ফলাফল", icon: FileCheck },
     { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2 },
   ];
 
