@@ -7,6 +7,7 @@ import {
   BookOpen,
   Users,
   PlusCircle,
+  Layers,
   BarChart3,
   Link2
 } from "lucide-react";
@@ -15,6 +16,7 @@ export type AdminTabType =
   | "exams"
   | "courses"
   | "subjects"
+  | "topics"
   | "students"
   | "questions"
   | "submissions"
@@ -30,6 +32,7 @@ export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) =>
     { id: "exams", label: "এক্সাম সেট", icon: FileText },
     { id: "courses", label: "কোর্স", icon: GraduationCap },
     { id: "subjects", label: "সাবজেক্ট", icon: BookOpen },
+    { id: "topics", label: "টপিক", icon: Layers },
     { id: "students", label: "আইডি ও রিকোয়েস্ট", icon: Users },
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
     { id: "submissions", label: "ফলাফল", icon: BarChart3 },

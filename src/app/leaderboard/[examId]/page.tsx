@@ -32,14 +32,14 @@ export default function StandaloneLeaderboardPage() {
   }, [examId]);
 
   const isLocked = exam ? !isAnswerTimeReached(exam) : false;
-  const ansDate = exam?.answerReleaseTime ? parseBangladeshDateTime(exam.answerReleaseTime) : null;
-  const dateStr = ansDate
-    ? ansDate.toLocaleString("bn-BD", {
+  const endDate = exam?.endTime ? parseBangladeshDateTime(exam.endTime) : null;
+  const dateStr = endDate
+    ? `পরীক্ষা সমাপ্তি: ${endDate.toLocaleString("bn-BD", {
         timeZone: "Asia/Dhaka",
-        dateStyle: "full",
+        dateStyle: "medium",
         timeStyle: "short",
-      })
-    : "নির্ধারিত সময়ে";
+      })}`
+    : "শিক্ষক রিলিজ করার পর";
 
   return (
     <>

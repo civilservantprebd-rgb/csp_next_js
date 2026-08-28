@@ -58,12 +58,20 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
 
         <div className="overflow-y-auto flex-grow pr-1 space-y-3">
           {!canShowAnswers ? (
-            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-center space-y-2 my-4">
-              <Clock className="w-10 h-10 text-amber-600 mx-auto mb-1" />
-              <h4 className="font-bold text-amber-900 text-sm">উত্তর ও মার্ক্স প্রকাশের সময় হয়নি</h4>
-              <p className="text-xs text-amber-800 leading-relaxed">
-                নির্ধারিত প্রকাশের তারিখ ও সময় অতিক্রান্ত হওয়ার পর এখানে পূর্ণ সমাধান দেখা যাবে।
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-3xl border border-amber-200 text-center space-y-3 my-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto shadow-inner">
+                <Clock className="w-7 h-7 text-amber-600 animate-pulse" />
+              </div>
+              <h4 className="font-bold text-amber-950 text-base">ফলাফল ও মার্ক্স এখনও অপ্রকাশিত</h4>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                শিক্ষক কর্তৃক ফলাফল রিলিজ করার পর প্রতিটি প্রশ্নের সঠিক উত্তর, আপনার উত্তর এবং পূর্ণাঙ্গ ব্যাখ্যা দেখতে পাবেন।
               </p>
+              {exam?.endTime && (
+                <div className="inline-block bg-white border border-amber-200 px-3.5 py-1.5 rounded-xl text-xs text-amber-900 font-medium shadow-2xs">
+                  ⏰ পরীক্ষা সমাপ্তির সময়:{" "}
+                  <strong>{new Date(exam.endTime).toLocaleString("bn-BD")}</strong>
+                </div>
+              )}
             </div>
           ) : isLoading ? (
             <div className="text-center py-8 text-slate-400 flex items-center justify-center gap-2">

@@ -161,9 +161,16 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       className="w-full text-left p-3.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-violet-50/60 transition flex justify-between items-center group shadow-xs cursor-pointer"
                     >
                       <div>
-                        <h4 className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition">
-                          {toBengaliDigits(sIdx + 1)}. {sub.examTitle}
-                        </h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition">
+                            {toBengaliDigits(sIdx + 1)}. {sub.examTitle}
+                          </h4>
+                          {sub.isLiveSubmission === false && (
+                            <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                              অনুশীলন
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-slate-500 mt-0.5 font-mono">সময়কাল: {sub.timeSpent}</p>
                       </div>
 

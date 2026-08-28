@@ -135,7 +135,6 @@ export default function HomePage() {
           setIsEnrollOpen(false);
           setSelectedEnrollCourse(undefined);
         }}
-        onSuccess={(msg) => alert(msg)}
       />
 
       {currentExam && (

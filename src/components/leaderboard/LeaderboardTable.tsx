@@ -27,10 +27,9 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
       <div className="p-8 text-center bg-amber-50/60 rounded-2xl border border-amber-200 font-bengali">
         <div className="max-w-md mx-auto space-y-2">
           <Trophy className="w-10 h-10 text-amber-500 mx-auto mb-1" />
-          <h4 className="font-bold text-slate-800 text-sm sm:text-base">লিডারবোর্ড সাময়িকভাবে বন্ধ আছে</h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            লাইভ পরীক্ষা চলমান থাকায় মেধা তালিকা গোপন রাখা হয়েছে। ফলাফল প্রকাশের নির্ধারিত সময়ে (
-            <strong>{releaseDateText}</strong>) পূর্ণাঙ্গ লিডারবোর্ড উন্মুক্ত করা হবে।
+          <h4 className="font-bold text-slate-800 text-base sm:text-lg">মার্ক্স এখনও প্রকাশিত হয়নি</h4>
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            শিক্ষক কর্তৃক পরীক্ষার ফলাফল এখনও রিলিজ করা হয়নি। শিক্ষক ফলাফল প্রকাশ করার সাথে সাথেই মেধা তালিকা ও সকল শিক্ষার্থীর প্রাপ্ত নম্বর এখানে প্রদর্শিত হবে।
           </p>
         </div>
       </div>

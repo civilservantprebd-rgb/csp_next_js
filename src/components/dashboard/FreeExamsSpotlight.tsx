@@ -23,39 +23,35 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
   }
 
   return (
-    <section className="relative font-bengali overflow-hidden rounded-3xl bg-white border-2 border-amber-400/40 hover:border-amber-500 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between">
-      {/* Header Banner - keeping current colors */}
-      <div className="bg-gradient-to-br from-amber-500/10 via-emerald-500/5 to-indigo-500/10 p-5 sm:p-6 border-b border-amber-200/50 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        {/* Decorative Glows */}
-        <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 space-y-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black shadow-sm">
+    <section className="font-bengali rounded-3xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between">
+      {/* Header Banner */}
+      <div className="bg-white p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
             <span>সবার জন্য সম্পূর্ণ ফ্রি</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
-            ফ্রি মডেল টেস্ট স্পটলাইট
+            ফ্রি মডেল টেস্ট
           </h3>
-          <p className="text-xs sm:text-sm text-slate-600">
+          <p className="text-xs sm:text-sm text-slate-500">
             রেজিস্ট্রেশন বা ফি ছাড়াই যে কেউ অংশ নিয়ে নিজের প্রস্তুতি যাচাই করতে পারবেন
           </p>
         </div>
 
-        <div className="relative z-10 flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
           {onOpenEnrollModal && (
             <button
               onClick={() => onOpenEnrollModal()}
-              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md hover:shadow-emerald-500/20 transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-[0.98]"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-[0.98]"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>এনরোল করুন (Enroll Now)</span>
+              <span>এনরোল করুন</span>
             </button>
           )}
-          <div className="shrink-0 bg-white/80 backdrop-blur-sm px-3.5 py-1.5 rounded-2xl border border-amber-200 text-xs font-bold text-amber-900 shadow-sm flex items-center gap-1.5">
-            <Award className="w-4 h-4 text-amber-500" />
-            <span>মোট {toBengaliDigits(freeExams.length)}টি ফ্রি পরীক্ষা উপলব্ধ</span>
+          <div className="shrink-0 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+            <Award className="w-4 h-4 text-emerald-600" />
+            <span>মোট {toBengaliDigits(freeExams.length)}টি ফ্রি পরীক্ষা</span>
           </div>
         </div>
       </div>
@@ -103,9 +99,9 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
 
                   <button
                     onClick={() => onStartExam(key)}
-                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black py-2.5 px-4 rounded-xl shadow hover:shadow-amber-500/10 transition duration-150 flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer active:scale-[0.98]"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-xs transition duration-150 flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer active:scale-[0.98]"
                   >
-                    <Play className="w-4 h-4 fill-slate-950" />
+                    <Play className="w-4 h-4 fill-white text-white" />
                     <span>ফ্রি পরীক্ষা শুরু করুন</span>
                   </button>
                 </div>

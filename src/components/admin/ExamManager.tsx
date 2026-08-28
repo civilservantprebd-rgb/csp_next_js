@@ -2,8 +2,23 @@
 
 import React, { useState } from "react";
 import { Exam, SubjectItem } from "@/types/exam";
-import { createExam, updateExam, deleteExam } from "@/actions/admin-actions";
-import { Plus, Trash2, Edit3, Share2, Copy, Bolt, X, Settings } from "lucide-react";
+import { createExam, updateExam, deleteExam, toggleExamResultPublish } from "@/actions/admin-actions";
+import { isAnswerTimeReached } from "@/actions/exam-actions";
+import {
+  Plus,
+  Trash2,
+  Edit3,
+  Share2,
+  Copy,
+  Bolt,
+  X,
+  Settings,
+  Send,
+  RotateCcw,
+  CheckCircle2,
+  Clock,
+  Award
+} from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface ExamManagerProps {
@@ -29,7 +44,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   const [timerMinutes, setTimerMinutes] = useState(10);
   const [passMark, setPassMark] = useState(1);
   const [startTime, setStartTime] = useState("");
-  const [answerReleaseTime, setAnswerReleaseTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [isResultPublished, setIsResultPublished] = useState(false);
   const [isFree, setIsFree] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,7 +57,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   const [editTimerMinutes, setEditTimerMinutes] = useState(10);
   const [editPassMark, setEditPassMark] = useState(1);
   const [editStartTime, setEditStartTime] = useState("");
-  const [editAnswerReleaseTime, setEditAnswerReleaseTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editIsResultPublished, setEditIsResultPublished] = useState(false);
   const [editIsFree, setEditIsFree] = useState(false);
 
   const filteredSubjects = subjects.filter((s) => s.course === course);
@@ -55,8 +72,28 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
     setEditTimerMinutes(ex.timerMinutes);
     setEditPassMark(ex.passMark || 1);
     setEditStartTime(ex.startTime || "");
-    setEditAnswerReleaseTime(ex.answerReleaseTime || "");
+    setEditEndTime(ex.endTime || "");
+    setEditIsResultPublished(ex.isResultPublished ?? isAnswerTimeReached(ex));
     setEditIsFree(!!ex.isFree);
+  };
+
+  const handleTogglePublish = async (key: string, publish: boolean) => {
+    const actionText = publish ? "ফলাফল প্রকাশ ও লিডারবোর্ডে উন্মুক্ত" : "ফলাফল রিসেট ও অপ্রকাশিত";
+    if (confirm(`আপনি কি এই পরীক্ষার ${actionText} করতে চান?`)) {
+      setIsLoading(true);
+      const success = await toggleExamResultPublish(key, publish);
+      setIsLoading(false);
+      if (success) {
+        onRefresh();
+        alert(
+          publish
+            ? "ফলাফল ও লিডারবোর্ড সফলভাবে রিলিজ করা হয়েছে। শিক্ষার্থীদের উত্তর যাচাই ও মূল্যায়ন সম্পন্ন হয়েছে।"
+            : "ফলাফল সফলভাবে রিসেট করা হয়েছে। শিক্ষার্থীরা এখন 'মার্ক্স প্রকাশিত হয়নি' বার্তা দেখতে পাবে।"
+        );
+      } else {
+        alert("ফলাফল স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে।");
+      }
+    }
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -71,7 +108,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
       timerMinutes: Number(editTimerMinutes) || 10,
       passMark: Number(editPassMark) || 1,
       startTime: editStartTime,
-      answerReleaseTime: editAnswerReleaseTime,
+      endTime: editEndTime,
+      isResultPublished: editIsResultPublished,
       isFree: editIsFree
     });
     setIsLoading(false);
@@ -88,7 +126,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   const applyPreset = (type: "now" | "evening" | "night" | "clear") => {
     if (type === "clear") {
       setStartTime("");
-      setAnswerReleaseTime("");
+      setEndTime("");
       return;
     }
 
@@ -102,21 +140,21 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
     if (type === "now") {
       setStartTime(toLocalISO(now));
       const end = new Date(now.getTime() + 60 * 60 * 1000);
-      setAnswerReleaseTime(toLocalISO(end));
+      setEndTime(toLocalISO(end));
     } else if (type === "evening") {
       const start = new Date(now);
       start.setHours(17, 0, 0, 0);
       const end = new Date(now);
-      end.setHours(18, 15, 0, 0);
+      end.setHours(18, 0, 0, 0);
       setStartTime(toLocalISO(start));
-      setAnswerReleaseTime(toLocalISO(end));
+      setEndTime(toLocalISO(end));
     } else if (type === "night") {
       const start = new Date(now);
       start.setHours(20, 0, 0, 0);
       const end = new Date(now);
       end.setHours(21, 0, 0, 0);
       setStartTime(toLocalISO(start));
-      setAnswerReleaseTime(toLocalISO(end));
+      setEndTime(toLocalISO(end));
     }
   };
 
@@ -132,7 +170,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
       timerMinutes: Number(timerMinutes) || 10,
       passMark: Number(passMark) || 1,
       startTime,
-      answerReleaseTime,
+      endTime,
+      isResultPublished,
       isFree,
       questions: []
     });
@@ -140,6 +179,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
     if (newKey) {
       setTitle("");
+      setIsResultPublished(false);
       onRefresh();
       alert("নতুন এক্সাম সেট সফলভাবে তৈরি করা হয়েছে।");
     }
@@ -158,16 +198,18 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
   const copyShareLink = (key: string) => {
     const url = typeof window !== "undefined" ? `${window.location.origin}/exam/${key}` : "";
-    navigator.clipboard.writeText(url);
-    alert("পরীক্ষার লিংক কপি করা হয়েছে: " + url);
+    if (url) {
+      navigator.clipboard.writeText(url);
+      alert("পরীক্ষার লিংক কপি করা হয়েছে:\n" + url);
+    }
   };
 
   return (
     <div className="space-y-6 font-bengali">
       {/* Create New Exam Box */}
-      <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3">
+      <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
         <h3 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
-          <Plus className="w-4 h-4 text-indigo-600" /> নতুন এক্সাম বা সেট তৈরি করুন
+          <Plus className="w-4 h-4 text-indigo-600" /> নতুন এক্সাম সেট তৈরি করুন
         </h3>
 
         <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
@@ -176,8 +218,9 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
             <select
               value={course}
               onChange={(e) => {
-                setCourse(e.target.value);
-                const matched = subjects.filter((s) => s.course === e.target.value);
+                const newCourseName = e.target.value;
+                setCourse(newCourseName);
+                const matched = subjects.filter((s) => s.course === newCourseName);
                 if (matched.length > 0) setSubject(matched[0].name);
               }}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
@@ -202,6 +245,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                   {s.name}
                 </option>
               ))}
+              {filteredSubjects.length === 0 && <option value="">কোনো সাবজেক্ট নেই</option>}
             </select>
           </div>
 
@@ -210,7 +254,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
             <input
               type="text"
               required
-              placeholder="যেমন: Exam 02 - সাধারণ জ্ঞান"
+              placeholder="যেমন: বাংলা ১ম পত্র - মডেল টেস্ট ০১"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
@@ -243,36 +287,38 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
           </div>
 
           {/* Quick Schedule Preset Buttons */}
-          <div className="sm:col-span-3 p-3 bg-slate-100 rounded-xl border border-slate-200 space-y-1.5">
-            <label className="block text-[11px] font-bold text-slate-700">⚡ দ্রুত লাইভ সময়সূচি প্রিসেট:</label>
-            <div className="flex flex-wrap gap-2">
+          <div className="sm:col-span-3 bg-white p-3 rounded-xl border border-slate-200">
+            <span className="text-[11px] font-semibold text-slate-700 block mb-1.5">
+              সময়সূচী দ্রুত সেট করার প্রিসেট:
+            </span>
+            <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
                 onClick={() => applyPreset("now")}
                 className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-bold px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
               >
-                <Bolt className="w-3.5 h-3.5" /> এখনই লাইভ (১ ঘণ্টা)
+                <Bolt className="w-3.5 h-3.5" /> এখনই লাইভ
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("evening")}
                 className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-[11px] font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
               >
-                আজ বিকাল ৫:০০ - ৬:১৫
+                আজ বিকাল ৫:০০
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("night")}
                 className="bg-violet-100 hover:bg-violet-200 text-violet-700 text-[11px] font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
               >
-                আজ রাত ৮:০০ - ৯:০০
+                আজ রাত ৮:০০
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("clear")}
                 className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
               >
-                মুছে উন্মুক্ত রাখুন
+                মুছে ফেলুন
               </button>
             </div>
           </div>
@@ -291,27 +337,42 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
           <div>
             <label className="block text-[11px] font-medium text-slate-600 mb-1">
-              উত্তর প্রকাশের সময় <span className="text-slate-400 font-normal">(ঐচ্ছিক)</span>
+              পরীক্ষা সমাপ্তি বা শেষ সময় <span className="text-slate-400 font-normal">(ঐচ্ছিক)</span>
             </label>
             <input
               type="datetime-local"
-              value={answerReleaseTime}
-              onChange={(e) => setAnswerReleaseTime(e.target.value)}
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
             />
           </div>
 
-          <div className="flex items-center gap-2 pt-4">
-            <input
-              type="checkbox"
-              id="admin-exam-is-free"
-              checked={isFree}
-              onChange={(e) => setIsFree(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer"
-            />
-            <label htmlFor="admin-exam-is-free" className="text-xs font-medium text-slate-700 cursor-pointer">
-              ফ্রি পরীক্ষা (আইডি ছাড়াই)
-            </label>
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="admin-exam-is-free"
+                checked={isFree}
+                onChange={(e) => setIsFree(e.target.checked)}
+                className="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer"
+              />
+              <label htmlFor="admin-exam-is-free" className="text-xs font-medium text-slate-700 cursor-pointer">
+                ফ্রি পরীক্ষা (আইডি ছাড়াই)
+              </label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="admin-exam-publish-now"
+                checked={isResultPublished}
+                onChange={(e) => setIsResultPublished(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded border-slate-300 cursor-pointer"
+              />
+              <label htmlFor="admin-exam-publish-now" className="text-xs font-medium text-emerald-800 cursor-pointer">
+                তৈরির সাথে সাথেই ফলাফল উন্মুক্ত রাখুন
+              </label>
+            </div>
           </div>
 
           <div className="sm:col-span-3">
@@ -332,6 +393,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
         <div className="space-y-2.5">
           {Object.entries(exams).map(([k, ex]) => {
             const isActive = activeExamKey === k;
+            const isPublished = isAnswerTimeReached(ex);
+
             return (
               <div
                 key={k}
@@ -339,25 +402,57 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                   isActive ? "border-indigo-500 bg-indigo-50/40" : "border-slate-200 bg-slate-50"
                 } flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3`}
               >
-                <div>
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-900 text-xs sm:text-sm">{ex.title}</span>
                     {isActive && (
                       <span className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">
                         সক্রিয়
                       </span>
                     )}
+                    {isPublished ? (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> রেজাল্ট প্রকাশিত
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-600" /> রেজাল্ট অপ্রকাশিত (লুকানো)
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-[11px] text-slate-500">
                     কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(ex.questions?.length || 0)} |
                     সময়: {toBengaliDigits(ex.timerMinutes)} মিনিট
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 w-full sm:w-auto justify-end">
+                  {/* Result Release / Reset Button */}
+                  {isPublished ? (
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePublish(k, false)}
+                      disabled={isLoading}
+                      className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                      title="ফলাফল রিসেট করে গোপন করুন (শিক্ষার্থীদের 'মার্ক্স প্রকাশিত হয়নি' বার্তা দেখাবে)"
+                    >
+                      <RotateCcw className="w-3 h-3" /> রেজাল্ট রিসেট
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePublish(k, true)}
+                      disabled={isLoading}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                      title="ফলাফল ও লিডারবোর্ড প্রকাশ করুন"
+                    >
+                      <Send className="w-3 h-3" /> রেজাল্ট রিলিজ
+                    </button>
+                  )}
+
                   <button
                     onClick={() => startEdit(k, ex)}
-                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
                     <Settings className="w-3 h-3" /> এডিট
                   </button>
@@ -369,13 +464,13 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                   </button>
                   <button
                     onClick={() => copyShareLink(k)}
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-medium px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
                     <Copy className="w-3 h-3" /> লিংক
                   </button>
                   <button
                     onClick={() => handleDelete(k)}
-                    className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-medium px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                    className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
                     <Trash2 className="w-3 h-3" /> মুছুন
                   </button>
@@ -401,7 +496,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-1.5">
                 <Edit3 className="w-5 h-5 text-indigo-600" /> এক্সাম সেট এডিট করুন
               </h3>
-              <p className="text-xs text-slate-500">পরীক্ষার নাম, কোর্স, সাবজেক্ট এবং সময়সীমা পরিবর্তন করুন</p>
+              <p className="text-xs text-slate-500">পরীক্ষার নাম, কোর্স, সাবজেক্ট এবং ফলাফল প্রকাশ নিয়ন্ত্রণ করুন</p>
             </div>
 
             <form onSubmit={handleUpdate} className="space-y-4 pt-2">
@@ -506,27 +601,42 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">উত্তর প্রকাশের সময়</label>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">পরীক্ষা সমাপ্তি বা শেষ সময়</label>
                   <input
                     type="datetime-local"
-                    value={editAnswerReleaseTime}
-                    onChange={(e) => setEditAnswerReleaseTime(e.target.value)}
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="admin-edit-exam-is-free"
-                  checked={editIsFree}
-                  onChange={(e) => setEditIsFree(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer"
-                />
-                <label htmlFor="admin-edit-exam-is-free" className="text-xs font-medium text-slate-700 cursor-pointer">
-                  ফ্রি পরীক্ষা (আইডি ছাড়াই)
-                </label>
+              <div className="flex flex-col gap-2 pt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="admin-edit-exam-is-free"
+                    checked={editIsFree}
+                    onChange={(e) => setEditIsFree(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer"
+                  />
+                  <label htmlFor="admin-edit-exam-is-free" className="text-xs font-medium text-slate-700 cursor-pointer">
+                    ফ্রি পরীক্ষা (আইডি ছাড়াই)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="admin-edit-exam-publish-now"
+                    checked={editIsResultPublished}
+                    onChange={(e) => setEditIsResultPublished(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 cursor-pointer"
+                  />
+                  <label htmlFor="admin-edit-exam-publish-now" className="text-xs font-medium text-emerald-800 cursor-pointer">
+                    ফলাফল ও মার্ক্স উন্মুক্ত রাখুন (Published)
+                  </label>
+                </div>
               </div>
 
               <div className="pt-3 flex justify-end gap-2.5">

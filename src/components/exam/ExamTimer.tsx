@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Clock } from "lucide-react";
 import { getTrueNowMs } from "@/lib/bangladesh-time";
 
@@ -16,8 +16,18 @@ export const ExamTimer: React.FC<ExamTimerProps> = ({
   onTimeUpdate
 }) => {
   const [secondsRemaining, setSecondsRemaining] = useState(initialSeconds);
+  const onTimeExpireRef = useRef(onTimeExpire);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
 
   useEffect(() => {
+    onTimeExpireRef.current = onTimeExpire;
+    onTimeUpdateRef.current = onTimeUpdate;
+  });
+
+  useEffect(() => {
+    if (initialSeconds <= 0) return;
+
+    setSecondsRemaining(initialSeconds);
     const endServerTime = getTrueNowMs() + initialSeconds * 1000;
 
     const interval = setInterval(() => {
@@ -25,18 +35,20 @@ export const ExamTimer: React.FC<ExamTimerProps> = ({
       const remainingSecs = Math.ceil(remainingMs / 1000);
 
       setSecondsRemaining(remainingSecs);
-      if (onTimeUpdate) {
-        onTimeUpdate(remainingSecs);
+      if (onTimeUpdateRef.current) {
+        onTimeUpdateRef.current(remainingSecs);
       }
 
       if (remainingMs <= 0) {
         clearInterval(interval);
-        onTimeExpire();
+        if (onTimeExpireRef.current) {
+          onTimeExpireRef.current();
+        }
       }
     }, 500);
 
     return () => clearInterval(interval);
-  }, [initialSeconds, onTimeExpire, onTimeUpdate]);
+  }, [initialSeconds]);
 
   const m = Math.max(0, Math.floor(secondsRemaining / 60));
   const s = Math.max(0, secondsRemaining % 60);

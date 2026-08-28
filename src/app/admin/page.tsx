@@ -9,8 +9,8 @@ import { ExamManager } from "@/components/admin/ExamManager";
 import { QuestionBuilder } from "@/components/admin/QuestionBuilder";
 import { StudentApproval } from "@/components/admin/StudentApproval";
 import { SubmissionsTable } from "@/components/admin/SubmissionsTable";
-import { fetchAppConfig, saveAppConfig } from "@/actions/admin-actions";
-import { AppConfigData, Exam } from "@/types/exam";
+import { fetchAppConfig, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
+import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
 import {
   LogOut,
   Users,
@@ -20,7 +20,15 @@ import {
   Loader2,
   Edit3,
   Check,
-  X
+  X,
+  Layers,
+  Tag,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  HelpCircle,
+  BookOpen
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
@@ -47,6 +55,13 @@ export default function AdminPage() {
   const [editingCourseIdx, setEditingCourseIdx] = useState<number | null>(null);
   const [editCourseName, setEditCourseName] = useState("");
 
+  // Topic states (standalone topic names)
+  const [newTopicName, setNewTopicName] = useState("");
+  const [editingTopicIdx, setEditingTopicIdx] = useState<number | null>(null);
+  const [editTopicName, setEditTopicName] = useState("");
+  const [topicSearch, setTopicSearch] = useState("");
+  const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
+
   const loadData = async () => {
     const rawUser = sessionStorage.getItem("teacher_user");
     if (!rawUser) {
@@ -66,7 +81,7 @@ export default function AdminPage() {
 
     const keys = Object.keys(data.exams || {});
     if (keys.length > 0) {
-      setSelectedExamKey(keys[0]);
+      setSelectedExamKey((prevKey) => (prevKey && data.exams?.[prevKey] ? prevKey : keys[0]));
     }
   };
 
@@ -145,7 +160,15 @@ export default function AdminPage() {
       return sub;
     });
 
-    // 3. Update exams assigned to this course
+    // 3. Update topicQuestions assigned to this course
+    const nextTopicQuestions = (config.topicQuestions || []).map((tq) => {
+      if (tq.originalCourse === oldVal) {
+        return { ...tq, originalCourse: newVal };
+      }
+      return tq;
+    });
+
+    // 4. Update exams assigned to this course
     const nextExams = { ...config.exams };
     Object.keys(nextExams).forEach((key) => {
       if (nextExams[key].course === oldVal) {
@@ -157,7 +180,8 @@ export default function AdminPage() {
     await saveAppConfig({
       courses: nextCourses,
       subjects: nextSubjects,
-      exams: nextExams
+      topicQuestions: nextTopicQuestions,
+      exams: nextExams,
     });
 
     setEditingCourseIdx(null);
@@ -215,6 +239,141 @@ export default function AdminPage() {
     setEditingSubjectIdx(null);
     loadData();
     alert("সাবজেক্ট সফলভাবে আপডেট করা হয়েছে।");
+  };
+
+  // Add Topic
+  const handleAddTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = newTopicName.trim();
+    if (!val) return;
+
+    const currentTopics = config.topics || [];
+    if (currentTopics.includes(val)) {
+      alert("এই নামের একটি টপিক ইতিমধ্যে বিদ্যমান।");
+      return;
+    }
+
+    const nextTopics = [...currentTopics, val];
+    await saveAppConfig({ topics: nextTopics });
+    setNewTopicName("");
+    loadData();
+  };
+
+  const handleDeleteTopic = async (idx: number) => {
+    const topicToDelete = (config.topics || [])[idx];
+    if (confirm(`আপনি কি '${topicToDelete}' টপিকটি মুছে ফেলতে চান?`)) {
+      const nextTopics = [...(config.topics || [])];
+      nextTopics.splice(idx, 1);
+      await saveAppConfig({ topics: nextTopics });
+      loadData();
+    }
+  };
+
+  const startEditTopic = (idx: number, t: string) => {
+    setEditingTopicIdx(idx);
+    setEditTopicName(t);
+  };
+
+  // Helper to aggregate all persistent topic questions for a given topic
+  // (Survives course, subject, or exam deletion!)
+  const getQuestionsByTopic = (topicName: string): TopicQuestion[] => {
+    const list: TopicQuestion[] = [];
+    const seenMap = new Set<string>();
+
+    // 1. Primary source: persistent topicQuestions repository
+    (config?.topicQuestions || []).forEach((tq) => {
+      if (tq.topic === topicName) {
+        list.push(tq);
+        seenMap.add(`${tq.q.trim()}___${tq.topic}`);
+      }
+    });
+
+    // 2. Secondary source: active exams (ensures full coverage)
+    if (config?.exams) {
+      Object.entries(config.exams).forEach(([examKey, exam]) => {
+        (exam.questions || []).forEach((q, qIdx) => {
+          if (q.topic === topicName) {
+            const key = `${q.q.trim()}___${q.topic}`;
+            if (!seenMap.has(key)) {
+              list.push({
+                id: `tq_${examKey}_${qIdx}`,
+                topic: q.topic,
+                q: q.q,
+                opts: q.opts,
+                correct: 0,
+                exp: "",
+                originalExamTitle: exam.title,
+                originalCourse: exam.course,
+                originalSubject: exam.subject,
+                examKey: examKey,
+              });
+              seenMap.add(key);
+            }
+          }
+        });
+      });
+    }
+
+    return list;
+  };
+
+  const handleDeleteTopicQuestion = async (id: string) => {
+    if (confirm("আপনি কি এই প্রশ্নটি টপিক ভাণ্ডার থেকে মুছে ফেলতে চান?")) {
+      await deleteTopicQuestion(id);
+      loadData();
+    }
+  };
+
+  const handleSaveTopicEdit = async (idx: number) => {
+    const nameVal = editTopicName.trim();
+    if (!nameVal) return;
+
+    const currentTopics = config?.topics || [];
+    const oldTopicName = currentTopics[idx];
+    if (currentTopics.includes(nameVal) && oldTopicName !== nameVal) {
+      alert("এই নামের একটি টপিক ইতিমধ্যে বিদ্যমান।");
+      return;
+    }
+
+    const nextTopics = [...currentTopics];
+    nextTopics[idx] = nameVal;
+
+    // Update in topicQuestions persistent repository
+    const nextTopicQuestions = (config?.topicQuestions || []).map((tq) => {
+      if (tq.topic === oldTopicName) {
+        return { ...tq, topic: nameVal };
+      }
+      return tq;
+    });
+
+    // Cascade topic rename to all questions in exams
+    const nextExams = { ...(config?.exams || {}) };
+    let hasExamChanges = false;
+    if (oldTopicName) {
+      Object.keys(nextExams).forEach((key) => {
+        if (nextExams[key].questions) {
+          nextExams[key] = {
+            ...nextExams[key],
+            questions: nextExams[key].questions!.map((q) => {
+              if (q.topic === oldTopicName) {
+                hasExamChanges = true;
+                return { ...q, topic: nameVal };
+              }
+              return q;
+            }),
+          };
+        }
+      });
+    }
+
+    await saveAppConfig({
+      topics: nextTopics,
+      topicQuestions: nextTopicQuestions,
+      ...(hasExamChanges ? { exams: nextExams } : {}),
+    });
+    setEditingTopicIdx(null);
+    loadData();
+    alert("টপিক সফলভাবে আপডেট করা হয়েছে।");
   };
 
   // Drive links
@@ -502,12 +661,282 @@ export default function AdminPage() {
               </div>
             )}
 
+            {activeTab === "topics" && (
+              <div className="space-y-5">
+                {/* Add new topic */}
+                <div className="bg-indigo-50 p-4 sm:p-5 rounded-2xl border border-indigo-100 space-y-3">
+                  <h3 className="font-bold text-indigo-900 text-xs sm:text-sm flex items-center gap-1.5">
+                    <Plus className="w-4 h-4" /> নতুন টপিক যোগ করুন
+                  </h3>
+                  <form onSubmit={handleAddTopic} className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: প্রাচীন ও মধ্যযুগ"
+                      value={newTopicName}
+                      onChange={(e) => setNewTopicName(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 text-xs sm:text-sm bg-white"
+                    />
+                    <button
+                      type="submit"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5 py-2.5 rounded-xl text-xs sm:text-sm transition whitespace-nowrap shadow cursor-pointer"
+                    >
+                      টপিক যোগ করুন
+                    </button>
+                  </form>
+                </div>
+
+                {/* Filter and List topics */}
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <h4 className="font-bold text-slate-800 text-xs sm:text-sm">
+                      বিদ্যমান টপিকসমূহ ({toBengaliDigits((config.topics || []).length)} টি):
+                    </h4>
+
+                    {/* Search bar */}
+                    <div className="relative w-full sm:w-64">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="টপিক বা প্রশ্ন খুঁজুন..."
+                        value={topicSearch}
+                        onChange={(e) => setTopicSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {!config.topics || config.topics.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-6 bg-slate-50 rounded-xl border border-slate-200">
+                        কোনো টপিক পাওয়া যায়নি। উপরের ফর্ম থেকে নতুন টপিক যোগ করুন।
+                      </p>
+                    ) : (
+                      config.topics
+                        .filter((t) => {
+                          if (topicSearch.trim()) {
+                            const qLower = topicSearch.trim().toLowerCase();
+                            if (t.toLowerCase().includes(qLower)) return true;
+                            const questionsInTopic = getQuestionsByTopic(t);
+                            return questionsInTopic.some(
+                              (item) =>
+                                item.q.toLowerCase().includes(qLower) ||
+                                (item.originalExamTitle && item.originalExamTitle.toLowerCase().includes(qLower))
+                            );
+                          }
+                          return true;
+                        })
+                        .map((t, filteredIdx) => {
+                          const originalIdx = (config.topics || []).indexOf(t);
+                          const isEditing = editingTopicIdx === originalIdx;
+                          const topicQuestions = getQuestionsByTopic(t);
+                          const isExpanded = expandedTopic === t;
+
+                          return (
+                            <div
+                              key={originalIdx}
+                              className={`rounded-2xl border transition-all ${
+                                isEditing
+                                  ? "border-indigo-400 bg-indigo-50/20 p-3.5"
+                                  : "border-slate-200 bg-slate-50 overflow-hidden shadow-2xs"
+                              }`}
+                            >
+                              {isEditing ? (
+                                <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                  <input
+                                    type="text"
+                                    value={editTopicName}
+                                    onChange={(e) => setEditTopicName(e.target.value)}
+                                    className="flex-grow px-3 py-1.5 rounded-lg border border-slate-300 text-xs sm:text-sm bg-white"
+                                    placeholder="টপিকের নাম"
+                                    required
+                                  />
+                                  <div className="flex gap-1.5 sm:ml-auto">
+                                    <button
+                                      onClick={() => handleSaveTopicEdit(originalIdx)}
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center gap-1"
+                                    >
+                                      <Check className="w-3.5 h-3.5" /> সংরক্ষণ
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingTopicIdx(null)}
+                                      className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center gap-1"
+                                    >
+                                      <X className="w-3.5 h-3.5" /> বাতিল
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  {/* Topic Card Header */}
+                                  <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm">
+                                    <div className="flex items-center gap-2.5 flex-wrap">
+                                      <span className="font-bold text-slate-800 text-sm">
+                                        {toBengaliDigits(filteredIdx + 1)}. {t}
+                                      </span>
+                                      <span className="text-[11px] bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">
+                                        {toBengaliDigits(topicQuestions.length)} টি প্রশ্ন
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 sm:ml-auto">
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedTopic(isExpanded ? null : t)}
+                                        className={`text-xs font-semibold px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${
+                                          isExpanded
+                                            ? "bg-indigo-600 text-white border-indigo-600"
+                                            : "bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                                        }`}
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronUp className="w-3.5 h-3.5" />
+                                        ) : (
+                                          <ChevronDown className="w-3.5 h-3.5" />
+                                        )}
+                                        {isExpanded ? "প্রশ্ন লুকান" : "প্রশ্নসমূহ দেখুন"}
+                                      </button>
+                                      <button
+                                        onClick={() => startEditTopic(originalIdx, t)}
+                                        className="text-amber-600 hover:text-amber-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                                      >
+                                        <Edit3 className="w-3.5 h-3.5" /> এডিট
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteTopic(originalIdx)}
+                                        className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" /> মুছুন
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Expandable Question List inside Topic */}
+                                  {isExpanded && (
+                                    <div className="bg-white p-3.5 border-t border-slate-200 space-y-3">
+                                      <div className="flex justify-between items-center pb-1">
+                                        <h5 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                          <Layers className="w-3.5 h-3.5 text-indigo-600" /> &quot;{t}&quot; টপিকের
+                                          প্রশ্ন তালিকা:
+                                        </h5>
+                                        <span className="text-[11px] text-slate-500 font-medium">
+                                          মোট: {toBengaliDigits(topicQuestions.length)} টি প্রশ্ন
+                                        </span>
+                                      </div>
+
+                                      {topicQuestions.length === 0 ? (
+                                        <div className="py-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                          এই টপিকে এখনও কোনো প্রশ্ন যুক্ত করা হয়নি। প্রশ্ন তৈরির সময় এই টপিক নির্বাচন
+                                          করলে স্বয়ংক্রিয়ভাবে এখানে যুক্ত হয়ে যাবে।
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                                          {topicQuestions.map((item, qIdx) => {
+                                            const hasActiveExam = item.examKey && config?.exams?.[item.examKey];
+                                            return (
+                                              <div
+                                                key={item.id || qIdx}
+                                                className="p-3 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-50 transition space-y-2"
+                                              >
+                                                <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+                                                  <div className="space-y-1 flex-grow">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                      <span className="font-bold text-slate-800 text-xs sm:text-sm">
+                                                        {toBengaliDigits(qIdx + 1)}. {item.q}
+                                                      </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                                      {item.originalExamTitle && (
+                                                        <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded font-semibold">
+                                                          মূল এক্সাম: {item.originalExamTitle}
+                                                        </span>
+                                                      )}
+                                                      {item.originalCourse && (
+                                                        <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-medium">
+                                                          {item.originalCourse}
+                                                        </span>
+                                                      )}
+                                                      {item.originalSubject && (
+                                                        <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-medium">
+                                                          {item.originalSubject}
+                                                        </span>
+                                                      )}
+                                                      {!hasActiveExam && (
+                                                        <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-medium">
+                                                          সংরক্ষিত প্রশ্ন
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+
+                                                  <div className="flex items-center gap-1 shrink-0">
+                                                    {hasActiveExam && item.examKey && (
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          setSelectedExamKey(item.examKey!);
+                                                          setActiveTab("questions");
+                                                        }}
+                                                        className="bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                                                      >
+                                                        <ExternalLink className="w-3 h-3" /> এক্সাম ওপেন করুন
+                                                      </button>
+                                                    )}
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleDeleteTopicQuestion(item.id)}
+                                                      className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 p-1.5 rounded-lg text-xs transition cursor-pointer flex items-center"
+                                                      title="টপিক ভাণ্ডার থেকে মুছুন"
+                                                    >
+                                                      <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                  </div>
+                                                </div>
+
+                                                {/* Options display */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-100">
+                                                  {item.opts.map((opt, optIdx) => (
+                                                    <div key={optIdx} className="flex items-center gap-1 truncate">
+                                                      <span className="text-slate-400 font-medium">
+                                                        {optIdx === 0
+                                                          ? "ক)"
+                                                          : optIdx === 1
+                                                          ? "খ)"
+                                                          : optIdx === 2
+                                                          ? "গ)"
+                                                          : "ঘ)"}
+                                                      </span>
+                                                      <span className="truncate">{opt}</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === "students" && <StudentApproval courses={config.courses || []} />}
 
             {activeTab === "questions" && config.exams?.[selectedExamKey] && (
               <QuestionBuilder
                 activeExamKey={selectedExamKey}
                 exam={config.exams[selectedExamKey]}
+                allExams={config.exams || {}}
+                onSelectExamKey={(k) => setSelectedExamKey(k)}
+                topics={config.topics || []}
                 onRefresh={loadData}
               />
             )}

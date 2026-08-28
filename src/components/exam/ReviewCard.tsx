@@ -37,9 +37,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
             className="p-6 rounded-3xl border-2 border-slate-200 bg-white space-y-4 shadow-sm"
           >
             <div className="flex justify-between items-start gap-4">
-              <h4 className="font-bold text-xl sm:text-2xl text-slate-900 leading-relaxed">
-                {toBengaliDigits(idx + 1)}. {q.q}
-              </h4>
+              <div className="space-y-1">
+                <h4 className="font-bold text-xl sm:text-2xl text-slate-900 leading-relaxed">
+                  {toBengaliDigits(idx + 1)}. {q.q}
+                </h4>
+                {q.topic && (
+                  <span className="inline-block text-xs bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-0.5 rounded-md border border-indigo-100">
+                    টপিক: {q.topic}
+                  </span>
+                )}
+              </div>
               <span className={`text-sm px-3 py-1.5 rounded-full font-black uppercase shrink-0 ${badgeClass}`}>
                 {badgeText}
               </span>

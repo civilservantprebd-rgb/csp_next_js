@@ -10,7 +10,7 @@ import {
 import { Exam, QuestionSolution } from "@/types/exam";
 import { Submission, LeaderboardItem } from "@/types/submission";
 import { parseBangladeshDateTime, getTrueDate } from "@/lib/bangladesh-time";
-import { parseTimeSpentToSeconds } from "@/lib/utils";
+import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
   try {
@@ -28,10 +28,7 @@ export async function getExamSolutions(examKey: string): Promise<QuestionSolutio
 }
 
 export function isAnswerTimeReached(exam: Exam): boolean {
-  if (!exam.answerReleaseTime) return true;
-  const releaseTime = parseBangladeshDateTime(exam.answerReleaseTime);
-  if (!releaseTime) return true;
-  return getTrueDate() >= releaseTime;
+  return exam.isResultPublished === true;
 }
 
 export function isExamCurrentlyLive(exam: Exam): boolean {
@@ -40,14 +37,49 @@ export function isExamCurrentlyLive(exam: Exam): boolean {
   const startTime = parseBangladeshDateTime(exam.startTime);
   if (!startTime || now < startTime) return false;
 
-  if (exam.answerReleaseTime) {
-    const releaseTime = parseBangladeshDateTime(exam.answerReleaseTime);
-    if (releaseTime && now >= releaseTime) return false;
+  if (exam.endTime) {
+    const endTime = parseBangladeshDateTime(exam.endTime);
+    if (endTime && now > endTime) return false;
   } else if (exam.leaderboardEndTime) {
     const endTime = parseBangladeshDateTime(exam.leaderboardEndTime);
-    if (endTime && now >= endTime) return false;
+    if (endTime && now > endTime) return false;
   }
   return true;
+}
+
+export async function checkStudentAlreadySubmitted(
+  examKey: string,
+  rawStudentId: string
+): Promise<boolean> {
+  try {
+    const cleanId = String(rawStudentId || "").trim();
+    const normId = parseBengaliDigits(cleanId).trim();
+    if (!cleanId) return false;
+
+    const snap = await getDocs(collection(db, "submissions"));
+    let found = false;
+
+    snap.forEach((d) => {
+      const data = d.data() as Submission;
+      if (data.examKey === examKey) {
+        const subSid = String(data.studentId || "").trim();
+        const subNorm = parseBengaliDigits(subSid).trim();
+        if (
+          subSid === cleanId ||
+          (normId && subNorm === normId) ||
+          (normId.length >= 10 && subNorm.endsWith(normId.slice(-10))) ||
+          (subNorm.length >= 10 && normId.endsWith(subNorm.slice(-10)))
+        ) {
+          found = true;
+        }
+      }
+    });
+
+    return found;
+  } catch (err) {
+    console.error("Check student submission error:", err);
+    return false;
+  }
 }
 
 export async function submitExamAnswers(payload: {
@@ -62,17 +94,32 @@ export async function submitExamAnswers(payload: {
 }): Promise<{
   success: boolean;
   isLive: boolean;
+  isLiveSubmission?: boolean;
   score?: number;
   correct?: number;
   incorrect?: number;
   submissionId?: string;
+  message?: string;
 }> {
   try {
     const configSnap = await getDoc(doc(db, "app_config", "bcs_data"));
     const configData = configSnap.data();
     const exam: Exam | undefined = configData?.exams?.[payload.examKey];
 
-    const isLive = exam ? isExamCurrentlyLive(exam) || !isAnswerTimeReached(exam) : false;
+    const isLiveSubmission = exam ? isExamCurrentlyLive(exam) : false;
+
+    if (isLiveSubmission) {
+      const alreadySubmitted = await checkStudentAlreadySubmitted(payload.examKey, payload.studentId);
+      if (alreadySubmitted) {
+        return {
+          success: false,
+          isLive: true,
+          message: "আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক আইডি দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।"
+        };
+      }
+    }
+
+    const isLive = isLiveSubmission && exam ? !isAnswerTimeReached(exam) : false;
 
     const timeSpentSecs = payload.examTimerMinutes * 60 - payload.timeRemaining;
     const mins = Math.floor(timeSpentSecs / 60);
@@ -109,6 +156,7 @@ export async function submitExamAnswers(payload: {
       timeSpent: timeFormatted,
       answers: payload.answers,
       isPendingEvaluation: isLive,
+      isLiveSubmission: isLiveSubmission,
       timestamp: serverTimestamp(),
       submittedAtISO: getTrueDate().toISOString()
     });
@@ -116,6 +164,7 @@ export async function submitExamAnswers(payload: {
     return {
       success: true,
       isLive,
+      isLiveSubmission,
       score: isLive ? undefined : score,
       correct: isLive ? undefined : correct,
       incorrect: isLive ? undefined : incorrect,
@@ -123,7 +172,7 @@ export async function submitExamAnswers(payload: {
     };
   } catch (err) {
     console.error("Submit exam error:", err);
-    return { success: false, isLive: false };
+    return { success: false, isLive: false, message: "উত্তরপত্র জমা দিতে ত্রুটি হয়েছে।" };
   }
 }
 
@@ -143,7 +192,7 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
 
     snap.forEach((d) => {
       const data = d.data() as Submission;
-      if (data.examKey === examKey) {
+      if (data.examKey === examKey && data.isLiveSubmission !== false) {
         subs.push(data);
         if (data.isPendingEvaluation || data.score === undefined) {
           hasPending = true;
@@ -198,5 +247,54 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
   } catch (err) {
     console.error("Fetch leaderboard error:", err);
     return [];
+  }
+}
+
+export async function getExamCandidateRank(
+  examKey: string,
+  userScore: number,
+  userTimeSpent: string
+): Promise<{ practiceRank: number; totalCandidates: number; officialCandidates: number }> {
+  try {
+    const snap = await getDocs(collection(db, "submissions"));
+    const allSubs: { score: number; timeSecs: number; isLive: boolean }[] = [];
+    let officialCount = 0;
+
+    let solutions: QuestionSolution[] | null = null;
+
+    snap.forEach((d) => {
+      const data = d.data() as Submission;
+      if (data.examKey === examKey) {
+        let sc = typeof data.score === "number" ? data.score : parseFloat(data.score as any) || 0;
+        if (data.isLiveSubmission !== false) officialCount++;
+        allSubs.push({
+          score: sc,
+          timeSecs: parseTimeSpentToSeconds(data.timeSpent),
+          isLive: data.isLiveSubmission !== false
+        });
+      }
+    });
+
+    const userTimeSecs = parseTimeSpentToSeconds(userTimeSpent);
+
+    // Calculate how many candidates have higher score or better time
+    let higherCount = 0;
+    allSubs.forEach((sub) => {
+      if (sub.score > userScore) {
+        higherCount++;
+      } else if (sub.score === userScore && sub.timeSecs < userTimeSecs) {
+        higherCount++;
+      }
+    });
+
+    const practiceRank = higherCount + 1;
+    return {
+      practiceRank,
+      totalCandidates: Math.max(1, allSubs.length),
+      officialCandidates: officialCount
+    };
+  } catch (err) {
+    console.error("Error calculating candidate rank:", err);
+    return { practiceRank: 1, totalCandidates: 1, officialCandidates: 0 };
   }
 }

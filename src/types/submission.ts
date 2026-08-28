@@ -11,6 +11,7 @@ export interface Submission {
   timeSpent: string;
   answers: (number | null)[];
   isPendingEvaluation?: boolean;
+  isLiveSubmission?: boolean;
   timestamp?: any;
   submittedAtISO?: string;
 }
