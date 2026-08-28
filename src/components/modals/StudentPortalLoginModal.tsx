@@ -26,18 +26,14 @@ export const StudentPortalLoginModal: React.FC<StudentPortalLoginModalProps> = (
     setIsLoading(true);
     setErrorMsg("");
     try {
-      const user = await loginWithGoogle();
-      setIsLoading(false);
-      if (user) {
-        onLoginSuccess(user.uid);
-        onClose();
-      } else {
-        setErrorMsg("গুগল লগইন সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।");
-      }
+      // loginWithGoogle will trigger browser redirection to Google login
+      await loginWithGoogle();
+      // We don't turn off isLoading or set user successful login state here
+      // since the page will redirect.
     } catch (err) {
       console.error(err);
       setIsLoading(false);
-      setErrorMsg("সার্ভারে সংযোগ করতে সমস্যা হয়েছে।");
+      setErrorMsg("সার্ভারে সংযোগ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     }
   };
 
