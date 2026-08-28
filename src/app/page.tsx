@@ -68,6 +68,17 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [router]);
 
+  // Check if returning from Google Auth with a target exam intent (Must be before any return statement)
+  useEffect(() => {
+    if (config && typeof window !== "undefined") {
+      const intentExamId = sessionStorage.getItem("target_exam_intent");
+      if (intentExamId && config.exams?.[intentExamId]) {
+        sessionStorage.removeItem("target_exam_intent");
+        handleStartExamByKey(intentExamId);
+      }
+    }
+  }, [config]);
+
   if (!config) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 font-bengali text-slate-500">
@@ -117,17 +128,6 @@ export default function HomePage() {
     // If not logged in or paid verification required, show modal
     setIsStudentAuthOpen(true);
   };
-
-  // Check if returning from Google Auth with a target exam intent
-  useEffect(() => {
-    if (config && typeof window !== "undefined") {
-      const intentExamId = sessionStorage.getItem("target_exam_intent");
-      if (intentExamId && examsObj[intentExamId]) {
-        sessionStorage.removeItem("target_exam_intent");
-        handleStartExamByKey(intentExamId);
-      }
-    }
-  }, [config]);
 
   const handleStudentVerified = (student: { id: string; name: string }) => {
     setIsStudentAuthOpen(false);
