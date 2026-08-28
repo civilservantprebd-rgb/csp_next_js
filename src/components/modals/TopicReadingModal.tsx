@@ -42,7 +42,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
   const filteredQuestions = questions.filter((q) =>
     searchQuery
       ? q.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        q.opts.some((o) => o.toLowerCase().includes(searchQuery.toLowerCase()))
+      q.opts.some((o) => o.toLowerCase().includes(searchQuery.toLowerCase()))
       : true
   );
 
@@ -55,7 +55,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs font-bengali animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
-        
+
         {/* Modal Top Header */}
         <div className="p-4 sm:p-6 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
@@ -115,22 +115,20 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab("list")}
-              className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === "list"
+              className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === "list"
                   ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-500 hover:text-slate-800"
-              }`}
+                }`}
             >
               এক নজরে সব প্রশ্ন (List)
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("card")}
-              className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === "card"
+              className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === "card"
                   ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-500 hover:text-slate-800"
-              }`}
+                }`}
             >
               ফ্ল্যাশকার্ড মোড (1 by 1)
             </button>
@@ -167,18 +165,16 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                         return (
                           <div
                             key={oIdx}
-                            className={`p-2.5 rounded-xl border flex items-center gap-2 transition ${
-                              isCorrect
+                            className={`p-2.5 rounded-xl border flex items-center gap-2 transition ${isCorrect
                                 ? "border-emerald-300 bg-emerald-50/70 text-emerald-950 font-bold"
                                 : "border-slate-100 bg-slate-50 text-slate-700"
-                            }`}
+                              }`}
                           >
                             <span
-                              className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                isCorrect
+                              className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${isCorrect
                                   ? "bg-emerald-600 text-white"
                                   : "bg-slate-200 text-slate-600"
-                              }`}
+                                }`}
                             >
                               {optLabels[oIdx]}
                             </span>
@@ -234,18 +230,16 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                       return (
                         <div
                           key={oIdx}
-                          className={`p-3 rounded-xl border flex items-center gap-2.5 transition ${
-                            isRevealed && isCorrect
+                          className={`p-3 rounded-xl border flex items-center gap-2.5 transition ${isRevealed && isCorrect
                               ? "border-emerald-400 bg-emerald-50 text-emerald-950 font-bold shadow-xs"
                               : "border-slate-200 bg-slate-50 text-slate-800"
-                          }`}
+                            }`}
                         >
                           <span
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                              isRevealed && isCorrect
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${isRevealed && isCorrect
                                 ? "bg-emerald-600 text-white"
                                 : "bg-slate-200 text-slate-700"
-                            }`}
+                              }`}
                           >
                             {optLabels[oIdx]}
                           </span>
