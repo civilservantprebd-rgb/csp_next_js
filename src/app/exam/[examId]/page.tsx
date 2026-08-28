@@ -144,11 +144,9 @@ export default function ExamPage() {
 
   return (
     <>
-      <Header />
-
       <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali">
         <div className="bg-white rounded-3xl p-4 sm:p-8 shadow-md border border-slate-200 space-y-6">
-          <div className="flex flex-row justify-between items-center pb-3 border-b border-slate-100 gap-2 sticky top-14 sm:top-16 bg-white z-30 py-0 px-1">
+          <div className="flex flex-row justify-between items-center pb-3 border-b border-slate-100 gap-2 sticky top-0 bg-white z-30 py-0 px-1">
             {/* Left: Title */}
             <div className="flex-1 text-left min-w-0 py-3">
               <span className="inline-block text-xs sm:text-sm md:text-base font-bold text-indigo-700 bg-indigo-50 px-3.5 py-1.5 rounded-full uppercase truncate max-w-full">
