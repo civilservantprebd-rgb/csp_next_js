@@ -81,12 +81,53 @@ export default function HomePage() {
   const subjectsList = config.subjects || [];
   const currentExam: Exam | undefined = examsObj[selectedExamKey];
 
-  const handleStartExamByKey = (examKey: string) => {
+  const handleStartExamByKey = async (examKey: string) => {
     const ex = examsObj[examKey];
     if (!ex) return;
     setSelectedExamKey(examKey);
+
+    const localUser = getLocalStudentUser();
+    if (localUser) {
+      if (ex.isFree) {
+        // Free exam: Start instantly without popup
+        sessionStorage.setItem(
+          "current_student",
+          JSON.stringify({ id: localUser.uid, name: localUser.name })
+        );
+        router.push(`/exam/${examKey}`);
+        return;
+      } else {
+        // Paid exam: Check authorization instantly
+        const { verifyStudentAccess } = await import("@/actions/student-actions");
+        const res = await verifyStudentAccess(localUser.uid, ex.course);
+        if (res.allowed) {
+          sessionStorage.setItem(
+            "current_student",
+            JSON.stringify({
+              id: res.normalizedId || localUser.uid,
+              name: res.studentName || localUser.name,
+            })
+          );
+          router.push(`/exam/${examKey}`);
+          return;
+        }
+      }
+    }
+
+    // If not logged in or paid verification required, show modal
     setIsStudentAuthOpen(true);
   };
+
+  // Check if returning from Google Auth with a target exam intent
+  useEffect(() => {
+    if (config) {
+      const intentExamId = sessionStorage.getItem("target_exam_intent");
+      if (intentExamId && examsObj[intentExamId]) {
+        sessionStorage.removeItem("target_exam_intent");
+        handleStartExamByKey(intentExamId);
+      }
+    }
+  }, [config]);
 
   const handleStudentVerified = (student: { id: string; name: string }) => {
     setIsStudentAuthOpen(false);

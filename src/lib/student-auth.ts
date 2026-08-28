@@ -10,8 +10,12 @@ export interface StudentUser {
 /**
  * Handle Google Sign-In and persist session using Supabase OAuth
  */
-export async function loginWithGoogle(): Promise<StudentUser | null> {
+export async function loginWithGoogle(targetExamId?: string): Promise<StudentUser | null> {
   try {
+    if (typeof window !== "undefined" && targetExamId) {
+      sessionStorage.setItem("target_exam_intent", targetExamId);
+    }
+
     // লাইভ সাইট হলে সরাসরি ডোমেন, অন্যথায় লোকালহোস্ট
     const siteUrl = typeof window !== "undefined" && window.location.hostname.includes("localhost")
       ? "http://localhost:3000"
@@ -25,10 +29,6 @@ export async function loginWithGoogle(): Promise<StudentUser | null> {
     });
 
     if (error) throw error;
-    
-    // Oauth redirects the browser, so we return null here. 
-    // The onAuthStateChange listener in supabase.ts will automatically
-    // pick up the session and set localStorage when redirected back.
     return null;
   } catch (err) {
     console.error("Google login error:", err);

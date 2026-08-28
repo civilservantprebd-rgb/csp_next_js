@@ -56,8 +56,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     setIsLoading(true);
     setErrorMsg("");
     try {
-      await loginWithGoogle();
-      // Browser redirects to Google login, so we don't turn off loading or set studentUser here.
+      await loginWithGoogle(exam.id);
     } catch (err) {
       console.error(err);
       setIsLoading(false);
