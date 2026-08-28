@@ -78,41 +78,40 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
 
         {/* Practice Config Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          
-          {/* 1. Topic Selector */}
-          <div className="space-y-2 bg-white/80 p-4 rounded-2xl border border-emerald-100/90 shadow-2xs">
+           {/* 1. Topic Selector */}
+          <div className="space-y-1.5 bg-emerald-50/10 p-3 rounded-2xl border-2 border-emerald-300 shadow-sm">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5 text-teal-600" /> ১. টপিক নির্বাচন করুন:
             </label>
             <select
               value={selectedTopic}
               onChange={(e) => setSelectedTopic(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+              className="w-full px-3 py-2 rounded-xl border border-slate-350 text-xs sm:text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold"
             >
               <option value="সকল টপিক (মিক্সড)">সকল টপিক (মিক্সড মডেল টেস্ট)</option>
               {availableTopics.map((top) => (
                 <option key={top.name} value={top.name}>
-                  {top.name} {top.count > 0 ? `(${toBengaliDigits(top.count)}টি প্রশ্ন)` : ""}
+                  {top.name} {top.count > 0 ? `(${toBengaliDigits(top.count)}টি)` : ""}
                 </option>
               ))}
             </select>
           </div>
 
           {/* 2. Question Count Selector */}
-          <div className="space-y-2 bg-white/80 p-4 rounded-2xl border border-emerald-100/90 shadow-2xs">
+          <div className="space-y-1.5 bg-emerald-50/10 p-3 rounded-2xl border-2 border-emerald-300 shadow-sm">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-teal-600" /> ২. প্রশ্নের সংখ্যা:
             </label>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-4 gap-1">
               {QUESTION_COUNTS.map((cnt) => (
                 <button
                   key={cnt}
                   type="button"
                   onClick={() => setSelectedCount(cnt)}
-                  className={`py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                  className={`py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border-2 ${
                     selectedCount === cnt
                       ? "bg-teal-600 border-teal-600 text-white shadow-xs"
-                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                      : "bg-white border-slate-350 text-slate-850 hover:bg-slate-50"
                   }`}
                 >
                   {toBengaliDigits(cnt)}টি
@@ -122,18 +121,18 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
           </div>
 
           {/* 3. Mode Selector */}
-          <div className="space-y-2 bg-white/80 p-4 rounded-2xl border border-emerald-100/90 shadow-2xs">
+          <div className="space-y-1.5 bg-emerald-50/10 p-3 rounded-2xl border-2 border-emerald-300 shadow-sm">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-teal-600" /> ৩. অনুশীলনের ধরন:
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
                 onClick={() => setPracticeMode("instant")}
-                className={`p-2 rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border text-center flex flex-col items-center justify-center gap-0.5 ${
+                className={`p-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer border-2 text-center flex flex-col items-center justify-center ${
                   practiceMode === "instant"
-                    ? "bg-teal-50 border-teal-500 text-teal-950 ring-1 ring-teal-400"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    ? "bg-teal-50 border-teal-500 text-teal-950 ring-1 ring-teal-400/30"
+                    : "bg-white border-slate-350 text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 <span>ইনস্ট্যান্ট মোড</span>
@@ -143,10 +142,10 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
               <button
                 type="button"
                 onClick={() => setPracticeMode("exam")}
-                className={`p-2 rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border text-center flex flex-col items-center justify-center gap-0.5 ${
+                className={`p-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer border-2 text-center flex flex-col items-center justify-center ${
                   practiceMode === "exam"
-                    ? "bg-teal-50 border-teal-500 text-teal-950 ring-1 ring-teal-400"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    ? "bg-teal-50 border-teal-500 text-teal-950 ring-1 ring-teal-400/30"
+                    : "bg-white border-slate-350 text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 <span>মক টেস্ট মোড</span>
