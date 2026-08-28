@@ -5,11 +5,11 @@ import { useParams } from "next/navigation";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { LeaderboardTable } from "@/components/leaderboard/LeaderboardTable";
-import { fetchLeaderboard, isAnswerTimeReached } from "@/actions/exam-actions";
+import { fetchLeaderboard } from "@/actions/exam-actions";
 import { fetchAppConfig } from "@/actions/admin-actions";
 import { LeaderboardItem } from "@/types/submission";
 import { Exam } from "@/types/exam";
-import { parseBangladeshDateTime } from "@/lib/bangladesh-time";
+import { parseBangladeshDateTime, isAnswerTimeReached } from "@/lib/bangladesh-time";
 
 export default function StandaloneLeaderboardPage() {
   const params = useParams();

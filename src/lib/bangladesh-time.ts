@@ -1,3 +1,5 @@
+import { Exam } from "@/types/exam";
+
 export interface TimeSyncState {
   synced: boolean;
   serverTimeOffset: number;
@@ -130,4 +132,24 @@ export async function syncBangladeshNetworkTime(): Promise<boolean> {
   }
 
   return false;
+}
+
+export function isAnswerTimeReached(exam: Exam): boolean {
+  return exam.isResultPublished === true;
+}
+
+export function isExamCurrentlyLive(exam: Exam): boolean {
+  if (!exam.startTime) return false;
+  const now = getTrueDate();
+  const startTime = parseBangladeshDateTime(exam.startTime);
+  if (!startTime || now < startTime) return false;
+
+  if (exam.endTime) {
+    const endTime = parseBangladeshDateTime(exam.endTime);
+    if (endTime && now > endTime) return false;
+  } else if (exam.leaderboardEndTime) {
+    const endTime = parseBangladeshDateTime(exam.leaderboardEndTime);
+    if (endTime && now > endTime) return false;
+  }
+  return true;
 }

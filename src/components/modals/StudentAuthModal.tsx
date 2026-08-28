@@ -16,7 +16,8 @@ import {
   LogIn
 } from "lucide-react";
 import { verifyStudentAccess } from "@/actions/student-actions";
-import { checkStudentAlreadySubmitted, isExamCurrentlyLive } from "@/actions/exam-actions";
+import { checkStudentAlreadySubmitted } from "@/actions/exam-actions";
+import { isExamCurrentlyLive } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
 import { getLocalStudentUser, loginWithGoogle, StudentUser } from "@/lib/student-auth";

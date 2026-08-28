@@ -25,7 +25,7 @@ import {
 import { getStudentSubmissions, updateStudentName } from "@/actions/student-actions";
 import { Submission } from "@/types/submission";
 import { toBengaliDigits } from "@/lib/utils";
-import { isAnswerTimeReached } from "@/actions/exam-actions";
+import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
 import {
   getStudentMistakes,

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Exam, SubjectItem } from "@/types/exam";
 import { createExam, updateExam, deleteExam, toggleExamResultPublish } from "@/actions/admin-actions";
-import { isAnswerTimeReached } from "@/actions/exam-actions";
+import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import {
   Plus,
   Trash2,

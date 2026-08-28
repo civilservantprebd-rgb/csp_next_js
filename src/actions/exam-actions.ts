@@ -1,3 +1,5 @@
+"use server";
+
 import { db } from "@/lib/firebase";
 import {
   doc,
@@ -11,7 +13,7 @@ import {
 } from "firebase/firestore";
 import { Exam, QuestionSolution } from "@/types/exam";
 import { Submission, LeaderboardItem } from "@/types/submission";
-import { parseBangladeshDateTime, getTrueDate } from "@/lib/bangladesh-time";
+import { parseBangladeshDateTime, getTrueDate, isAnswerTimeReached, isExamCurrentlyLive } from "@/lib/bangladesh-time";
 import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
@@ -29,25 +31,6 @@ export async function getExamSolutions(examKey: string): Promise<QuestionSolutio
   return null;
 }
 
-export function isAnswerTimeReached(exam: Exam): boolean {
-  return exam.isResultPublished === true;
-}
-
-export function isExamCurrentlyLive(exam: Exam): boolean {
-  if (!exam.startTime) return false;
-  const now = getTrueDate();
-  const startTime = parseBangladeshDateTime(exam.startTime);
-  if (!startTime || now < startTime) return false;
-
-  if (exam.endTime) {
-    const endTime = parseBangladeshDateTime(exam.endTime);
-    if (endTime && now > endTime) return false;
-  } else if (exam.leaderboardEndTime) {
-    const endTime = parseBangladeshDateTime(exam.leaderboardEndTime);
-    if (endTime && now > endTime) return false;
-  }
-  return true;
-}
 
 export async function checkStudentAlreadySubmitted(
   examKey: string,

@@ -1,3 +1,5 @@
+"use server";
+
 import { db } from "@/lib/firebase";
 import {
   doc,
@@ -19,7 +21,7 @@ let lastFetchTime = 0;
 let inflightFetch: Promise<AppConfigData> | null = null;
 const CACHE_TTL_MS = 20000; // 20 seconds cache for lightning-fast page navigation
 
-export function invalidateConfigCache() {
+function invalidateConfigCache() {
   cachedConfig = null;
   lastFetchTime = 0;
 }

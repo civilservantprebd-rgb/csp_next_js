@@ -1,3 +1,5 @@
+"use server";
+
 import { db } from "@/lib/firebase";
 import {
   doc,
@@ -11,7 +13,8 @@ import {
 import { AllowedStudent } from "@/types/student";
 import { Submission } from "@/types/submission";
 import { parseBengaliDigits } from "@/lib/utils";
-import { getExamSolutions, isAnswerTimeReached } from "@/actions/exam-actions";
+import { getExamSolutions } from "@/actions/exam-actions";
+import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 
 export async function verifyStudentAccess(
   rawStudentId: string,

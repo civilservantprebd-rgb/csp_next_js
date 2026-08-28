@@ -3,7 +3,7 @@
 import React from "react";
 import { Zap, Clock, BookOpen, CircleHelp, UserPlus } from "lucide-react";
 import { Exam } from "@/types/exam";
-import { isExamCurrentlyLive } from "@/actions/exam-actions";
+import { isExamCurrentlyLive } from "@/lib/bangladesh-time";
 import { toBengaliDigits } from "@/lib/utils";
  
 interface LiveExamGridProps {
