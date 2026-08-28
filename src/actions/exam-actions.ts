@@ -8,6 +8,21 @@ import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
   try {
+    // 1. Fetch from question_bank via exam_questions_link
+    const { data: links, error: linkError } = await supabase
+      .from("exam_questions_link")
+      .select("order_index, question_bank(correct, exp)")
+      .eq("exam_id", examKey)
+      .order("order_index", { ascending: true });
+
+    if (!linkError && links && links.length > 0) {
+      return links.map((l: any) => ({
+        correct: Number(l.question_bank?.correct ?? 0),
+        exp: l.question_bank?.exp || ""
+      }));
+    }
+
+    // 2. Fallback to exam_questions view if any
     const { data, error } = await supabase
       .from("exam_questions")
       .select("correct, exp")
@@ -98,8 +113,17 @@ export async function submitExamAnswers(payload: {
       }
       : undefined;
 
-    const { isExamCurrentlyLive, isAnswerTimeReached } = await import("@/lib/bangladesh-time");
-    const isLiveSubmission = exam ? isExamCurrentlyLive(exam) : false;
+    const { parseBangladeshDateTime, getTrueDate } = await import("@/lib/bangladesh-time");
+    const now = getTrueDate();
+
+    // Check if exam is configured as a scheduled live exam (has startTime and endTime)
+    const startTime = exam?.startTime ? parseBangladeshDateTime(exam.startTime) : null;
+    const endTime = exam?.endTime ? parseBangladeshDateTime(exam.endTime) : (exam?.leaderboardEndTime ? parseBangladeshDateTime(exam.leaderboardEndTime) : null);
+
+    // Is submitted within live scheduled window
+    const isLiveSubmission = (startTime && endTime) 
+      ? (now >= startTime && now <= endTime)
+      : false;
 
     if (isLiveSubmission) {
       const alreadySubmitted = await checkStudentAlreadySubmitted(payload.examKey, payload.studentId);
@@ -112,6 +136,8 @@ export async function submitExamAnswers(payload: {
       }
     }
 
+    const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+    // isLive: if currently in live window and results are not published yet
     const isLive = isLiveSubmission && exam ? !isAnswerTimeReached(exam) : false;
 
     const timeSpentSecs = payload.examTimerMinutes * 60 - payload.timeRemaining;
@@ -123,18 +149,17 @@ export async function submitExamAnswers(payload: {
     let incorrect = 0;
     let score = 0;
 
-    if (!isLive) {
-      const solutions = await getExamSolutions(payload.examKey);
-      if (solutions) {
-        payload.answers.forEach((ans, idx) => {
-          const sol = solutions[idx];
-          if (ans !== null && sol) {
-            if (ans === sol.correct) correct++;
-            else incorrect++;
-          }
-        });
-        score = Math.max(0, correct - incorrect * 0.5);
-      }
+    // Always fetch solutions and compute score (stored in DB or returned when published)
+    const solutions = await getExamSolutions(payload.examKey);
+    if (solutions) {
+      payload.answers.forEach((ans, idx) => {
+        const sol = solutions[idx];
+        if (ans !== null && sol) {
+          if (ans === sol.correct) correct++;
+          else incorrect++;
+        }
+      });
+      score = Math.max(0, correct - incorrect * 0.5);
     }
 
     const { data: newSub, error: insertError } = await supabase
@@ -206,11 +231,18 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       return [];
     }
 
-    const { data: subData, error: subError } = await supabase
+    const hasScheduledTime = !!(exam.startTime && (exam.endTime || exam.leaderboardEndTime));
+
+    let query = supabase
       .from("submissions")
       .select("*")
-      .eq("exam_key", examKey)
-      .eq("is_live_submission", true);
+      .eq("exam_key", examKey);
+
+    if (hasScheduledTime) {
+      query = query.eq("is_live_submission", true);
+    }
+
+    const { data: subData, error: subError } = await query;
 
     if (subError) throw subError;
 

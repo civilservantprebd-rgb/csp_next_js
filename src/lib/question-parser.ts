@@ -75,17 +75,26 @@ export function parseBulkQuestionsText(rawText: string, defaultTopic?: string): 
       const line = blockLines[j].trim();
       if (!line) continue;
 
-      // Check Answer line
-      const ansMatch = line.match(/^(উত্তর|উত্তরঃ|উত্তর\s*:|উ\s*:|ans|answer|correct\s*ans|ans\s*:|answer\s*:)[\s\-–—:]*([^\n\r]+)/i);
+      // Check Answer line (e.g. উত্তর: খ, উত্তরঃ খ, Ans: B, Answer: (গ), উ: ঘ, সঠিক উত্তর: গ)
+      const ansMatch = line.match(/^(সঠিক\s*উত্তর|উত্তর|উত্তরঃ|উ\s*[:ঃ\.\-]|ans|answer|correct\s*ans|ans\s*[:ঃ\.\-]|answer\s*[:ঃ\.\-])[\s\-–—:ঃ\.]*([^\n\r]+)/i);
       if (ansMatch) {
         ansFound = true;
-        const ansVal = ansMatch[2].trim().toLowerCase();
-        const normVal = parseBengaliDigits(ansVal);
+        const ansRaw = ansMatch[2].trim();
+        // Remove brackets or punctuation e.g. "(খ)" -> "খ", "[B]" -> "B", "খ." -> "খ"
+        const cleanAns = ansRaw.replace(/^[\(\[\{\s]+|[\)\]\}\s\.\-]+$/g, "").trim().toLowerCase();
+        const normVal = parseBengaliDigits(cleanAns);
 
-        if (ansVal.startsWith("ক") || ansVal.startsWith("a") || normVal === "1" || normVal === "0") correctIdx = 0;
-        else if (ansVal.startsWith("খ") || ansVal.startsWith("b") || normVal === "2") correctIdx = 1;
-        else if (ansVal.startsWith("গ") || ansVal.startsWith("c") || normVal === "3") correctIdx = 2;
-        else if (ansVal.startsWith("ঘ") || ansVal.startsWith("d") || normVal === "4") correctIdx = 3;
+        if (cleanAns.startsWith("ক") || cleanAns.startsWith("a") || normVal === "1" || normVal === "0") correctIdx = 0;
+        else if (cleanAns.startsWith("খ") || cleanAns.startsWith("b") || normVal === "2") correctIdx = 1;
+        else if (cleanAns.startsWith("গ") || cleanAns.startsWith("c") || normVal === "3") correctIdx = 2;
+        else if (cleanAns.startsWith("ঘ") || cleanAns.startsWith("d") || normVal === "4") correctIdx = 3;
+        else {
+          // If the answer is the full option text, check against opts
+          const matchedOptIdx = opts.findIndex((o) => o.toLowerCase().trim() === cleanAns);
+          if (matchedOptIdx !== -1) {
+            correctIdx = matchedOptIdx;
+          }
+        }
         continue;
       }
 
