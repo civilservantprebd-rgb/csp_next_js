@@ -14,13 +14,14 @@ import {
   Loader2
 } from "lucide-react";
 import { parseBulkQuestionsText } from "@/lib/question-parser";
-import { addBulkQuestionsToExam } from "@/actions/admin-actions";
+import { addBulkQuestionsToExam, addBulkQuestionsToBank } from "@/actions/admin-actions";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface BulkQuestionImporterModalProps {
   isOpen: boolean;
-  activeExamKey: string;
-  examTitle: string;
+  activeExamKey?: string;
+  examTitle?: string;
+  targetTopic?: string;
   topics?: string[];
   onClose: () => void;
   onSuccess: () => void;
@@ -54,12 +55,13 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
   isOpen,
   activeExamKey,
   examTitle,
+  targetTopic,
   topics = [],
   onClose,
   onSuccess,
 }) => {
   const [rawText, setRawText] = useState("");
-  const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState(targetTopic || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const parsedResult = useMemo(() => {
@@ -83,11 +85,20 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
     }
 
     setIsSubmitting(true);
-    const res = await addBulkQuestionsToExam(
-      activeExamKey,
-      parsedResult.questions,
-      parsedResult.solutions
-    );
+    let res;
+    if (activeExamKey) {
+      res = await addBulkQuestionsToExam(
+        activeExamKey,
+        parsedResult.questions,
+        parsedResult.solutions
+      );
+    } else {
+      res = await addBulkQuestionsToBank(
+        parsedResult.questions,
+        parsedResult.solutions,
+        selectedTopic
+      );
+    }
     setIsSubmitting(false);
 
     if (res.success) {
@@ -114,7 +125,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                 বাল্ক প্রশ্ন ইম্পোর্টার (Bulk Smart Paste)
               </h3>
               <p className="text-xs text-slate-500">
-                টার্গেট এক্সাম: <strong className="text-indigo-700">{examTitle}</strong>
+                টার্গেট: <strong className="text-indigo-700">{examTitle || "সেন্ট্রাল প্রশ্ন ব্যাংক ভাণ্ডার"}</strong>
               </p>
             </div>
           </div>
