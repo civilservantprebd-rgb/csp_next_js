@@ -246,6 +246,7 @@ export default function HomePage() {
         isOpen={isStudentDashOpen}
         studentId={activePortalStudentId}
         exams={examsObj}
+        config={config}
         routineUrl={config.driveRoutineUrl}
         syllabusUrl={config.driveSyllabusUrl}
         onClose={() => setIsStudentDashOpen(false)}

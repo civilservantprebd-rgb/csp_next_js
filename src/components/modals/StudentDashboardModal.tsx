@@ -40,9 +40,13 @@ import {
   StudentAnalyticsResult
 } from "@/lib/student-analytics";
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
+import { TopicReadingModal } from "@/components/modals/TopicReadingModal";
+import { TopicTreeViewer } from "@/components/dashboard/TopicTreeViewer";
+import { buildDeepTopicTree, getQuestionsForPath, TreeNode } from "@/lib/topic-hierarchy";
 import { PracticeQuestion, generatePracticeQuestions } from "@/lib/practice-helper";
 import { fetchAppConfig } from "@/actions/admin-actions";
 import { getLocalStudentUser, updateLocalStudentName, logoutStudentUser, StudentUser } from "@/lib/student-auth";
+import { AppConfigData } from "@/types/exam";
 import {
   BarChart3,
   TrendingUp,
@@ -55,6 +59,7 @@ interface StudentDashboardModalProps {
   isOpen: boolean;
   studentId: string;
   exams: Record<string, Exam>;
+  config?: AppConfigData;
   routineUrl?: string;
   syllabusUrl?: string;
   onClose: () => void;
@@ -65,17 +70,28 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   isOpen,
   studentId,
   exams,
+  config,
   routineUrl = "https://drive.google.com",
   syllabusUrl = "https://drive.google.com",
   onClose,
   onSelectSubmissionDetail,
 }) => {
-  const [activeTab, setActiveTab] = useState<"history" | "analytics" | "mistakes" | "bookmarks">("history");
+  const [activeTab, setActiveTab] = useState<"history" | "study" | "analytics" | "mistakes" | "bookmarks">("history");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [mistakes, setMistakes] = useState<MistakeQuestionItem[]>([]);
   const [bookmarks, setBookmarks] = useState<MistakeQuestionItem[]>([]);
   const [analytics, setAnalytics] = useState<StudentAnalyticsResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaidStudent, setIsPaidStudent] = useState(false);
+
+  // Reading & Quiz Modal States for Study Hub
+  const [isReadingOpen, setIsReadingOpen] = useState(false);
+  const [readingQuestions, setReadingQuestions] = useState<PracticeQuestion[]>([]);
+  const [readingTitle, setReadingTitle] = useState("");
+
+  const [isTopicQuizOpen, setIsTopicQuizOpen] = useState(false);
+  const [topicQuizQuestions, setTopicQuizQuestions] = useState<PracticeQuestion[]>([]);
+  const [topicQuizTitle, setTopicQuizTitle] = useState("");
 
   // Re-quiz modal state
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
@@ -101,6 +117,13 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
       if (localUser) {
         setNewName(localUser.name);
       }
+
+      // Check paid status
+      import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
+        verifyStudentAccess(studentId, "ALL").then((res) => {
+          setIsPaidStudent(res.allowed);
+        });
+      });
 
       getStudentSubmissions(studentId).then(async (data) => {
         setSubmissions(data);
@@ -315,11 +338,24 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab("study")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "study"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/80"
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>পড়াশোনা ও চ্যাপ্টার হাব {isPaidStudent && "⭐"}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab("analytics")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "analytics"
                 ? "bg-indigo-600 text-white shadow-xs"
-                : "bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/80"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -355,6 +391,69 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
         {/* Tab Body */}
         <div className="overflow-y-auto flex-grow pr-1 space-y-4">
+
+          {/* TAB: STUDY & CHAPTER HUB (PAID EXCLUSIVE) */}
+          {activeTab === "study" && (
+            <div className="space-y-4">
+              {!isPaidStudent ? (
+                <div className="p-8 rounded-3xl bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50 border-2 border-amber-300 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-3xl bg-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30">
+                    <Lock className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-amber-950">
+                      পড়াশোনা ও চ্যাপ্টার হাব (প্রিমিয়াম ফিচার)
+                    </h3>
+                    <p className="text-xs text-amber-800 max-w-md mx-auto mt-1 leading-relaxed">
+                      বিষয়ভিত্তিক সকল প্রশ্নভাণ্ডার, চ্যাপ্টার ও সাব-টপিক ধরে ধরে ফ্ল্যাশকার্ড পড়ার সুবিধা এবং কুইজ প্র্যাকটিস শুধুমাত্র আমাদের অনুমোদিত পেইড শিক্ষার্থীদের জন্য উন্মুক্ত।
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        window.location.href = "/#courses";
+                      }}
+                      className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md cursor-pointer transition"
+                    >
+                      কোর্সে এনরোল করুন
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-xs sm:text-sm text-indigo-950 flex items-center gap-1.5">
+                        <SparklesIcon className="w-4 h-4 text-amber-500" /> আনলিমিটেড বিষয় ও অধ্যায়ভিত্তিক প্রশ্নভাণ্ডার
+                      </h4>
+                      <p className="text-[11px] text-indigo-700">
+                        যে অংশে ট্যাপ করবেন তার ভেতরে যত সাবটপিক আছে তা বিস্তারিত দেখা যাবে।
+                      </p>
+                    </div>
+                  </div>
+
+                  <TopicTreeViewer
+                    tree={buildDeepTopicTree(config)}
+                    onOpenReading={async (fullPath, nodeName) => {
+                      const qs = await getQuestionsForPath(config, fullPath);
+                      setReadingQuestions(qs);
+                      setReadingTitle(fullPath);
+                      setIsReadingOpen(true);
+                    }}
+                    onStartQuiz={async (fullPath, nodeName) => {
+                      const qs = await getQuestionsForPath(config, fullPath);
+                      const shuffled = [...qs].sort(() => 0.5 - Math.random());
+                      setTopicQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
+                      setTopicQuizTitle(fullPath);
+                      setIsTopicQuizOpen(true);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           
           {/* TAB 1: EXAM HISTORY */}
           {activeTab === "history" && (
@@ -847,6 +946,34 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         subjectName={quizTitle}
         mode="instant"
         onRestart={() => setIsQuizModalOpen(true)}
+      />
+
+      {/* Study Hub Topic Reading Modal */}
+      <TopicReadingModal
+        isOpen={isReadingOpen}
+        onClose={() => setIsReadingOpen(false)}
+        questions={readingQuestions}
+        title={readingTitle}
+        onStartQuiz={() => {
+          const shuffled = [...readingQuestions].sort(() => 0.5 - Math.random());
+          setTopicQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
+          setTopicQuizTitle(readingTitle);
+          setIsReadingOpen(false);
+          setIsTopicQuizOpen(true);
+        }}
+      />
+
+      {/* Study Hub Topic Quiz Modal */}
+      <SelfPracticeModal
+        isOpen={isTopicQuizOpen}
+        onClose={() => setIsTopicQuizOpen(false)}
+        questions={topicQuizQuestions}
+        subjectName={topicQuizTitle}
+        mode="instant"
+        onRestart={() => {
+          const shuffled = [...topicQuizQuestions].sort(() => 0.5 - Math.random());
+          setTopicQuizQuestions(shuffled);
+        }}
       />
     </div>
   );
