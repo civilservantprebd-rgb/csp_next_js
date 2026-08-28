@@ -217,6 +217,67 @@ export async function addQuestionToExam(
   }
 }
 
+export async function addBulkQuestionsToExam(
+  examKey: string,
+  newQuestions: QuestionItem[],
+  newSolutions: QuestionSolution[]
+): Promise<{ success: boolean; count: number }> {
+  try {
+    if (!newQuestions.length) return { success: false, count: 0 };
+    const config = await fetchAppConfig();
+    const exam = config.exams?.[examKey];
+    if (!exam) return { success: false, count: 0 };
+
+    if (!exam.questions) exam.questions = [];
+    const currentSolutions = (await getExamSolutions(examKey)) || [];
+
+    if (!config.topicQuestions) config.topicQuestions = [];
+
+    newQuestions.forEach((qItem, idx) => {
+      exam.questions!.push({
+        q: qItem.q.trim(),
+        opts: qItem.opts.map((o) => o.trim()),
+        ...(qItem.topic ? { topic: qItem.topic.trim() } : {})
+      });
+
+      const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      currentSolutions.push(sol);
+
+      if (qItem.topic?.trim()) {
+        config.topicQuestions!.push({
+          id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
+          topic: qItem.topic.trim(),
+          q: qItem.q.trim(),
+          opts: qItem.opts.map((o) => o.trim()),
+          correct: Number(sol.correct),
+          exp: (sol.exp || "").trim(),
+          originalExamTitle: exam.title,
+          originalCourse: exam.course,
+          originalSubject: exam.subject,
+          examKey: examKey,
+          createdAt: new Date().toISOString()
+        });
+      }
+    });
+
+    await setDoc(doc(db, "exam_solutions", examKey), {
+      examKey,
+      solutions: currentSolutions,
+      updatedAt: new Date().toISOString()
+    });
+
+    await saveAppConfig({
+      exams: config.exams,
+      topicQuestions: config.topicQuestions
+    });
+
+    return { success: true, count: newQuestions.length };
+  } catch (err) {
+    console.error("Add bulk questions error:", err);
+    return { success: false, count: 0 };
+  }
+}
+
 export async function updateQuestionInExam(
   examKey: string,
   index: number,
