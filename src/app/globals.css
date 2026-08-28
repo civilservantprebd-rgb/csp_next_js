@@ -8,14 +8,26 @@
   }
 
   #printable-leaderboard,
-  #printable-leaderboard * {
+  #printable-leaderboard *,
+  #printable-marksheet,
+  #printable-marksheet * {
     visibility: visible;
   }
 
-  #printable-leaderboard {
+  #printable-leaderboard,
+  #printable-marksheet {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
+    width: 100% !important;
+    display: block !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Force background colors and borders in print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

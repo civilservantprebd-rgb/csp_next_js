@@ -70,9 +70,9 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-xs font-bengali">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-xs font-bengali print:static print:p-0 print:bg-white print:block print:inset-auto">
       {/* Container */}
-      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 print:m-0 print:p-0 print:border-none print:shadow-none print:max-w-none print:rounded-none">
+      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 print:m-0 print:p-0 print:border-none print:shadow-none print:max-w-none print:rounded-none print:max-h-none print:overflow-visible print:block">
         
         {/* Action Header - Hidden on Print */}
         <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3 shrink-0 print:hidden">
@@ -106,10 +106,11 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
         </div>
 
         {/* Scrollable Printable Sheet Area */}
-        <div className="overflow-y-auto flex-grow p-4 sm:p-8 bg-slate-100 print:bg-white print:p-0">
+        <div className="overflow-y-auto flex-grow p-4 sm:p-8 bg-slate-100 print:bg-white print:p-0 print:overflow-visible">
           <div
+            id="printable-marksheet"
             ref={printContentRef}
-            className="bg-white p-6 sm:p-10 rounded-2xl shadow-sm border border-slate-200 max-w-3xl mx-auto space-y-6 print:border-none print:shadow-none print:p-0 print:max-w-none text-slate-900"
+            className="bg-white p-6 sm:p-10 rounded-2xl shadow-sm border border-slate-200 max-w-3xl mx-auto space-y-6 print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none text-slate-900"
           >
             {/* Sheet Institutional Header */}
             <div className="border-b-2 border-slate-900 pb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
