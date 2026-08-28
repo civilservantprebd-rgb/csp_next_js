@@ -83,19 +83,19 @@ export async function submitExamAnswers(payload: {
 
     const exam: Exam | undefined = examData
       ? {
-          id: examData.id,
-          course: examData.course,
-          subject: examData.subject,
-          title: examData.title,
-          timerMinutes: examData.timer_minutes,
-          isFree: examData.is_free,
-          passMark: Number(examData.pass_mark),
-          startTime: examData.start_time,
-          endTime: examData.end_time,
-          isResultPublished: examData.is_result_published,
-          leaderboardStartTime: examData.leaderboard_start_time,
-          leaderboardEndTime: examData.leaderboard_end_time
-        }
+        id: examData.id,
+        course: examData.course,
+        subject: examData.subject,
+        title: examData.title,
+        timerMinutes: examData.timer_minutes,
+        isFree: examData.is_free,
+        passMark: Number(examData.pass_mark),
+        startTime: examData.start_time,
+        endTime: examData.end_time,
+        isResultPublished: examData.is_result_published,
+        leaderboardStartTime: examData.leaderboard_start_time,
+        leaderboardEndTime: examData.leaderboard_end_time
+      }
       : undefined;
 
     const { isExamCurrentlyLive, isAnswerTimeReached } = await import("@/lib/bangladesh-time");
@@ -187,19 +187,19 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
     const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
     const exam: Exam | undefined = examData
       ? {
-          id: examData.id,
-          course: examData.course,
-          subject: examData.subject,
-          title: examData.title,
-          timerMinutes: examData.timer_minutes,
-          isFree: examData.is_free,
-          passMark: Number(examData.pass_mark),
-          startTime: examData.start_time,
-          endTime: examData.end_time,
-          isResultPublished: examData.is_result_published,
-          leaderboardStartTime: examData.leaderboard_start_time,
-          leaderboardEndTime: examData.leaderboard_end_time
-        }
+        id: examData.id,
+        course: examData.course,
+        subject: examData.subject,
+        title: examData.title,
+        timerMinutes: examData.timer_minutes,
+        isFree: examData.is_free,
+        passMark: Number(examData.pass_mark),
+        startTime: examData.start_time,
+        endTime: examData.end_time,
+        isResultPublished: examData.is_result_published,
+        leaderboardStartTime: examData.leaderboard_start_time,
+        leaderboardEndTime: examData.leaderboard_end_time
+      }
       : undefined;
 
     if (!exam || !isAnswerTimeReached(exam)) {

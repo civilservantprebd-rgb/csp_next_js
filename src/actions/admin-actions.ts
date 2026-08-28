@@ -10,9 +10,42 @@ let lastFetchTime = 0;
 let inflightFetch: Promise<AppConfigData> | null = null;
 const CACHE_TTL_MS = 20000; // 20 seconds cache for lightning-fast page navigation
 
+const DEFAULT_DATA: AppConfigData = {
+  courses: ["সাধারণ কোর্স", "বিসিএস প্রিলি"],
+  subjects: [
+    { name: "বাংলা", course: "সাধারণ কোর্স" },
+    { name: "ইংরেজি", course: "সাধারণ কোর্স" },
+    { name: "গণিত", course: "সাধারণ কোর্স" },
+    { name: "সাধারণ জ্ঞান", course: "সাধারণ কোর্স" }
+  ],
+  topics: [
+    "প্রাচীন ও মধ্যযুগ",
+    "আধুনিক যুগ",
+    "বাংলা ব্যাকরণ",
+    "English Grammar",
+    "English Literature",
+    "পাটিগণিত",
+    "বীজগণিত",
+    "জ্যামিতি",
+    "বাংলাদেশ বিষয়াবলী",
+    "আন্তর্জাতিক বিষয়াবলী",
+    "সাধারণ বিজ্ঞান",
+    "কম্পিউটার ও তথ্যপ্রযুক্তি",
+    "ভূগোল ও পরিবেশ",
+    "নৈতিকতা ও সুশাসন"
+  ],
+  topicQuestions: [],
+  exams: {},
+  teacherPass: "1234",
+  driveRoutineUrl: "https://drive.google.com",
+  driveSyllabusUrl: "https://drive.google.com"
+};
+
 function invalidateConfigCache() {
   cachedConfig = null;
   lastFetchTime = 0;
+  cachedConfigLite = null;
+  lastFetchTimeLite = 0;
 }
 
 export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigData> {
@@ -25,37 +58,6 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
     return inflightFetch;
   }
 
-  const defaultData: AppConfigData = {
-    courses: ["সাধারণ কোর্স", "বিসিএস প্রিলি"],
-    subjects: [
-      { name: "বাংলা", course: "সাধারণ কোর্স" },
-      { name: "ইংরেজি", course: "সাধারণ কোর্স" },
-      { name: "গণিত", course: "সাধারণ কোর্স" },
-      { name: "সাধারণ জ্ঞান", course: "সাধারণ কোর্স" }
-    ],
-    topics: [
-      "প্রাচীন ও মধ্যযুগ",
-      "আধুনিক যুগ",
-      "বাংলা ব্যাকরণ",
-      "English Grammar",
-      "English Literature",
-      "পাটিগণিত",
-      "বীজগণিত",
-      "জ্যামিতি",
-      "বাংলাদেশ বিষয়াবলী",
-      "আন্তর্জাতিক বিষয়াবলী",
-      "সাধারণ বিজ্ঞান",
-      "কম্পিউটার ও তথ্যপ্রযুক্তি",
-      "ভূগোল ও পরিবেশ",
-      "নৈতিকতা ও সুশাসন"
-    ],
-    topicQuestions: [],
-    exams: {},
-    teacherPass: "1234",
-    driveRoutineUrl: "https://drive.google.com",
-    driveSyllabusUrl: "https://drive.google.com"
-  };
-
   const timeoutPromise = new Promise<null>((_, reject) =>
     setTimeout(() => reject(new Error("Firestore timeout")), 2500)
   );
@@ -66,7 +68,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
         supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
         supabase.from("subjects").select("name, course"),
         supabase.from("exams").select("*"),
-        supabase.from("exam_questions").select("*").order("created_at", { ascending: true }),
+        supabase.from("exam_questions_link").select("exam_id, order_index, question_bank(*)"),
         supabase.from("topic_questions").select("*").order("created_at", { ascending: true })
       ]);
 
@@ -76,14 +78,14 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
       ]);
 
       if (results) {
-        const [settingsRes, subjectsRes, examsRes, questionsRes, topicQuestionsRes] = results;
+        const [settingsRes, subjectsRes, examsRes, linksRes, topicQuestionsRes] = results;
 
         const settings = settingsRes?.data || {};
-        const courses = settings.courses || defaultData.courses;
-        const topics = settings.topics || defaultData.topics;
-        const teacherPass = settings.teacher_pass || defaultData.teacherPass;
-        const driveRoutineUrl = settings.drive_routine_url || defaultData.driveRoutineUrl;
-        const driveSyllabusUrl = settings.drive_syllabus_url || defaultData.driveSyllabusUrl;
+        const courses = settings.courses || DEFAULT_DATA.courses;
+        const topics = settings.topics || DEFAULT_DATA.topics;
+        const teacherPass = settings.teacher_pass || DEFAULT_DATA.teacherPass;
+        const driveRoutineUrl = settings.drive_routine_url || DEFAULT_DATA.driveRoutineUrl;
+        const driveSyllabusUrl = settings.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl;
 
         const subjects = (subjectsRes?.data || []).map((s) => ({
           name: s.name,
@@ -104,20 +106,32 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
           createdAt: tq.created_at
         }));
 
-        const questionsByExam: Record<string, QuestionItem[]> = {};
-        (questionsRes?.data || []).forEach((q) => {
-          if (!questionsByExam[q.exam_id]) {
-            questionsByExam[q.exam_id] = [];
+        const questionsByExam: Record<string, { order: number; question: QuestionItem }[]> = {};
+        (linksRes?.data || []).forEach((link: any) => {
+          const examId = link.exam_id;
+          const qData = link.question_bank;
+          if (!qData) return;
+
+          if (!questionsByExam[examId]) {
+            questionsByExam[examId] = [];
           }
-          questionsByExam[q.exam_id].push({
-            q: q.q,
-            opts: q.opts,
-            topic: q.topic || undefined
+          questionsByExam[examId].push({
+            order: Number(link.order_index ?? 0),
+            question: {
+              id: qData.id,
+              q: qData.q,
+              opts: qData.opts,
+              topic: qData.topic || undefined
+            }
           });
         });
 
         const exams: Record<string, Exam> = {};
         (examsRes?.data || []).forEach((ex) => {
+          const sortedQs = (questionsByExam[ex.id] || [])
+            .sort((a, b) => a.order - b.order)
+            .map((item) => item.question);
+
           exams[ex.id] = {
             id: ex.id,
             course: ex.course,
@@ -131,7 +145,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
             isResultPublished: ex.is_result_published,
             leaderboardStartTime: ex.leaderboard_start_time,
             leaderboardEndTime: ex.leaderboard_end_time,
-            questions: questionsByExam[ex.id] || []
+            questions: sortedQs
           };
         });
 
@@ -160,12 +174,112 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
       return cachedConfig;
     }
 
-    cachedConfig = defaultData;
+    cachedConfig = DEFAULT_DATA;
     lastFetchTime = Date.now();
-    return defaultData;
+    return DEFAULT_DATA;
   })();
 
   return inflightFetch;
+}
+
+// ─── Lite Config (fast initial load — no full question JOIN) ────────────────
+
+let cachedConfigLite: AppConfigData | null = null;
+let lastFetchTimeLite = 0;
+let inflightFetchLite: Promise<AppConfigData> | null = null;
+
+/**
+ * Fast version of fetchAppConfig for initial admin panel load.
+ * Skips the heavy exam_questions_link JOIN — only fetches exam_id for counts.
+ * Also skips topic_questions.
+ * The exam list renders instantly; full data loads in the background.
+ */
+export async function fetchAppConfigLite(): Promise<AppConfigData> {
+  const now = Date.now();
+  if (cachedConfigLite && now - lastFetchTimeLite < CACHE_TTL_MS) {
+    return cachedConfigLite;
+  }
+
+  if (inflightFetchLite) {
+    return inflightFetchLite;
+  }
+
+  inflightFetchLite = (async () => {
+    try {
+      // 4 lightweight queries — NO question_bank JOIN, NO topic_questions
+      const [settingsRes, subjectsRes, examsRes, linksRes] = await Promise.all([
+        supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
+        supabase.from("subjects").select("name, course"),
+        supabase.from("exams").select("*"),
+        supabase.from("exam_questions_link").select("exam_id"), // only exam_id for counting
+      ]);
+
+      const settings = settingsRes?.data || {};
+      const courses = settings.courses || DEFAULT_DATA.courses;
+      const topics = settings.topics || DEFAULT_DATA.topics;
+      const teacherPass = settings.teacher_pass || DEFAULT_DATA.teacherPass;
+      const driveRoutineUrl = settings.drive_routine_url || DEFAULT_DATA.driveRoutineUrl;
+      const driveSyllabusUrl = settings.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl;
+
+      const subjects = (subjectsRes?.data || []).map((s) => ({
+        name: s.name,
+        course: s.course
+      }));
+
+      // Count questions per exam without fetching question content
+      const countsByExam: Record<string, number> = {};
+      (linksRes?.data || []).forEach((link: any) => {
+        countsByExam[link.exam_id] = (countsByExam[link.exam_id] || 0) + 1;
+      });
+
+      const exams: Record<string, Exam> = {};
+      (examsRes?.data || []).forEach((ex) => {
+        const count = countsByExam[ex.id] || 0;
+        exams[ex.id] = {
+          id: ex.id,
+          course: ex.course,
+          subject: ex.subject,
+          title: ex.title,
+          timerMinutes: ex.timer_minutes,
+          isFree: ex.is_free,
+          passMark: Number(ex.pass_mark),
+          startTime: ex.start_time,
+          endTime: ex.end_time,
+          isResultPublished: ex.is_result_published,
+          leaderboardStartTime: ex.leaderboard_start_time,
+          leaderboardEndTime: ex.leaderboard_end_time,
+          // Stub array of correct length so ex.questions.length shows right count
+          questions: Array.from({ length: count }, () => ({ q: "", opts: [] }))
+        };
+      });
+
+      const data: AppConfigData = {
+        courses,
+        subjects,
+        topics,
+        topicQuestions: [],
+        exams,
+        teacherPass,
+        driveRoutineUrl,
+        driveSyllabusUrl
+      };
+
+      cachedConfigLite = data;
+      lastFetchTimeLite = Date.now();
+      return data;
+    } catch (err) {
+      console.warn("Lite fetch failed:", err);
+    } finally {
+      inflightFetchLite = null;
+    }
+
+    if (cachedConfigLite) return cachedConfigLite;
+    cachedConfigLite = DEFAULT_DATA;
+    lastFetchTimeLite = Date.now();
+    return DEFAULT_DATA;
+  })();
+
+  return inflightFetchLite;
 }
 
 export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boolean> {
@@ -243,11 +357,11 @@ export async function updateExam(examKey: string, examData: Partial<Exam>): Prom
     if (examData.timerMinutes !== undefined) updateData.timer_minutes = examData.timerMinutes;
     if (examData.isFree !== undefined) updateData.is_free = examData.isFree;
     if (examData.passMark !== undefined) updateData.pass_mark = examData.passMark;
-    if (examData.startTime !== undefined) updateData.start_time = examData.startTime;
-    if (examData.endTime !== undefined) updateData.end_time = examData.endTime;
+    if (examData.startTime !== undefined) updateData.start_time = examData.startTime || null;
+    if (examData.endTime !== undefined) updateData.end_time = examData.endTime || null;
     if (examData.isResultPublished !== undefined) updateData.is_result_published = examData.isResultPublished;
-    if (examData.leaderboardStartTime !== undefined) updateData.leaderboard_start_time = examData.leaderboardStartTime;
-    if (examData.leaderboardEndTime !== undefined) updateData.leaderboard_end_time = examData.leaderboardEndTime;
+    if (examData.leaderboardStartTime !== undefined) updateData.leaderboard_start_time = examData.leaderboardStartTime || null;
+    if (examData.leaderboardEndTime !== undefined) updateData.leaderboard_end_time = examData.leaderboardEndTime || null;
 
     const { error } = await supabase
       .from("exams")
@@ -291,32 +405,58 @@ export async function addQuestionToExam(
 
     if (examError) throw examError;
 
-    const { error } = await supabase.from("exam_questions").insert({
-      exam_id: examKey,
-      q: question.q.trim(),
-      opts: question.opts.map((o) => o.trim()),
-      topic: question.topic?.trim() || null,
-      correct: Number(solution.correct),
-      exp: solution.exp.trim()
-    });
-
-    if (error) throw error;
-
-    if (question.topic?.trim()) {
-      const { error: tqError } = await supabase.from("topic_questions").insert({
-        id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        topic: question.topic.trim(),
+    // 1. Insert question into question_bank
+    const targetTopic = question.topic?.trim() || "সাধারণ";
+    const { data: newQ, error: qError } = await supabase
+      .from("question_bank")
+      .insert({
         q: question.q.trim(),
         opts: question.opts.map((o) => o.trim()),
+        topic: targetTopic,
         correct: Number(solution.correct),
         exp: solution.exp.trim(),
-        original_exam_title: examData.title,
-        original_course: examData.course,
-        original_subject: examData.subject,
-        exam_key: examKey
+        course: examData.course,
+        subject: examData.subject
+      })
+      .select("id")
+      .single();
+
+    if (qError) throw qError;
+
+    // 2. Find next order index
+    const { data: currentLinks } = await supabase
+      .from("exam_questions_link")
+      .select("order_index")
+      .eq("exam_id", examKey);
+
+    const maxIndex = (currentLinks || []).reduce((max, link) => Math.max(max, Number(link.order_index)), -1);
+    const nextIndex = maxIndex + 1;
+
+    // 3. Link question to exam
+    const { error: linkError } = await supabase
+      .from("exam_questions_link")
+      .insert({
+        exam_id: examKey,
+        question_id: newQ.id,
+        order_index: nextIndex
       });
-      if (tqError) throw tqError;
-    }
+
+    if (linkError) throw linkError;
+
+    // 4. Also add to topic questions pool for Self Practice mode
+    const { error: tqError } = await supabase.from("topic_questions").insert({
+      id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      topic: targetTopic,
+      q: question.q.trim(),
+      opts: question.opts.map((o) => o.trim()),
+      correct: Number(solution.correct),
+      exp: solution.exp.trim(),
+      original_exam_title: examData.title,
+      original_course: examData.course,
+      original_subject: examData.subject,
+      exam_key: examKey
+    });
+    if (tqError) throw tqError;
 
     invalidateConfigCache();
     return true;
@@ -326,66 +466,59 @@ export async function addQuestionToExam(
   }
 }
 
-export async function addBulkQuestionsToExam(
-  examKey: string,
-  newQuestions: QuestionItem[],
-  newSolutions: QuestionSolution[]
-): Promise<{ success: boolean; count: number }> {
+export async function linkQuestionToExam(examKey: string, questionId: string): Promise<boolean> {
   try {
-    if (!newQuestions.length) return { success: false, count: 0 };
+    const { data: currentLinks, error: fetchError } = await supabase
+      .from("exam_questions_link")
+      .select("order_index")
+      .eq("exam_id", examKey);
 
-    const { data: examData, error: examError } = await supabase
-      .from("exams")
-      .select("title, course, subject")
-      .eq("id", examKey)
-      .single();
+    if (fetchError) throw fetchError;
 
-    if (examError) throw examError;
+    const maxIndex = (currentLinks || []).reduce((max, link) => Math.max(max, Number(link.order_index)), -1);
+    const nextIndex = maxIndex + 1;
 
-    const questionsInsert = newQuestions.map((qItem, idx) => {
-      const sol = newSolutions[idx] || { correct: 0, exp: "" };
-      return {
+    const { error: linkError } = await supabase
+      .from("exam_questions_link")
+      .insert({
         exam_id: examKey,
-        q: qItem.q.trim(),
-        opts: qItem.opts.map((o) => o.trim()),
-        topic: qItem.topic?.trim() || null,
-        correct: Number(sol.correct),
-        exp: (sol.exp || "").trim()
-      };
-    });
+        question_id: questionId,
+        order_index: nextIndex
+      });
 
-    const { error: insertError } = await supabase.from("exam_questions").insert(questionsInsert);
-    if (insertError) throw insertError;
-
-    const topicQuestionsInsert = newQuestions
-      .map((qItem, idx) => {
-        const sol = newSolutions[idx] || { correct: 0, exp: "" };
-        if (!qItem.topic?.trim()) return null;
-        return {
-          id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
-          topic: qItem.topic.trim(),
-          q: qItem.q.trim(),
-          opts: qItem.opts.map((o) => o.trim()),
-          correct: Number(sol.correct),
-          exp: (sol.exp || "").trim(),
-          original_exam_title: examData.title,
-          original_course: examData.course,
-          original_subject: examData.subject,
-          exam_key: examKey
-        };
-      })
-      .filter((v): v is NonNullable<typeof v> => v !== null);
-
-    if (topicQuestionsInsert.length > 0) {
-      const { error: tqError } = await supabase.from("topic_questions").insert(topicQuestionsInsert);
-      if (tqError) throw tqError;
-    }
+    if (linkError) throw linkError;
 
     invalidateConfigCache();
-    return { success: true, count: newQuestions.length };
+    return true;
   } catch (err) {
-    console.error("Add bulk questions error:", err);
-    return { success: false, count: 0 };
+    console.error("Link question error:", err);
+    return false;
+  }
+}
+
+export async function searchQuestionBank(
+  queryText: string,
+  topic?: string,
+  subject?: string
+): Promise<{ questions: any[]; total: number }> {
+  try {
+    let builder = supabase.from("question_bank").select("*", { count: "exact" });
+    if (queryText) {
+      builder = builder.ilike("q", `%${queryText}%`);
+    }
+    if (topic && topic !== "ALL") {
+      builder = builder.eq("topic", topic);
+    }
+    if (subject && subject !== "ALL") {
+      builder = builder.eq("subject", subject);
+    }
+
+    const { data, error, count } = await builder.limit(100);
+    if (error) throw error;
+    return { questions: data || [], total: count || 0 };
+  } catch (err) {
+    console.error("Search question bank error:", err);
+    return { questions: [], total: 0 };
   }
 }
 
@@ -404,63 +537,72 @@ export async function updateQuestionInExam(
 
     if (examError) throw examError;
 
-    const { data: qList, error: qListError } = await supabase
-      .from("exam_questions")
-      .select("id, q")
+    const { data: links, error: fetchError } = await supabase
+      .from("exam_questions_link")
+      .select("question_id")
       .eq("exam_id", examKey)
-      .order("created_at", { ascending: true });
+      .order("order_index", { ascending: true });
 
-    if (qListError) throw qListError;
+    if (fetchError) throw fetchError;
 
-    const oldQ = qList?.[index];
-    if (!oldQ) return false;
+    const targetLink = links?.[index];
+    if (!targetLink) return false;
+
+    // Fetch old question text to match in topic_questions in case question text changed
+    const { data: oldQData } = await supabase
+      .from("question_bank")
+      .select("q")
+      .eq("id", targetLink.question_id)
+      .single();
+
+    const oldQText = oldQData?.q || "";
+    const targetTopic = question.topic?.trim() || "সাধারণ";
 
     const { error: updateError } = await supabase
-      .from("exam_questions")
+      .from("question_bank")
       .update({
         q: question.q.trim(),
         opts: question.opts.map((o) => o.trim()),
-        topic: question.topic?.trim() || null,
+        topic: targetTopic,
         correct: Number(solution.correct),
         exp: solution.exp.trim()
       })
-      .eq("id", oldQ.id);
+      .eq("id", targetLink.question_id);
 
     if (updateError) throw updateError;
 
-    if (question.topic?.trim()) {
-      const { data: existingTq } = await supabase
-        .from("topic_questions")
-        .select("id")
-        .eq("exam_key", examKey)
-        .eq("q", oldQ.q)
-        .maybeSingle();
+    const lookupText = oldQText || question.q.trim();
+    const { data: existingTq } = await supabase
+      .from("topic_questions")
+      .select("id")
+      .eq("exam_key", examKey)
+      .eq("q", lookupText)
+      .maybeSingle();
 
-      if (existingTq) {
-        await supabase
-          .from("topic_questions")
-          .update({
-            topic: question.topic.trim(),
-            q: question.q.trim(),
-            opts: question.opts.map((o) => o.trim()),
-            correct: Number(solution.correct),
-            exp: solution.exp.trim()
-          })
-          .eq("id", existingTq.id);
-      } else {
-        await supabase.from("topic_questions").insert({
-          id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          topic: question.topic.trim(),
+    if (existingTq) {
+      await supabase
+        .from("topic_questions")
+        .update({
+          topic: targetTopic,
           q: question.q.trim(),
           opts: question.opts.map((o) => o.trim()),
           correct: Number(solution.correct),
-          exp: solution.exp.trim(),
-          original_exam_title: examData.title,
-          original_course: examData.course,
-          original_subject: examData.subject,
-          exam_key: examKey
-        });
-      }
+          exp: solution.exp.trim()
+        })
+        .eq("id", existingTq.id);
+    } else {
+      await supabase.from("topic_questions").insert({
+        id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        topic: targetTopic,
+        q: question.q.trim(),
+        opts: question.opts.map((o) => o.trim()),
+        correct: Number(solution.correct),
+        exp: solution.exp.trim(),
+        original_exam_title: examData.title,
+        original_course: examData.course,
+        original_subject: examData.subject,
+        exam_key: examKey
+      });
     }
 
     invalidateConfigCache();
@@ -473,23 +615,37 @@ export async function updateQuestionInExam(
 
 export async function deleteQuestionFromExam(examKey: string, index: number): Promise<boolean> {
   try {
-    const { data: qList, error: qListError } = await supabase
-      .from("exam_questions")
-      .select("id")
+    const { data: links, error: fetchError } = await supabase
+      .from("exam_questions_link")
+      .select("question_id, order_index")
       .eq("exam_id", examKey)
-      .order("created_at", { ascending: true });
+      .order("order_index", { ascending: true });
 
-    if (qListError) throw qListError;
+    if (fetchError) throw fetchError;
 
-    const target = qList?.[index];
-    if (!target) return false;
+    const targetLink = links?.[index];
+    if (!targetLink) return false;
 
-    const { error: deleteError } = await supabase
-      .from("exam_questions")
+    // 1. Delete the link
+    const { error: deleteLinkError } = await supabase
+      .from("exam_questions_link")
       .delete()
-      .eq("id", target.id);
+      .eq("exam_id", examKey)
+      .eq("question_id", targetLink.question_id);
 
-    if (deleteError) throw deleteError;
+    if (deleteLinkError) throw deleteLinkError;
+
+    // 2. Shift other questions
+    const remaining = links.filter((_, i) => i !== index);
+    const batchUpdates = remaining.map((link, newIdx) =>
+      supabase
+        .from("exam_questions_link")
+        .update({ order_index: newIdx })
+        .eq("exam_id", examKey)
+        .eq("question_id", link.question_id)
+    );
+
+    await Promise.all(batchUpdates);
 
     invalidateConfigCache();
     return true;
@@ -625,5 +781,225 @@ export async function getAllSubmissions(): Promise<Submission[]> {
   } catch (err) {
     console.error("Fetch all submissions error:", err);
     return [];
+  }
+}
+
+export async function addBulkQuestionsToExam(
+  examKey: string,
+  newQuestions: QuestionItem[],
+  newSolutions: QuestionSolution[]
+): Promise<{ success: boolean; count: number }> {
+  try {
+    if (!newQuestions.length) return { success: false, count: 0 };
+
+    const { data: examData, error: examError } = await supabase
+      .from("exams")
+      .select("title, course, subject")
+      .eq("id", examKey)
+      .single();
+
+    if (examError) throw examError;
+
+    const questionsInsert = newQuestions.map((qItem, idx) => {
+      const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      return {
+        q: qItem.q.trim(),
+        opts: qItem.opts.map((o) => o.trim()),
+        topic: qItem.topic?.trim() || "সাধারণ",
+        correct: Number(sol.correct),
+        exp: (sol.exp || "").trim(),
+        course: examData.course,
+        subject: examData.subject
+      };
+    });
+
+    const { data: createdQs, error: insertError } = await supabase
+      .from("question_bank")
+      .insert(questionsInsert)
+      .select("id");
+
+    if (insertError) throw insertError;
+
+    const { data: currentLinks } = await supabase
+      .from("exam_questions_link")
+      .select("order_index")
+      .eq("exam_id", examKey);
+
+    const maxIndex = (currentLinks || []).reduce((max, link) => Math.max(max, Number(link.order_index)), -1);
+    const nextIndex = maxIndex + 1;
+
+    const linksInsert = (createdQs || []).map((q, idx) => ({
+      exam_id: examKey,
+      question_id: q.id,
+      order_index: nextIndex + idx
+    }));
+
+    const { error: linkError } = await supabase.from("exam_questions_link").insert(linksInsert);
+    if (linkError) throw linkError;
+
+    const topicQuestionsInsert = newQuestions
+      .map((qItem, idx) => {
+        const sol = newSolutions[idx] || { correct: 0, exp: "" };
+        const targetTopic = qItem.topic?.trim() || "সাধারণ";
+        return {
+          id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
+          topic: targetTopic,
+          q: qItem.q.trim(),
+          opts: qItem.opts.map((o) => o.trim()),
+          correct: Number(sol.correct),
+          exp: (sol.exp || "").trim(),
+          original_exam_title: examData.title,
+          original_course: examData.course,
+          original_subject: examData.subject,
+          exam_key: examKey
+        };
+      });
+
+    if (topicQuestionsInsert.length > 0) {
+      const { error: tqError } = await supabase.from("topic_questions").insert(topicQuestionsInsert);
+      if (tqError) throw tqError;
+    }
+
+    invalidateConfigCache();
+    return { success: true, count: newQuestions.length };
+  } catch (err) {
+    console.error("Add bulk questions error:", err);
+    return { success: false, count: 0 };
+  }
+}
+
+export async function addBulkTopicQuestions(
+  topic: string,
+  newQuestions: QuestionItem[],
+  newSolutions: QuestionSolution[]
+): Promise<{ success: boolean; count: number }> {
+  try {
+    if (!newQuestions.length) return { success: false, count: 0 };
+
+    const resolvedTopic = (topic || "").trim() || "সাধারণ";
+
+    const topicQuestionsInsert = newQuestions.map((qItem, idx) => {
+      const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      return {
+        id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
+        topic: resolvedTopic,
+        q: qItem.q.trim(),
+        opts: qItem.opts.map((o) => o.trim()),
+        correct: Number(sol.correct),
+        exp: (sol.exp || "").trim(),
+        original_exam_title: "সরাসরি টপিকে যুক্ত",
+        original_course: "সাধারণ কোর্স",
+        original_subject: "সাধারণ জ্ঞান",
+        exam_key: null
+      };
+    });
+
+    const { error: tqError } = await supabase.from("topic_questions").insert(topicQuestionsInsert);
+    if (tqError) throw tqError;
+
+    const questionsInsert = newQuestions.map((qItem, idx) => {
+      const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      return {
+        q: qItem.q.trim(),
+        opts: qItem.opts.map((o) => o.trim()),
+        topic: resolvedTopic,
+        correct: Number(sol.correct),
+        exp: (sol.exp || "").trim(),
+        course: "সাধারণ কোর্স",
+        subject: "সাধারণ জ্ঞান"
+      };
+    });
+    
+    await supabase.from("question_bank").insert(questionsInsert);
+
+    invalidateConfigCache();
+    return { success: true, count: newQuestions.length };
+  } catch (err) {
+    console.error("Add bulk topic questions error:", err);
+    return { success: false, count: 0 };
+  }
+}
+
+export async function addQuestionToBank(
+  question: Omit<QuestionItem, "id">,
+  solution: QuestionSolution
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.from("question_bank").insert({
+      q: question.q.trim(),
+      opts: question.opts.map((o) => o.trim()),
+      topic: question.topic?.trim() || null,
+      correct: Number(solution.correct),
+      exp: solution.exp.trim()
+    });
+    if (error) throw error;
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Add question to bank error:", err);
+    return false;
+  }
+}
+
+export async function updateQuestionInBank(
+  id: string,
+  question: QuestionItem,
+  solution: QuestionSolution
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.from("question_bank").update({
+      q: question.q.trim(),
+      opts: question.opts.map((o) => o.trim()),
+      topic: question.topic?.trim() || null,
+      correct: Number(solution.correct),
+      exp: solution.exp.trim()
+    }).eq("id", id);
+    if (error) throw error;
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Update question in bank error:", err);
+    return false;
+  }
+}
+
+export async function deleteQuestionFromBank(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from("question_bank").delete().eq("id", id);
+    if (error) throw error;
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Delete question from bank error:", err);
+    return false;
+  }
+}
+
+export async function addBulkQuestionsToBank(
+  newQuestions: QuestionItem[],
+  newSolutions: QuestionSolution[],
+  fallbackTopic?: string
+): Promise<{ success: boolean; count: number }> {
+  try {
+    if (!newQuestions.length) return { success: false, count: 0 };
+    const questionsInsert = newQuestions.map((qItem, idx) => {
+      const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      return {
+        q: qItem.q.trim(),
+        opts: qItem.opts.map((o) => o.trim()),
+        topic: (qItem.topic || fallbackTopic || "").trim() || null,
+        correct: Number(sol.correct),
+        exp: (sol.exp || "").trim(),
+        course: "সাধারণ কোর্স",
+        subject: "সাধারণ জ্ঞান"
+      };
+    });
+    const { error } = await supabase.from("question_bank").insert(questionsInsert);
+    if (error) throw error;
+    invalidateConfigCache();
+    return { success: true, count: newQuestions.length };
+  } catch (err) {
+    console.error("Add bulk questions to bank error:", err);
+    return { success: false, count: 0 };
   }
 }

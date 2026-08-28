@@ -68,17 +68,17 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   };
 
   return (
-    <section className="space-y-6 font-bengali">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <section className="font-bengali rounded-3xl bg-gradient-to-br from-indigo-50/40 via-white to-violet-50/50 border-2 border-indigo-400 shadow-md shadow-indigo-100/60 ring-1 ring-indigo-300/20 p-5 sm:p-7 transition-all duration-300 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-indigo-100">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold">
-            <Layers className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100/90 text-indigo-950 border border-indigo-200 text-xs font-bold shadow-2xs">
+            <Layers className="w-3.5 h-3.5 text-indigo-700" />
             <span>উপলব্ধ সকল কোর্সসমূহ</span>
           </div>
-          <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+          <h3 className="text-xl sm:text-2xl font-black text-indigo-950">
             কোর্স অনুযায়ী বিষয়ভিত্তিক পরীক্ষা
           </h3>
-          <p className="text-xs sm:text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-800 font-medium">
             নিচের যেকোনো কোর্সের সাবজেক্ট নির্বাচন করে সরাসরি মডেল টেস্টে অংশ নিন
           </p>
         </div>

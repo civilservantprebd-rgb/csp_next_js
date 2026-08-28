@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { GraduationCap, Contact, Trophy } from "lucide-react";
 
 interface HeaderProps {
@@ -10,10 +11,16 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeaderboard }) => {
+  const router = useRouter();
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [isTeacher, setIsTeacher] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsTeacher(!!sessionStorage.getItem("teacher_user"));
+    }
+
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       if (currentScrollY > lastScrollY && currentScrollY > 50) {
@@ -28,12 +35,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
+  const handleStudentPortalClick = (e: React.MouseEvent) => {
+    if (isTeacher) {
+      e.preventDefault();
+      alert("⚠️ আপনি শিক্ষক প্যানেলে লগইন করে আছেন। স্টুডেন্ট পোর্টাল ব্যবহার করতে চাইলে প্রথমে শিক্ষক প্যানেল থেকে লগআউট করুন।");
+    }
+  };
+
   return (
     <header className={`bg-indigo-900/95 backdrop-blur-md text-white shadow-lg sticky top-0 z-40 border-b border-indigo-800/50 transition-transform duration-300 ${
       isVisible ? "translate-y-0" : "-translate-y-full"
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
-        <Link href="/" className="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start cursor-pointer group">
+        <Link
+          href="/"
+          onClick={(e) => {
+            if (isTeacher) {
+              e.preventDefault();
+              router.push("/admin");
+            }
+          }}
+          className="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start cursor-pointer group"
+        >
           <div className="flex items-center space-x-3">
             <div className="bg-gradient-to-tr from-amber-400 to-indigo-500 text-slate-900 p-2.5 rounded-2xl font-bold text-xl shadow-md group-hover:scale-105 transition-transform duration-200">
               <GraduationCap className="w-6 h-6 text-slate-900" />
@@ -52,7 +75,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap items-center justify-center sm:gap-3 w-full sm:w-auto font-bengali">
           {onOpenStudentPortal ? (
             <button
-              onClick={onOpenStudentPortal}
+              onClick={(e) => {
+                handleStudentPortalClick(e);
+                if (!isTeacher) onOpenStudentPortal();
+              }}
               className="bg-white/10 hover:bg-white/20 border border-indigo-400/30 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm backdrop-blur-sm"
             >
               <Contact className="w-4 h-4 text-indigo-300" /> স্টুডেন্ট পোর্টাল
@@ -60,6 +86,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
           ) : (
             <Link
               href="/portal"
+              onClick={handleStudentPortalClick}
               className="bg-white/10 hover:bg-white/20 border border-indigo-400/30 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm backdrop-blur-sm"
             >
               <Contact className="w-4 h-4 text-indigo-300" /> স্টুডেন্ট পোর্টাল

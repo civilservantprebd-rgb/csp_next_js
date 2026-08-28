@@ -9,7 +9,7 @@ import {
   saveAppConfig
 } from "@/actions/admin-actions";
 import { getExamSolutions } from "@/actions/exam-actions";
-import { Plus, Trash2, Edit2, CheckCircle2, Layers, Tag, Upload, FileText } from "lucide-react";
+import { Plus, Trash2, Edit2, CheckCircle2, Layers, Tag, BookOpen, Upload, FileText } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
 
@@ -180,6 +180,8 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
         </div>
       </div>
 
+
+
       <BulkQuestionImporterModal
         isOpen={isBulkModalOpen}
         activeExamKey={activeExamKey}
@@ -333,7 +335,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
                 onChange={(e) => setSelectedTopic(e.target.value)}
                 className="w-full sm:w-80 px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-slate-50 cursor-pointer"
               >
-                <option value="">-- কোনো টপিক নেই (ঐচ্ছিক) --</option>
+                <option value="">সাধারণ (ডিফল্ট টপিক)</option>
                 {topics.map((t, idx) => (
                   <option key={idx} value={t}>
                     {t}
@@ -347,7 +349,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
                   বর্তমান সিলেক্টেড টপিক: <strong>{selectedTopic}</strong>
                 </span>
               ) : (
-                <span className="text-xs text-slate-400">টপিক সিলেক্ট করা হয়নি</span>
+                <span className="text-xs text-slate-400">টপিক সিলেক্ট করা হয়নি (ডিফল্ট: সাধারণ)</span>
               )}
             </div>
           )}

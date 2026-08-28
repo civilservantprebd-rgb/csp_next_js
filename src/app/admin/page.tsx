@@ -7,9 +7,11 @@ import { Footer } from "@/components/shared/Footer";
 import { AdminNav, AdminTabType } from "@/components/admin/AdminNav";
 import { ExamManager } from "@/components/admin/ExamManager";
 import { QuestionBuilder } from "@/components/admin/QuestionBuilder";
+import { BulkQuestionImporterModal } from "@/components/admin/BulkQuestionImporterModal";
 import { StudentApproval } from "@/components/admin/StudentApproval";
 import { SubmissionsTable } from "@/components/admin/SubmissionsTable";
-import { fetchAppConfig, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
+import { fetchAppConfig, fetchAppConfigLite, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
+import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
 import {
   LogOut,
@@ -35,6 +37,7 @@ import { toBengaliDigits } from "@/lib/utils";
 export default function AdminPage() {
   const router = useRouter();
   const [config, setConfig] = useState<AppConfigData | null>(null);
+  const [isFullDataLoaded, setIsFullDataLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTabType>("exams");
   const [selectedExamKey, setSelectedExamKey] = useState("");
   const [teacherUser, setTeacherUser] = useState<{ email: string } | null>(null);
@@ -61,8 +64,22 @@ export default function AdminPage() {
   const [editTopicName, setEditTopicName] = useState("");
   const [topicSearch, setTopicSearch] = useState("");
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
+  const [bulkTopicName, setBulkTopicName] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const applyConfigToState = (data: AppConfigData) => {
+    setConfig(data);
+    setDriveRoutine(data.driveRoutineUrl || "");
+    setDriveSyllabus(data.driveSyllabusUrl || "");
+    if (data.courses?.length) {
+      setNewSubjectCourse(data.courses[0]);
+    }
+    const keys = Object.keys(data.exams || {});
+    if (keys.length > 0) {
+      setSelectedExamKey((prevKey) => (prevKey && data.exams?.[prevKey] ? prevKey : keys[0]));
+    }
+  };
+
+  const loadData = async (initialLoad = false) => {
     const rawUser = sessionStorage.getItem("teacher_user");
     if (!rawUser) {
       router.push("/");
@@ -71,22 +88,22 @@ export default function AdminPage() {
     const parsedUser = JSON.parse(rawUser);
     setTeacherUser(parsedUser);
 
-    const data = await fetchAppConfig();
-    setConfig(data);
-    setDriveRoutine(data.driveRoutineUrl || "");
-    setDriveSyllabus(data.driveSyllabusUrl || "");
-    if (data.courses?.length) {
-      setNewSubjectCourse(data.courses[0]);
+    if (initialLoad) {
+      // Phase 1: Lite load — shows exam list instantly (no heavy JOIN)
+      const liteData = await fetchAppConfigLite();
+      applyConfigToState(liteData);
+      setIsFullDataLoaded(false);
     }
 
-    const keys = Object.keys(data.exams || {});
-    if (keys.length > 0) {
-      setSelectedExamKey((prevKey) => (prevKey && data.exams?.[prevKey] ? prevKey : keys[0]));
-    }
+    // Phase 2 (or only phase for refresh): Full data with all questions
+    const data = await fetchAppConfig(true);
+    applyConfigToState(data);
+    setIsFullDataLoaded(true);
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   if (!config || !teacherUser) {
@@ -97,9 +114,16 @@ export default function AdminPage() {
     );
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (confirm("আপনি কি নিশ্চিতভাবে শিক্ষক প্যানেল থেকে লগআউট করতে চান?")) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error("Error signing out from Supabase:", err);
+      }
       sessionStorage.removeItem("teacher_user");
+      sessionStorage.removeItem("current_student");
+      localStorage.removeItem("bcs_student_user");
       router.push("/");
     }
   };
@@ -931,14 +955,20 @@ export default function AdminPage() {
             {activeTab === "students" && <StudentApproval courses={config.courses || []} />}
 
             {activeTab === "questions" && config.exams?.[selectedExamKey] && (
-              <QuestionBuilder
-                activeExamKey={selectedExamKey}
-                exam={config.exams[selectedExamKey]}
-                allExams={config.exams || {}}
-                onSelectExamKey={(k) => setSelectedExamKey(k)}
-                topics={config.topics || []}
-                onRefresh={loadData}
-              />
+              isFullDataLoaded ? (
+                <QuestionBuilder
+                  activeExamKey={selectedExamKey}
+                  exam={config.exams[selectedExamKey]}
+                  allExams={config.exams || {}}
+                  onSelectExamKey={(k) => setSelectedExamKey(k)}
+                  topics={config.topics || []}
+                  onRefresh={loadData}
+                />
+              ) : (
+                <div className="flex items-center justify-center p-10 text-slate-500 gap-2 font-bengali">
+                  <Loader2 className="w-5 h-5 animate-spin" /> প্রশ্ন লোড হচ্ছে...
+                </div>
+              )
             )}
 
             {activeTab === "submissions" && <SubmissionsTable />}
@@ -987,6 +1017,16 @@ export default function AdminPage() {
           </div>
         </div>
       </main>
+
+      {bulkTopicName && (
+        <BulkQuestionImporterModal
+          isOpen={true}
+          targetTopic={bulkTopicName}
+          topics={config?.topics || []}
+          onClose={() => setBulkTopicName(null)}
+          onSuccess={loadData}
+        />
+      )}
 
       <Footer />
     </>

@@ -180,7 +180,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                 onChange={(e) => setSelectedTopic(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800"
               >
-                <option value="">-- কোনো টপিক নেই --</option>
+                <option value="">সাধারণ (ডিফল্ট টপিক)</option>
                 {topics.map((t) => (
                   <option key={t} value={t}>
                     {t}

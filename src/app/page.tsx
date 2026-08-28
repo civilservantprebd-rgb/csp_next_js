@@ -49,6 +49,13 @@ export default function HomePage() {
   };
 
   useEffect(() => {
+    // Redirect teacher to admin panel if logged in
+    const isTeacherLoggedIn = sessionStorage.getItem("teacher_user");
+    if (isTeacherLoggedIn) {
+      router.replace("/admin");
+      return;
+    }
+
     loadData();
     const interval = setInterval(syncBangladeshNetworkTime, 60000);
 
@@ -58,7 +65,7 @@ export default function HomePage() {
     }
 
     return () => clearInterval(interval);
-  }, []);
+  }, [router]);
 
   if (!config) {
     return (

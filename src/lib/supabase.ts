@@ -17,10 +17,19 @@ export const supabase = createClient(
 
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange((event, session) => {
+    // If teacher is logged in, do NOT treat the auth session as a student session
+    const isTeacherLoggedIn = sessionStorage.getItem("teacher_user");
+    if (isTeacherLoggedIn) {
+      return;
+    }
+
     if (session?.user) {
+      // Ensure we have a valid metadata name or it's not a teacher-like account
+      const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name || "নামহীন শিক্ষার্থী";
+      
       const studentUser = {
         uid: session.user.id,
-        name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "নামহীন শিক্ষার্থী",
+        name: name,
         email: session.user.email || "",
         photoURL: session.user.user_metadata?.avatar_url || ""
       };

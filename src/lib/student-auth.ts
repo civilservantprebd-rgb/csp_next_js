@@ -63,6 +63,7 @@ export async function logoutStudentUser(): Promise<void> {
   try {
     await supabase.auth.signOut();
     localStorage.removeItem("bcs_student_user");
+    sessionStorage.removeItem("current_student");
     window.dispatchEvent(new Event("storage"));
   } catch (err) {
     console.error("Logout error:", err);

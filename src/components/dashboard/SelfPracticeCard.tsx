@@ -51,28 +51,28 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
 
   return (
     <div className="font-bengali">
-      {/* Container Box with Soft Emerald / Teal Pastel Glow */}
-      <div className="relative rounded-3xl p-5 sm:p-7 md:p-8 bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 border border-emerald-200/90 shadow-sm transition-all duration-300">
+      {/* Container Box with Soft Emerald / Teal Glow */}
+      <div className="relative rounded-3xl p-5 sm:p-7 md:p-8 bg-gradient-to-br from-emerald-100/40 via-white to-teal-50/50 border-2 border-emerald-500 shadow-md shadow-emerald-100/60 ring-1 ring-emerald-300/20 transition-all duration-300">
         
         {/* Top Header Badge & Title */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-100 pb-5 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-200 pb-5 mb-6">
           <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-teal-500 text-white flex items-center justify-center shadow-md shadow-teal-500/20 shrink-0">
-              <Target className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+              <Target className="w-6 h-6 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-teal-100 text-teal-800 px-2.5 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-200 text-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-300">
                   সেলফ প্র্যাকটিস মোড
                 </span>
-                <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" /> আনলিমিটেড ফ্রি অনুশীলন
+                <span className="text-[10px] font-medium text-slate-700 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500 animate-bounce" /> আনলিমিটেড ফ্রি অনুশীলন
                 </span>
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 mt-1 tracking-tight">
+              <h2 className="text-lg sm:text-xl font-black text-emerald-950 mt-1 tracking-tight">
                 বিষয়ভিত্তিক সেলফ-প্র্যাকটিস ও কুইজ
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-800 mt-0.5 font-medium">
                 টপিক নির্বাচন করে যেকোনো সময় প্র্যাকটিস ও কুইজ দিয়ে নিজের প্রস্তুতি ঝালাই করুন।
               </p>
             </div>
