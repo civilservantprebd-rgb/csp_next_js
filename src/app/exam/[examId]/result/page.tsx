@@ -50,7 +50,10 @@ export default function ExamResultPage() {
     });
   }, [examId]);
 
-  const isPublished = exam ? isAnswerTimeReached(exam) : !resultData?.isLive;
+  // যদি পরীক্ষা লাইভ না হয় অথবা লাইভ হলেও রেজাল্ট পাবলিশ করা হয়ে থাকে, তবে স্কোর ও সঠিক/ভুল দেখাবে
+  const isPublished = exam 
+    ? (isAnswerTimeReached(exam) || !resultData?.isLive)
+    : !resultData?.isLive;
 
   const handleToggleReview = async () => {
     if (!exam) return;
