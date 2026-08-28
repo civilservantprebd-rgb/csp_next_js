@@ -62,7 +62,8 @@ export function parseTopicHierarchy(rawTopic?: string, fallbackSubject?: string)
 /**
  * Builds a fast hierarchical subject->topic->subtopic tree from app config questions
  */
-export function buildTopicHierarchyTree(config: AppConfigData): HierarchicalSubject[] {
+export function buildTopicHierarchyTree(config?: AppConfigData | null): HierarchicalSubject[] {
+  if (!config) return [];
   const treeMap = new Map<string, Map<string, Map<string, number>>>();
 
   // Helper to increment counts
@@ -141,26 +142,28 @@ export function buildTopicHierarchyTree(config: AppConfigData): HierarchicalSubj
  * Fetch all questions for reading or quiz matching a specific Subject / Topic / Subtopic
  */
 export async function getQuestionsForHierarchyNode(
-  config: AppConfigData,
-  filter: {
+  config?: AppConfigData | null,
+  filter?: {
     subject?: string;
     topic?: string;
     subtopic?: string;
   }
 ): Promise<PracticeQuestion[]> {
+  if (!config) return [];
   const pool: PracticeQuestion[] = [];
+  const activeFilter = filter || {};
 
   const checkMatch = (rawTopic?: string, fallbackSubject?: string) => {
     const node = parseTopicHierarchy(rawTopic, fallbackSubject);
 
-    if (filter.subject && filter.subject !== "ALL" && node.subject !== filter.subject && !node.subject.includes(filter.subject)) {
+    if (activeFilter.subject && activeFilter.subject !== "ALL" && node.subject !== activeFilter.subject && !node.subject.includes(activeFilter.subject)) {
       return false;
     }
-    if (filter.topic && filter.topic !== "ALL" && node.topic !== filter.topic && !node.topic.includes(filter.topic)) {
+    if (activeFilter.topic && activeFilter.topic !== "ALL" && node.topic !== activeFilter.topic && !node.topic.includes(activeFilter.topic)) {
       return false;
     }
-    if (filter.subtopic && filter.subtopic !== "ALL" && filter.subtopic !== "মূল অধ্যায়") {
-      if (node.subtopic !== filter.subtopic && !node.subtopic.includes(filter.subtopic)) {
+    if (activeFilter.subtopic && activeFilter.subtopic !== "ALL" && activeFilter.subtopic !== "মূল অধ্যায়") {
+      if (node.subtopic !== activeFilter.subtopic && !node.subtopic.includes(activeFilter.subtopic)) {
         return false;
       }
     }

@@ -120,7 +120,7 @@ export default function HomePage() {
 
   // Check if returning from Google Auth with a target exam intent
   useEffect(() => {
-    if (config) {
+    if (config && typeof window !== "undefined") {
       const intentExamId = sessionStorage.getItem("target_exam_intent");
       if (intentExamId && examsObj[intentExamId]) {
         sessionStorage.removeItem("target_exam_intent");
