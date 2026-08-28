@@ -4,7 +4,9 @@ import {
   getDoc,
   getDocs,
   collection,
-  setDoc
+  setDoc,
+  query,
+  where
 } from "firebase/firestore";
 import { AllowedStudent } from "@/types/student";
 import { Submission } from "@/types/submission";
@@ -105,17 +107,19 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
   const cleanId = String(studentId).trim();
 
   try {
-    const snap = await getDocs(collection(db, "submissions"));
+    const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
+    if (ids.length === 0) return [];
+
+    const q = query(
+      collection(db, "submissions"),
+      where("studentId", "in", ids)
+    );
+    const snap = await getDocs(q);
     const subs: Submission[] = [];
 
     snap.forEach((d) => {
       const data = d.data() as Submission;
-      const subSid = String(data.studentId || "").trim();
-      const subNorm = parseBengaliDigits(subSid).trim();
-
-      if (subSid === cleanId || (normId && subNorm === normId)) {
-        subs.push({ ...data, id: d.id });
-      }
+      subs.push({ ...data, id: d.id });
     });
 
     for (const s of subs) {

@@ -7,7 +7,9 @@ import {
   collection,
   getDocs,
   updateDoc,
-  deleteField
+  deleteField,
+  query,
+  where
 } from "firebase/firestore";
 import { AppConfigData, Exam, QuestionItem, QuestionSolution, TopicQuestion } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
@@ -389,42 +391,41 @@ export async function toggleExamResultPublish(examKey: string, publish: boolean)
     await saveAppConfig({ exams: config.exams });
 
     // When releasing result: evaluate all student submissions for this exam against official solutions
-    const snap = await getDocs(collection(db, "submissions"));
+    const q = query(collection(db, "submissions"), where("examKey", "==", examKey));
+    const snap = await getDocs(q);
     const solutions = publish ? await getExamSolutions(examKey) : null;
     const batchUpdates: Promise<void>[] = [];
 
     snap.forEach((docSnap) => {
       const sub = docSnap.data() as any;
-      if (sub.examKey === examKey) {
-        const subRef = doc(db, "submissions", docSnap.id);
-        if (publish && solutions && Array.isArray(sub.answers)) {
-          let correct = 0;
-          let incorrect = 0;
-          sub.answers.forEach((ans: number | null, idx: number) => {
-            const sol = solutions[idx];
-            if (ans !== null && sol) {
-              if (ans === sol.correct) correct++;
-              else incorrect++;
-            }
-          });
-          const score = Math.max(0, correct - incorrect * 0.5);
-          batchUpdates.push(
-            updateDoc(subRef, {
-              score,
-              correct,
-              incorrect,
-              isPendingEvaluation: false,
-              evaluatedAt: new Date().toISOString()
-            })
-          );
-        } else if (!publish) {
-          // Resetting results: mark as pending evaluation
-          batchUpdates.push(
-            updateDoc(subRef, {
-              isPendingEvaluation: true
-            })
-          );
-        }
+      const subRef = doc(db, "submissions", docSnap.id);
+      if (publish && solutions && Array.isArray(sub.answers)) {
+        let correct = 0;
+        let incorrect = 0;
+        sub.answers.forEach((ans: number | null, idx: number) => {
+          const sol = solutions[idx];
+          if (ans !== null && sol) {
+            if (ans === sol.correct) correct++;
+            else incorrect++;
+          }
+        });
+        const score = Math.max(0, correct - incorrect * 0.5);
+        batchUpdates.push(
+          updateDoc(subRef, {
+            score,
+            correct,
+            incorrect,
+            isPendingEvaluation: false,
+            evaluatedAt: new Date().toISOString()
+          })
+        );
+      } else if (!publish) {
+        // Resetting results: mark as pending evaluation
+        batchUpdates.push(
+          updateDoc(subRef, {
+            isPendingEvaluation: true
+          })
+        );
       }
     });
 

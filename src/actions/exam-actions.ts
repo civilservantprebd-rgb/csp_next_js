@@ -5,7 +5,9 @@ import {
   getDocs,
   collection,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  query,
+  where
 } from "firebase/firestore";
 import { Exam, QuestionSolution } from "@/types/exam";
 import { Submission, LeaderboardItem } from "@/types/submission";
@@ -56,22 +58,21 @@ export async function checkStudentAlreadySubmitted(
     const normId = parseBengaliDigits(cleanId).trim();
     if (!cleanId) return false;
 
-    const snap = await getDocs(collection(db, "submissions"));
+    const q = query(collection(db, "submissions"), where("examKey", "==", examKey));
+    const snap = await getDocs(q);
     let found = false;
 
     snap.forEach((d) => {
       const data = d.data() as Submission;
-      if (data.examKey === examKey) {
-        const subSid = String(data.studentId || "").trim();
-        const subNorm = parseBengaliDigits(subSid).trim();
-        if (
-          subSid === cleanId ||
-          (normId && subNorm === normId) ||
-          (normId.length >= 10 && subNorm.endsWith(normId.slice(-10))) ||
-          (subNorm.length >= 10 && normId.endsWith(subNorm.slice(-10)))
-        ) {
-          found = true;
-        }
+      const subSid = String(data.studentId || "").trim();
+      const subNorm = parseBengaliDigits(subSid).trim();
+      if (
+        subSid === cleanId ||
+        (normId && subNorm === normId) ||
+        (normId.length >= 10 && subNorm.endsWith(normId.slice(-10))) ||
+        (subNorm.length >= 10 && normId.endsWith(subNorm.slice(-10)))
+      ) {
+        found = true;
       }
     });
 
@@ -186,13 +187,14 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       return [];
     }
 
-    const snap = await getDocs(collection(db, "submissions"));
+    const q = query(collection(db, "submissions"), where("examKey", "==", examKey));
+    const snap = await getDocs(q);
     const subs: Submission[] = [];
     let hasPending = false;
 
     snap.forEach((d) => {
       const data = d.data() as Submission;
-      if (data.examKey === examKey && data.isLiveSubmission !== false) {
+      if (data.isLiveSubmission !== false) {
         subs.push(data);
         if (data.isPendingEvaluation || data.score === undefined) {
           hasPending = true;
@@ -256,23 +258,20 @@ export async function getExamCandidateRank(
   userTimeSpent: string
 ): Promise<{ practiceRank: number; totalCandidates: number; officialCandidates: number }> {
   try {
-    const snap = await getDocs(collection(db, "submissions"));
+    const q = query(collection(db, "submissions"), where("examKey", "==", examKey));
+    const snap = await getDocs(q);
     const allSubs: { score: number; timeSecs: number; isLive: boolean }[] = [];
     let officialCount = 0;
 
-    let solutions: QuestionSolution[] | null = null;
-
     snap.forEach((d) => {
       const data = d.data() as Submission;
-      if (data.examKey === examKey) {
-        let sc = typeof data.score === "number" ? data.score : parseFloat(data.score as any) || 0;
-        if (data.isLiveSubmission !== false) officialCount++;
-        allSubs.push({
-          score: sc,
-          timeSecs: parseTimeSpentToSeconds(data.timeSpent),
-          isLive: data.isLiveSubmission !== false
-        });
-      }
+      let sc = typeof data.score === "number" ? data.score : parseFloat(data.score as any) || 0;
+      if (data.isLiveSubmission !== false) officialCount++;
+      allSubs.push({
+        score: sc,
+        timeSecs: parseTimeSpentToSeconds(data.timeSpent),
+        isLive: data.isLiveSubmission !== false
+      });
     });
 
     const userTimeSecs = parseTimeSpentToSeconds(userTimeSpent);
