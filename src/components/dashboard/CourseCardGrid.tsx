@@ -76,11 +76,8 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
             <span>উপলব্ধ সকল কোর্সসমূহ</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-indigo-950">
-            কোর্স অনুযায়ী বিষয়ভিত্তিক পরীক্ষা
+            আমাদের ব্যাচ
           </h3>
-          <p className="text-xs sm:text-sm text-slate-800 font-medium">
-            নিচের যেকোনো কোর্সের সাবজেক্ট নির্বাচন করে সরাসরি মডেল টেস্টে অংশ নিন
-          </p>
         </div>
       </div>
 
