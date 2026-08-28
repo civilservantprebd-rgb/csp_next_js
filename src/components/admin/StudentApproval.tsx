@@ -69,7 +69,11 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
   }, []);
 
   const handleApprove = async (req: EnrollmentRequest) => {
-    const res = await approveEnrollRequest(req.docId || "", req.id, req.name, req.course || "ALL");
+    const rawCourses = (req.course || "ALL")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const res = await approveEnrollRequest(req.docId || "", req.id, req.name, rawCourses);
     alert(res.message);
     loadData();
   };

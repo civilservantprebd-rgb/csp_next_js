@@ -20,10 +20,13 @@ import {
   BookOpen,
   Search,
   Loader2,
-  X
+  X,
+  Sparkles
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
+import { AIQuestionGeneratorModal } from "./AIQuestionGeneratorModal";
+import { TopicTreeSelector } from "./TopicTreeSelector";
 
 interface QuestionBankManagerProps {
   topics: string[];
@@ -56,6 +59,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
   
   const [isLoading, setIsLoading] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [moveTopic, setMoveTopic] = useState("");
   const [moveSubtopic, setMoveSubtopic] = useState("");
@@ -223,15 +227,36 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
           <h3 className="font-bold text-amber-900 text-sm sm:text-base mt-1">সেন্ট্রাল প্রশ্ন ব্যাংক ভাণ্ডার</h3>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsBulkModalOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98] md:ml-auto"
-        >
-          <Upload className="w-3.5 h-3.5" />
-          <span>প্রশ্ন ব্যাংকে বাল্ক আপলোড</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap md:ml-auto">
+          <button
+            type="button"
+            onClick={() => setIsAIModalOpen(true)}
+            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+            <span>AI দিয়ে প্রশ্ন তৈরি</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsBulkModalOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>প্রশ্ন ব্যাংকে বাল্ক আপলোড</span>
+          </button>
+        </div>
       </div>
+
+      <AIQuestionGeneratorModal
+        isOpen={isAIModalOpen}
+        topics={topics}
+        onClose={() => setIsAIModalOpen(false)}
+        onSuccess={async () => {
+          fetchBankQuestions();
+          onRefresh();
+        }}
+      />
 
       <BulkQuestionImporterModal
         isOpen={isBulkModalOpen}
@@ -325,59 +350,29 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 flex items-center justify-between">
-              <span>টপিক নির্ধারণ করুন</span>
-              <button
-                type="button"
-                onClick={() => setIsAddingNewTopic(!isAddingNewTopic)}
-                className="text-[10px] text-indigo-600 hover:underline font-semibold"
-              >
-                {isAddingNewTopic ? "তালিকা থেকে বাছুন" : "+ নতুন টপিক তৈরি"}
-              </button>
-            </label>
-
-            {isAddingNewTopic ? (
-              <div className="flex gap-1">
-                <input
-                  type="text"
-                  placeholder="নতুন টপিক..."
-                  value={newTopicInput}
-                  onChange={(e) => setNewTopicInput(e.target.value)}
-                  className="flex-grow px-3 py-1.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={handleQuickAddTopic}
-                  className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold"
-                >
-                  যোগ
-                </button>
-              </div>
-            ) : (
-              <select
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-              >
-                <option value="">-- কোনো টপিক নেই --</option>
-                {topics.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            )}
+            <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">ব্যাখ্যা (ঐচ্ছিক)</label>
+            <input
+              type="text"
+              placeholder="প্রশ্নের বিস্তারিত ব্যাখ্যা বা নোট এখানে লিখুন..."
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+            />
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">ব্যাখ্যা (ঐচ্ছিক)</label>
-          <textarea
-            rows={2}
-            placeholder="প্রশ্নের বিস্তারিত ব্যাখ্যা বা নোট এখানে লিখুন..."
-            value={explanation}
-            onChange={(e) => setExplanation(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+        {/* Hierarchical Topic Selector */}
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <TopicTreeSelector
+            selectedTopicPath={selectedTopic}
+            onSelectTopicPath={(path) => setSelectedTopic(path)}
+            topics={topics}
+            onTopicsUpdated={() => {
+              onRefresh();
+              fetchBankQuestions();
+            }}
+            label="প্রশ্ন ব্যাংকের টপিক ও সাব-টপিক নির্ধারণ"
+            helperText="টপিক নির্বাচন করুন অথবা যেকোনো স্তরে নতুন সাব-টপিক যোগ করুন"
           />
         </div>
 
@@ -471,6 +466,35 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-1.5 rounded-xl transition cursor-pointer"
               >
                 {isMoving ? "পরিবর্তন হচ্ছে..." : "মুভ করুন"}
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (
+                    !confirm(
+                      `আপনি কি নির্বাচিত ${toBengaliDigits(selectedIds.length)}টি প্রশ্ন মুছে আর্কাইভে পাঠাতে চান?`
+                    )
+                  )
+                    return;
+                  setIsMoving(true);
+                  const { bulkDeleteQuestionsFromBank } = await import("@/actions/admin-actions");
+                  const ok = await bulkDeleteQuestionsFromBank(selectedIds);
+                  setIsMoving(false);
+                  if (ok) {
+                    alert("নির্বাচিত প্রশ্নগুলো সফলভাবে মুছে আর্কাইভে পাঠানো হয়েছে!");
+                    setSelectedIds([]);
+                    fetchBankQuestions();
+                    onRefresh();
+                  } else {
+                    alert("মুছে ফেলতে সমস্যা হয়েছে।");
+                  }
+                }}
+                disabled={isMoving}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>সিলেক্টেড মুছুন ({toBengaliDigits(selectedIds.length)})</span>
               </button>
             </div>
           </div>

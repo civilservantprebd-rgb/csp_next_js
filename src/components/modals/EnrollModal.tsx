@@ -20,7 +20,9 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [course, setCourse] = useState(initialCourse || courses[0] || "সাধারণ কোর্স");
+  const [selectedCourses, setSelectedCourses] = useState<string[]>(
+    initialCourse ? [initialCourse] : courses[0] ? [courses[0]] : ["সাধারণ কোর্স"]
+  );
   const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
   const [name, setName] = useState("");
   const [trxId, setTrxId] = useState("");
@@ -40,9 +42,9 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
 
   useEffect(() => {
     if (initialCourse && courses.includes(initialCourse)) {
-      setCourse(initialCourse);
-    } else if (courses.length > 0 && !courses.includes(course)) {
-      setCourse(courses[0]);
+      setSelectedCourses((prev) => Array.from(new Set([...prev, initialCourse])));
+    } else if (courses.length > 0 && selectedCourses.length === 0) {
+      setSelectedCourses([courses[0]]);
     }
   }, [isOpen, initialCourse, courses]);
 
@@ -51,6 +53,14 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
     setIsSubmitted(false);
     setErrorMsg("");
     onClose();
+  };
+
+  const handleToggleCourse = (cName: string) => {
+    setSelectedCourses((prev) =>
+      prev.includes(cName)
+        ? prev.filter((item) => item !== cName)
+        : [...prev, cName]
+    );
   };
 
   const handleGoogleLogin = async () => {
@@ -75,12 +85,17 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
       return;
     }
 
+    if (selectedCourses.length === 0) {
+      setErrorMsg("দয়া করে অন্তত একটি কোর্স নির্বাচন করুন।");
+      return;
+    }
+
     setIsLoading(true);
 
     const res = await submitEnrollRequest({
       uid: studentUser.uid,
       email: studentUser.email,
-      course,
+      course: selectedCourses,
       name,
       trxId,
     });
@@ -124,7 +139,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                 এনরোলমেন্ট সফলভাবে জমা হয়েছে!
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-                শিক্ষক প্যানেল থেকে অনুমোদন দিলে আপনি আপনার এই গুগল অ্যাকাউন্ট দিয়ে লগইন করে <strong>{course}</strong>-এর সকল মডেল টেস্টে অংশ নিতে পারবেন।
+                শিক্ষক প্যানেল থেকে অনুমোদন দিলে আপনি আপনার এই গুগল অ্যাকাউন্ট দিয়ে লগইন করে <strong>{selectedCourses.join(", ")}</strong>-এর সকল মডেল টেস্টে অংশ নিতে পারবেন।
               </p>
             </div>
 
@@ -132,7 +147,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
             <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left space-y-2 text-xs">
               <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
                 <span className="text-slate-500">নির্বাচিত কোর্স:</span>
-                <span className="font-bold text-indigo-700">{course}</span>
+                <span className="font-bold text-indigo-700">{selectedCourses.join(", ")}</span>
               </div>
               <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
                 <span className="text-slate-500">শিক্ষার্থীর নাম:</span>
@@ -235,20 +250,43 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      কোর্স নির্বাচন করুন
-                    </label>
-                    <select
-                      value={course}
-                      onChange={(e) => setCourse(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-slate-50/50 hover:bg-white focus:bg-white transition cursor-pointer"
-                    >
-                      {courses.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-slate-700">
+                        কোর্স নির্বাচন করুন (একাধিক সিলেক্ট করা যাবে) <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-indigo-600 font-bold">
+                        {selectedCourses.length}টি নির্বাচিত
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1 bg-slate-50/70 rounded-2xl border border-slate-200">
+                      {courses.map((c) => {
+                        const isChecked = selectedCourses.includes(c);
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => handleToggleCourse(c)}
+                            className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer text-left ${
+                              isChecked
+                                ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                                : "bg-white border-slate-200 text-slate-700 hover:border-indigo-300"
+                            }`}
+                          >
+                            <span
+                              className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${
+                                isChecked
+                                  ? "bg-white border-white text-indigo-700"
+                                  : "border-slate-300 bg-slate-50"
+                              }`}
+                            >
+                              {isChecked && <CheckCircle2 className="w-3.5 h-3.5 fill-indigo-600 text-white" />}
+                            </span>
+                            <span className="truncate">{c}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div>

@@ -9,9 +9,11 @@ import {
   saveAppConfig
 } from "@/actions/admin-actions";
 import { getExamSolutions } from "@/actions/exam-actions";
-import { Plus, Trash2, Edit2, CheckCircle2, Layers, Tag, BookOpen, Upload, FileText } from "lucide-react";
+import { Plus, Trash2, Edit2, CheckCircle2, Layers, Tag, BookOpen, Upload, FileText, Sparkles } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
+import { AIQuestionGeneratorModal } from "./AIQuestionGeneratorModal";
+import { TopicTreeSelector } from "./TopicTreeSelector";
 
 interface QuestionBuilderProps {
   activeExamKey: string;
@@ -44,6 +46,9 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [selectedQuestionIndices, setSelectedQuestionIndices] = useState<number[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const loadSolutions = async () => {
     const data = await getExamSolutions(activeExamKey);
@@ -52,25 +57,46 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
 
   useEffect(() => {
     loadSolutions();
+    setSelectedQuestionIndices([]);
   }, [activeExamKey]);
 
-  const handleQuickAddTopic = async () => {
-    const val = newTopicInput.trim();
-    if (!val) return;
+  const toggleSelectQuestion = (idx: number) => {
+    setSelectedQuestionIndices((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
+    );
+  };
 
-    if (topics.includes(val)) {
-      setSelectedTopic(val);
-      setNewTopicInput("");
-      setIsAddingNewTopic(false);
-      return;
+  const handleSelectAllQuestions = () => {
+    const total = exam.questions?.length || 0;
+    if (selectedQuestionIndices.length === total) {
+      setSelectedQuestionIndices([]);
+    } else {
+      setSelectedQuestionIndices(Array.from({ length: total }, (_, i) => i));
     }
+  };
 
-    const nextTopics = [...topics, val];
-    await saveAppConfig({ topics: nextTopics });
-    setSelectedTopic(val);
-    setNewTopicInput("");
-    setIsAddingNewTopic(false);
-    onRefresh();
+  const handleBulkDeleteFromExam = async () => {
+    if (selectedQuestionIndices.length === 0) return;
+    if (
+      !confirm(
+        `আপনি কি নির্বাচিত ${toBengaliDigits(selectedQuestionIndices.length)}টি প্রশ্ন মুছে আর্কাইভে পাঠাতে চান?`
+      )
+    )
+      return;
+
+    setIsBulkDeleting(true);
+    const { bulkDeleteQuestionsFromExam } = await import("@/actions/admin-actions");
+    const ok = await bulkDeleteQuestionsFromExam(activeExamKey, selectedQuestionIndices);
+    setIsBulkDeleting(false);
+
+    if (ok) {
+      alert("নির্বাচিত প্রশ্নগুলো সফলভাবে মুছে আর্কাইভে পাঠানো হয়েছে!");
+      setSelectedQuestionIndices([]);
+      await loadSolutions();
+      onRefresh();
+    } else {
+      alert("প্রশ্নগুলো মুছে ফেলতে সমস্যা হয়েছে।");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,6 +181,15 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
         <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-between md:justify-end">
           <button
             type="button"
+            onClick={() => setIsAIModalOpen(true)}
+            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+            <span>AI দিয়ে প্রশ্ন তৈরি</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsBulkModalOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
           >
@@ -180,7 +215,18 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
         </div>
       </div>
 
-
+      <AIQuestionGeneratorModal
+        isOpen={isAIModalOpen}
+        activeExamKey={activeExamKey}
+        examTitle={exam.title}
+        defaultTopic={exam.subject || ""}
+        topics={topics}
+        onClose={() => setIsAIModalOpen(false)}
+        onSuccess={async () => {
+          await loadSolutions();
+          onRefresh();
+        }}
+      />
 
       <BulkQuestionImporterModal
         isOpen={isBulkModalOpen}
@@ -281,78 +327,16 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
           </div>
         </div>
 
-        {/* Topic dropdown positioned directly above submit button */}
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 space-y-2">
-          <div className="flex justify-between items-center">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-indigo-600" /> টপিক নির্বাচন
-              <span className="text-[11px] font-normal text-slate-500">(একবার সিলেক্ট করলে পরবর্তী সকল প্রশ্নে যুক্ত থাকবে)</span>
-            </label>
-            {!isAddingNewTopic && (
-              <button
-                type="button"
-                onClick={() => setIsAddingNewTopic(true)}
-                className="text-xs text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer"
-              >
-                + নতুন টপিক
-              </button>
-            )}
-          </div>
-
-          {isAddingNewTopic ? (
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                placeholder="নতুন টপিকের নাম লিখুন..."
-                value={newTopicInput}
-                onChange={(e) => setNewTopicInput(e.target.value)}
-                className="flex-grow px-3 py-2 rounded-xl border border-indigo-300 text-xs sm:text-sm bg-indigo-50/20"
-              />
-              <div className="flex gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleQuickAddTopic}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-xl text-xs transition cursor-pointer"
-                >
-                  যুক্ত করুন
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddingNewTopic(false);
-                    setNewTopicInput("");
-                  }}
-                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl text-xs transition cursor-pointer"
-                >
-                  বাতিল
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center">
-              <select
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                className="w-full sm:w-80 px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-slate-50 cursor-pointer"
-              >
-                <option value="">সাধারণ (ডিফল্ট টপিক)</option>
-                {topics.map((t, idx) => (
-                  <option key={idx} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-
-              {selectedTopic ? (
-                <span className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                  বর্তমান সিলেক্টেড টপিক: <strong>{selectedTopic}</strong>
-                </span>
-              ) : (
-                <span className="text-xs text-slate-400">টপিক সিলেক্ট করা হয়নি (ডিফল্ট: সাধারণ)</span>
-              )}
-            </div>
-          )}
+        {/* Topic Tree Selector */}
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <TopicTreeSelector
+            selectedTopicPath={selectedTopic}
+            onSelectTopicPath={(path) => setSelectedTopic(path)}
+            topics={topics}
+            onTopicsUpdated={() => onRefresh()}
+            label="প্রশ্নের টপিক ও সাব-টপিক নির্ধারণ"
+            helperText="টপিক নির্বাচন করুন অথবা যেকোনো স্তরে সাব-টপিক তৈরি করুন (পরবর্তী প্রশ্নে বজায় থাকবে)"
+          />
         </div>
 
         <div className="flex gap-2 pt-1">
@@ -375,36 +359,86 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
         </div>
       </form>
 
-      <div>
-        <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2.5">
-          এই এক্সামের বিদ্যমান প্রশ্নসমূহ ({toBengaliDigits(exam.questions?.length || 0)} টি):
-        </h4>
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <h4 className="font-bold text-slate-800 text-xs sm:text-sm">
+            এই এক্সামের বিদ্যমান প্রশ্নসমূহ ({toBengaliDigits(exam.questions?.length || 0)} টি):
+          </h4>
+
+          {exam.questions && exam.questions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSelectAllQuestions}
+                className="text-xs text-slate-600 hover:text-indigo-600 font-bold flex items-center gap-1 cursor-pointer"
+              >
+                {selectedQuestionIndices.length === exam.questions.length ? (
+                  <span className="text-indigo-600">সব আনসিলেক্ট</span>
+                ) : (
+                  <span>সব সিলেক্ট ({toBengaliDigits(selectedQuestionIndices.length)})</span>
+                )}
+              </button>
+
+              {selectedQuestionIndices.length > 0 && (
+                <button
+                  type="button"
+                  disabled={isBulkDeleting}
+                  onClick={handleBulkDeleteFromExam}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>সিলেক্টেড মুছুন ({toBengaliDigits(selectedQuestionIndices.length)})</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
           {!exam.questions || exam.questions.length === 0 ? (
             <p className="text-xs text-slate-400 text-center py-4">এই এক্সামে কোনো প্রশ্ন নেই।</p>
           ) : (
             exam.questions.map((q, idx) => {
               const sol = solutions[idx] || { correct: 0, exp: "" };
+              const isSelected = selectedQuestionIndices.includes(idx);
               return (
                 <div
                   key={idx}
-                  className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-start gap-3 text-xs"
+                  className={`p-3 rounded-xl border transition flex justify-between items-start gap-3 text-xs ${
+                    isSelected ? "bg-amber-50/60 border-amber-300" : "bg-slate-50 border-slate-200"
+                  }`}
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-bold text-slate-800">
-                        {toBengaliDigits(idx + 1)}. {q.q}
+                  <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectQuestion(idx)}
+                      className="mt-0.5 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}}
+                        className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      />
+                    </button>
+
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-slate-800">
+                          {toBengaliDigits(idx + 1)}. {q.q}
+                        </p>
+                        {q.topic && (
+                          <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold border border-indigo-200">
+                            টপিক: {q.topic}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-emerald-700 font-medium">
+                        সঠিক উত্তর: {q.opts[sol.correct] || "—"}
                       </p>
-                      {q.topic && (
-                        <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold border border-indigo-200">
-                          টপিক: {q.topic}
-                        </span>
-                      )}
                     </div>
-                    <p className="text-emerald-700 font-medium">
-                      সঠিক উত্তর: {q.opts[sol.correct] || "—"}
-                    </p>
                   </div>
+
                   <div className="flex gap-1.5 shrink-0">
                     <button
                       onClick={() => handleEdit(idx)}
@@ -415,6 +449,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
                     <button
                       onClick={() => handleDelete(idx)}
                       className="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"
+                      title="মুছে আর্কাইভে পাঠান"
                     >
                       <Trash2 className="w-3 h-3" /> মুছুন
                     </button>

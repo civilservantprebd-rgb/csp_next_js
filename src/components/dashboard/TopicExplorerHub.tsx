@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FolderTree,
   BookOpen,
@@ -28,12 +28,28 @@ import { toBengaliDigits } from "@/lib/utils";
 
 interface TopicExplorerHubProps {
   config: AppConfigData;
+  onOpenEnrollModal?: (courseName?: string) => void;
 }
 
-export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config }) => {
+export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOpenEnrollModal }) => {
   const tree = useMemo(() => {
     return buildDeepTopicTree(config);
   }, [config]);
+
+  const [isPaidStudent, setIsPaidStudent] = useState(false);
+
+  useEffect(() => {
+    import("@/lib/student-auth").then(({ getLocalStudentUser }) => {
+      const localUser = getLocalStudentUser();
+      if (localUser) {
+        import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
+          verifyStudentAccess(localUser.uid, "ALL").then((res) => {
+            setIsPaidStudent(res.allowed);
+          });
+        });
+      }
+    });
+  }, []);
 
   // Active Reading Modal State
   const [isReadingOpen, setIsReadingOpen] = useState(false);
@@ -46,27 +62,64 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config }) =>
   const [quizQuestions, setQuizQuestions] = useState<PracticeQuestion[]>([]);
   const [quizTitle, setQuizTitle] = useState("");
 
+  const handleLockedAction = () => {
+    alert("🔒 এই অংশের প্রশ্ন পড়তে ও কুইজ দিতে কোর্সে এনরোল করতে হবে। অনুগ্রহ করে এনরোল করুন।");
+    if (onOpenEnrollModal) {
+      onOpenEnrollModal();
+    } else if (typeof window !== "undefined") {
+      window.location.href = "/#courses";
+    }
+  };
+
   // Open Reading Mode for specific subtopic or chapter path
   const handleOpenReading = async (fullPath: string, nodeName: string) => {
+    if (!isPaidStudent) {
+      handleLockedAction();
+      return;
+    }
     setIsLoadingNode(true);
-    const qs = await getQuestionsForPath(config, fullPath);
+    const { getLocalStudentUser } = await import("@/lib/student-auth");
+    const localUser = getLocalStudentUser();
+    const studentId = localUser?.uid || "";
 
-    setReadingQuestions(qs);
-    setReadingTitle(fullPath);
+    const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
+    const res = await fetchTopicQuestionsForStudent(studentId, fullPath);
+
     setIsLoadingNode(false);
+    if (!res.success || res.questions.length === 0) {
+      alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
+      return;
+    }
+
+    setReadingQuestions(res.questions);
+    setReadingTitle(fullPath);
     setIsReadingOpen(true);
   };
 
   // Start instant quiz for specific subtopic path
   const handleStartNodeQuiz = async (fullPath: string, nodeName: string) => {
+    if (!isPaidStudent) {
+      handleLockedAction();
+      return;
+    }
     setIsLoadingNode(true);
-    const qs = await getQuestionsForPath(config, fullPath);
+    const { getLocalStudentUser } = await import("@/lib/student-auth");
+    const localUser = getLocalStudentUser();
+    const studentId = localUser?.uid || "";
+
+    const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
+    const res = await fetchTopicQuestionsForStudent(studentId, fullPath);
+
+    setIsLoadingNode(false);
+    if (!res.success || res.questions.length === 0) {
+      alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
+      return;
+    }
 
     // Shuffle
-    const shuffled = [...qs].sort(() => 0.5 - Math.random());
+    const shuffled = [...res.questions].sort(() => 0.5 - Math.random());
     setQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
     setQuizTitle(fullPath);
-    setIsLoadingNode(false);
     setIsReadingOpen(false);
     setIsQuizOpen(true);
   };
@@ -106,6 +159,8 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config }) =>
       {/* Recursive Multi-Level Topic Tree */}
       <TopicTreeViewer
         tree={tree}
+        isLocked={!isPaidStudent}
+        onLockedAction={handleLockedAction}
         onOpenReading={handleOpenReading}
         onStartQuiz={handleStartNodeQuiz}
       />

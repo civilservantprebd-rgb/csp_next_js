@@ -21,13 +21,17 @@ interface TopicTreeViewerProps {
   onOpenReading: (path: string, title: string) => void;
   onStartQuiz: (path: string, title: string) => void;
   depth?: number;
+  isLocked?: boolean;
+  onLockedAction?: () => void;
 }
 
 export const TopicTreeViewer: React.FC<TopicTreeViewerProps> = ({
   tree,
   onOpenReading,
   onStartQuiz,
-  depth = 0
+  depth = 0,
+  isLocked = false,
+  onLockedAction,
 }) => {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
 
@@ -97,27 +101,41 @@ export const TopicTreeViewer: React.FC<TopicTreeViewerProps> = ({
                 </span>
               </div>
 
-              {/* Action Buttons: Study & Quiz for this specific branch */}
+              {/* Action Buttons: Study & Quiz or Locked Button */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onOpenReading(node.fullPath, node.name)}
-                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
-                  title="এই অংশের সব প্রশ্ন পড়ুন"
-                >
-                  <BookOpen className="w-3 h-3 text-indigo-600" />
-                  <span className="hidden sm:inline">পড়ুন</span>
-                </button>
+                {isLocked ? (
+                  <button
+                    type="button"
+                    onClick={onLockedAction}
+                    className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
+                    title="এই প্রশ্নগুলো দেখতে কোর্সে এনরোল করুন"
+                  >
+                    <span className="text-xs">🔒</span>
+                    <span className="text-[11px] font-black text-amber-900">লক করা</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onOpenReading(node.fullPath, node.name)}
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
+                      title="এই অংশের সব প্রশ্ন পড়ুন"
+                    >
+                      <BookOpen className="w-3 h-3 text-indigo-600" />
+                      <span className="hidden sm:inline">পড়ুন</span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => onStartQuiz(node.fullPath, node.name)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
-                  title="এই অংশের ওপর ইনস্ট্যান্ট কুইজ দিন"
-                >
-                  <Zap className="w-3 h-3 fill-white" />
-                  <span className="hidden sm:inline">কুইজ</span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => onStartQuiz(node.fullPath, node.name)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
+                      title="এই অংশের ওপর ইনস্ট্যান্ট কুইজ দিন"
+                    >
+                      <Zap className="w-3 h-3 fill-white" />
+                      <span className="hidden sm:inline">কুইজ</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -129,6 +147,8 @@ export const TopicTreeViewer: React.FC<TopicTreeViewerProps> = ({
                   onOpenReading={onOpenReading}
                   onStartQuiz={onStartQuiz}
                   depth={depth + 1}
+                  isLocked={isLocked}
+                  onLockedAction={onLockedAction}
                 />
               </div>
             )}

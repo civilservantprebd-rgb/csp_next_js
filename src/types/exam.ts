@@ -59,6 +59,19 @@ export interface TopicQuestion {
   createdAt?: string;
 }
 
+export interface ArchivedQuestion {
+  id: string;
+  q: string;
+  opts: string[];
+  correct: number;
+  exp?: string;
+  topic?: string;
+  sourceType: "exam" | "bank";
+  sourceExamKey?: string;
+  sourceExamTitle?: string;
+  deletedAt: string;
+}
+
 export interface SubAdmin {
   name: string;
   pass: string;

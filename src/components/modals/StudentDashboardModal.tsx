@@ -392,66 +392,88 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         {/* Tab Body */}
         <div className="overflow-y-auto flex-grow pr-1 space-y-4">
 
-          {/* TAB: STUDY & CHAPTER HUB (PAID EXCLUSIVE) */}
+          {/* TAB: STUDY & CHAPTER HUB (PAID EXCLUSIVE CONTENT) */}
           {activeTab === "study" && (
             <div className="space-y-4">
-              {!isPaidStudent ? (
-                <div className="p-8 rounded-3xl bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50 border-2 border-amber-300 text-center space-y-4">
-                  <div className="w-14 h-14 rounded-3xl bg-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30">
-                    <Lock className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-amber-950">
-                      পড়াশোনা ও চ্যাপ্টার হাব (প্রিমিয়াম ফিচার)
-                    </h3>
-                    <p className="text-xs text-amber-800 max-w-md mx-auto mt-1 leading-relaxed">
-                      বিষয়ভিত্তিক সকল প্রশ্নভাণ্ডার, চ্যাপ্টার ও সাব-টপিক ধরে ধরে ফ্ল্যাশকার্ড পড়ার সুবিধা এবং কুইজ প্র্যাকটিস শুধুমাত্র আমাদের অনুমোদিত পেইড শিক্ষার্থীদের জন্য উন্মুক্ত।
-                    </p>
-                  </div>
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        window.location.href = "/#courses";
-                      }}
-                      className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md cursor-pointer transition"
-                    >
-                      কোর্সে এনরোল করুন
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-between">
+              {!isPaidStudent && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50 border border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+                      <Lock className="w-5 h-5" />
+                    </div>
                     <div>
-                      <h4 className="font-bold text-xs sm:text-sm text-indigo-950 flex items-center gap-1.5">
-                        <SparklesIcon className="w-4 h-4 text-amber-500" /> আনলিমিটেড বিষয় ও অধ্যায়ভিত্তিক প্রশ্নভাণ্ডার
+                      <h4 className="font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5">
+                        প্রশ্নব্যাংক রিডিং ও কুইজ লক করা আছে
                       </h4>
-                      <p className="text-[11px] text-indigo-700">
-                        যে অংশে ট্যাপ করবেন তার ভেতরে যত সাবটপিক আছে তা বিস্তারিত দেখা যাবে।
+                      <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
+                        চ্যাপ্টার ও টপিকের তালিকা দেখতে পাবেন, তবে প্রশ্ন পড়তে ও কুইজ দিতে কোর্সে এনরোল করতে হবে।
                       </p>
                     </div>
                   </div>
-
-                  <TopicTreeViewer
-                    tree={buildDeepTopicTree(config)}
-                    onOpenReading={async (fullPath, nodeName) => {
-                      const qs = await getQuestionsForPath(config, fullPath);
-                      setReadingQuestions(qs);
-                      setReadingTitle(fullPath);
-                      setIsReadingOpen(true);
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      window.location.href = "/#courses";
                     }}
-                    onStartQuiz={async (fullPath, nodeName) => {
-                      const qs = await getQuestionsForPath(config, fullPath);
-                      const shuffled = [...qs].sort(() => 0.5 - Math.random());
-                      setTopicQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
-                      setTopicQuizTitle(fullPath);
-                      setIsTopicQuizOpen(true);
-                    }}
-                  />
+                    className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs cursor-pointer transition shrink-0 w-full sm:w-auto text-center"
+                  >
+                    কোর্সে এনরোল করুন
+                  </button>
                 </div>
               )}
+
+              {isPaidStudent && (
+                <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-xs sm:text-sm text-indigo-950 flex items-center gap-1.5">
+                      <SparklesIcon className="w-4 h-4 text-amber-500" /> আনলিমিটেড বিষয় ও অধ্যায়ভিত্তিক প্রশ্নভাণ্ডার
+                    </h4>
+                    <p className="text-[11px] text-indigo-700">
+                      যে অংশে ট্যাপ করবেন তার ভেতরে যত সাবটপিক আছে তা বিস্তারিত দেখা যাবে।
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <TopicTreeViewer
+                tree={buildDeepTopicTree(config)}
+                isLocked={!isPaidStudent}
+                onLockedAction={() => {
+                  alert("🔒 দুঃখিত! এই অংশের বিস্তারিত প্রশ্ন ও কুইজ শুধুমাত্র অনুমোদিত ও এনরোল করা শিক্ষার্থীদের জন্য উন্মুক্ত। কোর্সে এনরোল করুন।");
+                }}
+                onOpenReading={async (fullPath, nodeName) => {
+                  if (!isPaidStudent) {
+                    alert("🔒 এই প্রশ্নগুলো পড়তে কোর্সে এনরোল করুন।");
+                    return;
+                  }
+                  const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
+                  const res = await fetchTopicQuestionsForStudent(studentId, fullPath);
+                  if (!res.success || res.questions.length === 0) {
+                    alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
+                    return;
+                  }
+                  setReadingQuestions(res.questions);
+                  setReadingTitle(fullPath);
+                  setIsReadingOpen(true);
+                }}
+                onStartQuiz={async (fullPath, nodeName) => {
+                  if (!isPaidStudent) {
+                    alert("🔒 এই কুইজ দিতে কোর্সে এনরোল করুন।");
+                    return;
+                  }
+                  const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
+                  const res = await fetchTopicQuestionsForStudent(studentId, fullPath);
+                  if (!res.success || res.questions.length === 0) {
+                    alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
+                    return;
+                  }
+                  const shuffled = [...res.questions].sort(() => 0.5 - Math.random());
+                  setTopicQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
+                  setTopicQuizTitle(fullPath);
+                  setIsTopicQuizOpen(true);
+                }}
+              />
             </div>
           )}
           

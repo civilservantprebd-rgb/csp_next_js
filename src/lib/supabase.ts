@@ -38,17 +38,21 @@ if (typeof window !== "undefined") {
       localStorage.setItem("bcs_student_user", JSON.stringify(studentUser));
       window.dispatchEvent(new Event("storage"));
 
-      // Sync student profile to backend Supabase database automatically on login
-      try {
-        const { syncStudentLogin } = await import("@/actions/student-actions");
-        await syncStudentLogin({
-          uid: session.user.id,
-          name: name,
-          email: email,
-          photoURL: photoURL
-        });
-      } catch (err) {
-        console.error("Auto sync student to DB failed:", err);
+      // Sync student profile safely on client transition
+      if (typeof window !== "undefined") {
+        setTimeout(async () => {
+          try {
+            const { syncStudentLogin } = await import("@/actions/student-actions");
+            await syncStudentLogin({
+              uid: session.user.id,
+              name: name,
+              email: email,
+              photoURL: photoURL
+            });
+          } catch (err) {
+            // Silently ignore during initial hydration
+          }
+        }, 100);
       }
     } else if (event === "SIGNED_OUT") {
       localStorage.removeItem("bcs_student_user");

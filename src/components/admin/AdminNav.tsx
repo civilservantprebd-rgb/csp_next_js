@@ -10,7 +10,8 @@ import {
   Layers,
   BarChart3,
   FileCheck,
-  Link2
+  Link2,
+  Archive
 } from "lucide-react";
 
 export type AdminTabType =
@@ -18,9 +19,10 @@ export type AdminTabType =
   | "exams"
   | "courses"
   | "subjects"
-  | "topics"
   | "students"
   | "questions"
+  | "question_bank"
+  | "archive"
   | "submissions"
   | "drivelinks";
 
@@ -32,12 +34,13 @@ interface AdminNavProps {
 export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) => {
   const tabs: { id: AdminTabType; label: string; icon: any }[] = [
     { id: "analytics", label: "অ্যানালিটিক্স", icon: BarChart3 },
+    { id: "question_bank", label: "টপিক ও ডাটাবেজ", icon: Layers },
     { id: "exams", label: "এক্সাম সেট", icon: FileText },
     { id: "courses", label: "কোর্স", icon: GraduationCap },
     { id: "subjects", label: "সাবজেক্ট", icon: BookOpen },
-    { id: "topics", label: "টপিক", icon: Layers },
     { id: "students", label: "আইডি ও রিকোয়েস্ট", icon: Users },
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
+    { id: "archive", label: "আর্কাইভ", icon: Archive },
     { id: "submissions", label: "ফলাফল", icon: FileCheck },
     { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2 },
   ];

@@ -69,16 +69,33 @@ export async function verifyStudentAccess(
     }
 
     const studentCourses = matchedStudent.courses || [];
-    const normalizedCourses = Array.isArray(studentCourses) ? studentCourses : [studentCourses];
+    const normalizedCourses = (Array.isArray(studentCourses) ? studentCourses : [studentCourses])
+      .map((c) => String(c || "").trim())
+      .filter(Boolean);
+
+    // If student has NO courses enrolled in database, they are strictly NOT allowed to access paid study hub or exams
+    if (normalizedCourses.length === 0) {
+      return {
+        allowed: false,
+        message: "আপনি কোনো কোর্সে এনরোল করেননি। অনুগ্রহ করে একটি কোর্সে এনরোল করে শিক্ষকের অনুমোদন নিন।"
+      };
+    }
+
     const targetCourse = (examCourse || "").trim();
 
+    // If verifying general enrollment access ("ALL")
+    if (!targetCourse || targetCourse === "ALL") {
+      return {
+        allowed: true,
+        studentName: matchedStudent.name || "শিক্ষার্থী",
+        normalizedId: matchedStudent.id || normalizedId || cleanId
+      };
+    }
+
     const hasCourseAccess =
-      !targetCourse ||
-      targetCourse === "ALL" ||
       targetCourse === "সাধারণ কোর্স" ||
       normalizedCourses.some((c) => {
-        if (!c) return false;
-        const sc = String(c).trim().toLowerCase();
+        const sc = c.toLowerCase();
         return sc === "all" || sc === "সকল কোর্স" || sc === targetCourse.toLowerCase();
       });
 
@@ -375,5 +392,114 @@ export async function deleteAllowedStudent(id: string): Promise<boolean> {
   } catch (err) {
     console.error("Delete allowed student error:", err);
     return false;
+  }
+}
+
+/**
+ * Secure Server Action: Fetch questions for a specific topic/chapter directly from DB.
+ * Verifies student enrollment on the server before returning question content and solutions.
+ */
+export async function fetchTopicQuestionsForStudent(
+  studentId: string,
+  targetPath: string
+): Promise<{ success: boolean; questions: any[]; message?: string }> {
+  const cleanId = String(studentId || "").trim();
+
+  // 1. Verify enrollment on server
+  const access = await verifyStudentAccess(cleanId, "ALL");
+  if (!access.allowed) {
+    return {
+      success: false,
+      questions: [],
+      message: "🔒 দুঃখিত! এই প্রশ্নগুলো পড়ার অনুমতি শুধুমাত্র অনুমোদিত ও এনরোল করা শিক্ষার্থীদের জন্য।"
+    };
+  }
+
+  try {
+    const cleanTarget = (targetPath || "").trim().toLowerCase();
+
+    const { getTopicSegments } = await import("@/lib/topic-hierarchy");
+
+    const isMatch = (rawTopic?: string, fallbackSubject?: string) => {
+      if (!cleanTarget || cleanTarget === "all") return true;
+      const segs = getTopicSegments(rawTopic, fallbackSubject);
+      const full = segs.join(" > ").toLowerCase();
+      return full === cleanTarget || full.startsWith(cleanTarget + " > ") || segs.some((s: string) => s.toLowerCase() === cleanTarget);
+    };
+
+    const pool: any[] = [];
+
+    // Query 1: Fetch from topic_questions table in database
+    const { data: dbTopicQs } = await supabase
+      .from("topic_questions")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    (dbTopicQs || []).forEach((tq, idx) => {
+      if (isMatch(tq.topic, tq.original_subject) && tq.q && Array.isArray(tq.opts) && tq.opts.length >= 2) {
+        pool.push({
+          id: tq.id || `tq_${idx}`,
+          q: tq.q,
+          opts: tq.opts,
+          correct: Number(tq.correct ?? 0),
+          exp: tq.exp || "",
+          subject: tq.original_subject || "পড়াশোনা",
+          topic: tq.topic
+        });
+      }
+    });
+
+    // Query 2: Fetch from exams & question_bank links
+    const { data: dbExams } = await supabase.from("exams").select("*");
+    const { data: dbLinks } = await supabase.from("exam_questions_link").select("exam_id, question_bank(*)");
+
+    const examSolutionsMap: Record<string, any[]> = {};
+
+    for (const link of (dbLinks || [])) {
+      const rawQ = link.question_bank;
+      const qData: any = Array.isArray(rawQ) ? rawQ[0] : rawQ;
+      if (!qData || !qData.q) continue;
+
+      const examId = link.exam_id;
+      const ex = (dbExams || []).find((e) => e.id === examId);
+      const examSubject = ex?.subject || "পড়াশোনা";
+
+      if (isMatch(qData.topic, examSubject)) {
+        if (!examSolutionsMap[examId]) {
+          examSolutionsMap[examId] = (await getExamSolutions(examId)) || [];
+        }
+        
+        pool.push({
+          id: qData.id,
+          q: qData.q,
+          opts: qData.opts,
+          correct: Number(qData.correct ?? 0),
+          exp: qData.exp || "",
+          subject: examSubject,
+          topic: qData.topic
+        });
+      }
+    }
+
+    // Deduplicate by question text
+    const uniqueMap = new Map<string, any>();
+    pool.forEach((item) => {
+      const key = item.q.trim().toLowerCase();
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, item);
+      }
+    });
+
+    return {
+      success: true,
+      questions: Array.from(uniqueMap.values())
+    };
+  } catch (err: any) {
+    console.error("fetchTopicQuestionsForStudent error:", err);
+    return {
+      success: false,
+      questions: [],
+      message: "ডাটাবেস থেকে প্রশ্ন লোড করতে সমস্যা হয়েছে।"
+    };
   }
 }

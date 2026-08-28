@@ -1,7 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase";
-import { AppConfigData, Exam, QuestionItem, QuestionSolution, TopicQuestion } from "@/types/exam";
+import { AppConfigData, Exam, QuestionItem, QuestionSolution, TopicQuestion, ArchivedQuestion } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
 import { Submission } from "@/types/submission";
 
@@ -613,11 +613,153 @@ export async function updateQuestionInExam(
   }
 }
 
+// ─── Archive Functions (Soft Delete / Trash Bin) ─────────────────────────
+
+async function addQuestionsToArchive(questions: ArchivedQuestion[]): Promise<boolean> {
+  try {
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("archived_questions")
+      .eq("id", "main")
+      .maybeSingle();
+
+    const existingArchive: ArchivedQuestion[] = settings?.archived_questions || [];
+    const updatedArchive = [...questions, ...existingArchive];
+
+    await supabase
+      .from("app_settings")
+      .upsert({ id: "main", archived_questions: updatedArchive });
+
+    return true;
+  } catch (err) {
+    console.error("Add questions to archive error:", err);
+    return false;
+  }
+}
+
+export async function getArchivedQuestions(): Promise<ArchivedQuestion[]> {
+  try {
+    const { data: settings, error } = await supabase
+      .from("app_settings")
+      .select("archived_questions")
+      .eq("id", "main")
+      .maybeSingle();
+
+    if (error) throw error;
+    return settings?.archived_questions || [];
+  } catch (err) {
+    console.error("Get archived questions error:", err);
+    return [];
+  }
+}
+
+export async function permanentDeleteArchivedQuestions(ids: string[]): Promise<boolean> {
+  try {
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("archived_questions")
+      .eq("id", "main")
+      .maybeSingle();
+
+    const existingArchive: ArchivedQuestion[] = settings?.archived_questions || [];
+    const idSet = new Set(ids);
+    const updatedArchive = existingArchive.filter((q) => !idSet.has(q.id));
+
+    await supabase
+      .from("app_settings")
+      .upsert({ id: "main", archived_questions: updatedArchive });
+
+    // Also remove from question_bank permanently if still present
+    await supabase.from("question_bank").delete().in("id", ids);
+
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Permanent delete archived questions error:", err);
+    return false;
+  }
+}
+
+export async function restoreArchivedQuestions(
+  ids: string[],
+  targetExamKey?: string
+): Promise<boolean> {
+  try {
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("archived_questions")
+      .eq("id", "main")
+      .maybeSingle();
+
+    const existingArchive: ArchivedQuestion[] = settings?.archived_questions || [];
+    const idSet = new Set(ids);
+    const toRestore = existingArchive.filter((q) => idSet.has(q.id));
+    const remainingArchive = existingArchive.filter((q) => !idSet.has(q.id));
+
+    if (toRestore.length === 0) return true;
+
+    // Restore to question_bank and/or exam
+    for (const item of toRestore) {
+      // 1. Re-insert or ensure in question_bank
+      const { data: insertedQ } = await supabase
+        .from("question_bank")
+        .insert({
+          id: item.id.startsWith("arch_") ? undefined : item.id,
+          q: item.q,
+          opts: item.opts,
+          correct: item.correct,
+          exp: item.exp || "",
+          topic: item.topic || "সাধারণ"
+        })
+        .select("id")
+        .single();
+
+      const qId = insertedQ?.id || item.id;
+
+      // 2. If target exam or original exam specified, link it back
+      const examId = targetExamKey || (item.sourceType === "exam" ? item.sourceExamKey : undefined);
+      if (examId) {
+        const { data: links } = await supabase
+          .from("exam_questions_link")
+          .select("order_index")
+          .eq("exam_id", examId)
+          .order("order_index", { ascending: false })
+          .limit(1);
+
+        const nextOrder = (links?.[0]?.order_index ?? -1) + 1;
+
+        await supabase.from("exam_questions_link").insert({
+          exam_id: examId,
+          question_id: qId,
+          order_index: nextOrder
+        });
+      }
+    }
+
+    // Update archive state
+    await supabase
+      .from("app_settings")
+      .upsert({ id: "main", archived_questions: remainingArchive });
+
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Restore archived questions error:", err);
+    return false;
+  }
+}
+
 export async function deleteQuestionFromExam(examKey: string, index: number): Promise<boolean> {
   try {
+    const { data: examData } = await supabase
+      .from("exams")
+      .select("title")
+      .eq("id", examKey)
+      .single();
+
     const { data: links, error: fetchError } = await supabase
       .from("exam_questions_link")
-      .select("question_id, order_index")
+      .select("question_id, order_index, question_bank(id, q, opts, correct, exp, topic)")
       .eq("exam_id", examKey)
       .order("order_index", { ascending: true });
 
@@ -625,6 +767,25 @@ export async function deleteQuestionFromExam(examKey: string, index: number): Pr
 
     const targetLink = links?.[index];
     if (!targetLink) return false;
+
+    // Archive the question before unlinking
+    const qData: any = targetLink.question_bank;
+    if (qData) {
+      await addQuestionsToArchive([
+        {
+          id: qData.id || `arch_${Date.now()}`,
+          q: qData.q,
+          opts: qData.opts || [],
+          correct: Number(qData.correct ?? 0),
+          exp: qData.exp || "",
+          topic: qData.topic || "",
+          sourceType: "exam",
+          sourceExamKey: examKey,
+          sourceExamTitle: examData?.title || "এক্সাম",
+          deletedAt: new Date().toISOString()
+        }
+      ]);
+    }
 
     // 1. Delete the link
     const { error: deleteLinkError } = await supabase
@@ -651,6 +812,83 @@ export async function deleteQuestionFromExam(examKey: string, index: number): Pr
     return true;
   } catch (err) {
     console.error("Delete question error:", err);
+    return false;
+  }
+}
+
+export async function bulkDeleteQuestionsFromExam(
+  examKey: string,
+  indices: number[]
+): Promise<boolean> {
+  try {
+    if (!indices || indices.length === 0) return true;
+
+    const { data: examData } = await supabase
+      .from("exams")
+      .select("title")
+      .eq("id", examKey)
+      .single();
+
+    const { data: links, error: fetchError } = await supabase
+      .from("exam_questions_link")
+      .select("question_id, order_index, question_bank(id, q, opts, correct, exp, topic)")
+      .eq("exam_id", examKey)
+      .order("order_index", { ascending: true });
+
+    if (fetchError) throw fetchError;
+    if (!links || links.length === 0) return true;
+
+    const indexSet = new Set(indices);
+    const targetLinks = links.filter((_, i) => indexSet.has(i));
+    const targetQIds = targetLinks.map((l) => l.question_id);
+
+    // Archive all target questions
+    const toArchive: ArchivedQuestion[] = targetLinks
+      .map((l: any) => {
+        const qData = l.question_bank;
+        if (!qData) return null;
+        return {
+          id: qData.id || `arch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          q: qData.q,
+          opts: qData.opts || [],
+          correct: Number(qData.correct ?? 0),
+          exp: qData.exp || "",
+          topic: qData.topic || "",
+          sourceType: "exam" as const,
+          sourceExamKey: examKey,
+          sourceExamTitle: examData?.title || "এক্সাম",
+          deletedAt: new Date().toISOString()
+        };
+      })
+      .filter(Boolean) as ArchivedQuestion[];
+
+    if (toArchive.length > 0) {
+      await addQuestionsToArchive(toArchive);
+    }
+
+    // Delete links
+    await supabase
+      .from("exam_questions_link")
+      .delete()
+      .eq("exam_id", examKey)
+      .in("question_id", targetQIds);
+
+    // Re-index remaining links
+    const remainingLinks = links.filter((_, i) => !indexSet.has(i));
+    const batchUpdates = remainingLinks.map((link, newIdx) =>
+      supabase
+        .from("exam_questions_link")
+        .update({ order_index: newIdx })
+        .eq("exam_id", examKey)
+        .eq("question_id", link.question_id)
+    );
+
+    await Promise.all(batchUpdates);
+
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Bulk delete questions from exam error:", err);
     return false;
   }
 }
@@ -978,12 +1216,67 @@ export async function updateQuestionInBank(
 
 export async function deleteQuestionFromBank(id: string): Promise<boolean> {
   try {
+    const { data: qData } = await supabase
+      .from("question_bank")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (qData) {
+      await addQuestionsToArchive([
+        {
+          id: qData.id,
+          q: qData.q,
+          opts: qData.opts || [],
+          correct: Number(qData.correct ?? 0),
+          exp: qData.exp || "",
+          topic: qData.topic || "",
+          sourceType: "bank",
+          deletedAt: new Date().toISOString()
+        }
+      ]);
+    }
+
     const { error } = await supabase.from("question_bank").delete().eq("id", id);
     if (error) throw error;
     invalidateConfigCache();
     return true;
   } catch (err) {
     console.error("Delete question from bank error:", err);
+    return false;
+  }
+}
+
+export async function bulkDeleteQuestionsFromBank(ids: string[]): Promise<boolean> {
+  try {
+    if (!ids || ids.length === 0) return true;
+
+    const { data: questions } = await supabase
+      .from("question_bank")
+      .select("*")
+      .in("id", ids);
+
+    if (questions && questions.length > 0) {
+      const toArchive: ArchivedQuestion[] = questions.map((qData) => ({
+        id: qData.id,
+        q: qData.q,
+        opts: qData.opts || [],
+        correct: Number(qData.correct ?? 0),
+        exp: qData.exp || "",
+        topic: qData.topic || "",
+        sourceType: "bank" as const,
+        deletedAt: new Date().toISOString()
+      }));
+
+      await addQuestionsToArchive(toArchive);
+    }
+
+    const { error } = await supabase.from("question_bank").delete().in("id", ids);
+    if (error) throw error;
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Bulk delete questions from bank error:", err);
     return false;
   }
 }

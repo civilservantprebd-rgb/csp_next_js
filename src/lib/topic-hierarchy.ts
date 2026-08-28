@@ -111,12 +111,18 @@ export function buildDeepTopicTree(config?: AppConfigData | null): TreeNode[] {
       name: internal.name,
       fullPath: internal.fullPath,
       count: internal.count,
-      children: childrenArr.sort((a, b) => b.count - a.count)
+      children: childrenArr.sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.name.localeCompare(b.name, "bn");
+      })
     };
   };
 
   const roots = Array.from(rootMap.values()).map(formatNode);
-  return roots.sort((a, b) => b.count - a.count);
+  return roots.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.name.localeCompare(b.name, "bn");
+  });
 }
 
 /**

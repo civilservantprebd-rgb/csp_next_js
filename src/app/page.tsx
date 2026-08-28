@@ -192,7 +192,7 @@ export default function HomePage() {
         <SelfPracticeCard config={config} />
 
         {/* Chapter & Subtopic Exploration Hub */}
-        <TopicExplorerHub config={config} />
+        <TopicExplorerHub config={config} onOpenEnrollModal={handleOpenEnrollModal} />
 
         {/* Dynamic Course Card Grid (Each course is a box with subjects, exams, enroll button & start exam button) */}
         <CourseCardGrid

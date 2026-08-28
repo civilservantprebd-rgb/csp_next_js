@@ -8,7 +8,7 @@ export async function submitEnrollRequest(payload: {
   uid: string;
   email: string;
   name: string;
-  course: string;
+  course: string | string[];
   trxId: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
@@ -16,11 +16,17 @@ export async function submitEnrollRequest(payload: {
       return { success: false, message: "দয়া করে সকল তথ্য সঠিকভাবে পূরণ করুন।" };
     }
 
+    const courseStr = Array.isArray(payload.course) ? payload.course.join(", ") : payload.course;
+
+    if (!courseStr.trim()) {
+      return { success: false, message: "দয়া করে অন্তত একটি কোর্স নির্বাচন করুন।" };
+    }
+
     const { error } = await supabase.from("enroll_requests").insert({
       student_uid: payload.uid,
       email: payload.email,
       name: payload.name.trim(),
-      course: payload.course,
+      course: courseStr,
       trx_id: payload.trxId.trim().toUpperCase(),
       created_at: getTrueDate().toISOString()
     });
@@ -65,7 +71,7 @@ export async function approveEnrollRequest(
   docId: string,
   uid: string,
   name: string,
-  course: string,
+  course: string | string[],
   email?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
@@ -82,7 +88,8 @@ export async function approveEnrollRequest(
       existingCourses = exData.courses || [];
     }
 
-    const mergedCourses = Array.from(new Set([...existingCourses, course]));
+    const newCourses = Array.isArray(course) ? course : [course];
+    const mergedCourses = Array.from(new Set([...existingCourses, ...newCourses])).filter(Boolean);
 
     const { error: upsertError } = await supabase.from("allowed_students").upsert({
       id: cleanId,
@@ -102,7 +109,8 @@ export async function approveEnrollRequest(
       if (deleteError) throw deleteError;
     }
 
-    return { success: true, message: `${name} (${email || cleanId})-কে "${course}" কোর্সে অনুমোদন দেওয়া হয়েছে।` };
+    const courseSummary = Array.isArray(course) ? course.join(", ") : course;
+    return { success: true, message: `${name} (${email || cleanId})-কে "${courseSummary}" কোর্সে অনুমোদন দেওয়া হয়েছে।` };
   } catch (err) {
     console.error("Approve enroll request error:", err);
     return { success: false, message: "অনুমোদনে সমস্যা হয়েছে।" };
