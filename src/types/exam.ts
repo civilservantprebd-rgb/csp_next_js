@@ -3,6 +3,8 @@ export interface QuestionItem {
   q: string;
   opts: string[];
   topic?: string;
+  subtopic?: string;
+  subject?: string;
 }
 
 export interface QuestionSolution {
@@ -36,9 +38,16 @@ export interface SubjectItem {
   course: string;
 }
 
+export interface TopicItem {
+  name: string;
+  subject?: string;
+  subtopics?: string[];
+}
+
 export interface TopicQuestion {
   id: string;
   topic: string;
+  subtopic?: string;
   q: string;
   opts: string[];
   correct: number;
@@ -59,6 +68,7 @@ export interface AppConfigData {
   courses: string[];
   subjects: SubjectItem[];
   topics?: string[];
+  topicStructure?: TopicItem[];
   topicQuestions?: TopicQuestion[];
   exams: Record<string, Exam>;
   subAdmins?: SubAdmin[];

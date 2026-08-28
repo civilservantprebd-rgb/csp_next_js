@@ -56,6 +56,49 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
   
   const [isLoading, setIsLoading] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [moveTopic, setMoveTopic] = useState("");
+  const [moveSubtopic, setMoveSubtopic] = useState("");
+  const [isMoving, setIsMoving] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === questions.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(questions.map((q) => q.id));
+    }
+  };
+
+  const handleBulkMove = async () => {
+    if (!moveTopic.trim()) {
+      alert("অনুগ্রহ করে একটি টপিক নির্বাচন করুন।");
+      return;
+    }
+    if (selectedIds.length === 0) {
+      alert("কোনো প্রশ্ন সিলেক্ট করা হয়নি।");
+      return;
+    }
+
+    setIsMoving(true);
+    const { bulkMoveQuestionsToTopic } = await import("@/actions/admin-actions");
+    const ok = await bulkMoveQuestionsToTopic(selectedIds, moveTopic, moveSubtopic);
+    setIsMoving(false);
+
+    if (ok) {
+      alert(`সফলভাবে ${toBengaliDigits(selectedIds.length)}টি প্রশ্নের টপিক পরিবর্তন করা হয়েছে!`);
+      setSelectedIds([]);
+      fetchBankQuestions();
+      onRefresh();
+    } else {
+      alert("টপিক পরিবর্তন করতে সমস্যা হয়েছে।");
+    }
+  };
 
   const fetchBankQuestions = async () => {
     setIsLoading(true);
@@ -393,8 +436,63 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
           </div>
         </div>
 
+        {/* Bulk Action Toolbar if items selected */}
+        {selectedIds.length > 0 && (
+          <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span className="font-bold text-indigo-950">
+              ✓ {toBengaliDigits(selectedIds.length)}টি প্রশ্ন নির্বাচিত
+            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={moveTopic}
+                onChange={(e) => setMoveTopic(e.target.value)}
+                className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-slate-800"
+              >
+                <option value="">নতুন টপিক নির্বাচন করুন</option>
+                {topics.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                placeholder="সাবটপিক (ঐচ্ছিক)"
+                value={moveSubtopic}
+                onChange={(e) => setMoveSubtopic(e.target.value)}
+                className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs w-36"
+              />
+
+              <button
+                type="button"
+                onClick={handleBulkMove}
+                disabled={isMoving}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-1.5 rounded-xl transition cursor-pointer"
+              >
+                {isMoving ? "পরিবর্তন হচ্ছে..." : "মুভ করুন"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Question Cards list */}
         <div className="space-y-3">
+          {questions.length > 0 && (
+            <div className="flex items-center gap-2 pb-1">
+              <input
+                type="checkbox"
+                id="select_all_q"
+                checked={selectedIds.length === questions.length && questions.length > 0}
+                onChange={handleSelectAll}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <label htmlFor="select_all_q" className="text-xs text-slate-600 font-bold cursor-pointer select-none">
+                সবগুলো সিলেক্ট করুন ({toBengaliDigits(questions.length)}টি)
+              </label>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex justify-center items-center py-12 text-slate-400 text-xs gap-1.5">
               <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
@@ -406,18 +504,33 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
             </div>
           ) : (
             questions.map((q, idx) => (
-              <div key={q.id || idx} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition space-y-2">
+              <div
+                key={q.id || idx}
+                className={`p-4 rounded-2xl border transition space-y-2 ${
+                  selectedIds.includes(q.id)
+                    ? "border-indigo-400 bg-indigo-50/40"
+                    : "border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+                }`}
+              >
                 <div className="flex justify-between items-start gap-3">
-                  <div className="space-y-1">
-                    <p className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
-                      {toBengaliDigits(idx + 1)}. {q.q}
-                    </p>
-                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                      {q.topic && (
-                        <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
-                          {q.topic}
-                        </span>
-                      )}
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(q.id)}
+                      onChange={() => toggleSelect(q.id)}
+                      className="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <div className="space-y-1">
+                      <p className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
+                        {toBengaliDigits(idx + 1)}. {q.q}
+                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                        {q.topic && (
+                          <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
+                            {q.topic}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

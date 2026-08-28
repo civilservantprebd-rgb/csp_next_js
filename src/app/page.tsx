@@ -6,6 +6,7 @@ import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { FreeExamsSpotlight } from "@/components/dashboard/FreeExamsSpotlight";
 import { SelfPracticeCard } from "@/components/dashboard/SelfPracticeCard";
+import { TopicExplorerHub } from "@/components/dashboard/TopicExplorerHub";
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
 import { EnrollModal } from "@/components/modals/EnrollModal";
@@ -137,6 +138,9 @@ export default function HomePage() {
 
         {/* Custom Subject Self-Practice Card */}
         <SelfPracticeCard config={config} />
+
+        {/* Chapter & Subtopic Exploration Hub */}
+        <TopicExplorerHub config={config} />
 
         {/* Dynamic Course Card Grid (Each course is a box with subjects, exams, enroll button & start exam button) */}
         <CourseCardGrid

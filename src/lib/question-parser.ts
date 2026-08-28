@@ -6,6 +6,8 @@ export interface ParsedQuestionBlock {
   opts: string[];
   correct: number;
   exp: string;
+  topic?: string;
+  subtopic?: string;
   isValid: boolean;
   error?: string;
 }
@@ -13,9 +15,14 @@ export interface ParsedQuestionBlock {
 /**
  * Smart Question Parser
  * Supports Bengali & English numbered questions, options (ক/খ/গ/ঘ or a/b/c/d or 1/2/3/4),
- * answers (উত্তরঃ/উত্তর:/Ans:/Answer:) and explanations (ব্যাখ্যা:/Exp:/Explanation:).
+ * answers (উত্তরঃ/উত্তর:/Ans:/Answer:) and explanations (ব্যাখ্যা:/Exp:/Explanation:),
+ * and automatic hierarchy/topic/subtopic detection from markdown headers or 'টপিক:' tags.
  */
-export function parseBulkQuestionsText(rawText: string, defaultTopic?: string): {
+export function parseBulkQuestionsText(
+  rawText: string,
+  defaultTopic?: string,
+  defaultSubtopic?: string
+): {
   questions: QuestionItem[];
   solutions: QuestionSolution[];
   blocks: ParsedQuestionBlock[];
@@ -26,10 +33,33 @@ export function parseBulkQuestionsText(rawText: string, defaultTopic?: string): 
     return { questions: [], solutions: [], blocks: [], validCount: 0, totalParsed: 0 };
   }
 
-  // Split into blocks by double newline or numbered questions
+  // Split into blocks by double newline or numbered questions or topic headers
   const lines = rawText.split(/\r?\n/);
-  const rawBlocks: string[][] = [];
-  let currentBlock: string[] = [];
+  const rawBlocks: { lines: string[]; currentSectionTopic?: string; currentSectionSubtopic?: string }[] = [];
+  let currentBlockLines: string[] = [];
+  let activeTopic = defaultTopic?.trim() || "";
+  let activeSubtopic = defaultSubtopic?.trim() || "";
+
+  const isTopicHeader = (line: string) => {
+    const trimmed = line.trim();
+    return /^#+\s+|^\[?(টপিক|অধ্যায়|চ্যাপ্টার|অধ্যায়|বিষয়|বিষয়|Topic|Chapter|Subject)\]?\s*[:ঃ\-=]/i.test(trimmed);
+  };
+
+  const parseTopicHeader = (line: string) => {
+    const trimmed = line.trim().replace(/^#+\s*/, "").replace(/^\[?(টপিক|অধ্যায়|চ্যাপ্টার|অধ্যায়|বিষয়|বিষয়|Topic|Chapter|Subject)\]?\s*[:ঃ\-=]\s*/i, "").trim();
+    // Support hierarchy like "বাংলা সাহিত্য > প্রাচীন যুগ > চর্যাপদ" or "পরিবেশ / চুক্তি"
+    const parts = trimmed.split(/\s*[>›/|]\s*/);
+    if (parts.length >= 2) {
+      return {
+        topic: parts[0].trim(),
+        subtopic: parts.slice(1).join(" > ").trim()
+      };
+    }
+    return {
+      topic: trimmed,
+      subtopic: ""
+    };
+  };
 
   const isQuestionStart = (line: string) => {
     const trimmed = line.trim();
@@ -41,35 +71,45 @@ export function parseBulkQuestionsText(rawText: string, defaultTopic?: string): 
     const line = lines[i];
     const trimmed = line.trim();
 
-    if (!trimmed) {
-      if (currentBlock.length > 0) {
-        // Empty line might separate questions
+    if (!trimmed) continue;
+
+    // Check if line is a topic/chapter header
+    if (isTopicHeader(trimmed)) {
+      if (currentBlockLines.length > 0) {
+        rawBlocks.push({ lines: currentBlockLines, currentSectionTopic: activeTopic, currentSectionSubtopic: activeSubtopic });
+        currentBlockLines = [];
       }
+      const parsedH = parseTopicHeader(trimmed);
+      activeTopic = parsedH.topic || activeTopic;
+      activeSubtopic = parsedH.subtopic || activeSubtopic;
       continue;
     }
 
-    if (isQuestionStart(trimmed) && currentBlock.length > 0) {
-      rawBlocks.push(currentBlock);
-      currentBlock = [line];
+    if (isQuestionStart(trimmed) && currentBlockLines.length > 0) {
+      rawBlocks.push({ lines: currentBlockLines, currentSectionTopic: activeTopic, currentSectionSubtopic: activeSubtopic });
+      currentBlockLines = [line];
     } else {
-      currentBlock.push(line);
+      currentBlockLines.push(line);
     }
   }
 
-  if (currentBlock.length > 0) {
-    rawBlocks.push(currentBlock);
+  if (currentBlockLines.length > 0) {
+    rawBlocks.push({ lines: currentBlockLines, currentSectionTopic: activeTopic, currentSectionSubtopic: activeSubtopic });
   }
 
   const blocks: ParsedQuestionBlock[] = [];
   const questions: QuestionItem[] = [];
   const solutions: QuestionSolution[] = [];
 
-  for (const blockLines of rawBlocks) {
+  for (const blockData of rawBlocks) {
+    const blockLines = blockData.lines;
     let qText = "";
     const opts: string[] = [];
     let correctIdx = 0;
     let exp = "";
     let ansFound = false;
+    let inlineTopic = blockData.currentSectionTopic || "";
+    let inlineSubtopic = blockData.currentSectionSubtopic || "";
 
     for (let j = 0; j < blockLines.length; j++) {
       const line = blockLines[j].trim();
@@ -156,6 +196,8 @@ export function parseBulkQuestionsText(rawText: string, defaultTopic?: string): 
       opts: opts.slice(0, 4),
       correct: correctIdx,
       exp: exp,
+      topic: inlineTopic || defaultTopic || undefined,
+      subtopic: inlineSubtopic || defaultSubtopic || undefined,
       isValid,
       error
     };
@@ -166,7 +208,8 @@ export function parseBulkQuestionsText(rawText: string, defaultTopic?: string): 
       questions.push({
         q: block.q,
         opts: block.opts,
-        ...(defaultTopic?.trim() ? { topic: defaultTopic.trim() } : {})
+        topic: block.topic,
+        subtopic: block.subtopic
       });
       solutions.push({
         correct: block.correct,

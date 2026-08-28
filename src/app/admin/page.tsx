@@ -689,14 +689,19 @@ export default function AdminPage() {
               <div className="space-y-5">
                 {/* Add new topic */}
                 <div className="bg-indigo-50 p-4 sm:p-5 rounded-2xl border border-indigo-100 space-y-3">
-                  <h3 className="font-bold text-indigo-900 text-xs sm:text-sm flex items-center gap-1.5">
-                    <Plus className="w-4 h-4" /> নতুন টপিক যোগ করুন
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-indigo-900 text-xs sm:text-sm flex items-center gap-1.5">
+                      <Plus className="w-4 h-4" /> নতুন টপিক / চ্যাপ্টার / সাব-টপিক যোগ করুন
+                    </h3>
+                    <span className="text-[11px] text-indigo-700 font-medium">
+                      💡 যেমন: <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200">বাংলা সাহিত্য &gt; প্রাচীন যুগ &gt; চর্যাপদ</code>
+                    </span>
+                  </div>
                   <form onSubmit={handleAddTopic} className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       required
-                      placeholder="যেমন: প্রাচীন ও মধ্যযুগ"
+                      placeholder="টপিক বা হায়ারার্কি লিখুন (যেমন: বিষয় > অধ্যায় > সাব-টপিক)"
                       value={newTopicName}
                       onChange={(e) => setNewTopicName(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 text-xs sm:text-sm bg-white"

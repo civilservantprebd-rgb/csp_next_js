@@ -802,10 +802,12 @@ export async function addBulkQuestionsToExam(
 
     const questionsInsert = newQuestions.map((qItem, idx) => {
       const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      const rawTopic = qItem.topic?.trim() || "সাধারণ";
+      const fullTopic = qItem.subtopic ? `${rawTopic} > ${qItem.subtopic.trim()}` : rawTopic;
       return {
         q: qItem.q.trim(),
         opts: qItem.opts.map((o) => o.trim()),
-        topic: qItem.topic?.trim() || "সাধারণ",
+        topic: fullTopic,
         correct: Number(sol.correct),
         exp: (sol.exp || "").trim(),
         course: examData.course,
@@ -840,10 +842,11 @@ export async function addBulkQuestionsToExam(
     const topicQuestionsInsert = newQuestions
       .map((qItem, idx) => {
         const sol = newSolutions[idx] || { correct: 0, exp: "" };
-        const targetTopic = qItem.topic?.trim() || "সাধারণ";
+        const rawTopic = qItem.topic?.trim() || "সাধারণ";
+        const fullTopic = qItem.subtopic ? `${rawTopic} > ${qItem.subtopic.trim()}` : rawTopic;
         return {
           id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
-          topic: targetTopic,
+          topic: fullTopic,
           q: qItem.q.trim(),
           opts: qItem.opts.map((o) => o.trim()),
           correct: Number(sol.correct),
@@ -880,9 +883,11 @@ export async function addBulkTopicQuestions(
 
     const topicQuestionsInsert = newQuestions.map((qItem, idx) => {
       const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      const rawTopic = qItem.topic?.trim() || resolvedTopic;
+      const fullTopic = qItem.subtopic ? `${rawTopic} > ${qItem.subtopic.trim()}` : rawTopic;
       return {
         id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
-        topic: resolvedTopic,
+        topic: fullTopic,
         q: qItem.q.trim(),
         opts: qItem.opts.map((o) => o.trim()),
         correct: Number(sol.correct),
@@ -899,10 +904,12 @@ export async function addBulkTopicQuestions(
 
     const questionsInsert = newQuestions.map((qItem, idx) => {
       const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      const rawTopic = qItem.topic?.trim() || resolvedTopic;
+      const fullTopic = qItem.subtopic ? `${rawTopic} > ${qItem.subtopic.trim()}` : rawTopic;
       return {
         q: qItem.q.trim(),
         opts: qItem.opts.map((o) => o.trim()),
-        topic: resolvedTopic,
+        topic: fullTopic,
         correct: Number(sol.correct),
         exp: (sol.exp || "").trim(),
         course: "সাধারণ কোর্স",
@@ -925,10 +932,13 @@ export async function addQuestionToBank(
   solution: QuestionSolution
 ): Promise<boolean> {
   try {
+    const rawTopic = question.topic?.trim() || null;
+    const fullTopic = rawTopic && question.subtopic ? `${rawTopic} > ${question.subtopic.trim()}` : rawTopic;
+
     const { error } = await supabase.from("question_bank").insert({
       q: question.q.trim(),
       opts: question.opts.map((o) => o.trim()),
-      topic: question.topic?.trim() || null,
+      topic: fullTopic,
       correct: Number(solution.correct),
       exp: solution.exp.trim()
     });
@@ -947,10 +957,13 @@ export async function updateQuestionInBank(
   solution: QuestionSolution
 ): Promise<boolean> {
   try {
+    const rawTopic = question.topic?.trim() || null;
+    const fullTopic = rawTopic && question.subtopic ? `${rawTopic} > ${question.subtopic.trim()}` : rawTopic;
+
     const { error } = await supabase.from("question_bank").update({
       q: question.q.trim(),
       opts: question.opts.map((o) => o.trim()),
-      topic: question.topic?.trim() || null,
+      topic: fullTopic,
       correct: Number(solution.correct),
       exp: solution.exp.trim()
     }).eq("id", id);
@@ -975,19 +988,49 @@ export async function deleteQuestionFromBank(id: string): Promise<boolean> {
   }
 }
 
+export async function bulkMoveQuestionsToTopic(
+  questionIds: string[],
+  newTopic: string,
+  newSubtopic?: string
+): Promise<boolean> {
+  try {
+    if (!questionIds.length) return true;
+    const targetTopic = newSubtopic?.trim()
+      ? `${newTopic.trim()} > ${newSubtopic.trim()}`
+      : newTopic.trim();
+
+    const { error } = await supabase
+      .from("question_bank")
+      .update({ topic: targetTopic })
+      .in("id", questionIds);
+
+    if (error) throw error;
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Bulk move questions error:", err);
+    return false;
+  }
+}
+
 export async function addBulkQuestionsToBank(
   newQuestions: QuestionItem[],
   newSolutions: QuestionSolution[],
-  fallbackTopic?: string
+  fallbackTopic?: string,
+  fallbackSubtopic?: string
 ): Promise<{ success: boolean; count: number }> {
   try {
     if (!newQuestions.length) return { success: false, count: 0 };
     const questionsInsert = newQuestions.map((qItem, idx) => {
       const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      const rawTopic = (qItem.topic || fallbackTopic || "").trim();
+      const rawSubtopic = (qItem.subtopic || fallbackSubtopic || "").trim();
+      const fullTopic = rawTopic && rawSubtopic ? `${rawTopic} > ${rawSubtopic}` : (rawTopic || null);
+
       return {
         q: qItem.q.trim(),
         opts: qItem.opts.map((o) => o.trim()),
-        topic: (qItem.topic || fallbackTopic || "").trim() || null,
+        topic: fullTopic,
         correct: Number(sol.correct),
         exp: (sol.exp || "").trim(),
         course: "সাধারণ কোর্স",

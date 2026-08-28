@@ -22,20 +22,15 @@ interface BulkQuestionImporterModalProps {
   activeExamKey?: string;
   examTitle?: string;
   targetTopic?: string;
+  targetSubtopic?: string;
   topics?: string[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-const SAMPLE_TEXT = `১. বাংলাদেশের জাতীয় কবি কে?
-ক) রবীন্দ্রনাথ ঠাকুর
-খ) কাজী নজরুল ইসলাম
-গ) জসীমউদ্দীন
-ঘ) জীবনানন্দ দাশ
-উত্তর: খ
-ব্যাখ্যা: কাজী নজরুল ইসলামকে ১৯৭২ সালে বাংলাদেশের জাতীয় কবি হিসেবে ঘোষণা করা হয়।
+const SAMPLE_TEXT = `# বাংলা সাহিত্য > প্রাচীন যুগ > চর্যাপদ
 
-২. চর্যাপদ কোন ছন্দে রচিত?
+১. চর্যাপদ কোন ছন্দে রচিত?
 ক) মাত্রাবৃত্ত
 খ) অক্ষরবৃত্ত
 গ) স্বরবৃত্ত
@@ -43,30 +38,34 @@ const SAMPLE_TEXT = `১. বাংলাদেশের জাতীয় কব�
 উত্তর: ক
 ব্যাখ্যা: চর্যাপদের অধিকাংশ পদই মাত্রাবৃত্ত ছন্দে রচিত।
 
-3. Who wrote the tragedy 'Hamlet'?
-a) Charles Dickens
-b) William Shakespeare
-c) John Milton
-d) George Orwell
-Ans: b
-Explanation: William Shakespeare wrote Hamlet around 1600.`;
+# আন্তর্জাতিক বিষয়াবলী > পরিবেশ ও দুর্যোগ > আন্তর্জাতিক চুক্তি
+
+২. কিয়োটো প্রোটোকল কোন সালে গৃহীত হয়?
+ক) ১৯৯২
+খ) ১৯৯৭
+গ) ২০১৫
+ঘ) ১৯৮৭
+উত্তর: খ
+ব্যাখ্যা: ১৯৯৭ সালের ১১ ডিসেম্বর জাপানের কিয়োটো শহরে এটি গৃহীত হয়।`;
 
 export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps> = ({
   isOpen,
   activeExamKey,
   examTitle,
   targetTopic,
+  targetSubtopic,
   topics = [],
   onClose,
   onSuccess,
 }) => {
   const [rawText, setRawText] = useState("");
   const [selectedTopic, setSelectedTopic] = useState(targetTopic || "");
+  const [selectedSubtopic, setSelectedSubtopic] = useState(targetSubtopic || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const parsedResult = useMemo(() => {
-    return parseBulkQuestionsText(rawText, selectedTopic);
-  }, [rawText, selectedTopic]);
+    return parseBulkQuestionsText(rawText, selectedTopic, selectedSubtopic);
+  }, [rawText, selectedTopic, selectedSubtopic]);
 
   if (!isOpen) return null;
 
@@ -96,7 +95,8 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
       res = await addBulkQuestionsToBank(
         parsedResult.questions,
         parsedResult.solutions,
-        selectedTopic
+        selectedTopic,
+        selectedSubtopic
       );
     }
     setIsSubmitting(false);
@@ -244,6 +244,13 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                         <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                       )}
                     </div>
+
+                    {(b.topic || b.subtopic) && (
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md w-fit border border-indigo-100">
+                        <span>📁 {b.topic}</span>
+                        {b.subtopic && <span>❯ {b.subtopic}</span>}
+                      </div>
+                    )}
 
                     {b.error && (
                       <p className="text-[10px] text-amber-700 font-medium">
