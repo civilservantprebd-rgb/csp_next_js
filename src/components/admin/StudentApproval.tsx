@@ -6,9 +6,10 @@ import { getEnrollRequests, approveEnrollRequest } from "@/actions/enroll-action
 import {
   getAllAllowedStudents,
   addAllowedStudentManual,
+  updateAllowedStudent,
   deleteAllowedStudent
 } from "@/actions/student-actions";
-import { Bell, Check, UserPlus, Trash2, Edit2, RotateCw } from "lucide-react";
+import { Bell, Check, UserPlus, Trash2, Edit2, RotateCw, X, Save } from "lucide-react";
 import { parseBengaliDigits, toBengaliDigits } from "@/lib/utils";
 
 interface StudentApprovalProps {
@@ -22,6 +23,11 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
   const [newName, setNewName] = useState("");
   const [newCourse, setNewCourse] = useState("ALL");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Edit state
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCourses, setEditCourses] = useState<string[]>([]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -57,46 +63,91 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
     loadData();
   };
 
+  const startEdit = (student: AllowedStudent) => {
+    setEditingStudentId(student.id);
+    setEditName(student.name);
+    setEditCourses(student.courses && student.courses.length > 0 ? student.courses : ["ALL"]);
+  };
+
+  const cancelEdit = () => {
+    setEditingStudentId(null);
+    setEditName("");
+    setEditCourses([]);
+  };
+
+  const handleSaveEdit = async (studentId: string) => {
+    if (!editName.trim()) {
+      alert("শিক্ষার্থীর নাম প্রদান করা আবশ্যক।");
+      return;
+    }
+    const finalCourses = editCourses.length > 0 ? editCourses : ["ALL"];
+    const res = await updateAllowedStudent(studentId, editName, finalCourses);
+    alert(res.message);
+    if (res.success) {
+      setEditingStudentId(null);
+      loadData();
+    }
+  };
+
+  const toggleCourseInEdit = (cName: string) => {
+    if (cName === "ALL") {
+      setEditCourses(["ALL"]);
+      return;
+    }
+
+    setEditCourses((prev) => {
+      const filtered = prev.filter((c) => c !== "ALL");
+      if (filtered.includes(cName)) {
+        const next = filtered.filter((c) => c !== cName);
+        return next.length === 0 ? ["ALL"] : next;
+      } else {
+        return [...filtered, cName];
+      }
+    });
+  };
+
   const handleDelete = async (id: string) => {
-    if (confirm(`আপনি কি এই শিক্ষার্থীকে (${id}) মুছে ফেলতে চান?`)) {
+    if (confirm("আপনি কি নিশ্চিতভাবে এই শিক্ষার্থীকে মুছে ফেলতে চান?")) {
       const ok = await deleteAllowedStudent(id);
       if (ok) {
-        loadData();
+        setStudents((prev) => prev.filter((s) => s.id !== id));
       } else {
-        alert("শিক্ষার্থী ডিলিট করতে সমস্যা হয়েছে।");
+        alert("শিক্ষার্থী মুছতে সমস্যা হয়েছে।");
       }
     }
   };
 
   return (
     <div className="space-y-6 font-bengali">
-      {/* Enrollment Requests Section */}
-      <div className="bg-amber-50/70 p-4 sm:p-5 rounded-2xl border border-amber-200 space-y-3">
-        <div className="flex justify-between items-center">
-          <h4 className="font-bold text-amber-900 text-xs sm:text-sm flex items-center">
-            <Bell className="w-4 h-4 text-amber-600 mr-1.5 animate-bounce" /> নতুন এনরোলমেন্ট রিকোয়েস্টসমূহ (
-            {toBengaliDigits(requests.length)} টি):
-          </h4>
+      {/* Pending Enroll Requests */}
+      <div className="bg-amber-50/50 p-4 sm:p-5 rounded-2xl border border-amber-200 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-amber-900 text-xs sm:text-sm flex items-center gap-1.5">
+            <Bell className="w-4 h-4 text-amber-600 animate-pulse" /> অপেক্ষমান এনরোলমেন্ট রিকোয়েস্ট (
+            {toBengaliDigits(requests.length)}টি)
+          </h3>
           <button
             onClick={loadData}
-            className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+            className="text-amber-700 hover:text-amber-900 text-xs flex items-center gap-1 cursor-pointer"
           >
             <RotateCw className="w-3.5 h-3.5" /> রিফ্রেশ
           </button>
         </div>
 
-        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
           {requests.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-3">কোনো নতুন এনরোলমেন্ট রিকোয়েস্ট নেই।</p>
+            <p className="text-xs text-slate-400 text-center py-4 bg-white/50 rounded-xl">
+              কোনো অপেক্ষমান রিকোয়েস্ট নেই।
+            </p>
           ) : (
-            requests.map((req, idx) => (
+            requests.map((req) => (
               <div
-                key={idx}
-                className="p-3 rounded-xl border border-amber-200 bg-white shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs"
+                key={req.id}
+                className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs"
               >
                 <div>
-                  <p className="font-bold text-slate-900">
-                    {req.name} <span className="text-indigo-600 font-mono">({req.id})</span>
+                  <p className="font-bold text-slate-800">
+                    {req.name} ({req.id})
                   </p>
                   <p className="text-slate-600 mt-0.5">
                     <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
@@ -172,35 +223,140 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
         </form>
       </div>
 
-      {/* Allowed Students List */}
+      {/* Allowed Students List & Course Modifier */}
       <div>
         <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2.5">
-          অনুমোদিত স্টুডেন্ট আইডি ও নাম তালিকা ({toBengaliDigits(students.length)} জন):
+          অনুমোদিত শিক্ষার্থী তালিকা ও কোর্স পরিবর্তন ({toBengaliDigits(students.length)} জন):
         </h4>
-        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+        <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
           {students.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-3">কোনো অনুমোদিত আইডি নেই।</p>
+            <p className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl">কোনো অনুমোদিত আইডি নেই।</p>
           ) : (
-            students.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center text-xs sm:text-sm"
-              >
-                <div>
-                  <span className="font-mono font-bold text-indigo-700">{item.id}</span>
-                  <span className="text-slate-700 ml-2 font-medium">- {item.name}</span>
-                  <span className="inline-block bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 border border-indigo-200">
-                    {item.courses?.includes("ALL") ? "সকল কোর্স" : item.courses?.join(", ") || "সকল কোর্স"}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  className="bg-rose-100 hover:bg-rose-200 text-rose-700 font-medium text-xs px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"
+            students.map((item) => {
+              const isEditing = editingStudentId === item.id;
+
+              if (isEditing) {
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-2xl border-2 border-indigo-500 bg-indigo-50/40 space-y-3 text-xs sm:text-sm shadow-sm"
+                  >
+                    <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                      <span className="font-mono font-bold text-indigo-950">আইডি: {item.id}</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEdit(item.id)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer transition shadow-xs"
+                        >
+                          <Save className="w-3.5 h-3.5" /> সংরক্ষণ করুন
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer transition"
+                        >
+                          <X className="w-3.5 h-3.5" /> বাতিল
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">শিক্ষার্থীর নাম</label>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">অনুমোদিত কোর্সসমূহ নির্বাচন করুন</label>
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded-xl border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => toggleCourseInEdit("ALL")}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              editCourses.includes("ALL")
+                                ? "bg-indigo-600 text-white"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                            }`}
+                          >
+                            সকল কোর্স (ALL)
+                          </button>
+                          {courses.map((c) => {
+                            const isSelected = !editCourses.includes("ALL") && editCourses.includes(c);
+                            return (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => toggleCourseInEdit(c)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  isSelected
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                }`}
+                              >
+                                {c}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={item.id}
+                  className="p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50/80 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-2xs"
                 >
-                  <Trash2 className="w-3 h-3" /> মুছুন
-                </button>
-              </div>
-            ))
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-indigo-700">{item.id}</span>
+                      <span className="text-slate-800 font-bold">{item.name}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400 font-medium">কোর্স:</span>
+                      {item.courses?.includes("ALL") ? (
+                        <span className="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-200">
+                          সকল কোর্স (All Courses)
+                        </span>
+                      ) : (
+                        (item.courses || []).map((c) => (
+                          <span
+                            key={c}
+                            className="bg-indigo-50 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-200"
+                          >
+                            {c}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                    <button
+                      onClick={() => startEdit(item)}
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border border-indigo-200"
+                    >
+                      <Edit2 className="w-3 h-3" /> কোর্স ও তথ্য পরিবর্তন
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs px-2.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border border-rose-200"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

@@ -31,15 +31,28 @@ export default function ExamPage() {
       router.push("/");
       return;
     }
-    setStudent(JSON.parse(rawStudent));
+    const parsedStudent = JSON.parse(rawStudent);
+    setStudent(parsedStudent);
 
-    fetchAppConfig().then((data) => {
+    fetchAppConfig().then(async (data) => {
       const ex = data.exams?.[examId];
       if (!ex) {
         alert("পরীক্ষা পাওয়া যায়নি।");
         router.push("/");
         return;
       }
+
+      // Pre-check if already submitted during live period
+      if (isExamCurrentlyLive(ex)) {
+        const { checkStudentAlreadySubmitted } = await import("@/actions/exam-actions");
+        const already = await checkStudentAlreadySubmitted(examId, parsedStudent.id);
+        if (already) {
+          alert("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
+          router.push("/");
+          return;
+        }
+      }
+
       setExam(ex);
       setStudentAnswers(new Array(ex.questions?.length || 0).fill(null));
 

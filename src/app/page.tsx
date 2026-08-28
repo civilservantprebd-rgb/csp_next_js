@@ -99,6 +99,17 @@ export default function HomePage() {
 
     const localUser = getLocalStudentUser();
     if (localUser) {
+      const { isExamCurrentlyLive } = await import("@/lib/bangladesh-time");
+      const { checkStudentAlreadySubmitted } = await import("@/actions/exam-actions");
+
+      if (isExamCurrentlyLive(ex)) {
+        const already = await checkStudentAlreadySubmitted(examKey, localUser.uid);
+        if (already) {
+          alert("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
+          return;
+        }
+      }
+
       if (ex.isFree) {
         // Free exam: Start instantly without popup
         sessionStorage.setItem(

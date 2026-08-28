@@ -270,6 +270,29 @@ export async function addAllowedStudentManual(
   }
 }
 
+export async function updateAllowedStudent(
+  id: string,
+  name: string,
+  courses: string[]
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cleanId = id.trim();
+    const { error } = await supabase
+      .from("allowed_students")
+      .update({
+        name: name.trim(),
+        courses: courses
+      })
+      .eq("id", cleanId);
+
+    if (error) throw error;
+    return { success: true, message: "শিক্ষার্থীর কোর্স ও তথ্য সফলভাবে আপডেট করা হয়েছে।" };
+  } catch (err) {
+    console.error("Update allowed student error:", err);
+    return { success: false, message: "শিক্ষার্থীর তথ্য আপডেট করতে সমস্যা হয়েছে।" };
+  }
+}
+
 export async function deleteAllowedStudent(id: string): Promise<boolean> {
   try {
     const { error } = await supabase.from("allowed_students").delete().eq("id", id);
