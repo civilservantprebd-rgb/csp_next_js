@@ -109,7 +109,7 @@ export default function ExamPage() {
       );
       router.push(`/exam/${examId}/result`);
     } else {
-      alert("উত্তরপত্র জমা দিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      alert(res.message || "উত্তরপত্র জমা দিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     }
   };
 
