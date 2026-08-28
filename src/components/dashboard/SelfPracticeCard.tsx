@@ -79,14 +79,14 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
         {/* Practice Config Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* 1. Topic Selector */}
-          <div className="space-y-1.5 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-white/70 shadow-xs">
             <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5 text-slate-500" /> ১. টপিক নির্বাচন করুন:
             </label>
             <select
               value={selectedTopic}
               onChange={(e) => setSelectedTopic(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800 font-semibold"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white/80 text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800 font-semibold"
             >
               <option value="সকল টপিক (মিক্সড)">সকল টপিক (মিক্সড মডেল টেস্ট)</option>
               {availableTopics.map((top) => (
@@ -98,7 +98,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
           </div>
 
           {/* 2. Question Count Selector */}
-          <div className="space-y-1.5 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-white/70 shadow-xs">
             <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-slate-500" /> ২. প্রশ্নের সংখ্যা:
             </label>
@@ -111,7 +111,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
                   className={`py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
                     selectedCount === cnt
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
-                      : "bg-white border-slate-250 text-slate-700 hover:bg-slate-50"
+                      : "bg-white/80 border-slate-200 text-slate-700 hover:bg-slate-50"
                   }`}
                 >
                   {toBengaliDigits(cnt)}টি
@@ -121,7 +121,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
           </div>
 
           {/* 3. Mode Selector */}
-          <div className="space-y-1.5 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-white/70 shadow-xs">
             <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-slate-500" /> ৩. অনুশীলনের ধরন:
             </label>
@@ -132,7 +132,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
                 className={`p-2 rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer border text-center flex flex-col items-center justify-center ${
                   practiceMode === "instant"
                     ? "bg-slate-950 border-slate-950 text-white shadow-sm"
-                    : "bg-white border-slate-250 text-slate-600 hover:bg-slate-50"
+                    : "bg-white/80 border-slate-200 text-slate-650 hover:bg-slate-50"
                 }`}
               >
                 <span>ইনস্ট্যান্ট মোড</span>
@@ -145,7 +145,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
                 className={`p-2 rounded-xl text-[10px] sm:text-xs font-bold transition cursor-pointer border text-center flex flex-col items-center justify-center ${
                   practiceMode === "exam"
                     ? "bg-slate-950 border-slate-950 text-white shadow-sm"
-                    : "bg-white border-slate-250 text-slate-600 hover:bg-slate-50"
+                    : "bg-white/80 border-slate-200 text-slate-650 hover:bg-slate-50"
                 }`}
               >
                 <span>মক টেস্ট মোড</span>
