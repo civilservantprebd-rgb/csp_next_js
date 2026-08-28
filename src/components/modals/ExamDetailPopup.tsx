@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Clock, Loader2 } from "lucide-react";
+import { X, Clock, Loader2, Printer } from "lucide-react";
 import { Submission } from "@/types/submission";
 import { Exam, QuestionSolution } from "@/types/exam";
 import { getExamSolutions, isAnswerTimeReached } from "@/actions/exam-actions";
 import { toBengaliDigits } from "@/lib/utils";
+import { PrintableMarksheetModal } from "@/components/exam/PrintableMarksheetModal";
 
 interface ExamDetailPopupProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
 }) => {
   const [solutions, setSolutions] = useState<QuestionSolution[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   useEffect(() => {
     if (isOpen && submission) {
@@ -51,10 +53,43 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                 : "স্কোর ও উত্তর গোপন"}
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {canShowAnswers && (
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(true)}
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              >
+                <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                <span>মার্কশিট (PDF)</span>
+              </button>
+            )}
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {exam && (
+          <PrintableMarksheetModal
+            isOpen={showPrintModal}
+            onClose={() => setShowPrintModal(false)}
+            examTitle={submission.examTitle}
+            courseName={exam.course}
+            subjectName={exam.subject}
+            studentName={submission.studentName}
+            studentId={submission.studentId}
+            totalQuestions={submission.totalQuestions || exam.questions?.length || 0}
+            score={submission.score}
+            correct={submission.correct}
+            incorrect={submission.incorrect}
+            timeSpent={submission.timeSpent}
+            submittedAt={submission.submittedAtISO}
+            questions={exam.questions || []}
+            solutions={solutions || []}
+            studentAnswers={submission.answers || []}
+          />
+        )}
 
         <div className="overflow-y-auto flex-grow pr-1 space-y-3">
           {!canShowAnswers ? (

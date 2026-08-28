@@ -8,8 +8,9 @@ import { ReviewCard } from "@/components/exam/ReviewCard";
 import { fetchAppConfig } from "@/actions/admin-actions";
 import { getExamSolutions, isAnswerTimeReached, getExamCandidateRank } from "@/actions/exam-actions";
 import { Exam, QuestionSolution } from "@/types/exam";
-import { Award, ListChecks, Trophy, Home, Loader2, Clock, X, Lock, Sparkles, AlertTriangle } from "lucide-react";
+import { Award, ListChecks, Trophy, Home, Loader2, Clock, X, Lock, Sparkles, AlertTriangle, Printer } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
+import { PrintableMarksheetModal } from "@/components/exam/PrintableMarksheetModal";
 
 export default function ExamResultPage() {
   const params = useParams();
@@ -21,6 +22,7 @@ export default function ExamResultPage() {
   const [solutions, setSolutions] = useState<QuestionSolution[] | null>(null);
   const [showReview, setShowReview] = useState(false);
   const [showLockedModal, setShowLockedModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [rankInfo, setRankInfo] = useState<{
     practiceRank: number;
     totalCandidates: number;
@@ -165,19 +167,58 @@ export default function ExamResultPage() {
             </button>
 
             <button
+              onClick={async () => {
+                if (!isPublished) {
+                  setShowLockedModal(true);
+                  return;
+                }
+                if (!solutions) {
+                  const data = await getExamSolutions(examId);
+                  setSolutions(data || []);
+                }
+                setShowPrintModal(true);
+              }}
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <Printer className="w-4 h-4 text-indigo-600" /> মার্কশিট (PDF)
+            </button>
+
+            <button
               onClick={() => router.push(`/leaderboard/${examId}`)}
-              className="bg-white hover:bg-slate-50 text-slate-800 font-bold border border-slate-200 px-6 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+              className="bg-white hover:bg-slate-50 text-slate-800 font-bold border border-slate-200 px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
             >
               <Trophy className="w-4 h-4 text-amber-500" /> লিডারবোর্ড
             </button>
 
             <button
               onClick={() => router.push("/")}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-6 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Home className="w-4 h-4" /> হোম
             </button>
           </div>
+
+          {/* Printable Marksheet Modal */}
+          {exam && (
+            <PrintableMarksheetModal
+              isOpen={showPrintModal}
+              onClose={() => setShowPrintModal(false)}
+              examTitle={resultData.examTitle}
+              courseName={exam.course}
+              subjectName={exam.subject}
+              studentName={resultData.studentName}
+              studentId={resultData.studentId}
+              totalQuestions={resultData.totalQuestions || exam.questions?.length || 0}
+              score={resultData.score ?? 0}
+              correct={resultData.correct ?? 0}
+              incorrect={resultData.incorrect ?? 0}
+              timeSpent={resultData.timeSpent || "১০ মিনিট"}
+              submittedAt={new Date().toISOString()}
+              questions={exam.questions || []}
+              solutions={solutions || []}
+              studentAnswers={resultData.answers || []}
+            />
+          )}
 
           {showReview && exam && solutions && (
             <div className="pt-4 border-t border-slate-100 space-y-4">
