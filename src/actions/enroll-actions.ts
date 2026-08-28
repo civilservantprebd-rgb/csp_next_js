@@ -1,17 +1,7 @@
 "use server";
 
-import { db } from "@/lib/firebase";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  getDoc,
-  doc,
-  setDoc,
-  deleteDoc
-} from "firebase/firestore";
+import { supabase } from "@/lib/supabase";
 import { EnrollmentRequest } from "@/types/student";
-import { parseBengaliDigits } from "@/lib/utils";
 import { getTrueDate } from "@/lib/bangladesh-time";
 
 export async function submitEnrollRequest(payload: {
@@ -26,14 +16,16 @@ export async function submitEnrollRequest(payload: {
       return { success: false, message: "দয়া করে সকল তথ্য সঠিকভাবে পূরণ করুন।" };
     }
 
-    await addDoc(collection(db, "enroll_requests"), {
-      id: payload.uid,
+    const { error } = await supabase.from("enroll_requests").insert({
+      student_uid: payload.uid,
       email: payload.email,
       name: payload.name.trim(),
       course: payload.course,
-      trxId: payload.trxId.trim().toUpperCase(),
-      timestamp: getTrueDate().toISOString()
+      trx_id: payload.trxId.trim().toUpperCase(),
+      created_at: getTrueDate().toISOString()
     });
+
+    if (error) throw error;
 
     return {
       success: true,
@@ -47,12 +39,22 @@ export async function submitEnrollRequest(payload: {
 
 export async function getEnrollRequests(): Promise<EnrollmentRequest[]> {
   try {
-    const snap = await getDocs(collection(db, "enroll_requests"));
-    const requests: EnrollmentRequest[] = [];
-    snap.forEach((d) => {
-      requests.push({ docId: d.id, ...(d.data() as Omit<EnrollmentRequest, "docId">) });
-    });
-    return requests;
+    const { data, error } = await supabase
+      .from("enroll_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((r) => ({
+      docId: r.id,
+      id: r.student_uid,
+      email: r.email,
+      name: r.name,
+      course: r.course,
+      trxId: r.trx_id,
+      timestamp: r.created_at
+    }));
   } catch (err) {
     console.error("Fetch enroll requests error:", err);
     return [];
@@ -70,28 +72,34 @@ export async function approveEnrollRequest(
     const cleanId = uid.trim();
 
     let existingCourses: string[] = [];
-    const existingSnap = await getDoc(doc(db, "allowed_students", cleanId));
-    if (existingSnap.exists()) {
-      const exData = existingSnap.data();
-      existingCourses = exData.courses || (exData.course ? [exData.course] : []);
+    const { data: exData } = await supabase
+      .from("allowed_students")
+      .select("courses")
+      .eq("id", cleanId)
+      .maybeSingle();
+
+    if (exData) {
+      existingCourses = exData.courses || [];
     }
 
     const mergedCourses = Array.from(new Set([...existingCourses, course]));
 
-    await setDoc(
-      doc(db, "allowed_students", cleanId),
-      {
-        id: cleanId,
-        name: name,
-        email: email || "",
-        courses: mergedCourses,
-        approvedAt: getTrueDate().toISOString()
-      },
-      { merge: true }
-    );
+    const { error: upsertError } = await supabase.from("allowed_students").upsert({
+      id: cleanId,
+      name: name,
+      email: email || "",
+      courses: mergedCourses,
+      approved_at: getTrueDate().toISOString()
+    });
+
+    if (upsertError) throw upsertError;
 
     if (docId) {
-      await deleteDoc(doc(db, "enroll_requests", docId));
+      const { error: deleteError } = await supabase
+        .from("enroll_requests")
+        .delete()
+        .eq("id", docId);
+      if (deleteError) throw deleteError;
     }
 
     return { success: true, message: `${name} (${email || cleanId})-কে "${course}" কোর্সে অনুমোদন দেওয়া হয়েছে।` };

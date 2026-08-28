@@ -1,20 +1,11 @@
 "use server";
 
-import { db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  getDocs,
-  collection,
-  setDoc,
-  query,
-  where
-} from "firebase/firestore";
+import { supabase } from "@/lib/supabase";
 import { AllowedStudent } from "@/types/student";
 import { Submission } from "@/types/submission";
 import { parseBengaliDigits } from "@/lib/utils";
 import { getExamSolutions } from "@/actions/exam-actions";
-import { isAnswerTimeReached } from "@/lib/bangladesh-time";
+import { getTrueDate } from "@/lib/bangladesh-time";
 
 export async function verifyStudentAccess(
   rawStudentId: string,
@@ -30,28 +21,29 @@ export async function verifyStudentAccess(
   try {
     let matchedStudent: AllowedStudent | null = null;
 
-    // 1. Direct match by raw ID
-    let snap = await getDoc(doc(db, "allowed_students", cleanId));
-    if (snap.exists()) {
-      matchedStudent = snap.data() as AllowedStudent;
-      if (!matchedStudent.id) matchedStudent.id = cleanId;
+    // 1. Direct match by raw ID or normalized ID
+    const { data: student } = await supabase
+      .from("allowed_students")
+      .select("*")
+      .or(`id.eq.${cleanId},id.eq.${normalizedId}`)
+      .maybeSingle();
+
+    if (student) {
+      matchedStudent = {
+        id: student.id,
+        name: student.name,
+        courses: student.courses
+      };
     }
 
-    // 2. Direct match by normalized digits
-    if (!matchedStudent && normalizedId && normalizedId !== cleanId) {
-      snap = await getDoc(doc(db, "allowed_students", normalizedId));
-      if (snap.exists()) {
-        matchedStudent = snap.data() as AllowedStudent;
-        if (!matchedStudent.id) matchedStudent.id = normalizedId;
-      }
-    }
-
-    // 3. Collection search fallback
+    // 2. Collection search fallback for endsWith matching
     if (!matchedStudent) {
-      const allSnap = await getDocs(collection(db, "allowed_students"));
-      allSnap.forEach((d) => {
-        const data = d.data() as AllowedStudent;
-        const docSid = String(data.id || d.id).trim();
+      const { data: allStudents } = await supabase
+        .from("allowed_students")
+        .select("*");
+
+      (allStudents || []).forEach((d) => {
+        const docSid = String(d.id).trim();
         const docNormSid = parseBengaliDigits(docSid).trim();
 
         if (
@@ -60,8 +52,11 @@ export async function verifyStudentAccess(
           (normalizedId.length >= 10 && docNormSid.endsWith(normalizedId.slice(-10))) ||
           (docNormSid.length >= 10 && normalizedId.endsWith(docNormSid.slice(-10)))
         ) {
-          matchedStudent = data;
-          if (!matchedStudent.id) matchedStudent.id = docSid;
+          matchedStudent = {
+            id: d.id,
+            name: d.name,
+            courses: d.courses
+          };
         }
       });
     }
@@ -113,17 +108,32 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
     const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
     if (ids.length === 0) return [];
 
-    const q = query(
-      collection(db, "submissions"),
-      where("studentId", "in", ids)
-    );
-    const snap = await getDocs(q);
-    const subs: Submission[] = [];
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("*")
+      .in("student_id", ids)
+      .order("submitted_at", { ascending: false });
 
-    snap.forEach((d) => {
-      const data = d.data() as Submission;
-      subs.push({ ...data, id: d.id });
-    });
+    if (error) throw error;
+
+    const subs: Submission[] = (data || []).map((row) => ({
+      id: row.id,
+      studentName: row.student_name,
+      studentId: row.student_id,
+      examKey: row.exam_key,
+      examTitle: row.exam_title,
+      score: Number(row.score ?? 0),
+      correct: Number(row.correct ?? 0),
+      incorrect: Number(row.incorrect ?? 0),
+      totalQuestions: Number(row.total_questions ?? 0),
+      timeSpent: row.time_spent,
+      answers: Array.isArray(row.answers)
+        ? row.answers.map((v: any) => (v === -1 || v === null ? null : Number(v)))
+        : [],
+      isPendingEvaluation: row.is_pending_evaluation,
+      isLiveSubmission: row.is_live_submission,
+      submittedAtISO: row.submitted_at
+    }));
 
     for (const s of subs) {
       if (s.isPendingEvaluation || s.score === undefined) {
@@ -142,6 +152,17 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
           s.incorrect = incor;
           s.score = Math.max(0, cor - incor * 0.5);
           s.isPendingEvaluation = false;
+
+          // Update evaluated score in Supabase
+          await supabase
+            .from("submissions")
+            .update({
+              score: s.score,
+              correct: cor,
+              incorrect: incor,
+              is_pending_evaluation: false
+            })
+            .eq("id", s.id);
         }
       }
     }
@@ -155,11 +176,13 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
 
 export async function updateStudentName(uid: string, newName: string): Promise<boolean> {
   try {
-    const docRef = doc(db, "allowed_students", uid);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      await setDoc(docRef, { name: newName }, { merge: true });
-    }
+    const cleanId = uid.trim();
+    const { error } = await supabase
+      .from("allowed_students")
+      .update({ name: newName })
+      .eq("id", cleanId);
+
+    if (error) throw error;
     return true;
   } catch (err) {
     console.error("Update student name error:", err);

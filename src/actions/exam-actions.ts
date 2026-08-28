@@ -1,36 +1,30 @@
 "use server";
 
-import { db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  getDocs,
-  collection,
-  addDoc,
-  serverTimestamp,
-  query,
-  where
-} from "firebase/firestore";
+import { supabase } from "@/lib/supabase";
 import { Exam, QuestionSolution } from "@/types/exam";
 import { Submission, LeaderboardItem } from "@/types/submission";
-import { parseBangladeshDateTime, getTrueDate, isAnswerTimeReached, isExamCurrentlyLive } from "@/lib/bangladesh-time";
+import { parseBangladeshDateTime, getTrueDate } from "@/lib/bangladesh-time";
 import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
   try {
-    const docSnap = await getDoc(doc(db, "exam_solutions", examKey));
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      if (data && Array.isArray(data.solutions)) {
-        return data.solutions;
-      }
-    }
+    const { data, error } = await supabase
+      .from("exam_questions")
+      .select("correct, exp")
+      .eq("exam_id", examKey)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map((r) => ({
+      correct: Number(r.correct),
+      exp: r.exp || ""
+    }));
   } catch (err) {
     console.error("Error fetching solutions:", err);
   }
   return null;
 }
-
 
 export async function checkStudentAlreadySubmitted(
   examKey: string,
@@ -41,25 +35,17 @@ export async function checkStudentAlreadySubmitted(
     const normId = parseBengaliDigits(cleanId).trim();
     if (!cleanId) return false;
 
-    const q = query(collection(db, "submissions"), where("examKey", "==", examKey));
-    const snap = await getDocs(q);
-    let found = false;
+    const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
 
-    snap.forEach((d) => {
-      const data = d.data() as Submission;
-      const subSid = String(data.studentId || "").trim();
-      const subNorm = parseBengaliDigits(subSid).trim();
-      if (
-        subSid === cleanId ||
-        (normId && subNorm === normId) ||
-        (normId.length >= 10 && subNorm.endsWith(normId.slice(-10))) ||
-        (subNorm.length >= 10 && normId.endsWith(subNorm.slice(-10)))
-      ) {
-        found = true;
-      }
-    });
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("student_id")
+      .eq("exam_key", examKey)
+      .in("student_id", ids);
 
-    return found;
+    if (error) throw error;
+
+    return (data || []).length > 0;
   } catch (err) {
     console.error("Check student submission error:", err);
     return false;
@@ -86,10 +72,33 @@ export async function submitExamAnswers(payload: {
   message?: string;
 }> {
   try {
-    const configSnap = await getDoc(doc(db, "app_config", "bcs_data"));
-    const configData = configSnap.data();
-    const exam: Exam | undefined = configData?.exams?.[payload.examKey];
+    // Fetch exam info
+    const { data: examData, error: examError } = await supabase
+      .from("exams")
+      .select("*")
+      .eq("id", payload.examKey)
+      .maybeSingle();
 
+    if (examError) throw examError;
+
+    const exam: Exam | undefined = examData
+      ? {
+          id: examData.id,
+          course: examData.course,
+          subject: examData.subject,
+          title: examData.title,
+          timerMinutes: examData.timer_minutes,
+          isFree: examData.is_free,
+          passMark: Number(examData.pass_mark),
+          startTime: examData.start_time,
+          endTime: examData.end_time,
+          isResultPublished: examData.is_result_published,
+          leaderboardStartTime: examData.leaderboard_start_time,
+          leaderboardEndTime: examData.leaderboard_end_time
+        }
+      : undefined;
+
+    const { isExamCurrentlyLive, isAnswerTimeReached } = await import("@/lib/bangladesh-time");
     const isLiveSubmission = exam ? isExamCurrentlyLive(exam) : false;
 
     if (isLiveSubmission) {
@@ -128,22 +137,27 @@ export async function submitExamAnswers(payload: {
       }
     }
 
-    const docRef = await addDoc(collection(db, "submissions"), {
-      studentName: payload.studentName,
-      studentId: payload.studentId,
-      examKey: payload.examKey,
-      examTitle: payload.examTitle,
-      score: isLive ? 0 : score,
-      correct: isLive ? 0 : correct,
-      incorrect: isLive ? 0 : incorrect,
-      totalQuestions: payload.totalQuestions,
-      timeSpent: timeFormatted,
-      answers: payload.answers,
-      isPendingEvaluation: isLive,
-      isLiveSubmission: isLiveSubmission,
-      timestamp: serverTimestamp(),
-      submittedAtISO: getTrueDate().toISOString()
-    });
+    const { data: newSub, error: insertError } = await supabase
+      .from("submissions")
+      .insert({
+        student_name: payload.studentName,
+        student_id: payload.studentId,
+        exam_key: payload.examKey,
+        exam_title: payload.examTitle,
+        score: isLive ? 0 : score,
+        correct: isLive ? 0 : correct,
+        incorrect: isLive ? 0 : incorrect,
+        total_questions: payload.totalQuestions,
+        time_spent: timeFormatted,
+        answers: payload.answers.map((v) => (v === null ? -1 : v)),
+        is_pending_evaluation: isLive,
+        is_live_submission: isLiveSubmission,
+        submitted_at: getTrueDate().toISOString()
+      })
+      .select("id")
+      .single();
+
+    if (insertError) throw insertError;
 
     return {
       success: true,
@@ -152,7 +166,7 @@ export async function submitExamAnswers(payload: {
       score: isLive ? undefined : score,
       correct: isLive ? undefined : correct,
       incorrect: isLive ? undefined : incorrect,
-      submissionId: docRef.id
+      submissionId: newSub.id
     };
   } catch (err) {
     console.error("Submit exam error:", err);
@@ -162,33 +176,69 @@ export async function submitExamAnswers(payload: {
 
 export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem[]> {
   try {
-    const configSnap = await getDoc(doc(db, "app_config", "bcs_data"));
-    const configData = configSnap.data();
-    const exam: Exam | undefined = configData?.exams?.[examKey];
+    const { data: examData, error: examError } = await supabase
+      .from("exams")
+      .select("*")
+      .eq("id", examKey)
+      .maybeSingle();
+
+    if (examError) throw examError;
+
+    const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+    const exam: Exam | undefined = examData
+      ? {
+          id: examData.id,
+          course: examData.course,
+          subject: examData.subject,
+          title: examData.title,
+          timerMinutes: examData.timer_minutes,
+          isFree: examData.is_free,
+          passMark: Number(examData.pass_mark),
+          startTime: examData.start_time,
+          endTime: examData.end_time,
+          isResultPublished: examData.is_result_published,
+          leaderboardStartTime: examData.leaderboard_start_time,
+          leaderboardEndTime: examData.leaderboard_end_time
+        }
+      : undefined;
 
     if (!exam || !isAnswerTimeReached(exam)) {
       return [];
     }
 
-    const q = query(collection(db, "submissions"), where("examKey", "==", examKey));
-    const snap = await getDocs(q);
-    const subs: Submission[] = [];
-    let hasPending = false;
+    const { data: subData, error: subError } = await supabase
+      .from("submissions")
+      .select("*")
+      .eq("exam_key", examKey)
+      .eq("is_live_submission", true);
 
-    snap.forEach((d) => {
-      const data = d.data() as Submission;
-      if (data.isLiveSubmission !== false) {
-        subs.push(data);
-        if (data.isPendingEvaluation || data.score === undefined) {
-          hasPending = true;
-        }
-      }
-    });
+    if (subError) throw subError;
+
+    const subs: Submission[] = (subData || []).map((row) => ({
+      id: row.id,
+      studentName: row.student_name,
+      studentId: row.student_id,
+      examKey: row.exam_key,
+      examTitle: row.exam_title,
+      score: Number(row.score ?? 0),
+      correct: Number(row.correct ?? 0),
+      incorrect: Number(row.incorrect ?? 0),
+      totalQuestions: Number(row.total_questions ?? 0),
+      timeSpent: row.time_spent,
+      answers: Array.isArray(row.answers)
+        ? row.answers.map((v: any) => (v === -1 || v === null ? null : Number(v)))
+        : [],
+      isPendingEvaluation: row.is_pending_evaluation,
+      isLiveSubmission: row.is_live_submission,
+      submittedAtISO: row.submitted_at
+    }));
+
+    let hasPending = subs.some((s) => s.isPendingEvaluation || s.score === undefined);
 
     if (hasPending) {
       const solutions = await getExamSolutions(examKey);
       if (solutions) {
-        subs.forEach((s) => {
+        for (const s of subs) {
           if ((s.isPendingEvaluation || s.score === undefined) && s.answers) {
             let cor = 0;
             let incor = 0;
@@ -202,8 +252,20 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
             s.correct = cor;
             s.incorrect = incor;
             s.score = Math.max(0, cor - incor * 0.5);
+            s.isPendingEvaluation = false;
+
+            // Save evaluated score back to Supabase
+            await supabase
+              .from("submissions")
+              .update({
+                score: s.score,
+                correct: cor,
+                incorrect: incor,
+                is_pending_evaluation: false
+              })
+              .eq("id", s.id);
           }
-        });
+        }
       }
     }
 
@@ -241,25 +303,29 @@ export async function getExamCandidateRank(
   userTimeSpent: string
 ): Promise<{ practiceRank: number; totalCandidates: number; officialCandidates: number }> {
   try {
-    const q = query(collection(db, "submissions"), where("examKey", "==", examKey));
-    const snap = await getDocs(q);
+    const { data: subData, error } = await supabase
+      .from("submissions")
+      .select("score, time_spent, is_live_submission")
+      .eq("exam_key", examKey);
+
+    if (error) throw error;
+
     const allSubs: { score: number; timeSecs: number; isLive: boolean }[] = [];
     let officialCount = 0;
 
-    snap.forEach((d) => {
-      const data = d.data() as Submission;
-      let sc = typeof data.score === "number" ? data.score : parseFloat(data.score as any) || 0;
-      if (data.isLiveSubmission !== false) officialCount++;
+    (subData || []).forEach((row) => {
+      let sc = typeof row.score === "number" ? row.score : parseFloat(row.score as any) || 0;
+      const isLive = row.is_live_submission !== false;
+      if (isLive) officialCount++;
       allSubs.push({
         score: sc,
-        timeSecs: parseTimeSpentToSeconds(data.timeSpent),
-        isLive: data.isLiveSubmission !== false
+        timeSecs: parseTimeSpentToSeconds(row.time_spent),
+        isLive
       });
     });
 
     const userTimeSecs = parseTimeSpentToSeconds(userTimeSpent);
 
-    // Calculate how many candidates have higher score or better time
     let higherCount = 0;
     allSubs.forEach((sub) => {
       if (sub.score > userScore) {

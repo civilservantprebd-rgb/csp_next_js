@@ -1,18 +1,6 @@
 "use server";
 
-import { db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  setDoc,
-  deleteDoc,
-  collection,
-  getDocs,
-  updateDoc,
-  deleteField,
-  query,
-  where
-} from "firebase/firestore";
+import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, QuestionSolution, TopicQuestion } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
 
@@ -73,21 +61,90 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
 
   inflightFetch = (async () => {
     try {
-      const snap = await Promise.race([
-        getDoc(doc(db, "app_config", "bcs_data")),
-        timeoutPromise
+      const fetchPromise = Promise.all([
+        supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
+        supabase.from("subjects").select("name, course"),
+        supabase.from("exams").select("*"),
+        supabase.from("exam_questions").select("*").order("created_at", { ascending: true }),
+        supabase.from("topic_questions").select("*").order("created_at", { ascending: true })
       ]);
 
-      if (snap && snap.exists()) {
-        const data = snap.data() as AppConfigData;
-        if (Array.isArray(data.topics)) {
-          data.topics = data.topics
-            .map((t: any) => (typeof t === "string" ? t : t?.name))
-            .filter((t): t is string => Boolean(t && typeof t === "string"));
-        }
-        if (!Array.isArray(data.topicQuestions)) {
-          data.topicQuestions = [];
-        }
+      const results = await Promise.race([
+        fetchPromise,
+        timeoutPromise.then(() => { throw new Error("Timeout"); })
+      ]);
+
+      if (results) {
+        const [settingsRes, subjectsRes, examsRes, questionsRes, topicQuestionsRes] = results;
+
+        const settings = settingsRes?.data || {};
+        const courses = settings.courses || defaultData.courses;
+        const topics = settings.topics || defaultData.topics;
+        const teacherPass = settings.teacher_pass || defaultData.teacherPass;
+        const driveRoutineUrl = settings.drive_routine_url || defaultData.driveRoutineUrl;
+        const driveSyllabusUrl = settings.drive_syllabus_url || defaultData.driveSyllabusUrl;
+
+        const subjects = (subjectsRes?.data || []).map((s) => ({
+          name: s.name,
+          course: s.course
+        }));
+
+        const topicQuestions: TopicQuestion[] = (topicQuestionsRes?.data || []).map((tq) => ({
+          id: tq.id,
+          topic: tq.topic,
+          q: tq.q,
+          opts: tq.opts,
+          correct: Number(tq.correct),
+          exp: tq.exp || "",
+          originalExamTitle: tq.original_exam_title,
+          originalCourse: tq.original_course,
+          originalSubject: tq.original_subject,
+          examKey: tq.exam_key,
+          createdAt: tq.created_at
+        }));
+
+        const questionsByExam: Record<string, QuestionItem[]> = {};
+        (questionsRes?.data || []).forEach((q) => {
+          if (!questionsByExam[q.exam_id]) {
+            questionsByExam[q.exam_id] = [];
+          }
+          questionsByExam[q.exam_id].push({
+            q: q.q,
+            opts: q.opts,
+            topic: q.topic || undefined
+          });
+        });
+
+        const exams: Record<string, Exam> = {};
+        (examsRes?.data || []).forEach((ex) => {
+          exams[ex.id] = {
+            id: ex.id,
+            course: ex.course,
+            subject: ex.subject,
+            title: ex.title,
+            timerMinutes: ex.timer_minutes,
+            isFree: ex.is_free,
+            passMark: Number(ex.pass_mark),
+            startTime: ex.start_time,
+            endTime: ex.end_time,
+            isResultPublished: ex.is_result_published,
+            leaderboardStartTime: ex.leaderboard_start_time,
+            leaderboardEndTime: ex.leaderboard_end_time,
+            questions: questionsByExam[ex.id] || []
+          };
+        });
+
+        const data: AppConfigData = {
+          courses,
+          subjects,
+          topics,
+          topicQuestions,
+          exams,
+          teacherPass,
+          driveRoutineUrl,
+          driveSyllabusUrl
+        };
+
         cachedConfig = data;
         lastFetchTime = Date.now();
         return data;
@@ -112,7 +169,34 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
 
 export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boolean> {
   try {
-    await setDoc(doc(db, "app_config", "bcs_data"), config, { merge: true });
+    const updateData: any = {};
+    if (config.courses) updateData.courses = config.courses;
+    if (config.topics) updateData.topics = config.topics;
+    if (config.teacherPass) updateData.teacher_pass = config.teacherPass;
+    if (config.driveRoutineUrl) updateData.drive_routine_url = config.driveRoutineUrl;
+    if (config.driveSyllabusUrl) updateData.drive_syllabus_url = config.driveSyllabusUrl;
+
+    if (Object.keys(updateData).length > 0) {
+      const { error: settingsError } = await supabase
+        .from("app_settings")
+        .upsert({ id: "main", ...updateData });
+      if (settingsError) throw settingsError;
+    }
+
+    if (config.subjects) {
+      // Sync subjects table
+      const { error: deleteError } = await supabase
+        .from("subjects")
+        .delete()
+        .neq("name", "___nonexistent_subject___");
+      if (deleteError) throw deleteError;
+
+      const { error: insertError } = await supabase
+        .from("subjects")
+        .insert(config.subjects.map((s) => ({ name: s.name, course: s.course })));
+      if (insertError) throw insertError;
+    }
+
     invalidateConfigCache();
     return true;
   } catch (err) {
@@ -124,16 +208,24 @@ export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boo
 export async function createExam(examData: Omit<Exam, "id">): Promise<string | null> {
   try {
     const examKey = `exam_${Date.now()}`;
-    const config = await fetchAppConfig();
-    if (!config.exams) config.exams = {};
-
-    config.exams[examKey] = {
-      ...examData,
+    const { error } = await supabase.from("exams").insert({
       id: examKey,
-      questions: []
-    };
+      course: examData.course,
+      subject: examData.subject,
+      title: examData.title,
+      timer_minutes: examData.timerMinutes,
+      is_free: examData.isFree ?? false,
+      pass_mark: examData.passMark ?? 1,
+      start_time: examData.startTime || null,
+      end_time: examData.endTime || null,
+      is_result_published: examData.isResultPublished ?? false,
+      leaderboard_start_time: examData.leaderboardStartTime || null,
+      leaderboard_end_time: examData.leaderboardEndTime || null
+    });
 
-    await saveAppConfig({ exams: config.exams });
+    if (error) throw error;
+
+    invalidateConfigCache();
     return examKey;
   } catch (err) {
     console.error("Create exam error:", err);
@@ -143,15 +235,27 @@ export async function createExam(examData: Omit<Exam, "id">): Promise<string | n
 
 export async function updateExam(examKey: string, examData: Partial<Exam>): Promise<boolean> {
   try {
-    const config = await fetchAppConfig();
-    if (!config.exams || !config.exams[examKey]) return false;
+    const updateData: any = {};
+    if (examData.course) updateData.course = examData.course;
+    if (examData.subject) updateData.subject = examData.subject;
+    if (examData.title) updateData.title = examData.title;
+    if (examData.timerMinutes !== undefined) updateData.timer_minutes = examData.timerMinutes;
+    if (examData.isFree !== undefined) updateData.is_free = examData.isFree;
+    if (examData.passMark !== undefined) updateData.pass_mark = examData.passMark;
+    if (examData.startTime !== undefined) updateData.start_time = examData.startTime;
+    if (examData.endTime !== undefined) updateData.end_time = examData.endTime;
+    if (examData.isResultPublished !== undefined) updateData.is_result_published = examData.isResultPublished;
+    if (examData.leaderboardStartTime !== undefined) updateData.leaderboard_start_time = examData.leaderboardStartTime;
+    if (examData.leaderboardEndTime !== undefined) updateData.leaderboard_end_time = examData.leaderboardEndTime;
 
-    config.exams[examKey] = {
-      ...config.exams[examKey],
-      ...examData
-    };
+    const { error } = await supabase
+      .from("exams")
+      .update(updateData)
+      .eq("id", examKey);
 
-    await saveAppConfig({ exams: config.exams });
+    if (error) throw error;
+
+    invalidateConfigCache();
     return true;
   } catch (err) {
     console.error("Update exam error:", err);
@@ -161,18 +265,11 @@ export async function updateExam(examKey: string, examData: Partial<Exam>): Prom
 
 export async function deleteExam(examKey: string): Promise<boolean> {
   try {
-    const config = await fetchAppConfig();
-    if (config.exams && config.exams[examKey]) {
-      delete config.exams[examKey];
-      const ref = doc(db, "app_config", "bcs_data");
-      await updateDoc(ref, {
-        [`exams.${examKey}`]: deleteField()
-      });
-      invalidateConfigCache();
-      await deleteDoc(doc(db, "exam_solutions", examKey)).catch(() => {});
-      return true;
-    }
-    return false;
+    const { error } = await supabase.from("exams").delete().eq("id", examKey);
+    if (error) throw error;
+
+    invalidateConfigCache();
+    return true;
   } catch (err) {
     console.error("Delete exam error:", err);
     return false;
@@ -185,48 +282,42 @@ export async function addQuestionToExam(
   solution: QuestionSolution
 ): Promise<boolean> {
   try {
-    const config = await fetchAppConfig();
-    const exam = config.exams?.[examKey];
-    if (!exam) return false;
+    const { data: examData, error: examError } = await supabase
+      .from("exams")
+      .select("title, course, subject")
+      .eq("id", examKey)
+      .single();
 
-    if (!exam.questions) exam.questions = [];
-    exam.questions.push({
-      q: question.q,
-      opts: question.opts,
-      ...(question.topic ? { topic: question.topic } : {})
+    if (examError) throw examError;
+
+    const { error } = await supabase.from("exam_questions").insert({
+      exam_id: examKey,
+      q: question.q.trim(),
+      opts: question.opts.map((o) => o.trim()),
+      topic: question.topic?.trim() || null,
+      correct: Number(solution.correct),
+      exp: solution.exp.trim()
     });
 
-    const solutions = (await getExamSolutions(examKey)) || [];
-    solutions.push(solution);
+    if (error) throw error;
 
-    await setDoc(doc(db, "exam_solutions", examKey), {
-      examKey,
-      solutions,
-      updatedAt: new Date().toISOString()
-    });
-
-    // Also permanently store in persistent Topic Questions repository
     if (question.topic?.trim()) {
-      if (!config.topicQuestions) config.topicQuestions = [];
-      config.topicQuestions.push({
+      const { error: tqError } = await supabase.from("topic_questions").insert({
         id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         topic: question.topic.trim(),
         q: question.q.trim(),
         opts: question.opts.map((o) => o.trim()),
         correct: Number(solution.correct),
         exp: solution.exp.trim(),
-        originalExamTitle: exam.title,
-        originalCourse: exam.course,
-        originalSubject: exam.subject,
-        examKey: examKey,
-        createdAt: new Date().toISOString()
+        original_exam_title: examData.title,
+        original_course: examData.course,
+        original_subject: examData.subject,
+        exam_key: examKey
       });
+      if (tqError) throw tqError;
     }
 
-    await saveAppConfig({
-      exams: config.exams,
-      ...(question.topic?.trim() ? { topicQuestions: config.topicQuestions } : {})
-    });
+    invalidateConfigCache();
     return true;
   } catch (err) {
     console.error("Add question error:", err);
@@ -241,53 +332,55 @@ export async function addBulkQuestionsToExam(
 ): Promise<{ success: boolean; count: number }> {
   try {
     if (!newQuestions.length) return { success: false, count: 0 };
-    const config = await fetchAppConfig();
-    const exam = config.exams?.[examKey];
-    if (!exam) return { success: false, count: 0 };
 
-    if (!exam.questions) exam.questions = [];
-    const currentSolutions = (await getExamSolutions(examKey)) || [];
+    const { data: examData, error: examError } = await supabase
+      .from("exams")
+      .select("title, course, subject")
+      .eq("id", examKey)
+      .single();
 
-    if (!config.topicQuestions) config.topicQuestions = [];
+    if (examError) throw examError;
 
-    newQuestions.forEach((qItem, idx) => {
-      exam.questions!.push({
+    const questionsInsert = newQuestions.map((qItem, idx) => {
+      const sol = newSolutions[idx] || { correct: 0, exp: "" };
+      return {
+        exam_id: examKey,
         q: qItem.q.trim(),
         opts: qItem.opts.map((o) => o.trim()),
-        ...(qItem.topic ? { topic: qItem.topic.trim() } : {})
-      });
+        topic: qItem.topic?.trim() || null,
+        correct: Number(sol.correct),
+        exp: (sol.exp || "").trim()
+      };
+    });
 
-      const sol = newSolutions[idx] || { correct: 0, exp: "" };
-      currentSolutions.push(sol);
+    const { error: insertError } = await supabase.from("exam_questions").insert(questionsInsert);
+    if (insertError) throw insertError;
 
-      if (qItem.topic?.trim()) {
-        config.topicQuestions!.push({
+    const topicQuestionsInsert = newQuestions
+      .map((qItem, idx) => {
+        const sol = newSolutions[idx] || { correct: 0, exp: "" };
+        if (!qItem.topic?.trim()) return null;
+        return {
           id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
           topic: qItem.topic.trim(),
           q: qItem.q.trim(),
           opts: qItem.opts.map((o) => o.trim()),
           correct: Number(sol.correct),
           exp: (sol.exp || "").trim(),
-          originalExamTitle: exam.title,
-          originalCourse: exam.course,
-          originalSubject: exam.subject,
-          examKey: examKey,
-          createdAt: new Date().toISOString()
-        });
-      }
-    });
+          original_exam_title: examData.title,
+          original_course: examData.course,
+          original_subject: examData.subject,
+          exam_key: examKey
+        };
+      })
+      .filter((v): v is NonNullable<typeof v> => v !== null);
 
-    await setDoc(doc(db, "exam_solutions", examKey), {
-      examKey,
-      solutions: currentSolutions,
-      updatedAt: new Date().toISOString()
-    });
+    if (topicQuestionsInsert.length > 0) {
+      const { error: tqError } = await supabase.from("topic_questions").insert(topicQuestionsInsert);
+      if (tqError) throw tqError;
+    }
 
-    await saveAppConfig({
-      exams: config.exams,
-      topicQuestions: config.topicQuestions
-    });
-
+    invalidateConfigCache();
     return { success: true, count: newQuestions.length };
   } catch (err) {
     console.error("Add bulk questions error:", err);
@@ -302,67 +395,74 @@ export async function updateQuestionInExam(
   solution: QuestionSolution
 ): Promise<boolean> {
   try {
-    const config = await fetchAppConfig();
-    const exam = config.exams?.[examKey];
-    if (!exam || !exam.questions || !exam.questions[index]) return false;
+    const { data: examData, error: examError } = await supabase
+      .from("exams")
+      .select("title, course, subject")
+      .eq("id", examKey)
+      .single();
 
-    const oldQ = exam.questions[index];
+    if (examError) throw examError;
 
-    exam.questions[index] = {
-      q: question.q,
-      opts: question.opts,
-      ...(question.topic ? { topic: question.topic } : {})
-    };
+    const { data: qList, error: qListError } = await supabase
+      .from("exam_questions")
+      .select("id, q")
+      .eq("exam_id", examKey)
+      .order("created_at", { ascending: true });
 
-    const solutions = (await getExamSolutions(examKey)) || [];
-    solutions[index] = solution;
+    if (qListError) throw qListError;
 
-    await setDoc(doc(db, "exam_solutions", examKey), {
-      examKey,
-      solutions,
-      updatedAt: new Date().toISOString()
-    });
+    const oldQ = qList?.[index];
+    if (!oldQ) return false;
 
-    // Update in topicQuestions repository if topic exists
-    if (!config.topicQuestions) config.topicQuestions = [];
+    const { error: updateError } = await supabase
+      .from("exam_questions")
+      .update({
+        q: question.q.trim(),
+        opts: question.opts.map((o) => o.trim()),
+        topic: question.topic?.trim() || null,
+        correct: Number(solution.correct),
+        exp: solution.exp.trim()
+      })
+      .eq("id", oldQ.id);
+
+    if (updateError) throw updateError;
+
     if (question.topic?.trim()) {
-      // Find matching item by examKey & old question text
-      const existingIdx = config.topicQuestions.findIndex(
-        (tq) => tq.examKey === examKey && tq.q === oldQ.q
-      );
-      if (existingIdx !== -1) {
-        config.topicQuestions[existingIdx] = {
-          ...config.topicQuestions[existingIdx],
-          topic: question.topic.trim(),
-          q: question.q.trim(),
-          opts: question.opts.map((o) => o.trim()),
-          correct: Number(solution.correct),
-          exp: solution.exp.trim(),
-          originalExamTitle: exam.title,
-          originalCourse: exam.course,
-          originalSubject: exam.subject,
-        };
+      const { data: existingTq } = await supabase
+        .from("topic_questions")
+        .select("id")
+        .eq("exam_key", examKey)
+        .eq("q", oldQ.q)
+        .maybeSingle();
+
+      if (existingTq) {
+        await supabase
+          .from("topic_questions")
+          .update({
+            topic: question.topic.trim(),
+            q: question.q.trim(),
+            opts: question.opts.map((o) => o.trim()),
+            correct: Number(solution.correct),
+            exp: solution.exp.trim()
+          })
+          .eq("id", existingTq.id);
       } else {
-        config.topicQuestions.push({
+        await supabase.from("topic_questions").insert({
           id: `tq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           topic: question.topic.trim(),
           q: question.q.trim(),
           opts: question.opts.map((o) => o.trim()),
           correct: Number(solution.correct),
           exp: solution.exp.trim(),
-          originalExamTitle: exam.title,
-          originalCourse: exam.course,
-          originalSubject: exam.subject,
-          examKey: examKey,
-          createdAt: new Date().toISOString()
+          original_exam_title: examData.title,
+          original_course: examData.course,
+          original_subject: examData.subject,
+          exam_key: examKey
         });
       }
     }
 
-    await saveAppConfig({
-      exams: config.exams,
-      topicQuestions: config.topicQuestions
-    });
+    invalidateConfigCache();
     return true;
   } catch (err) {
     console.error("Update question error:", err);
@@ -372,23 +472,25 @@ export async function updateQuestionInExam(
 
 export async function deleteQuestionFromExam(examKey: string, index: number): Promise<boolean> {
   try {
-    const config = await fetchAppConfig();
-    const exam = config.exams?.[examKey];
-    if (!exam || !exam.questions) return false;
+    const { data: qList, error: qListError } = await supabase
+      .from("exam_questions")
+      .select("id")
+      .eq("exam_id", examKey)
+      .order("created_at", { ascending: true });
 
-    exam.questions.splice(index, 1);
+    if (qListError) throw qListError;
 
-    const solutions = (await getExamSolutions(examKey)) || [];
-    if (solutions.length > index) {
-      solutions.splice(index, 1);
-      await setDoc(doc(db, "exam_solutions", examKey), {
-        examKey,
-        solutions,
-        updatedAt: new Date().toISOString()
-      });
-    }
+    const target = qList?.[index];
+    if (!target) return false;
 
-    await saveAppConfig({ exams: config.exams });
+    const { error: deleteError } = await supabase
+      .from("exam_questions")
+      .delete()
+      .eq("id", target.id);
+
+    if (deleteError) throw deleteError;
+
+    invalidateConfigCache();
     return true;
   } catch (err) {
     console.error("Delete question error:", err);
@@ -398,53 +500,64 @@ export async function deleteQuestionFromExam(examKey: string, index: number): Pr
 
 export async function toggleExamResultPublish(examKey: string, publish: boolean): Promise<boolean> {
   try {
-    const config = await fetchAppConfig();
-    const exam = config.exams?.[examKey];
-    if (!exam) return false;
+    const { error: examUpdateError } = await supabase
+      .from("exams")
+      .update({ is_result_published: publish })
+      .eq("id", examKey);
 
-    exam.isResultPublished = publish;
-    await saveAppConfig({ exams: config.exams });
+    if (examUpdateError) throw examUpdateError;
 
-    // When releasing result: evaluate all student submissions for this exam against official solutions
-    const q = query(collection(db, "submissions"), where("examKey", "==", examKey));
-    const snap = await getDocs(q);
+    const { data: subs, error: subsError } = await supabase
+      .from("submissions")
+      .select("*")
+      .eq("exam_key", examKey);
+
+    if (subsError) throw subsError;
+
     const solutions = publish ? await getExamSolutions(examKey) : null;
-    const batchUpdates: Promise<void>[] = [];
+    const batchUpdates: Promise<any>[] = [];
 
-    snap.forEach((docSnap) => {
-      const sub = docSnap.data() as any;
-      const subRef = doc(db, "submissions", docSnap.id);
-      if (publish && solutions && Array.isArray(sub.answers)) {
+    (subs || []).forEach((row) => {
+      if (publish && solutions && Array.isArray(row.answers)) {
         let correct = 0;
         let incorrect = 0;
-        sub.answers.forEach((ans: number | null, idx: number) => {
+        row.answers.forEach((ans: number | null, idx: number) => {
           const sol = solutions[idx];
-          if (ans !== null && sol) {
+          if (ans !== null && ans !== -1 && sol) {
             if (ans === sol.correct) correct++;
             else incorrect++;
           }
         });
         const score = Math.max(0, correct - incorrect * 0.5);
         batchUpdates.push(
-          updateDoc(subRef, {
-            score,
-            correct,
-            incorrect,
-            isPendingEvaluation: false,
-            evaluatedAt: new Date().toISOString()
-          })
+          (async () => {
+            const { error } = await supabase
+              .from("submissions")
+              .update({
+                score,
+                correct,
+                incorrect,
+                is_pending_evaluation: false
+              })
+              .eq("id", row.id);
+            if (error) throw error;
+          })()
         );
       } else if (!publish) {
-        // Resetting results: mark as pending evaluation
         batchUpdates.push(
-          updateDoc(subRef, {
-            isPendingEvaluation: true
-          })
+          (async () => {
+            const { error } = await supabase
+              .from("submissions")
+              .update({ is_pending_evaluation: true })
+              .eq("id", row.id);
+            if (error) throw error;
+          })()
         );
       }
     });
 
     await Promise.all(batchUpdates);
+    invalidateConfigCache();
     return true;
   } catch (err) {
     console.error("Toggle exam result publish error:", err);
@@ -454,10 +567,10 @@ export async function toggleExamResultPublish(examKey: string, publish: boolean)
 
 export async function deleteTopicQuestion(topicQuestionId: string): Promise<boolean> {
   try {
-    const config = await fetchAppConfig();
-    if (!config.topicQuestions) return false;
-    config.topicQuestions = config.topicQuestions.filter((tq) => tq.id !== topicQuestionId);
-    await saveAppConfig({ topicQuestions: config.topicQuestions });
+    const { error } = await supabase.from("topic_questions").delete().eq("id", topicQuestionId);
+    if (error) throw error;
+
+    invalidateConfigCache();
     return true;
   } catch (err) {
     console.error("Delete topic question error:", err);
@@ -467,12 +580,12 @@ export async function deleteTopicQuestion(topicQuestionId: string): Promise<bool
 
 export async function clearAllSubmissions(): Promise<boolean> {
   try {
-    const snap = await getDocs(collection(db, "submissions"));
-    const promises: Promise<void>[] = [];
-    snap.forEach((d) => {
-      promises.push(deleteDoc(doc(db, "submissions", d.id)));
-    });
-    await Promise.all(promises);
+    const { error } = await supabase
+      .from("submissions")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000"); // Deletes all
+
+    if (error) throw error;
     return true;
   } catch (err) {
     console.error("Clear submissions error:", err);
