@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "BCS One - ইন্টারেক্টিভ কুইজ পোর্টাল",
@@ -15,6 +16,7 @@ export default function RootLayout({
     <html lang="bn">
       <body className="bg-slate-50 text-slate-800 min-h-screen flex flex-col overflow-x-hidden antialiased font-bengali">
         {children}
+        <Analytics />
       </body>
     </html>
   );
