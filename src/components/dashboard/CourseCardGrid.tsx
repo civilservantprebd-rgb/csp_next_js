@@ -114,8 +114,14 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
             return true;
           });
 
-          // Active selected exam for this card
-          const activeExamKey = selectedExams[courseName] || (filteredExams.length > 0 ? filteredExams[0][0] : "");
+          // Active selected exam for this card — if the previously selected exam
+          // is no longer visible (subject/search filter changed), fall back to
+          // the first visible exam instead of silently starting a hidden one.
+          const selectedKey = selectedExams[courseName] || "";
+          const activeExamKey =
+            filteredExams.some(([k]) => k === selectedKey)
+              ? selectedKey
+              : (filteredExams[0]?.[0] || "");
           const activeExamObj = activeExamKey ? exams[activeExamKey] : null;
 
           return (

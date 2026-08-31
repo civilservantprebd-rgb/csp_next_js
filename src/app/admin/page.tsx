@@ -159,7 +159,13 @@ export default function AdminPage() {
       alert("কমপক্ষে একটি কোর্স থাকা আবশ্যক।");
       return;
     }
-    if (confirm(`আপনি কি '${courseName}' কোর্সটি মুছে ফেলতে চান?`)) {
+    const courseExams = Object.values(config.exams || {}).filter((ex) => ex.course === courseName);
+    const courseSubjects = (config.subjects || []).filter((s) => s.course === courseName);
+    const orphanWarning =
+      courseExams.length > 0 || courseSubjects.length > 0
+        ? `\n\n⚠️ সতর্কতা: এই কোর্সে ${courseExams.length}টি পরীক্ষা ও ${courseSubjects.length}টি সাবজেক্ট আছে। কোর্সটি মুছলে সেগুলো হোম পেজে আর দেখা যাবে না (ডেটা মুছে যাবে না — প্রয়োজনে কোর্সটি নতুন নামে আবার যোগ করলেই সেগুলো আবার দেখা যাবে)।`
+        : "";
+    if (confirm(`আপনি কি '${courseName}' কোর্সটি মুছে ফেলতে চান?${orphanWarning}`)) {
       const nextCourses = config.courses.filter((c) => c !== courseName);
       await saveAppConfig({ courses: nextCourses });
       loadData();
