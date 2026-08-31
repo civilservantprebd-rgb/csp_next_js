@@ -62,13 +62,9 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    // SECURITY: the Gemini key is no longer persisted in localStorage (XSS could steal it)
     if (typeof window !== "undefined") {
-      const savedKey = localStorage.getItem("bcs_gemini_api_key") || "";
-      if (savedKey) {
-        setApiKey(savedKey);
-      } else {
-        setShowApiKeyInput(true);
-      }
+      setShowApiKeyInput(true);
     }
   }, []);
 
@@ -84,10 +80,6 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
     if (!topic.trim()) {
       setErrorMsg("দয়া করে বিষয় বা টপিকের নাম দিন।");
       return;
-    }
-
-    if (apiKey.trim() && typeof window !== "undefined") {
-      localStorage.setItem("bcs_gemini_api_key", apiKey.trim());
     }
 
     setIsLoading(true);

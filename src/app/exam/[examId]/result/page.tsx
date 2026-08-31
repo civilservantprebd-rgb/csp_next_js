@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { ReviewCard } from "@/components/exam/ReviewCard";
-import { fetchAppConfig } from "@/actions/admin-actions";
+import { fetchExamWithQuestions } from "@/actions/admin-actions";
 import { getExamSolutions, getExamCandidateRank } from "@/actions/exam-actions";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { Exam, QuestionSolution } from "@/types/exam";
@@ -43,8 +43,7 @@ export default function ExamResultPage() {
     }
 
     const checkExamStatus = () => {
-      fetchAppConfig(true).then(async (data) => {
-        const ex = data.exams?.[examId];
+      fetchExamWithQuestions(examId).then(async (ex) => {
         if (ex) {
           setExam(ex);
           // If exam reached answer release time, fetch solutions and calculate score if not already available
@@ -52,31 +51,54 @@ export default function ExamResultPage() {
             const raw = sessionStorage.getItem("last_result");
             if (raw) {
               const currentRes = JSON.parse(raw);
-              if (currentRes && typeof currentRes.score !== "number" && Array.isArray(currentRes.answers)) {
-                const solList = await getExamSolutions(examId);
-                if (solList) {
-                  setSolutions(solList);
-                  let cor = 0;
-                  let incor = 0;
-                  currentRes.answers.forEach((ans: number | null, idx: number) => {
-                    const sol = solList[idx];
-                    if (ans !== null && sol) {
-                      if (ans === sol.correct) cor++;
-                      else incor++;
-                    }
-                  });
-                  const evaluatedScore = Math.max(0, cor - incor * 0.5);
-                  const updatedRes = {
-                    ...currentRes,
-                    score: evaluatedScore,
-                    correct: cor,
-                    incorrect: incor,
-                    isLive: false
-                  };
-                  setResultData(updatedRes);
-                  sessionStorage.setItem("last_result", JSON.stringify(updatedRes));
-                  getExamCandidateRank(examId, evaluatedScore, updatedRes.timeSpent || "").then(setRankInfo);
+              if (currentRes && Array.isArray(currentRes.answers)) {
+                // SECURITY: prefer the server-stored score over client-computed data
+                const { getMySubmissionResult } = await import("@/actions/exam-actions");
+                const dbRes = await getMySubmissionResult(examId, currentRes.studentId || "");
+                const needsClientEval = typeof currentRes.score !== "number";
+
+                let score = typeof currentRes.score === "number" ? currentRes.score : 0;
+                let correct = typeof currentRes.correct === "number" ? currentRes.correct : 0;
+                let incorrect = typeof currentRes.incorrect === "number" ? currentRes.incorrect : 0;
+                let answers = currentRes.answers;
+
+                if (dbRes && !dbRes.isPendingEvaluation) {
+                  score = dbRes.score;
+                  correct = dbRes.correct;
+                  incorrect = dbRes.incorrect;
+                  if (dbRes.answers && dbRes.answers.length === answers.length) {
+                    answers = dbRes.answers;
+                  }
+                } else if (needsClientEval) {
+                  const solList = await getExamSolutions(examId);
+                  if (solList) {
+                    setSolutions(solList);
+                    let cor = 0;
+                    let incor = 0;
+                    answers.forEach((ans: number | null, idx: number) => {
+                      const sol = solList[idx];
+                      if (ans !== null && sol) {
+                        if (ans === sol.correct) cor++;
+                        else incor++;
+                      }
+                    });
+                    score = Math.max(0, cor - incor * 0.5);
+                    correct = cor;
+                    incorrect = incor;
+                  }
                 }
+
+                const updatedRes = {
+                  ...currentRes,
+                  score,
+                  correct,
+                  incorrect,
+                  answers,
+                  isLive: false
+                };
+                setResultData(updatedRes);
+                sessionStorage.setItem("last_result", JSON.stringify(updatedRes));
+                getExamCandidateRank(examId, score, updatedRes.timeSpent || "").then(setRankInfo);
               }
             }
           }

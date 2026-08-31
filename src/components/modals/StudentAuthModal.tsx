@@ -96,7 +96,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
 
     // Paid exam: Verify enrollment in allowed_students using Google UID
     setIsLoading(true);
-    const res = await verifyStudentAccess(studentUser.uid, exam.course);
+    const res = await verifyStudentAccess(studentUser.uid, exam.course, studentUser.email);
 
     if (res.allowed) {
       const targetId = res.normalizedId || studentUser.uid;

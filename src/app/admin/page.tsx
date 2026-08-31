@@ -5,14 +5,22 @@ import { useRouter } from "next/navigation";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { AdminNav, AdminTabType } from "@/components/admin/AdminNav";
-import { ExamManager } from "@/components/admin/ExamManager";
-import { QuestionBuilder } from "@/components/admin/QuestionBuilder";
-import { BulkQuestionImporterModal } from "@/components/admin/BulkQuestionImporterModal";
-import { StudentApproval } from "@/components/admin/StudentApproval";
-import { SubmissionsTable } from "@/components/admin/SubmissionsTable";
-import { QuestionBankManager } from "@/components/admin/QuestionBankManager";
-import { AdminAnalyticsDashboard } from "@/components/admin/AdminAnalyticsDashboard";
-import { ArchiveManager } from "@/components/admin/ArchiveManager";
+import dynamic from "next/dynamic";
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center p-10 text-slate-500 gap-2 font-bengali">
+    <Loader2 className="w-5 h-5 animate-spin" /> লোড হচ্ছে...
+  </div>
+);
+
+const ExamManager = dynamic(() => import("@/components/admin/ExamManager").then(mod => mod.ExamManager), { loading: LoadingFallback });
+const QuestionBuilder = dynamic(() => import("@/components/admin/QuestionBuilder").then(mod => mod.QuestionBuilder), { loading: LoadingFallback });
+const BulkQuestionImporterModal = dynamic(() => import("@/components/admin/BulkQuestionImporterModal").then(mod => mod.BulkQuestionImporterModal));
+const StudentApproval = dynamic(() => import("@/components/admin/StudentApproval").then(mod => mod.StudentApproval), { loading: LoadingFallback });
+const SubmissionsTable = dynamic(() => import("@/components/admin/SubmissionsTable").then(mod => mod.SubmissionsTable), { loading: LoadingFallback });
+const QuestionBankManager = dynamic(() => import("@/components/admin/QuestionBankManager").then(mod => mod.QuestionBankManager), { loading: LoadingFallback });
+const AdminAnalyticsDashboard = dynamic(() => import("@/components/admin/AdminAnalyticsDashboard").then(mod => mod.AdminAnalyticsDashboard), { loading: LoadingFallback });
+const ArchiveManager = dynamic(() => import("@/components/admin/ArchiveManager").then(mod => mod.ArchiveManager), { loading: LoadingFallback });
 import { fetchAppConfig, fetchAppConfigLite, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
 import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
@@ -83,13 +91,16 @@ export default function AdminPage() {
   };
 
   const loadData = async (initialLoad = false) => {
-    const rawUser = sessionStorage.getItem("teacher_user");
-    if (!rawUser) {
+    // SECURITY: verify server-side (sessionStorage alone can be forged via DevTools)
+    const { verifyTeacherSession } = await import("@/actions/admin-actions");
+    const { data: { session } } = await supabase.auth.getSession();
+    const verified = await verifyTeacherSession(session?.access_token);
+    if (!verified.ok || !verified.email) {
+      sessionStorage.removeItem("teacher_user");
       router.push("/");
       return;
     }
-    const parsedUser = JSON.parse(rawUser);
-    setTeacherUser(parsedUser);
+    setTeacherUser({ email: verified.email });
 
     if (initialLoad) {
       // Phase 1: Lite load — shows exam list instantly (no heavy JOIN)
@@ -106,7 +117,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadData(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   if (!config || !teacherUser) {
@@ -514,9 +525,8 @@ export default function AdminPage() {
                       return (
                         <div
                           key={idx}
-                          className={`p-3 rounded-xl border transition-all ${
-                            isEditing ? "border-indigo-400 bg-indigo-50/20" : "border-slate-200 bg-slate-50"
-                          } flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm`}
+                          className={`p-3 rounded-xl border transition-all ${isEditing ? "border-indigo-400 bg-indigo-50/20" : "border-slate-200 bg-slate-50"
+                            } flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm`}
                         >
                           {isEditing ? (
                             <div className="flex flex-col sm:flex-row gap-2 w-full">
@@ -622,9 +632,8 @@ export default function AdminPage() {
                       return (
                         <div
                           key={idx}
-                          className={`p-3 rounded-xl border transition-all ${
-                            isEditing ? "border-indigo-400 bg-indigo-50/20" : "border-slate-200 bg-slate-50"
-                          } flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm`}
+                          className={`p-3 rounded-xl border transition-all ${isEditing ? "border-indigo-400 bg-indigo-50/20" : "border-slate-200 bg-slate-50"
+                            } flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm`}
                         >
                           {isEditing ? (
                             <div className="flex flex-col sm:flex-row gap-2 w-full">

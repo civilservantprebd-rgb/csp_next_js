@@ -18,9 +18,15 @@ export async function generateMCQWithAI(params: {
   contextText?: string;
   apiKey?: string;
 }): Promise<{ success: boolean; data?: GeneratedMCQResult; error?: string }> {
-  const { topic, subtopic, count = 5, difficulty = "বিসিএস প্রিলিমিনারি মান", contextText, apiKey } = params;
+  try {
+    // SECURITY: only verified teachers may call the AI generator (prevents quota abuse)
+    const { requireTeacher } = await import("@/lib/teacher-auth");
+    await requireTeacher();
 
-  const resolvedApiKey = apiKey?.trim() || process.env.GEMINI_API_KEY || "";
+    const { topic, subtopic, count = 5, difficulty = "বিসিএস প্রিলিমিনারি মান", contextText } = params;
+
+  // Prefer the server-side key; never trust a key sent from the client
+  const resolvedApiKey = process.env.GEMINI_API_KEY || "";
 
   if (!resolvedApiKey) {
     return {
@@ -29,7 +35,6 @@ export async function generateMCQWithAI(params: {
     };
   }
 
-  try {
     const ai = new GoogleGenAI({ apiKey: resolvedApiKey });
 
     const topicHierarchy = [topic, subtopic].filter(Boolean).join(" > ");

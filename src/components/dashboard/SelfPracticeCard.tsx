@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Target,
   Sparkles,
@@ -13,12 +13,8 @@ import {
   Loader2
 } from "lucide-react";
 import { AppConfigData } from "@/types/exam";
-import {
-  getAvailablePracticeTopics,
-  generatePracticeQuestions,
-  PracticeQuestion,
-  TopicOption
-} from "@/lib/practice-helper";
+import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
+import type { PracticeQuestion, TopicOption } from "@/lib/practice-helper";
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
 import { toBengaliDigits } from "@/lib/utils";
 
@@ -29,9 +25,11 @@ interface SelfPracticeCardProps {
 const QUESTION_COUNTS = [10, 20, 30, 50];
 
 export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) => {
-  const availableTopics = useMemo(() => {
-    return getAvailablePracticeTopics(config);
-  }, [config]);
+  const [availableTopics, setAvailableTopics] = useState<TopicOption[]>([]);
+
+  useEffect(() => {
+    getPracticeTopics().then(setAvailableTopics);
+  }, []);
 
   const [selectedTopic, setSelectedTopic] = useState("সকল টপিক (মিক্সড)");
   const [selectedCount, setSelectedCount] = useState(10);
@@ -43,7 +41,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
 
   const handleStartPractice = async () => {
     setIsLoading(true);
-    const questions = await generatePracticeQuestions(config, selectedTopic, selectedCount);
+    const questions = await getPracticeQuestions(selectedTopic, selectedCount);
     setPracticeQuestions(questions);
     setIsLoading(false);
     setIsModalOpen(true);

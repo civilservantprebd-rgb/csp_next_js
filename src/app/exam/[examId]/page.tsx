@@ -6,7 +6,7 @@ import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { ExamTimer } from "@/components/exam/ExamTimer";
 import { QuestionList } from "@/components/exam/QuestionList";
-import { fetchAppConfig } from "@/actions/admin-actions";
+import { fetchExamWithQuestions } from "@/actions/admin-actions";
 import { submitExamAnswers } from "@/actions/exam-actions";
 import { parseBangladeshDateTime, getTrueNowMs, isExamCurrentlyLive } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
@@ -34,8 +34,7 @@ export default function ExamPage() {
     const parsedStudent = JSON.parse(rawStudent);
     setStudent(parsedStudent);
 
-    fetchAppConfig().then(async (data) => {
-      const ex = data.exams?.[examId];
+    fetchExamWithQuestions(examId).then(async (ex) => {
       if (!ex) {
         alert("পরীক্ষা পাওয়া যায়নি।");
         router.push("/");

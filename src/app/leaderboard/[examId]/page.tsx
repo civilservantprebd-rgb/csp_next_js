@@ -6,7 +6,7 @@ import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { LeaderboardTable } from "@/components/leaderboard/LeaderboardTable";
 import { fetchLeaderboard } from "@/actions/exam-actions";
-import { fetchAppConfig } from "@/actions/admin-actions";
+import { fetchAppConfigLite } from "@/actions/admin-actions";
 import { LeaderboardItem } from "@/types/submission";
 import { Exam } from "@/types/exam";
 import { parseBangladeshDateTime, isAnswerTimeReached } from "@/lib/bangladesh-time";
@@ -20,7 +20,7 @@ export default function StandaloneLeaderboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchAppConfig().then(async (config) => {
+    fetchAppConfigLite().then(async (config) => {
       const ex = config.exams?.[examId];
       if (ex) {
         setExam(ex);

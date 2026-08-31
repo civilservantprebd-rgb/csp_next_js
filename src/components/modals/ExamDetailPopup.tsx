@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { X, Clock, Loader2, Printer } from "lucide-react";
 import { Submission } from "@/types/submission";
-import { Exam, QuestionSolution } from "@/types/exam";
+import { Exam, QuestionItem, QuestionSolution } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
+import { fetchExamWithQuestions } from "@/actions/admin-actions";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { toBengaliDigits } from "@/lib/utils";
 import { PrintableMarksheetModal } from "@/components/exam/PrintableMarksheetModal";
@@ -25,23 +26,32 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
   onClose,
 }) => {
   const [solutions, setSolutions] = useState<QuestionSolution[] | null>(null);
+  const [examQuestions, setExamQuestions] = useState<QuestionItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   useEffect(() => {
     if (isOpen && submission) {
       setIsLoading(true);
-      getExamSolutions(submission.examKey).then((data) => {
-        setSolutions(data);
+      Promise.all([
+        fetchExamWithQuestions(submission.examKey),
+        getExamSolutions(submission.examKey)
+      ]).then(([ex, sols]) => {
+        setExamQuestions(ex?.questions || null);
+        setSolutions(sols);
         setIsLoading(false);
-        if (data && exam?.questions && submission.studentId) {
+        const qs =
+          ex?.questions && ex.questions.length > 0
+            ? ex.questions
+            : exam?.questions || [];
+        if (sols && qs.length > 0 && submission.studentId) {
           saveMistakesFromSubmission(
             submission.studentId,
             submission.examTitle,
-            exam.questions,
-            data,
+            qs,
+            sols,
             submission.answers || [],
-            exam.subject
+            ex?.subject || exam?.subject || ""
           );
         }
       });
@@ -51,6 +61,14 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
   if (!isOpen || !submission) return null;
 
   const canShowAnswers = exam ? isAnswerTimeReached(exam) : true;
+
+  // Use the freshly fetched questions; fall back to the prop only if it has real content
+  const displayQuestions =
+    examQuestions && examQuestions.length > 0
+      ? examQuestions
+      : exam?.questions?.[0]?.q
+        ? exam.questions || []
+        : [];
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-3 sm:p-4 font-bengali">
@@ -92,13 +110,13 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
             subjectName={exam.subject}
             studentName={submission.studentName}
             studentId={submission.studentId}
-            totalQuestions={submission.totalQuestions || exam.questions?.length || 0}
+            totalQuestions={submission.totalQuestions || displayQuestions.length || 0}
             score={submission.score}
             correct={submission.correct}
             incorrect={submission.incorrect}
             timeSpent={submission.timeSpent}
             submittedAt={submission.submittedAtISO}
-            questions={exam.questions || []}
+            questions={displayQuestions}
             solutions={solutions || []}
             studentAnswers={submission.answers || []}
           />
@@ -125,10 +143,10 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
             <div className="text-center py-8 text-slate-400 flex items-center justify-center gap-2">
               <Loader2 className="w-5 h-5 animate-spin" /> সমাধান লোড হচ্ছে...
             </div>
-          ) : !exam?.questions || exam.questions.length === 0 ? (
+          ) : displayQuestions.length === 0 ? (
             <p className="text-xs text-slate-500 text-center py-4">এই পরীক্ষার প্রশ্নাবলি আর উপলব্ধ নেই।</p>
           ) : (
-            exam.questions.map((q, qIdx) => {
+            displayQuestions.map((q, qIdx) => {
               const studentAnsIdx = submission.answers?.[qIdx] ?? null;
               const sol = solutions?.[qIdx] || { correct: 0, exp: "" };
               const isCorrect = studentAnsIdx === sol.correct;
@@ -166,7 +184,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                           userAns: studentAnsIdx,
                           examTitle: submission.examTitle,
                           topic: q.topic,
-                          subject: exam.subject
+                          subject: exam?.subject || ""
                         }}
                       />
                       {statusBadge}

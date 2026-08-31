@@ -8,6 +8,26 @@ import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
   try {
+    // SECURITY: never leak the answer key while a live exam is running (unless caller is a verified teacher)
+    const { isTeacherSession } = await import("@/lib/teacher-auth");
+    if (!(await isTeacherSession())) {
+      const { data: examData } = await supabase
+        .from("exams")
+        .select("start_time, end_time, leaderboard_end_time, is_result_published")
+        .eq("id", examKey)
+        .maybeSingle();
+      if (examData) {
+        const { isExamCurrentlyLive } = await import("@/lib/bangladesh-time");
+        const exam = {
+          startTime: examData.start_time,
+          endTime: examData.end_time,
+          leaderboardEndTime: examData.leaderboard_end_time,
+          isResultPublished: examData.is_result_published === true
+        } as Exam;
+        if (isExamCurrentlyLive(exam)) return null;
+      }
+    }
+
     // 1. Fetch from question_bank via exam_questions_link
     const { data: links, error: linkError } = await supabase
       .from("exam_questions_link")
@@ -376,5 +396,57 @@ export async function getExamCandidateRank(
   } catch (err) {
     console.error("Error calculating candidate rank:", err);
     return { practiceRank: 1, totalCandidates: 1, officialCandidates: 0 };
+  }
+}
+
+/**
+ * Returns the student's own stored submission result from the database.
+ * Used by the result page so the displayed score is the server-computed one,
+ * not a client-side re-computation of editable sessionStorage data.
+ */
+export async function getMySubmissionResult(
+  examKey: string,
+  studentId: string
+): Promise<{
+  score: number;
+  correct: number;
+  incorrect: number;
+  answers: (number | null)[];
+  isPendingEvaluation: boolean;
+  isLiveSubmission: boolean;
+  submittedAtISO: string;
+} | null> {
+  try {
+    const cleanId = String(studentId || "").trim();
+    if (!cleanId) return null;
+    const normId = parseBengaliDigits(cleanId).trim();
+    const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
+
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("*")
+      .eq("exam_key", examKey)
+      .in("student_id", ids)
+      .order("submitted_at", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+    const row = data?.[0];
+    if (!row) return null;
+
+    return {
+      score: Number(row.score ?? 0),
+      correct: Number(row.correct ?? 0),
+      incorrect: Number(row.incorrect ?? 0),
+      answers: Array.isArray(row.answers)
+        ? row.answers.map((v: any) => (v === -1 || v === null ? null : Number(v)))
+        : [],
+      isPendingEvaluation: !!row.is_pending_evaluation,
+      isLiveSubmission: !!row.is_live_submission,
+      submittedAtISO: row.submitted_at || ""
+    };
+  } catch (err) {
+    console.error("Get my submission result error:", err);
+    return null;
   }
 }

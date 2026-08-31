@@ -43,8 +43,8 @@ import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
 import { TopicReadingModal } from "@/components/modals/TopicReadingModal";
 import { TopicTreeViewer } from "@/components/dashboard/TopicTreeViewer";
 import { buildDeepTopicTree, getQuestionsForPath, TreeNode } from "@/lib/topic-hierarchy";
-import { PracticeQuestion, generatePracticeQuestions } from "@/lib/practice-helper";
-import { fetchAppConfig } from "@/actions/admin-actions";
+import { PracticeQuestion } from "@/lib/practice-helper";
+import { getPracticeQuestions } from "@/actions/practice-actions";
 import { getLocalStudentUser, updateLocalStudentName, logoutStudentUser, StudentUser } from "@/lib/student-auth";
 import { AppConfigData } from "@/types/exam";
 import {
@@ -120,7 +120,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
       // Check paid status
       import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
-        verifyStudentAccess(studentId, "ALL").then((res) => {
+        verifyStudentAccess(studentId, "ALL", localUser?.email).then((res) => {
           setIsPaidStudent(res.allowed);
         });
       });
@@ -216,8 +216,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
   const handleStartSubjectPractice = async (subjectName: string) => {
     setIsLoading(true);
-    const config = await fetchAppConfig();
-    const questions = await generatePracticeQuestions(config, subjectName, 15);
+    const questions = await getPracticeQuestions(subjectName, 15);
     setIsLoading(false);
 
     if (questions.length === 0) {

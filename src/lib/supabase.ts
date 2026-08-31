@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://braytjbujysjydxbuqhv.supabase.co";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -17,6 +18,13 @@ export const supabase = createClient(
 
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange(async (event, session) => {
+    // Sync the access token into a cookie so server actions can verify identity server-side
+    if (session?.access_token) {
+      document.cookie = `sb_access_token=${session.access_token}; path=/; SameSite=Lax; Max-Age=86400${window.location.protocol === "https:" ? "; Secure" : ""}`;
+    } else {
+      document.cookie = "sb_access_token=; path=/; SameSite=Lax; Max-Age=0";
+    }
+
     // If teacher is logged in, do NOT treat the auth session as a student session
     const isTeacherLoggedIn = sessionStorage.getItem("teacher_user");
     if (isTeacherLoggedIn) {
@@ -28,7 +36,7 @@ if (typeof window !== "undefined") {
       const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name || "নামহীন শিক্ষার্থী";
       const email = session.user.email || "";
       const photoURL = session.user.user_metadata?.avatar_url || "";
-      
+
       const studentUser = {
         uid: session.user.id,
         name: name,

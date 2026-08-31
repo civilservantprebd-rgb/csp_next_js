@@ -7,7 +7,7 @@ import { StudentPortalLoginModal } from "@/components/modals/StudentPortalLoginM
 import { StudentDashboardModal } from "@/components/modals/StudentDashboardModal";
 import { ExamDetailPopup } from "@/components/modals/ExamDetailPopup";
 import { EnrollModal } from "@/components/modals/EnrollModal";
-import { fetchAppConfig } from "@/actions/admin-actions";
+import { fetchAppConfigLite } from "@/actions/admin-actions";
 import { AppConfigData } from "@/types/exam";
 import { Submission } from "@/types/submission";
 import { Contact, ArrowRight, Sparkles, Phone, UserCheck, CircleAlert } from "lucide-react";
@@ -36,7 +36,7 @@ export default function PortalPage() {
       return;
     }
 
-    fetchAppConfig().then(setConfig);
+    fetchAppConfigLite().then(setConfig);
 
     const gUser = getLocalStudentUser();
     if (gUser) {

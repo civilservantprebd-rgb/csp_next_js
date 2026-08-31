@@ -57,11 +57,10 @@ export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) =>
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`py-2 px-3 sm:px-4 font-medium text-xs sm:text-sm whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer border-b-2 ${
-              isActive
+            className={`py-2 px-3 sm:px-4 font-medium text-xs sm:text-sm whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer border-b-2 ${isActive
                 ? "border-indigo-600 text-indigo-600 font-bold"
                 : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
+              }`}
           >
             <Icon className="w-4 h-4" /> {tab.label}
           </button>

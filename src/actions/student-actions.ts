@@ -9,10 +9,12 @@ import { getTrueDate } from "@/lib/bangladesh-time";
 
 export async function verifyStudentAccess(
   rawStudentId: string,
-  examCourse: string
+  examCourse: string,
+  email?: string
 ): Promise<{ allowed: boolean; studentName?: string; normalizedId?: string; message?: string }> {
   const cleanId = String(rawStudentId).trim();
   const normalizedId = parseBengaliDigits(cleanId).trim();
+  const cleanEmail = String(email || "").trim().toLowerCase();
 
   if (!cleanId) {
     return { allowed: false, message: "দয়া করে স্টুডেন্ট আইডি প্রদান করুন।" };
@@ -21,11 +23,12 @@ export async function verifyStudentAccess(
   try {
     let matchedStudent: AllowedStudent | null = null;
 
-    // 1. Direct match by raw ID or normalized ID
+    // 1. Direct match by raw ID, normalized ID or email (Google users are keyed by email too)
+    const emailFilter = cleanEmail ? `,email.eq.${cleanEmail}` : "";
     const { data: student } = await supabase
       .from("allowed_students")
       .select("*")
-      .or(`id.eq.${cleanId},id.eq.${normalizedId}`)
+      .or(`id.eq.${cleanId},id.eq.${normalizedId}${emailFilter}`)
       .maybeSingle();
 
     if (student) {
@@ -45,10 +48,13 @@ export async function verifyStudentAccess(
       (allStudents || []).forEach((d) => {
         const docSid = String(d.id).trim();
         const docNormSid = parseBengaliDigits(docSid).trim();
+        const docEmail = String(d.email || "").trim().toLowerCase();
+        const emailMatches = cleanEmail ? docEmail === cleanEmail : false;
 
         if (
           docSid === cleanId ||
           docNormSid === normalizedId ||
+          emailMatches ||
           (normalizedId.length >= 10 && docNormSid.endsWith(normalizedId.slice(-10))) ||
           (docNormSid.length >= 10 && normalizedId.endsWith(docNormSid.slice(-10)))
         ) {
@@ -401,12 +407,13 @@ export async function deleteAllowedStudent(id: string): Promise<boolean> {
  */
 export async function fetchTopicQuestionsForStudent(
   studentId: string,
-  targetPath: string
+  targetPath: string,
+  email?: string
 ): Promise<{ success: boolean; questions: any[]; message?: string }> {
   const cleanId = String(studentId || "").trim();
 
-  // 1. Verify enrollment on server
-  const access = await verifyStudentAccess(cleanId, "ALL");
+  // 1. Verify enrollment on server (any course is enough)
+  const access = await verifyStudentAccess(cleanId, "ALL", email);
   if (!access.allowed) {
     return {
       success: false,

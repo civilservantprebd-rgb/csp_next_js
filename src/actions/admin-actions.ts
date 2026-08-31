@@ -1,6 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase";
+import { requireTeacher, getTeacherUser } from "@/lib/teacher-auth";
 import { AppConfigData, Exam, QuestionItem, QuestionSolution, TopicQuestion, ArchivedQuestion } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
 import { Submission } from "@/types/submission";
@@ -8,7 +9,7 @@ import { Submission } from "@/types/submission";
 let cachedConfig: AppConfigData | null = null;
 let lastFetchTime = 0;
 let inflightFetch: Promise<AppConfigData> | null = null;
-const CACHE_TTL_MS = 20000; // 20 seconds cache for lightning-fast page navigation
+const CACHE_TTL_MS = 60000; // 60 seconds cache (questions change only via admin edits, which invalidate the cache)
 
 const DEFAULT_DATA: AppConfigData = {
   courses: ["সাধারণ কোর্স", "বিসিএস প্রিলি"],
@@ -36,7 +37,7 @@ const DEFAULT_DATA: AppConfigData = {
   ],
   topicQuestions: [],
   exams: {},
-  teacherPass: "1234",
+  teacherPass: "",
   driveRoutineUrl: "https://drive.google.com",
   driveSyllabusUrl: "https://drive.google.com"
 };
@@ -68,7 +69,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
         supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
         supabase.from("subjects").select("name, course"),
         supabase.from("exams").select("*"),
-        supabase.from("exam_questions_link").select("exam_id, order_index, question_bank(*)"),
+        supabase.from("exam_questions_link").select("exam_id, order_index, question_bank(id, q, opts, topic)"),
         supabase.from("topic_questions").select("*").order("created_at", { ascending: true })
       ]);
 
@@ -83,7 +84,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
         const settings = settingsRes?.data || {};
         const courses = settings.courses || DEFAULT_DATA.courses;
         const topics = settings.topics || DEFAULT_DATA.topics;
-        const teacherPass = settings.teacher_pass || DEFAULT_DATA.teacherPass;
+        const teacherPass = ""; // never expose the teacher pass to clients
         const driveRoutineUrl = settings.drive_routine_url || DEFAULT_DATA.driveRoutineUrl;
         const driveSyllabusUrl = settings.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl;
 
@@ -206,18 +207,19 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
 
   inflightFetchLite = (async () => {
     try {
-      // 4 lightweight queries — NO question_bank JOIN, NO topic_questions
-      const [settingsRes, subjectsRes, examsRes, linksRes] = await Promise.all([
+      // Lightweight queries — question TOPICS only (for the topic tree), no full question text
+      const [settingsRes, subjectsRes, examsRes, linksRes, topicsRes] = await Promise.all([
         supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
         supabase.from("subjects").select("name, course"),
         supabase.from("exams").select("*"),
-        supabase.from("exam_questions_link").select("exam_id"), // only exam_id for counting
+        supabase.from("exam_questions_link").select("exam_id, question_bank(topic)"),
+        supabase.from("topic_questions").select("topic, original_subject"),
       ]);
 
       const settings = settingsRes?.data || {};
       const courses = settings.courses || DEFAULT_DATA.courses;
       const topics = settings.topics || DEFAULT_DATA.topics;
-      const teacherPass = settings.teacher_pass || DEFAULT_DATA.teacherPass;
+      const teacherPass = ""; // never expose the teacher pass to clients
       const driveRoutineUrl = settings.drive_routine_url || DEFAULT_DATA.driveRoutineUrl;
       const driveSyllabusUrl = settings.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl;
 
@@ -226,15 +228,19 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
         course: s.course
       }));
 
-      // Count questions per exam without fetching question content
-      const countsByExam: Record<string, number> = {};
+      // Questions per exam: topic strings only (enough for counts + the topic tree)
+      const questionsByExam: Record<string, { q: string; opts: string[]; topic?: string }[]> = {};
       (linksRes?.data || []).forEach((link: any) => {
-        countsByExam[link.exam_id] = (countsByExam[link.exam_id] || 0) + 1;
+        if (!questionsByExam[link.exam_id]) questionsByExam[link.exam_id] = [];
+        questionsByExam[link.exam_id].push({
+          q: "",
+          opts: [],
+          topic: link.question_bank?.topic || undefined
+        });
       });
 
       const exams: Record<string, Exam> = {};
       (examsRes?.data || []).forEach((ex) => {
-        const count = countsByExam[ex.id] || 0;
         exams[ex.id] = {
           id: ex.id,
           course: ex.course,
@@ -248,16 +254,31 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
           isResultPublished: ex.is_result_published,
           leaderboardStartTime: ex.leaderboard_start_time,
           leaderboardEndTime: ex.leaderboard_end_time,
-          // Stub array of correct length so ex.questions.length shows right count
-          questions: Array.from({ length: count }, () => ({ q: "", opts: [] }))
+          // Topic-only stubs: ex.questions.length stays correct, content loads on the exam page
+          questions: questionsByExam[ex.id] || []
         };
       });
+
+      // Topic questions: topics only (for the tree), full content loads on demand
+      const topicQuestions: TopicQuestion[] = (topicsRes?.data || []).map((tq: any, i: number) => ({
+        id: tq.id || `tq_lite_${i}`,
+        topic: tq.topic || "",
+        q: "",
+        opts: [],
+        correct: 0,
+        exp: "",
+        originalExamTitle: "",
+        originalCourse: "",
+        originalSubject: tq.original_subject || "",
+        examKey: undefined,
+        createdAt: ""
+      }));
 
       const data: AppConfigData = {
         courses,
         subjects,
         topics,
-        topicQuestions: [],
+        topicQuestions,
         exams,
         teacherPass,
         driveRoutineUrl,
@@ -284,6 +305,7 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
 
 export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boolean> {
   try {
+    await requireTeacher();
     const updateData: any = {};
     if (config.courses) updateData.courses = config.courses;
     if (config.topics) updateData.topics = config.topics;
@@ -322,6 +344,7 @@ export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boo
 
 export async function createExam(examData: Omit<Exam, "id">): Promise<string | null> {
   try {
+    await requireTeacher();
     const examKey = `exam_${Date.now()}`;
     const { error } = await supabase.from("exams").insert({
       id: examKey,
@@ -350,6 +373,7 @@ export async function createExam(examData: Omit<Exam, "id">): Promise<string | n
 
 export async function updateExam(examKey: string, examData: Partial<Exam>): Promise<boolean> {
   try {
+    await requireTeacher();
     const updateData: any = {};
     if (examData.course) updateData.course = examData.course;
     if (examData.subject) updateData.subject = examData.subject;
@@ -380,6 +404,7 @@ export async function updateExam(examKey: string, examData: Partial<Exam>): Prom
 
 export async function deleteExam(examKey: string): Promise<boolean> {
   try {
+    await requireTeacher();
     const { error } = await supabase.from("exams").delete().eq("id", examKey);
     if (error) throw error;
 
@@ -397,6 +422,7 @@ export async function addQuestionToExam(
   solution: QuestionSolution
 ): Promise<boolean> {
   try {
+    await requireTeacher();
     const { data: examData, error: examError } = await supabase
       .from("exams")
       .select("title, course, subject")
@@ -468,6 +494,7 @@ export async function addQuestionToExam(
 
 export async function linkQuestionToExam(examKey: string, questionId: string): Promise<boolean> {
   try {
+    await requireTeacher();
     const { data: currentLinks, error: fetchError } = await supabase
       .from("exam_questions_link")
       .select("order_index")
@@ -502,6 +529,7 @@ export async function searchQuestionBank(
   subject?: string
 ): Promise<{ questions: any[]; total: number }> {
   try {
+    await requireTeacher();
     let builder = supabase.from("question_bank").select("*", { count: "exact" });
     if (queryText) {
       builder = builder.ilike("q", `%${queryText}%`);
@@ -529,6 +557,7 @@ export async function updateQuestionInExam(
   solution: QuestionSolution
 ): Promise<boolean> {
   try {
+    await requireTeacher();
     const { data: examData, error: examError } = await supabase
       .from("exams")
       .select("title, course, subject")
@@ -639,6 +668,7 @@ async function addQuestionsToArchive(questions: ArchivedQuestion[]): Promise<boo
 
 export async function getArchivedQuestions(): Promise<ArchivedQuestion[]> {
   try {
+    await requireTeacher();
     const { data: settings, error } = await supabase
       .from("app_settings")
       .select("archived_questions")
@@ -655,6 +685,7 @@ export async function getArchivedQuestions(): Promise<ArchivedQuestion[]> {
 
 export async function permanentDeleteArchivedQuestions(ids: string[]): Promise<boolean> {
   try {
+    await requireTeacher();
     const { data: settings } = await supabase
       .from("app_settings")
       .select("archived_questions")
@@ -685,6 +716,7 @@ export async function restoreArchivedQuestions(
   targetExamKey?: string
 ): Promise<boolean> {
   try {
+    await requireTeacher();
     const { data: settings } = await supabase
       .from("app_settings")
       .select("archived_questions")
@@ -751,6 +783,7 @@ export async function restoreArchivedQuestions(
 
 export async function deleteQuestionFromExam(examKey: string, index: number): Promise<boolean> {
   try {
+    await requireTeacher();
     const { data: examData } = await supabase
       .from("exams")
       .select("title")
@@ -821,6 +854,7 @@ export async function bulkDeleteQuestionsFromExam(
   indices: number[]
 ): Promise<boolean> {
   try {
+    await requireTeacher();
     if (!indices || indices.length === 0) return true;
 
     const { data: examData } = await supabase
@@ -895,6 +929,7 @@ export async function bulkDeleteQuestionsFromExam(
 
 export async function toggleExamResultPublish(examKey: string, publish: boolean): Promise<boolean> {
   try {
+    await requireTeacher();
     const { error: examUpdateError } = await supabase
       .from("exams")
       .update({ is_result_published: publish })
@@ -962,6 +997,7 @@ export async function toggleExamResultPublish(examKey: string, publish: boolean)
 
 export async function deleteTopicQuestion(topicQuestionId: string): Promise<boolean> {
   try {
+    await requireTeacher();
     const { error } = await supabase.from("topic_questions").delete().eq("id", topicQuestionId);
     if (error) throw error;
 
@@ -975,6 +1011,7 @@ export async function deleteTopicQuestion(topicQuestionId: string): Promise<bool
 
 export async function clearAllSubmissions(): Promise<boolean> {
   try {
+    await requireTeacher();
     const { error } = await supabase
       .from("submissions")
       .delete()
@@ -990,6 +1027,7 @@ export async function clearAllSubmissions(): Promise<boolean> {
 
 export async function getAllSubmissions(): Promise<Submission[]> {
   try {
+    await requireTeacher();
     const { data, error } = await supabase
       .from("submissions")
       .select("*")
@@ -1028,6 +1066,7 @@ export async function addBulkQuestionsToExam(
   newSolutions: QuestionSolution[]
 ): Promise<{ success: boolean; count: number }> {
   try {
+    await requireTeacher();
     if (!newQuestions.length) return { success: false, count: 0 };
 
     const { data: examData, error: examError } = await supabase
@@ -1115,6 +1154,7 @@ export async function addBulkTopicQuestions(
   newSolutions: QuestionSolution[]
 ): Promise<{ success: boolean; count: number }> {
   try {
+    await requireTeacher();
     if (!newQuestions.length) return { success: false, count: 0 };
 
     const resolvedTopic = (topic || "").trim() || "সাধারণ";
@@ -1170,6 +1210,7 @@ export async function addQuestionToBank(
   solution: QuestionSolution
 ): Promise<boolean> {
   try {
+    await requireTeacher();
     const rawTopic = question.topic?.trim() || null;
     const fullTopic = rawTopic && question.subtopic ? `${rawTopic} > ${question.subtopic.trim()}` : rawTopic;
 
@@ -1195,6 +1236,7 @@ export async function updateQuestionInBank(
   solution: QuestionSolution
 ): Promise<boolean> {
   try {
+    await requireTeacher();
     const rawTopic = question.topic?.trim() || null;
     const fullTopic = rawTopic && question.subtopic ? `${rawTopic} > ${question.subtopic.trim()}` : rawTopic;
 
@@ -1216,6 +1258,7 @@ export async function updateQuestionInBank(
 
 export async function deleteQuestionFromBank(id: string): Promise<boolean> {
   try {
+    await requireTeacher();
     const { data: qData } = await supabase
       .from("question_bank")
       .select("*")
@@ -1249,6 +1292,7 @@ export async function deleteQuestionFromBank(id: string): Promise<boolean> {
 
 export async function bulkDeleteQuestionsFromBank(ids: string[]): Promise<boolean> {
   try {
+    await requireTeacher();
     if (!ids || ids.length === 0) return true;
 
     const { data: questions } = await supabase
@@ -1287,6 +1331,7 @@ export async function bulkMoveQuestionsToTopic(
   newSubtopic?: string
 ): Promise<boolean> {
   try {
+    await requireTeacher();
     if (!questionIds.length) return true;
     const targetTopic = newSubtopic?.trim()
       ? `${newTopic.trim()} > ${newSubtopic.trim()}`
@@ -1313,6 +1358,7 @@ export async function addBulkQuestionsToBank(
   fallbackSubtopic?: string
 ): Promise<{ success: boolean; count: number }> {
   try {
+    await requireTeacher();
     if (!newQuestions.length) return { success: false, count: 0 };
     const questionsInsert = newQuestions.map((qItem, idx) => {
       const sol = newSolutions[idx] || { correct: 0, exp: "" };
@@ -1337,5 +1383,63 @@ export async function addBulkQuestionsToBank(
   } catch (err) {
     console.error("Add bulk questions to bank error:", err);
     return { success: false, count: 0 };
+  }
+}
+
+// ─── Teacher session verification (server-side) ────────────────────────────
+export async function verifyTeacherSession(accessToken?: string): Promise<{ ok: boolean; email?: string; error?: string }> {
+  try {
+    const teacher = await getTeacherUser(accessToken);
+    if (!teacher) {
+      return { ok: false, error: "Unauthorized: teacher access required" };
+    }
+    return { ok: true, email: teacher.email };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Session verification failed" };
+  }
+}
+
+// ─── Targeted exam fetch (exam page / result page — no full config needed) ───
+export async function fetchExamWithQuestions(examKey: string): Promise<Exam | null> {
+  try {
+    const { data: ex, error } = await supabase
+      .from("exams")
+      .select("*")
+      .eq("id", examKey)
+      .maybeSingle();
+    if (error || !ex) return null;
+
+    const { data: links } = await supabase
+      .from("exam_questions_link")
+      .select("order_index, question_bank(id, q, opts, topic)")
+      .eq("exam_id", examKey);
+
+    const sortedQs = (links || [])
+      .sort((a: any, b: any) => Number(a.order_index) - Number(b.order_index))
+      .map((l: any) => ({
+        id: l.question_bank?.id,
+        q: l.question_bank?.q || "",
+        opts: l.question_bank?.opts || [],
+        topic: l.question_bank?.topic || undefined
+      }));
+
+    return {
+      id: ex.id,
+      course: ex.course,
+      subject: ex.subject,
+      title: ex.title,
+      timerMinutes: ex.timer_minutes,
+      isFree: ex.is_free,
+      passMark: Number(ex.pass_mark),
+      startTime: ex.start_time,
+      endTime: ex.end_time,
+      isResultPublished: ex.is_result_published,
+      leaderboardStartTime: ex.leaderboard_start_time,
+      leaderboardEndTime: ex.leaderboard_end_time,
+      questions: sortedQs
+    };
+  } catch (err) {
+    console.error("Fetch exam with questions error:", err);
+    return null;
   }
 }

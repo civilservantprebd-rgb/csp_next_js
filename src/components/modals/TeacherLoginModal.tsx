@@ -47,7 +47,16 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
 
       if (error) throw error;
 
-      onLoginSuccess({ email: data.user?.email || "শিক্ষক", role: "admin" });
+      // SECURITY: verify server-side that this account is actually a teacher
+      const { verifyTeacherSession } = await import("@/actions/admin-actions");
+      const { data: { session } } = await supabase.auth.getSession();
+      const verified = await verifyTeacherSession(session?.access_token);
+      if (!verified.ok) {
+        await supabase.auth.signOut();
+        throw new Error("এই অ্যাকাউন্টে শিক্ষক প্যানেলের অনুমতি নেই।");
+      }
+
+      onLoginSuccess({ email: verified.email || data.user?.email || "শিক্ষক", role: "admin" });
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message || "অথেনটিকেশনে সমস্যা হয়েছে।");

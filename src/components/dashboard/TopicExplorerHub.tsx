@@ -43,7 +43,7 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
       const localUser = getLocalStudentUser();
       if (localUser) {
         import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
-          verifyStudentAccess(localUser.uid, "ALL").then((res) => {
+          verifyStudentAccess(localUser.uid, "ALL", localUser.email).then((res) => {
             setIsPaidStudent(res.allowed);
           });
         });
@@ -81,9 +81,10 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
     const { getLocalStudentUser } = await import("@/lib/student-auth");
     const localUser = getLocalStudentUser();
     const studentId = localUser?.uid || "";
+    const studentEmail = localUser?.email || "";
 
     const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
-    const res = await fetchTopicQuestionsForStudent(studentId, fullPath);
+    const res = await fetchTopicQuestionsForStudent(studentId, fullPath, studentEmail);
 
     setIsLoadingNode(false);
     if (!res.success || res.questions.length === 0) {
@@ -106,9 +107,10 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
     const { getLocalStudentUser } = await import("@/lib/student-auth");
     const localUser = getLocalStudentUser();
     const studentId = localUser?.uid || "";
+    const studentEmail = localUser?.email || "";
 
     const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
-    const res = await fetchTopicQuestionsForStudent(studentId, fullPath);
+    const res = await fetchTopicQuestionsForStudent(studentId, fullPath, studentEmail);
 
     setIsLoadingNode(false);
     if (!res.success || res.questions.length === 0) {

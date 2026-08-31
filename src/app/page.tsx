@@ -15,7 +15,7 @@ import { StudentPortalLoginModal } from "@/components/modals/StudentPortalLoginM
 import { TeacherLoginModal } from "@/components/modals/TeacherLoginModal";
 import { StudentDashboardModal } from "@/components/modals/StudentDashboardModal";
 import { ExamDetailPopup } from "@/components/modals/ExamDetailPopup";
-import { fetchAppConfig } from "@/actions/admin-actions";
+import { fetchAppConfigLite } from "@/actions/admin-actions";
 import { AppConfigData, Exam } from "@/types/exam";
 import { Submission } from "@/types/submission";
 import { syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
@@ -40,7 +40,7 @@ export default function HomePage() {
     // Start time sync in parallel without blocking UI data fetch
     syncBangladeshNetworkTime();
 
-    const data = await fetchAppConfig();
+    const data = await fetchAppConfigLite();
     setConfig(data);
 
     const keys = Object.keys(data.exams || {});
@@ -121,7 +121,7 @@ export default function HomePage() {
       } else {
         // Paid exam: Check authorization instantly
         const { verifyStudentAccess } = await import("@/actions/student-actions");
-        const res = await verifyStudentAccess(localUser.uid, ex.course);
+        const res = await verifyStudentAccess(localUser.uid, ex.course, localUser.email);
         if (res.allowed) {
           sessionStorage.setItem(
             "current_student",
