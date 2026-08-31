@@ -312,7 +312,14 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       }
       : undefined;
 
-    if (!exam || !isAnswerTimeReached(exam)) {
+    if (!exam) {
+      return [];
+    }
+    // Scheduled exams: the leaderboard unlocks at answer-release time.
+    // Non-scheduled (always-open practice/free) exams: practice leaderboard,
+    // always visible — their answers are public by design.
+    const isScheduled = !!(exam.startTime && (exam.endTime || exam.leaderboardEndTime));
+    if (isScheduled && !isAnswerTimeReached(exam)) {
       return [];
     }
 
