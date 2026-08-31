@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   X,
   Sparkles,
@@ -45,6 +45,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
   const [isFinished, setIsFinished] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(questions.length * 60);
   const [showReviewAfterExam, setShowReviewAfterExam] = useState(false);
+  const examDeadlineRef = useRef<number>(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,23 +54,28 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
       setIsFinished(false);
       setShowReviewAfterExam(false);
       setSecondsRemaining(questions.length * 60);
+      examDeadlineRef.current = Date.now() + questions.length * 60 * 1000;
     }
   }, [isOpen, questions]);
 
-  // Exam mode timer
+  // Exam mode timer — anchored to an absolute deadline (recomputed from the
+  // clock every tick) so background-tab interval throttling can never silently
+  // extend the mock test.
   useEffect(() => {
     if (!isOpen || isFinished || mode !== "exam") return;
-    if (secondsRemaining <= 0) {
-      setIsFinished(true);
-      return;
-    }
 
     const timer = setInterval(() => {
-      setSecondsRemaining((prev) => prev - 1);
-    }, 1000);
+      const remainingMs = examDeadlineRef.current - Date.now();
+      const remainingSecs = Math.max(0, Math.ceil(remainingMs / 1000));
+      setSecondsRemaining(remainingSecs);
+      if (remainingMs <= 0) {
+        clearInterval(timer);
+        setIsFinished(true);
+      }
+    }, 500);
 
     return () => clearInterval(timer);
-  }, [isOpen, isFinished, mode, secondsRemaining]);
+  }, [isOpen, isFinished, mode]);
 
   if (!isOpen) return null;
 
