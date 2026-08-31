@@ -338,7 +338,7 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
 
     if (subError) throw subError;
 
-    const subs: Submission[] = (subData || []).map((row) => ({
+    let subs: Submission[] = (subData || []).map((row) => ({
       id: row.id,
       studentName: row.student_name,
       studentId: row.student_id,
@@ -393,6 +393,29 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       }
     }
 
+    // PRACTICE leaderboard (non-scheduled exams): one entry per student — keep
+    // the BEST attempt (highest score; tiebreak: least time spent). Scheduled
+    // exams keep every official (live) submission as-is.
+    if (!hasScheduledTime) {
+      const bestByStudent = new Map<string, Submission>();
+      for (const s of subs) {
+        const key = String(s.studentId || "").trim() || String(s.studentName || "").trim();
+        if (!key) continue;
+        const existing = bestByStudent.get(key);
+        if (!existing) {
+          bestByStudent.set(key, s);
+          continue;
+        }
+        const sScore = typeof s.score === "number" ? s.score : parseFloat(String(s.score)) || 0;
+        const eScore = typeof existing.score === "number" ? existing.score : parseFloat(String(existing.score)) || 0;
+        const better =
+          sScore > eScore ||
+          (sScore === eScore && parseTimeSpentToSeconds(s.timeSpent) < parseTimeSpentToSeconds(existing.timeSpent));
+        if (better) bestByStudent.set(key, s);
+      }
+      subs = Array.from(bestByStudent.values());
+    }
+
     subs.sort((a, b) => {
       const scoreA = typeof a.score === "number" ? a.score : parseFloat(a.score) || 0;
       const scoreB = typeof b.score === "number" ? b.score : parseFloat(b.score) || 0;
@@ -429,29 +452,36 @@ export async function getExamCandidateRank(
   try {
     const { data: subData, error } = await supabase
       .from("submissions")
-      .select("score, time_spent, is_live_submission")
+      .select("score, time_spent, is_live_submission, student_id, student_name")
       .eq("exam_key", examKey);
 
     if (error) throw error;
 
-    const allSubs: { score: number; timeSecs: number; isLive: boolean }[] = [];
     let officialCount = 0;
+
+    // Rank against the BEST attempt of each student (matches the deduped
+    // practice leaderboard) instead of every attempt.
+    const bestByStudent = new Map<string, { score: number; timeSecs: number }>();
 
     (subData || []).forEach((row) => {
       let sc = typeof row.score === "number" ? row.score : parseFloat(row.score as any) || 0;
       const isLive = row.is_live_submission !== false;
       if (isLive) officialCount++;
-      allSubs.push({
-        score: sc,
-        timeSecs: parseTimeSpentToSeconds(row.time_spent),
-        isLive
-      });
+      const key = String(row.student_id || row.student_name || "").trim();
+      if (!key) return;
+      const timeSecs = parseTimeSpentToSeconds(row.time_spent);
+      const existing = bestByStudent.get(key);
+      if (!existing) {
+        bestByStudent.set(key, { score: sc, timeSecs });
+      } else if (sc > existing.score || (sc === existing.score && timeSecs < existing.timeSecs)) {
+        bestByStudent.set(key, { score: sc, timeSecs });
+      }
     });
 
     const userTimeSecs = parseTimeSpentToSeconds(userTimeSpent);
 
     let higherCount = 0;
-    allSubs.forEach((sub) => {
+    bestByStudent.forEach((sub) => {
       if (sub.score > userScore) {
         higherCount++;
       } else if (sub.score === userScore && sub.timeSecs < userTimeSecs) {
@@ -462,7 +492,7 @@ export async function getExamCandidateRank(
     const practiceRank = higherCount + 1;
     return {
       practiceRank,
-      totalCandidates: Math.max(1, allSubs.length),
+      totalCandidates: Math.max(1, bestByStudent.size),
       officialCandidates: officialCount
     };
   } catch (err) {
