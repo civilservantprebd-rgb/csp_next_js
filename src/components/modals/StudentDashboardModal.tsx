@@ -103,6 +103,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState("");
   const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const refreshStores = () => {
     if (studentId) {
@@ -114,6 +115,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   useEffect(() => {
     if (isOpen && studentId) {
       setIsLoading(true);
+      setAccessDenied(false);
       const localUser = getLocalStudentUser();
       setStudentUser(localUser);
       if (localUser) {
@@ -129,6 +131,14 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
       });
 
       getStudentSubmissions(studentId).then(async (data) => {
+        if (data === null) {
+          // Not authorized to view these records (no matching login session)
+          setAccessDenied(true);
+          setSubmissions([]);
+          setAnalytics(null);
+          setIsLoading(false);
+          return;
+        }
         setSubmissions(data);
         const analyticsRes = await calculateStudentAnalytics(data, exams);
         setAnalytics(analyticsRes);
@@ -407,6 +417,33 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
             <span>বুকমার্কসমূহ ({toBengaliDigits(bookmarks.length)})</span>
           </button>
         </div>
+
+        {/* Access denied banner (IDOR protection) */}
+        {accessDenied && (
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <Lock className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-rose-950">
+                  🔒 এই আইডির রেকর্ড দেখতে লগইন প্রয়োজন
+                </p>
+                <p className="text-[11px] text-rose-800 mt-0.5">
+                  আপনার নিজের রেকর্ড দেখতে গুগল দিয়ে লগইন করুন — লগইনের পর আবার চেষ্টা করুন।
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const { loginWithGoogle } = await import("@/lib/student-auth");
+                await loginWithGoogle(undefined, "/portal");
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2 rounded-xl cursor-pointer shrink-0"
+            >
+              গুগল দিয়ে লগইন
+            </button>
+          </div>
+        )}
 
         {/* Tab Body */}
         <div className="overflow-y-auto flex-grow pr-1 space-y-4">

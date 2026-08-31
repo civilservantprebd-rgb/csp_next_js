@@ -151,15 +151,17 @@ export async function verifyStudentAccess(
   }
 }
 
-export async function getStudentSubmissions(studentId: string): Promise<Submission[]> {
+export async function getStudentSubmissions(studentId: string): Promise<Submission[] | null> {
   const normId = parseBengaliDigits(studentId).trim();
   const cleanId = String(studentId).trim();
 
   // SECURITY: only the student themselves (verified via the Supabase session)
   // may read their submissions — closes the portal IDOR where any phone number
-  // could be typed to view another student's records.
+  // could be typed to view another student's records. Returns null when the
+  // caller is not allowed (not logged in / not the owner), vs [] when the
+  // caller is authorized but has no records.
   if (!(await sessionOwnsStudent(cleanId)) && !(await sessionOwnsStudent(normId))) {
-    return [];
+    return null;
   }
 
   try {

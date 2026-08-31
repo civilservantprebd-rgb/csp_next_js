@@ -1,6 +1,5 @@
 import { Submission } from "@/types/submission";
 import { Exam } from "@/types/exam";
-import { getExamSolutions } from "@/actions/exam-actions";
 
 export interface SubjectPerformance {
   subject: string;
