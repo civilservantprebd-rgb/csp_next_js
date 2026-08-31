@@ -27,3 +27,11 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# android (webview wrapper app)
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties
+/android/.idea/
+*.apk
