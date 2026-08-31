@@ -68,6 +68,18 @@ export default function ExamPage() {
         }
       }
 
+      // Block starting a SCHEDULED exam before its start time — the exam hall
+      // opens only during the live window (post-window "practice" attempts are
+      // still allowed by design).
+      if (ex.startTime) {
+        const startTime = parseBangladeshDateTime(ex.startTime);
+        if (startTime && getTrueNowMs() < startTime.getTime()) {
+          alert("এই পরীক্ষাটি এখনো শুরু হয়নি। নির্ধারিত সময়ে আবার চেষ্টা করুন।");
+          router.push("/");
+          return;
+        }
+      }
+
       setExam(ex);
       setStudentAnswers(new Array(ex.questions?.length || 0).fill(null));
 

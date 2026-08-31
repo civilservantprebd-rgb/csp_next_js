@@ -158,6 +158,7 @@ export async function submitExamAnswers(payload: {
     }
 
     let recordStudentId = String(payload.studentId || "").trim();
+    let recordStudentName = String(payload.studentName || "").trim();
     if (exam && exam.isFree !== true) {
       const { verifyStudentAccess } = await import("@/actions/student-actions");
       const access = await verifyStudentAccess(sessionUser.id, exam.course || "", sessionUser.email);
@@ -169,6 +170,8 @@ export async function submitExamAnswers(payload: {
         };
       }
       if (access.normalizedId) recordStudentId = access.normalizedId;
+      // Use the enrollment record's name (not a client-supplied one) on the leaderboard
+      if (access.studentName) recordStudentName = access.studentName;
     }
 
     // Validate + sanitize answers (never trust the client's shape blindly)
@@ -185,9 +188,21 @@ export async function submitExamAnswers(payload: {
     const startTime = exam?.startTime ? parseBangladeshDateTime(exam.startTime) : null;
     const endTime = exam?.endTime ? parseBangladeshDateTime(exam.endTime) : (exam?.leaderboardEndTime ? parseBangladeshDateTime(exam.leaderboardEndTime) : null);
 
-    // Is submitted within live scheduled window
-    const isLiveSubmission = (startTime && endTime) 
-      ? (now >= startTime && now <= endTime)
+    // SECURITY: a scheduled exam cannot be submitted before its start time
+    if (startTime && now.getTime() < startTime.getTime()) {
+      return {
+        success: false,
+        isLive: false,
+        message: "পরীক্ষাটি এখনো শুরু হয়নি। নির্ধারিত সময়ে আবার চেষ্টা করুন।"
+      };
+    }
+
+    // Is submitted within live scheduled window (with a small grace period so an
+    // on-time submission right at the deadline isn't misclassified as a late
+    // "practice" attempt)
+    const LIVE_GRACE_MS = 10 * 1000;
+    const isLiveSubmission = (startTime && endTime)
+      ? (now.getTime() >= startTime.getTime() && now.getTime() <= endTime.getTime() + LIVE_GRACE_MS)
       : false;
 
     if (isLiveSubmission) {
@@ -235,7 +250,7 @@ export async function submitExamAnswers(payload: {
     const { data: newSub, error: insertError } = await supabase
       .from("submissions")
       .insert({
-        student_name: payload.studentName,
+        student_name: recordStudentName,
         student_id: recordStudentId,
         exam_key: payload.examKey,
         exam_title: payload.examTitle,
