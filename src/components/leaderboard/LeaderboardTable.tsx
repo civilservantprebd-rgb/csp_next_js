@@ -10,6 +10,7 @@ interface LeaderboardTableProps {
   items: LeaderboardItem[];
   isLoading?: boolean;
   isLocked?: boolean;
+  noLeaderboard?: boolean;
   releaseDateText?: string;
   onPrint?: () => void;
 }
@@ -19,9 +20,24 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
   items,
   isLoading = false,
   isLocked = false,
+  noLeaderboard = false,
   releaseDateText = "নির্ধারিত সময়ে",
   onPrint,
 }) => {
+  if (noLeaderboard) {
+    return (
+      <div className="p-8 text-center bg-slate-50/60 rounded-2xl border border-slate-200 font-bengali">
+        <div className="max-w-md mx-auto space-y-2">
+          <Trophy className="w-10 h-10 text-slate-300 mx-auto mb-1" />
+          <h4 className="font-bold text-slate-700 text-base sm:text-lg">এই পরীক্ষার জন্য লিডারবোর্ড নেই</h4>
+          <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+            লিডারবোর্ড শুধুমাত্র নির্ধারিত সময়ে (লাইভ) অনুষ্ঠিত পরীক্ষার জন্য। লাইভ সময়ের বাইরে দেওয়া পরীক্ষার ফলাফল পরীক্ষা শেষে এবং স্টুডেন্ট পোর্টালে দেখা যাবে।
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLocked) {
     return (
       <div className="p-8 text-center bg-amber-50/60 rounded-2xl border border-amber-200 font-bengali">

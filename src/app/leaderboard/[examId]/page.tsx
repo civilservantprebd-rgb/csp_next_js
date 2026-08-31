@@ -32,6 +32,7 @@ export default function StandaloneLeaderboardPage() {
   }, [examId]);
 
   const isScheduled = !!(exam?.startTime && (exam?.endTime || exam?.leaderboardEndTime));
+  const hasNoLeaderboard = exam ? !isScheduled : false;
   const isLocked = exam ? (isScheduled && !isAnswerTimeReached(exam)) : false;
   const endDate = exam?.endTime ? parseBangladeshDateTime(exam.endTime) : null;
   const dateStr = endDate
@@ -53,6 +54,7 @@ export default function StandaloneLeaderboardPage() {
             items={items}
             isLoading={isLoading}
             isLocked={isLocked}
+            noLeaderboard={hasNoLeaderboard}
             releaseDateText={dateStr}
             onPrint={() => window.print()}
           />

@@ -315,15 +315,15 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
     if (!exam) {
       return [];
     }
-    // Scheduled exams: the leaderboard unlocks at answer-release time.
-    // Non-scheduled (always-open practice/free) exams: practice leaderboard,
-    // always visible — their answers are public by design.
+    // Only SCHEDULED exams have an official leaderboard, and only after the
+    // answer-release time. Late "practice" submissions and always-open exams
+    // are never ranked on any leaderboard.
     const isScheduled = !!(exam.startTime && (exam.endTime || exam.leaderboardEndTime));
-    if (isScheduled && !isAnswerTimeReached(exam)) {
+    if (!isScheduled || !isAnswerTimeReached(exam)) {
       return [];
     }
 
-    const hasScheduledTime = !!(exam.startTime && (exam.endTime || exam.leaderboardEndTime));
+    const hasScheduledTime = isScheduled;
 
     let query = supabase
       .from("submissions")
@@ -338,7 +338,7 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
 
     if (subError) throw subError;
 
-    let subs: Submission[] = (subData || []).map((row) => ({
+    const subs: Submission[] = (subData || []).map((row) => ({
       id: row.id,
       studentName: row.student_name,
       studentId: row.student_id,
@@ -393,29 +393,6 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       }
     }
 
-    // PRACTICE leaderboard (non-scheduled exams): one entry per student — keep
-    // the BEST attempt (highest score; tiebreak: least time spent). Scheduled
-    // exams keep every official (live) submission as-is.
-    if (!hasScheduledTime) {
-      const bestByStudent = new Map<string, Submission>();
-      for (const s of subs) {
-        const key = String(s.studentId || "").trim() || String(s.studentName || "").trim();
-        if (!key) continue;
-        const existing = bestByStudent.get(key);
-        if (!existing) {
-          bestByStudent.set(key, s);
-          continue;
-        }
-        const sScore = typeof s.score === "number" ? s.score : parseFloat(String(s.score)) || 0;
-        const eScore = typeof existing.score === "number" ? existing.score : parseFloat(String(existing.score)) || 0;
-        const better =
-          sScore > eScore ||
-          (sScore === eScore && parseTimeSpentToSeconds(s.timeSpent) < parseTimeSpentToSeconds(existing.timeSpent));
-        if (better) bestByStudent.set(key, s);
-      }
-      subs = Array.from(bestByStudent.values());
-    }
-
     subs.sort((a, b) => {
       const scoreA = typeof a.score === "number" ? a.score : parseFloat(a.score) || 0;
       const scoreB = typeof b.score === "number" ? b.score : parseFloat(b.score) || 0;
@@ -452,36 +429,27 @@ export async function getExamCandidateRank(
   try {
     const { data: subData, error } = await supabase
       .from("submissions")
-      .select("score, time_spent, is_live_submission, student_id, student_name")
+      .select("score, time_spent, is_live_submission")
       .eq("exam_key", examKey);
 
     if (error) throw error;
 
-    let officialCount = 0;
-
-    // Rank against the BEST attempt of each student (matches the deduped
-    // practice leaderboard) instead of every attempt.
-    const bestByStudent = new Map<string, { score: number; timeSecs: number }>();
-
+    // Rank only among OFFICIAL live submissions — exactly the entries that
+    // appear on the leaderboard. Late/practice attempts are never ranked.
+    const official: { score: number; timeSecs: number }[] = [];
     (subData || []).forEach((row) => {
-      let sc = typeof row.score === "number" ? row.score : parseFloat(row.score as any) || 0;
-      const isLive = row.is_live_submission !== false;
-      if (isLive) officialCount++;
-      const key = String(row.student_id || row.student_name || "").trim();
-      if (!key) return;
-      const timeSecs = parseTimeSpentToSeconds(row.time_spent);
-      const existing = bestByStudent.get(key);
-      if (!existing) {
-        bestByStudent.set(key, { score: sc, timeSecs });
-      } else if (sc > existing.score || (sc === existing.score && timeSecs < existing.timeSecs)) {
-        bestByStudent.set(key, { score: sc, timeSecs });
-      }
+      if (row.is_live_submission !== true) return;
+      const sc = typeof row.score === "number" ? row.score : parseFloat(row.score as any) || 0;
+      official.push({
+        score: sc,
+        timeSecs: parseTimeSpentToSeconds(row.time_spent)
+      });
     });
 
     const userTimeSecs = parseTimeSpentToSeconds(userTimeSpent);
 
     let higherCount = 0;
-    bestByStudent.forEach((sub) => {
+    official.forEach((sub) => {
       if (sub.score > userScore) {
         higherCount++;
       } else if (sub.score === userScore && sub.timeSecs < userTimeSecs) {
@@ -492,8 +460,8 @@ export async function getExamCandidateRank(
     const practiceRank = higherCount + 1;
     return {
       practiceRank,
-      totalCandidates: Math.max(1, bestByStudent.size),
-      officialCandidates: officialCount
+      totalCandidates: Math.max(1, official.length),
+      officialCandidates: official.length
     };
   } catch (err) {
     console.error("Error calculating candidate rank:", err);

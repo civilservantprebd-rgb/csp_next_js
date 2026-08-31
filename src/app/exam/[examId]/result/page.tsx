@@ -38,7 +38,7 @@ export default function ExamResultPage() {
       try {
         const parsed = JSON.parse(rawResult);
         setResultData(parsed);
-        if (typeof parsed.score === "number") {
+        if (typeof parsed.score === "number" && parsed.isLiveSubmission === true) {
           getExamCandidateRank(examId, parsed.score, parsed.timeSpent || "").then(setRankInfo);
         }
       } catch {
@@ -100,7 +100,9 @@ export default function ExamResultPage() {
                   };
                   setResultData(updatedRes);
                   sessionStorage.setItem("last_result", JSON.stringify(updatedRes));
-                  getExamCandidateRank(examId, score ?? 0, updatedRes.timeSpent || "").then(setRankInfo);
+                  if (currentRes.isLiveSubmission === true) {
+                    getExamCandidateRank(examId, score ?? 0, updatedRes.timeSpent || "").then(setRankInfo);
+                  }
                 }
               }
             }
@@ -195,6 +197,28 @@ export default function ExamResultPage() {
                   </span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Official leaderboard rank — live (scheduled-time) takers only */}
+          {resultData.isLiveSubmission === true && rankInfo && (
+            <div className="p-4 bg-white rounded-2xl border border-indigo-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-900 border border-indigo-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                  <Trophy className="w-3 h-3 text-indigo-600" /> অফিসিয়াল লিডারবোর্ড অবস্থান
+                </span>
+                <p className="text-xs text-slate-600 font-medium">
+                  লাইভ (নির্ধারিত সময়ে) দেওয়া পরীক্ষার্থীদের মধ্যে আপনার অবস্থান।
+                </p>
+              </div>
+              <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 text-center shrink-0 shadow-2xs">
+                <span className="text-[10px] text-slate-500 block">
+                  মোট {toBengaliDigits(rankInfo.totalCandidates)} জন লাইভ পরীক্ষার্থীর মধ্যে
+                </span>
+                <span className="text-base sm:text-lg font-black text-slate-900">
+                  র‍্যাংক: {toBengaliDigits(rankInfo.practiceRank)} তম
+                </span>
+              </div>
             </div>
           )}
 
