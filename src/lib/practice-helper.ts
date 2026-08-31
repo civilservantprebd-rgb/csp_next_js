@@ -82,11 +82,24 @@ export async function generatePracticeQuestions(
     selectedTopic === "সকল বিষয় (মিক্সড)" ||
     selectedTopic === "সকল টপিক (মিক্সড)";
 
+  // Segment-boundary topic matching (not raw substring) — same semantics as the
+  // live server action: "বাংলা" matches "বাংলা > প্রাচীন যুগ" but not
+  // "বাংলাদেশ বিষয়াবলী".
+  const matchesTopic = (rawTopic: string | undefined): boolean => {
+    if (isAll) return String(rawTopic || "").trim().length > 0;
+    if (!rawTopic || !String(rawTopic).trim()) return false;
+    const segs = String(rawTopic)
+      .split(/\s*[>›/|]\s*/)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    const full = segs.join(" > ");
+    return full === normalizedTopic || full.startsWith(normalizedTopic + " > ") || segs.includes(normalizedTopic);
+  };
+
   // 1. Collect from persistent Topic Questions repository
   if (config.topicQuestions && config.topicQuestions.length > 0) {
     config.topicQuestions.forEach((tq, idx) => {
-      const t = (tq.topic || "").trim().toLowerCase();
-      const matchTopic = isAll || t === normalizedTopic || t.includes(normalizedTopic);
+      const matchTopic = matchesTopic(tq.topic);
 
       if (matchTopic && tq.q && tq.opts && tq.opts.length >= 2) {
         pool.push({
@@ -109,8 +122,7 @@ export async function generatePracticeQuestions(
 
       const matchingIndices: number[] = [];
       ex.questions.forEach((qItem, qIdx) => {
-        const t = (qItem.topic || "").trim().toLowerCase();
-        const matchTopic = isAll ? (t.length > 0) : (t === normalizedTopic || t.includes(normalizedTopic));
+        const matchTopic = matchesTopic(qItem.topic);
         if (matchTopic) {
           matchingIndices.push(qIdx);
         }

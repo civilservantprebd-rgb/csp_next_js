@@ -40,19 +40,24 @@ export async function getPracticeTopics(): Promise<TopicOption[]> {
     });
 
     // 3. Count from exams where question has a topic tag (excluding questions
-    //    already mirrored in topicQuestions — same rule as before)
+    //    already mirrored in topicQuestions). Matching uses NORMALIZED keys
+    //    (trim + lowercase) so whitespace/format variance never double-counts,
+    //    and the check is O(1) per link via a precomputed set.
     const { data: links } = await supabase
       .from("exam_questions_link")
       .select("question_bank(topic, q)");
+
+    const norm = (s: string) => String(s || "").trim().toLowerCase();
+    const mirroredKeys = new Set(
+      (topicQuestions || []).map((tq: any) => `${norm(tq.q)}___${norm(tq.topic)}`)
+    );
 
     (links || []).forEach((link: any) => {
       const q = link.question_bank?.q;
       const t = String(link.question_bank?.topic || "").trim();
       if (t && q) {
-        const isMirrored = (topicQuestions || []).some(
-          (tq: any) => tq.q === q && String(tq.topic || "").trim() === t
-        );
-        if (!isMirrored) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+        const key = `${norm(q)}___${norm(t)}`;
+        if (!mirroredKeys.has(key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
       }
     });
 
@@ -97,6 +102,21 @@ export async function getPracticeQuestions(
       selectedTopic === "সকল বিষয় (মিক্সড)" ||
       selectedTopic === "সকল টপিক (মিক্সড)";
 
+    // Segment-boundary topic matching (not raw substring): selecting "বাংলা"
+    // matches "বাংলা" and "বাংলা > প্রাচীন যুগ" (descendants) but NOT
+    // "বাংলাদেশ বিষয়াবলী". Consistent with fetchTopicQuestionsForStudent.
+    const { getTopicSegments } = await import("@/lib/topic-hierarchy");
+    const isTopicMatch = (rawTopic?: string | null): boolean => {
+      if (!rawTopic || !String(rawTopic).trim()) return false;
+      const segs = getTopicSegments(String(rawTopic));
+      const full = segs.join(" > ").toLowerCase();
+      return (
+        full === normalizedTopic ||
+        full.startsWith(normalizedTopic + " > ") ||
+        segs.some((s: string) => s.toLowerCase() === normalizedTopic)
+      );
+    };
+
     // Build exam access/lock info once: which exams the student may practice
     // (course scope) and which exams still have answer-locked keys (scheduled
     // exams that have not reached their answer-release time).
@@ -134,8 +154,7 @@ export async function getPracticeQuestions(
       .select("id, topic, q, opts, correct, exp, original_subject, original_course, original_exam_title, exam_key");
 
     (topicQuestions || []).forEach((tq: any, idx: number) => {
-      const t = String(tq.topic || "").trim().toLowerCase();
-      const matchTopic = isAll || t === normalizedTopic || t.includes(normalizedTopic);
+      const matchTopic = isAll || isTopicMatch(tq.topic);
       if (tq.exam_key) {
         if (lockedExamIds.has(tq.exam_key)) return;
         if (!accessibleExamIds.has(tq.exam_key)) return;
@@ -182,8 +201,7 @@ export async function getPracticeQuestions(
 
       const matchingIndices: number[] = [];
       examQuestions.forEach((qItem: any, qIdx: number) => {
-        const t = String(qItem.topic || "").trim().toLowerCase();
-        const matchTopic = isAll ? t.length > 0 : t === normalizedTopic || t.includes(normalizedTopic);
+        const matchTopic = isAll ? String(qItem.topic || "").trim().length > 0 : isTopicMatch(qItem.topic);
         if (matchTopic) matchingIndices.push(qIdx);
       });
 

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { getStudentSubmissions, updateStudentName } from "@/actions/student-actions";
 import { Submission } from "@/types/submission";
-import { toBengaliDigits } from "@/lib/utils";
+import { toBengaliDigits, shuffleArray } from "@/lib/utils";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
 import {
@@ -539,7 +539,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
                     return;
                   }
-                  const shuffled = [...res.questions].sort(() => 0.5 - Math.random());
+                  const shuffled = shuffleArray([...res.questions]);
                   setTopicQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
                   setTopicQuizTitle(fullPath);
                   setIsTopicQuizOpen(true);
@@ -1048,7 +1048,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         questions={readingQuestions}
         title={readingTitle}
         onStartQuiz={() => {
-          const shuffled = [...readingQuestions].sort(() => 0.5 - Math.random());
+          const shuffled = shuffleArray([...readingQuestions]);
           setTopicQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
           setTopicQuizTitle(readingTitle);
           setIsReadingOpen(false);
@@ -1064,7 +1064,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         subjectName={topicQuizTitle}
         mode="instant"
         onRestart={() => {
-          const shuffled = [...topicQuizQuestions].sort(() => 0.5 - Math.random());
+          const shuffled = shuffleArray([...topicQuizQuestions]);
           setTopicQuizQuestions(shuffled);
         }}
       />

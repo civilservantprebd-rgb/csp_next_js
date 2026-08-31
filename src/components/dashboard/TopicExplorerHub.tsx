@@ -24,7 +24,7 @@ import { PracticeQuestion } from "@/lib/practice-helper";
 import { TopicReadingModal } from "@/components/modals/TopicReadingModal";
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
 import { TopicTreeViewer } from "@/components/dashboard/TopicTreeViewer";
-import { toBengaliDigits } from "@/lib/utils";
+import { toBengaliDigits, shuffleArray } from "@/lib/utils";
 
 interface TopicExplorerHubProps {
   config: AppConfigData;
@@ -119,7 +119,7 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
     }
 
     // Shuffle
-    const shuffled = [...res.questions].sort(() => 0.5 - Math.random());
+    const shuffled = shuffleArray([...res.questions]);
     setQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
     setQuizTitle(fullPath);
     setIsReadingOpen(false);
@@ -174,7 +174,7 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
         questions={readingQuestions}
         title={readingTitle}
         onStartQuiz={() => {
-          const shuffled = [...readingQuestions].sort(() => 0.5 - Math.random());
+          const shuffled = shuffleArray([...readingQuestions]);
           setQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
           setQuizTitle(readingTitle);
           setIsReadingOpen(false);
@@ -190,7 +190,7 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
         subjectName={quizTitle}
         mode="instant"
         onRestart={() => {
-          const shuffled = [...quizQuestions].sort(() => 0.5 - Math.random());
+          const shuffled = shuffleArray([...quizQuestions]);
           setQuizQuestions(shuffled);
         }}
       />

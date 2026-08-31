@@ -7,6 +7,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * In-place Fisher-Yates shuffle (unbiased — unlike `sort(() => 0.5 - Math.random())`).
+ * Returns the same array for convenience.
+ */
+export function shuffleArray<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export function parseBengaliDigits(str: string | number | null | undefined): string {
   if (str === null || str === undefined) return "";
   const bnDigits: Record<string, string> = {
