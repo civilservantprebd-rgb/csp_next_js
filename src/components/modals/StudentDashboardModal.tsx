@@ -219,7 +219,8 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
   const handleStartSubjectPractice = async (subjectName: string) => {
     setIsLoading(true);
-    const questions = await getPracticeQuestions(subjectName, 15);
+    const localUser = getLocalStudentUser();
+    const questions = await getPracticeQuestions(subjectName, 15, localUser?.uid || "", localUser?.email || "");
     setIsLoading(false);
 
     if (questions.length === 0) {

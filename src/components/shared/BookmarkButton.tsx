@@ -31,22 +31,41 @@ export const BookmarkButton: React.FC<BookmarkButtonProps> = ({
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
-    if (studentId) {
-      setEffectiveStudentId(studentId);
-      setIsSaved(isQuestionBookmarked(studentId, question.q));
-      return;
-    }
-
-    try {
-      const stored = sessionStorage.getItem("current_student");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.id) {
-          setEffectiveStudentId(parsed.id);
-          setIsSaved(isQuestionBookmarked(parsed.id, question.q));
+    const refresh = () => {
+      try {
+        if (studentId) {
+          setEffectiveStudentId(studentId);
+          setIsSaved(isQuestionBookmarked(studentId, question.q));
+          return;
         }
+        const stored = sessionStorage.getItem("current_student");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.id) {
+            setEffectiveStudentId(parsed.id);
+            setIsSaved(isQuestionBookmarked(parsed.id, question.q));
+            return;
+          }
+        }
+        // Fall back to a stable per-browser guest id so anonymous visitors do
+        // not all share one bookmark namespace.
+        let guestId = sessionStorage.getItem("guest_bookmark_id");
+        if (!guestId) {
+          guestId = `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+          sessionStorage.setItem("guest_bookmark_id", guestId);
+        }
+        setEffectiveStudentId(guestId);
+        setIsSaved(isQuestionBookmarked(guestId, question.q));
+      } catch (_) {
+        // storage unavailable/corrupted — treat as not bookmarked
       }
-    } catch (_) {}
+    };
+
+    refresh();
+    // Re-check when bookmarks change elsewhere (other tabs, or the app's own
+    // manually-dispatched "storage" events on login/logout).
+    window.addEventListener("storage", refresh);
+    return () => window.removeEventListener("storage", refresh);
   }, [studentId, question.q]);
 
   const handleToggle = (e: React.MouseEvent) => {

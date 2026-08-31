@@ -172,7 +172,11 @@ export async function getQuestionsForPath(
       });
 
       if (matchingIndices.length > 0) {
-        const solutions = (await getExamSolutions(examKey)) || [];
+        const solutions = await getExamSolutions(examKey);
+        // SECURITY/CORRECTNESS: when solutions are locked (live exam) or the
+        // fetch failed, NEVER fall back to a fabricated "ক" answer — skip these
+        // questions entirely so students never practice against wrong answers.
+        if (!solutions) continue;
         matchingIndices.forEach((qIdx) => {
           const qItem = ex.questions![qIdx];
           const sol = solutions[qIdx] || { correct: 0, exp: "" };

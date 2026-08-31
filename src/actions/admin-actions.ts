@@ -51,6 +51,10 @@ function invalidateConfigCache() {
 }
 
 export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigData> {
+  // SECURITY: the full config includes topic_questions with correct/exp answer
+  // keys — only verified teachers may fetch it.
+  await requireTeacher();
+
   const now = Date.now();
   if (!forceRefresh && cachedConfig && now - lastFetchTime < CACHE_TTL_MS) {
     return cachedConfig;
@@ -429,6 +433,76 @@ export async function deleteExam(examKey: string): Promise<boolean> {
   } catch (err) {
     console.error("Delete exam error:", err);
     return false;
+  }
+}
+
+/**
+ * Rename a course across EVERY table that stores it: the registered courses
+ * list, the subjects table, the exams table, question_bank and topic_questions.
+ * Previously this was attempted via saveAppConfig with full config payloads,
+ * which silently dropped exams/topicQuestions and orphaned exams under the old
+ * course name.
+ */
+export async function renameCourse(
+  oldName: string,
+  newName: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    await requireTeacher();
+    const oldV = String(oldName || "").trim();
+    const newV = String(newName || "").trim();
+    if (!oldV || !newV || oldV === newV) {
+      return { success: false, message: "পুরনো ও নতুন কোর্সের নাম প্রয়োজন।" };
+    }
+
+    // 1. Registered courses list in app_settings
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("courses")
+      .eq("id", "main")
+      .maybeSingle();
+    const courses: string[] = (settings?.courses || []).map((c: string) => String(c));
+    const nextCourses = courses.map((c) => (c === oldV ? newV : c));
+    if (JSON.stringify(nextCourses) !== JSON.stringify(courses)) {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({ id: "main", courses: nextCourses });
+      if (error) throw error;
+    }
+
+    // 2. Subjects table
+    const { error: subjErr } = await supabase
+      .from("subjects")
+      .update({ course: newV })
+      .eq("course", oldV);
+    if (subjErr) throw subjErr;
+
+    // 3. Exams table (orphaned exams become visible again under the new name)
+    const { error: examErr } = await supabase
+      .from("exams")
+      .update({ course: newV })
+      .eq("course", oldV);
+    if (examErr) throw examErr;
+
+    // 4. question_bank
+    const { error: qbErr } = await supabase
+      .from("question_bank")
+      .update({ course: newV })
+      .eq("course", oldV);
+    if (qbErr) throw qbErr;
+
+    // 5. topic_questions
+    const { error: tqErr } = await supabase
+      .from("topic_questions")
+      .update({ original_course: newV })
+      .eq("original_course", oldV);
+    if (tqErr) throw tqErr;
+
+    invalidateConfigCache();
+    return { success: true };
+  } catch (err) {
+    console.error("Rename course error:", err);
+    return { success: false, message: "কোর্স রিনেম করতে সমস্যা হয়েছে।" };
   }
 }
 

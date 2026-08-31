@@ -35,75 +35,83 @@ export default function ExamResultPage() {
   useEffect(() => {
     const rawResult = sessionStorage.getItem("last_result");
     if (rawResult) {
-      const parsed = JSON.parse(rawResult);
-      setResultData(parsed);
-      if (typeof parsed.score === "number") {
-        getExamCandidateRank(examId, parsed.score, parsed.timeSpent || "").then(setRankInfo);
+      try {
+        const parsed = JSON.parse(rawResult);
+        setResultData(parsed);
+        if (typeof parsed.score === "number") {
+          getExamCandidateRank(examId, parsed.score, parsed.timeSpent || "").then(setRankInfo);
+        }
+      } catch {
+        // corrupted session data — leave resultData null so the UI shows the loading state
       }
     }
 
+    let pollInFlight = false;
+
     const checkExamStatus = () => {
-      fetchExamWithQuestions(examId).then(async (ex) => {
-        if (ex) {
-          setExam(ex);
-          // If exam reached answer release time, fetch solutions and calculate score if not already available
-          if (isAnswerTimeReached(ex)) {
-            const raw = sessionStorage.getItem("last_result");
-            if (raw) {
-              const currentRes = JSON.parse(raw);
-              if (currentRes && Array.isArray(currentRes.answers)) {
-                // SECURITY: prefer the server-stored score over client-computed data
-                const { getMySubmissionResult } = await import("@/actions/exam-actions");
-                const dbRes = await getMySubmissionResult(examId, currentRes.studentId || "");
-                const needsClientEval = typeof currentRes.score !== "number";
-
-                let score = typeof currentRes.score === "number" ? currentRes.score : 0;
-                let correct = typeof currentRes.correct === "number" ? currentRes.correct : 0;
-                let incorrect = typeof currentRes.incorrect === "number" ? currentRes.incorrect : 0;
-                let answers = currentRes.answers;
-
-                if (dbRes && !dbRes.isPendingEvaluation) {
-                  score = dbRes.score;
-                  correct = dbRes.correct;
-                  incorrect = dbRes.incorrect;
-                  if (dbRes.answers && dbRes.answers.length === answers.length) {
-                    answers = dbRes.answers;
-                  }
-                } else if (needsClientEval) {
-                  const solList = await getExamSolutions(examId);
-                  if (solList) {
-                    setSolutions(solList);
-                    let cor = 0;
-                    let incor = 0;
-                    answers.forEach((ans: number | null, idx: number) => {
-                      const sol = solList[idx];
-                      if (ans !== null && sol) {
-                        if (ans === sol.correct) cor++;
-                        else incor++;
-                      }
-                    });
-                    score = Math.max(0, cor - incor * 0.5);
-                    correct = cor;
-                    incorrect = incor;
-                  }
+      if (pollInFlight) return;
+      pollInFlight = true;
+      fetchExamWithQuestions(examId)
+        .then(async (ex) => {
+          if (ex) {
+            setExam(ex);
+            // If exam reached answer release time, fetch the SERVER-stored score
+            if (isAnswerTimeReached(ex)) {
+              const raw = sessionStorage.getItem("last_result");
+              if (raw) {
+                let currentRes: any = null;
+                try {
+                  currentRes = JSON.parse(raw);
+                } catch {
+                  // corrupted — ignore
                 }
+                if (currentRes && Array.isArray(currentRes.answers)) {
+                  // SECURITY: the displayed score always comes from the server —
+                  // never client-evaluate editable sessionStorage answers.
+                  const { getMySubmissionResult } = await import("@/actions/exam-actions");
+                  const dbRes = await getMySubmissionResult(examId, currentRes.studentId || "");
 
-                const updatedRes = {
-                  ...currentRes,
-                  score,
-                  correct,
-                  incorrect,
-                  answers,
-                  isLive: false
-                };
-                setResultData(updatedRes);
-                sessionStorage.setItem("last_result", JSON.stringify(updatedRes));
-                getExamCandidateRank(examId, score, updatedRes.timeSpent || "").then(setRankInfo);
+                  let score = currentRes.score;
+                  let correct = currentRes.correct;
+                  let incorrect = currentRes.incorrect;
+                  let answers = currentRes.answers;
+                  let submittedAtISO = currentRes.submittedAtISO || "";
+
+                  if (dbRes) {
+                    if (dbRes.submittedAtISO) submittedAtISO = dbRes.submittedAtISO;
+                    if (!dbRes.isPendingEvaluation) {
+                      score = dbRes.score;
+                      correct = dbRes.correct;
+                      incorrect = dbRes.incorrect;
+                      if (dbRes.answers && dbRes.answers.length === answers.length) {
+                        answers = dbRes.answers;
+                      }
+                    }
+                  }
+
+                  const updatedRes = {
+                    ...currentRes,
+                    score,
+                    correct,
+                    incorrect,
+                    answers,
+                    isLive: false,
+                    submittedAtISO
+                  };
+                  setResultData(updatedRes);
+                  sessionStorage.setItem("last_result", JSON.stringify(updatedRes));
+                  getExamCandidateRank(examId, score ?? 0, updatedRes.timeSpent || "").then(setRankInfo);
+                }
               }
             }
           }
-        }
-      });
+        })
+        .catch(() => {
+          // transient fetch failure — the next poll retries
+        })
+        .finally(() => {
+          pollInFlight = false;
+        });
     };
 
     checkExamStatus();
@@ -290,7 +298,7 @@ export default function ExamResultPage() {
               correct={resultData.correct ?? 0}
               incorrect={resultData.incorrect ?? 0}
               timeSpent={resultData.timeSpent || "১০ মিনিট"}
-              submittedAt={new Date().toISOString()}
+              submittedAt={resultData.submittedAtISO || new Date().toISOString()}
               questions={exam.questions || []}
               solutions={solutions || []}
               studentAnswers={resultData.answers || []}

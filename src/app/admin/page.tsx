@@ -186,41 +186,16 @@ export default function AdminPage() {
       return;
     }
 
-    // 1. Update courses array
-    const nextCourses = [...config.courses];
-    nextCourses[idx] = newVal;
-
-    // 2. Update subjects assigned to this course
-    const nextSubjects = config.subjects.map((sub) => {
-      if (sub.course === oldVal) {
-        return { ...sub, course: newVal };
-      }
-      return sub;
-    });
-
-    // 3. Update topicQuestions assigned to this course
-    const nextTopicQuestions = (config.topicQuestions || []).map((tq) => {
-      if (tq.originalCourse === oldVal) {
-        return { ...tq, originalCourse: newVal };
-      }
-      return tq;
-    });
-
-    // 4. Update exams assigned to this course
-    const nextExams = { ...config.exams };
-    Object.keys(nextExams).forEach((key) => {
-      if (nextExams[key].course === oldVal) {
-        nextExams[key] = { ...nextExams[key], course: newVal };
-      }
-    });
-
-    // Save updated configurations to Firestore
-    await saveAppConfig({
-      courses: nextCourses,
-      subjects: nextSubjects,
-      topicQuestions: nextTopicQuestions,
-      exams: nextExams,
-    });
+    // Persist the rename across the courses list, subjects, exams, question
+    // bank and topic questions via a dedicated server action. (saveAppConfig
+    // used to silently drop exams/topicQuestions, orphaning exams under the
+    // old course name.)
+    const { renameCourse } = await import("@/actions/admin-actions");
+    const res = await renameCourse(oldVal, newVal);
+    if (!res.success) {
+      alert(res.message || "কোর্স রিনেম করতে সমস্যা হয়েছে।");
+      return;
+    }
 
     setEditingCourseIdx(null);
     loadData();
@@ -376,39 +351,19 @@ export default function AdminPage() {
     const nextTopics = [...currentTopics];
     nextTopics[idx] = nameVal;
 
-    // Update in topicQuestions persistent repository
-    const nextTopicQuestions = (config?.topicQuestions || []).map((tq) => {
-      if (tq.topic === oldTopicName) {
-        return { ...tq, topic: nameVal };
-      }
-      return tq;
-    });
-
-    // Cascade topic rename to all questions in exams
-    const nextExams = { ...(config?.exams || {}) };
-    let hasExamChanges = false;
+    // Cascade the topic rename to topic_questions, question_bank and the
+    // registered topics list via the server-side renameTopicNode action
+    // (saveAppConfig used to silently drop these payloads).
     if (oldTopicName) {
-      Object.keys(nextExams).forEach((key) => {
-        if (nextExams[key].questions) {
-          nextExams[key] = {
-            ...nextExams[key],
-            questions: nextExams[key].questions!.map((q) => {
-              if (q.topic === oldTopicName) {
-                hasExamChanges = true;
-                return { ...q, topic: nameVal };
-              }
-              return q;
-            }),
-          };
-        }
-      });
+      const { renameTopicNode } = await import("@/actions/admin-actions");
+      const res = await renameTopicNode(oldTopicName, nameVal);
+      if (!res.success) {
+        alert(res.message || "টপিক রিনেম করতে সমস্যা হয়েছে।");
+        return;
+      }
+    } else {
+      await saveAppConfig({ topics: nextTopics });
     }
-
-    await saveAppConfig({
-      topics: nextTopics,
-      topicQuestions: nextTopicQuestions,
-      ...(hasExamChanges ? { exams: nextExams } : {}),
-    });
     setEditingTopicIdx(null);
     loadData();
     alert("টপিক সফলভাবে আপডেট করা হয়েছে।");

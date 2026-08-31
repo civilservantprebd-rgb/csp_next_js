@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Exam, QuestionItem, QuestionSolution, SubjectItem } from "@/types/exam";
 import {
   addQuestionToBank,
@@ -105,16 +105,30 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
     }
   };
 
-  const fetchBankQuestions = async () => {
+  const searchSeqRef = useRef(0);
+
+  const fetchBankQuestions = async (debouncedQuery = queryText) => {
+    const seq = ++searchSeqRef.current;
     setIsLoading(true);
-    const res = await searchQuestionBank(queryText, filterTopic, filterSubject);
-    setQuestions(res.questions || []);
-    setTotalQuestions(res.total || 0);
-    setIsLoading(false);
+    try {
+      const res = await searchQuestionBank(debouncedQuery, filterTopic, filterSubject);
+      // Only apply the result if it belongs to the LATEST request — a slow
+      // response for an older keystroke must not overwrite a newer one.
+      if (seq === searchSeqRef.current) {
+        setQuestions(res.questions || []);
+        setTotalQuestions(res.total || 0);
+      }
+    } finally {
+      if (seq === searchSeqRef.current) setIsLoading(false);
+    }
   };
 
+  // Debounce the search so every keystroke doesn't fire a full ilike scan
   useEffect(() => {
-    fetchBankQuestions();
+    const t = setTimeout(() => {
+      fetchBankQuestions(queryText);
+    }, 300);
+    return () => clearTimeout(t);
   }, [queryText, filterTopic, filterSubject]);
 
   // Load the complete topic structure (from every source) into the tree picker

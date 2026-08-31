@@ -1,9 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    "BCS One is missing Supabase environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (see .env.local.example)."
+  );
+}
 
 // Use service role on server side to bypass RLS, fallback to anon key on client side
 export const supabase = createClient(
@@ -18,9 +23,10 @@ export const supabase = createClient(
 
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange(async (event, session) => {
-    // Sync the access token into a cookie so server actions can verify identity server-side
+    // Sync the access token into a cookie so server actions can verify identity server-side.
+    // Max-Age is aligned with the ~1h token lifetime so server actions never trust a stale token.
     if (session?.access_token) {
-      document.cookie = `sb_access_token=${session.access_token}; path=/; SameSite=Lax; Max-Age=86400${window.location.protocol === "https:" ? "; Secure" : ""}`;
+      document.cookie = `sb_access_token=${session.access_token}; path=/; SameSite=Lax; Max-Age=3600${window.location.protocol === "https:" ? "; Secure" : ""}`;
     } else {
       document.cookie = "sb_access_token=; path=/; SameSite=Lax; Max-Age=0";
     }

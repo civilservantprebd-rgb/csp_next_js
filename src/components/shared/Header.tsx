@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Contact, Trophy } from "lucide-react";
@@ -13,27 +13,33 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeaderboard }) => {
   const router = useRouter();
   const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+  const lastScrollYRef = useRef(0);
   const [isTeacher, setIsTeacher] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const refreshTeacherState = () => {
       setIsTeacher(!!sessionStorage.getItem("teacher_user"));
-    }
+    };
+    refreshTeacherState();
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+      if (currentScrollY > lastScrollYRef.current && currentScrollY > 50) {
         setIsVisible(false);
       } else {
         setIsVisible(true);
       }
-      setLastScrollY(currentScrollY);
+      lastScrollYRef.current = currentScrollY;
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
+    // Re-read on auth changes (login/logout in this tab or another tab)
+    window.addEventListener("storage", refreshTeacherState);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("storage", refreshTeacherState);
+    };
+  }, []);
 
   const handleStudentPortalClick = (e: React.MouseEvent) => {
     if (isTeacher) {

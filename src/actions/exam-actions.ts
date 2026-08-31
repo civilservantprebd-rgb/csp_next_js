@@ -8,7 +8,11 @@ import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
   try {
-    // SECURITY: never leak the answer key while a live exam is running (unless caller is a verified teacher)
+    // SECURITY: never leak the answer key to non-teachers until the exam's answer
+    // release time. For SCHEDULED exams the key stays hidden BEFORE the exam starts
+    // and while it runs (isAnswerTimeReached is false until endTime passes or the
+    // teacher publishes results). Always-open practice exams have no schedule, so
+    // their answers are public by design.
     const { isTeacherSession } = await import("@/lib/teacher-auth");
     if (!(await isTeacherSession())) {
       const { data: examData } = await supabase
@@ -17,14 +21,15 @@ export async function getExamSolutions(examKey: string): Promise<QuestionSolutio
         .eq("id", examKey)
         .maybeSingle();
       if (examData) {
-        const { isExamCurrentlyLive } = await import("@/lib/bangladesh-time");
+        const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
         const exam = {
           startTime: examData.start_time,
           endTime: examData.end_time,
           leaderboardEndTime: examData.leaderboard_end_time,
           isResultPublished: examData.is_result_published === true
         } as Exam;
-        if (isExamCurrentlyLive(exam)) return null;
+        const isScheduled = !!(exam.startTime && (exam.endTime || exam.leaderboardEndTime));
+        if (isScheduled && !isAnswerTimeReached(exam)) return null;
       }
     }
 
@@ -69,6 +74,10 @@ export async function checkStudentAlreadySubmitted(
     const cleanId = String(rawStudentId || "").trim();
     const normId = parseBengaliDigits(cleanId).trim();
     if (!cleanId) return false;
+
+    // SECURITY: only the student themselves may check their own submission
+    const { sessionOwnsStudent } = await import("@/lib/teacher-auth");
+    if (!(await sessionOwnsStudent(cleanId)) && !(await sessionOwnsStudent(normId))) return false;
 
     const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
 
@@ -133,6 +142,42 @@ export async function submitExamAnswers(payload: {
       }
       : undefined;
 
+    // SECURITY: the caller must hold a valid Supabase session (the exam UI
+    // requires Google login before starting). Free exams accept any logged-in
+    // user; paid exams additionally require enrollment in the exam's course.
+    // The student record id is resolved server-side (phone id for paid exams),
+    // so the client cannot submit under an arbitrary/forged student id.
+    const { getSessionUserFromCookies } = await import("@/lib/teacher-auth");
+    const sessionUser = await getSessionUserFromCookies();
+    if (!sessionUser) {
+      return {
+        success: false,
+        isLive: false,
+        message: "পরীক্ষা দেওয়ার জন্য লগইন করা প্রয়োজন। অনুগ্রহ করে আবার লগইন করুন।"
+      };
+    }
+
+    let recordStudentId = String(payload.studentId || "").trim();
+    if (exam && exam.isFree !== true) {
+      const { verifyStudentAccess } = await import("@/actions/student-actions");
+      const access = await verifyStudentAccess(sessionUser.id, exam.course || "", sessionUser.email);
+      if (!access.allowed) {
+        return {
+          success: false,
+          isLive: false,
+          message: access.message || "এই কোর্সের পরীক্ষা দেওয়ার অনুমতি নেই।"
+        };
+      }
+      if (access.normalizedId) recordStudentId = access.normalizedId;
+    }
+
+    // Validate + sanitize answers (never trust the client's shape blindly)
+    const rawAnswers = Array.isArray(payload.answers) ? payload.answers : [];
+    const answers = rawAnswers.slice(0, 500).map((v) =>
+      v === null || v === undefined ? null : Math.min(20, Math.max(0, Math.floor(Number(v) || 0)))
+    );
+    const totalQuestions = Math.max(0, Number(payload.totalQuestions) || 0);
+
     const { parseBangladeshDateTime, getTrueDate } = await import("@/lib/bangladesh-time");
     const now = getTrueDate();
 
@@ -146,7 +191,7 @@ export async function submitExamAnswers(payload: {
       : false;
 
     if (isLiveSubmission) {
-      const alreadySubmitted = await checkStudentAlreadySubmitted(payload.examKey, payload.studentId);
+      const alreadySubmitted = await checkStudentAlreadySubmitted(payload.examKey, recordStudentId);
       if (alreadySubmitted) {
         return {
           success: false,
@@ -160,7 +205,12 @@ export async function submitExamAnswers(payload: {
     // isLive: if currently in live window and results are not published yet
     const isLive = isLiveSubmission && exam ? !isAnswerTimeReached(exam) : false;
 
-    const timeSpentSecs = payload.examTimerMinutes * 60 - payload.timeRemaining;
+    // Time spent is derived from the SERVER-known duration, not trusted raw
+    // from the client: clamp it to [0, duration] so a forged timeRemaining
+    // cannot produce a negative/absurd timeSpent for leaderboard tiebreaks.
+    const durationSecs = Math.max(1, (exam?.timerMinutes ?? payload.examTimerMinutes) * 60);
+    const rawSpent = durationSecs - Number(payload.timeRemaining || 0);
+    const timeSpentSecs = Math.max(0, Math.min(durationSecs, rawSpent));
     const mins = Math.floor(timeSpentSecs / 60);
     const secs = timeSpentSecs % 60;
     const timeFormatted = `${mins} মি. ${secs} সে.`;
@@ -172,7 +222,7 @@ export async function submitExamAnswers(payload: {
     // Always fetch solutions and compute score (stored in DB or returned when published)
     const solutions = await getExamSolutions(payload.examKey);
     if (solutions) {
-      payload.answers.forEach((ans, idx) => {
+      answers.forEach((ans, idx) => {
         const sol = solutions[idx];
         if (ans !== null && sol) {
           if (ans === sol.correct) correct++;
@@ -186,15 +236,15 @@ export async function submitExamAnswers(payload: {
       .from("submissions")
       .insert({
         student_name: payload.studentName,
-        student_id: payload.studentId,
+        student_id: recordStudentId,
         exam_key: payload.examKey,
         exam_title: payload.examTitle,
         score: isLive ? 0 : score,
         correct: isLive ? 0 : correct,
         incorrect: isLive ? 0 : incorrect,
-        total_questions: payload.totalQuestions,
+        total_questions: totalQuestions,
         time_spent: timeFormatted,
-        answers: payload.answers.map((v) => (v === null ? -1 : v)),
+        answers: answers.map((v) => (v === null ? -1 : v)),
         is_pending_evaluation: isLive,
         is_live_submission: isLiveSubmission,
         submitted_at: getTrueDate().toISOString()
@@ -420,6 +470,10 @@ export async function getMySubmissionResult(
     const cleanId = String(studentId || "").trim();
     if (!cleanId) return null;
     const normId = parseBengaliDigits(cleanId).trim();
+
+    // SECURITY: only the student themselves may fetch their own result
+    const { sessionOwnsStudent } = await import("@/lib/teacher-auth");
+    if (!(await sessionOwnsStudent(cleanId)) && !(await sessionOwnsStudent(normId))) return null;
     const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
 
     const { data, error } = await supabase

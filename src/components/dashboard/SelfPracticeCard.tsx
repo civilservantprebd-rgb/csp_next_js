@@ -43,9 +43,15 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
         return;
       }
       import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
-        verifyStudentAccess(localUser.uid, "ALL", localUser.email).then((res) => {
-          setEnrolled(res.allowed);
-        });
+        verifyStudentAccess(localUser.uid, "ALL", localUser.email)
+          .then((res) => {
+            setEnrolled(res.allowed);
+          })
+          .catch(() => {
+            // Never leave the UI stuck on "যাচাই হচ্ছে..." — treat a failed
+            // check as not-enrolled so the enroll CTA shows instead.
+            setEnrolled(false);
+          });
       });
     });
   }, []);

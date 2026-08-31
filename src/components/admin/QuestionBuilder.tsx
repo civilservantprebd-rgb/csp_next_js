@@ -128,10 +128,20 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
     };
 
     if (editingIndex !== null) {
-      await updateQuestionInExam(activeExamKey, editingIndex, questionObj, solutionObj);
+      const ok = await updateQuestionInExam(activeExamKey, editingIndex, questionObj, solutionObj);
+      if (!ok) {
+        setIsLoading(false);
+        alert("প্রশ্ন আপডেট করতে সমস্যা হয়েছে।");
+        return;
+      }
       setEditingIndex(null);
     } else {
-      await addQuestionToExam(activeExamKey, questionObj, solutionObj);
+      const ok = await addQuestionToExam(activeExamKey, questionObj, solutionObj);
+      if (!ok) {
+        setIsLoading(false);
+        alert("প্রশ্ন যুক্ত করতে সমস্যা হয়েছে।");
+        return;
+      }
     }
 
     setIsLoading(false);

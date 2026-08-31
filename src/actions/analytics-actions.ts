@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { AppConfigData } from "@/types/exam";
+import { requireTeacher } from "@/lib/teacher-auth";
 
 export interface AdminAnalyticsData {
   totalStudents: number;
@@ -16,6 +17,9 @@ export interface AdminAnalyticsData {
 
 export async function getAdminAnalytics(): Promise<AdminAnalyticsData> {
   try {
+    // SECURITY: admin analytics are teacher-only
+    await requireTeacher();
+
     // 1. Fetch Students
     const { data: studentsData } = await supabase.from("allowed_students").select("id, courses");
     const students = studentsData || [];
@@ -63,16 +67,21 @@ export async function getAdminAnalytics(): Promise<AdminAnalyticsData> {
       }
     });
 
-    // 3. Question stats & Teacher Login breakdown
-    const { data: questionBankData } = await supabase.from("question_bank").select("id, course, subject");
-    const totalQuestionBankCount = (questionBankData || []).length;
+    // 3. Question stats (count-based so the 1000-row default never undercounts)
+    const { count: questionBankCount } = await supabase
+      .from("question_bank")
+      .select("*", { count: "exact", head: true });
+    const totalQuestionBankCount = questionBankCount || 0;
 
-    const { data: topicQuestionsData } = await supabase.from("topic_questions").select("id");
-    const totalTopicQuestions = (topicQuestionsData || []).length;
+    const { count: topicQuestionsCount } = await supabase
+      .from("topic_questions")
+      .select("*", { count: "exact", head: true });
+    const totalTopicQuestions = topicQuestionsCount || 0;
 
-    // Teacher log/question stats
+    // Question stats: total bank size, and how many are mirrored in the topic
+    // pool. NOT a per-teacher breakdown — no creator column exists yet.
     const teacherQuestionStats: Record<string, { total: number; examQuestions: number; topicQuestions: number }> = {
-      "মূল অ্যাডমিন (Primary)": {
+      "সর্বমোট (Total)": {
         total: totalQuestionBankCount,
         examQuestions: Math.max(0, totalQuestionBankCount - totalTopicQuestions),
         topicQuestions: totalTopicQuestions

@@ -163,6 +163,11 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
     });
     setIsLoading(false);
 
+    if (!newKey) {
+      alert("এক্সাম তৈরি করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      return;
+    }
+
     if (newKey) {
       setTitle("");
       setIsResultPublished(false);

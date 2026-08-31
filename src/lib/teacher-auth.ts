@@ -91,3 +91,50 @@ export async function isTeacherSession(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Returns the verified Supabase session user for the current request (from the
+ * sb_access_token cookie), or null. Unlike getTeacherUser this does NOT require
+ * teacher privileges — it only proves "someone is logged in". Used to bind
+ * student-facing actions to a real session instead of trusting client-supplied
+ * student IDs.
+ */
+export async function getSessionUserFromCookies(): Promise<{ id: string; email?: string } | null> {
+  try {
+    const user = await getUserFromToken(getAccessTokenFromCookies());
+    if (!user) return null;
+    return { id: user.id, email: user.email };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when the current request's session user is the same person as the given
+ * student id: either the session uid equals the id, or the session user's email
+ * matches the allowed_students row for that id (Google users are keyed by email
+ * while exam records are keyed by phone id).
+ */
+export async function sessionOwnsStudent(studentId?: string | null): Promise<boolean> {
+  try {
+    const sessionUser = await getSessionUserFromCookies();
+    if (!sessionUser) return false;
+    const cleanId = String(studentId || "").trim();
+    if (!cleanId) return false;
+    if (sessionUser.id && sessionUser.id === cleanId) return true;
+    if (!sessionUser.email) return false;
+
+    const { supabase } = await import("@/lib/supabase");
+    const { data } = await supabase
+      .from("allowed_students")
+      .select("email")
+      .eq("id", cleanId)
+      .maybeSingle();
+    if (data?.email && String(data.email).trim().toLowerCase() === sessionUser.email.toLowerCase()) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}

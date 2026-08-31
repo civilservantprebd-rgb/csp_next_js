@@ -24,7 +24,8 @@ export function getStudentMistakes(studentId: string): MistakeQuestionItem[] {
   if (typeof window === "undefined" || !studentId) return [];
   try {
     const raw = localStorage.getItem(`${MISTAKES_KEY_PREFIX}${studentId}`);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
     console.error("Error loading student mistakes:", err);
     return [];
@@ -38,7 +39,8 @@ export function getStudentBookmarks(studentId: string): MistakeQuestionItem[] {
   if (typeof window === "undefined" || !studentId) return [];
   try {
     const raw = localStorage.getItem(`${BOOKMARKS_KEY_PREFIX}${studentId}`);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
     console.error("Error loading student bookmarks:", err);
     return [];
@@ -134,7 +136,7 @@ export function toggleQuestionBookmark(
         timestamp: new Date().toISOString(),
         isBookmarked: true
       });
-      localStorage.setItem(`${BOOKMARKS_KEY_PREFIX}${studentId}`, JSON.stringify(bookmarks));
+      localStorage.setItem(`${BOOKMARKS_KEY_PREFIX}${studentId}`, JSON.stringify(bookmarks.slice(0, 200)));
       return true;
     }
   } catch (err) {
@@ -158,9 +160,14 @@ export function isQuestionBookmarked(studentId: string, questionText: string): b
  */
 export function removeStudentMistake(studentId: string, mistakeId: string): MistakeQuestionItem[] {
   if (typeof window === "undefined" || !studentId) return [];
-  const mistakes = getStudentMistakes(studentId).filter((m) => m.id !== mistakeId);
-  localStorage.setItem(`${MISTAKES_KEY_PREFIX}${studentId}`, JSON.stringify(mistakes));
-  return mistakes;
+  try {
+    const mistakes = getStudentMistakes(studentId).filter((m) => m.id !== mistakeId);
+    localStorage.setItem(`${MISTAKES_KEY_PREFIX}${studentId}`, JSON.stringify(mistakes));
+    return mistakes;
+  } catch (err) {
+    console.error("Error removing student mistake:", err);
+    return getStudentMistakes(studentId);
+  }
 }
 
 /**

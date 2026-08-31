@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { getTrueDate } from "@/lib/bangladesh-time";
+import { getTrueDate, parseBangladeshDateTime } from "@/lib/bangladesh-time";
 import type { Exam } from "@/types/exam";
 
 export function cn(...inputs: ClassValue[]) {
@@ -42,8 +42,14 @@ export function parseTimeSpentToSeconds(timeSpent: string | number | null | unde
   if (!minMatch && !secMatch) {
     if (normalized.includes(":")) {
       const parts = normalized.split(":");
-      mins = parseFloat(parts[0]) || 0;
-      secs = parseFloat(parts[1]) || 0;
+      if (parts.length === 3) {
+        // H:MM:SS format
+        mins = (parseFloat(parts[0]) || 0) * 60 + (parseFloat(parts[1]) || 0);
+        secs = parseFloat(parts[2]) || 0;
+      } else {
+        mins = parseFloat(parts[0]) || 0;
+        secs = parseFloat(parts[1]) || 0;
+      }
     } else {
       const num = parseFloat(normalized);
       if (!isNaN(num)) return num;
@@ -62,10 +68,12 @@ export function parseTimeSpentToSeconds(timeSpent: string | number | null | unde
  */
 export function sortExamsForStudents(a: [string, Exam], b: [string, Exam]): number {
   const now = getTrueDate().getTime();
-  const ta = a[1].startTime ? new Date(a[1].startTime).getTime() : null;
-  const tb = b[1].startTime ? new Date(b[1].startTime).getTime() : null;
-  const ea = a[1].endTime ? new Date(a[1].endTime).getTime() : null;
-  const eb = b[1].endTime ? new Date(b[1].endTime).getTime() : null;
+  // Use parseBangladeshDateTime (not raw new Date()) so naive stored timestamps
+  // are interpreted as +06:00 exactly like every window check in the app.
+  const ta = a[1].startTime ? (parseBangladeshDateTime(a[1].startTime)?.getTime() ?? null) : null;
+  const tb = b[1].startTime ? (parseBangladeshDateTime(b[1].startTime)?.getTime() ?? null) : null;
+  const ea = a[1].endTime ? (parseBangladeshDateTime(a[1].endTime)?.getTime() ?? null) : null;
+  const eb = b[1].endTime ? (parseBangladeshDateTime(b[1].endTime)?.getTime() ?? null) : null;
 
   const status = (t: number | null, e: number | null): number => {
     if (t === null) return 3; // no schedule → last

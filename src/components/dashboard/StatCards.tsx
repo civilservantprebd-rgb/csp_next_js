@@ -3,6 +3,7 @@
 import React from "react";
 import { Timer, ListChecks, Trophy, ArrowRight } from "lucide-react";
 import { Exam } from "@/types/exam";
+import { toBengaliDigits } from "@/lib/utils";
 
 interface StatCardsProps {
   currentExam?: Exam;
@@ -19,7 +20,7 @@ export const StatCards: React.FC<StatCardsProps> = ({ currentExam, onOpenLeaderb
         <div>
           <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">সময়সীমা</h4>
           <p className="text-lg sm:text-xl font-bold text-slate-900">
-            {currentExam ? `${currentExam.timerMinutes} মিনিট` : "১০ মিনিট"}
+            {currentExam ? `${toBengaliDigits(currentExam.timerMinutes)} মিনিট` : `${toBengaliDigits(10)} মিনিট`}
           </p>
         </div>
       </div>
@@ -31,7 +32,7 @@ export const StatCards: React.FC<StatCardsProps> = ({ currentExam, onOpenLeaderb
         <div>
           <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">মোট প্রশ্ন</h4>
           <p className="text-lg sm:text-xl font-bold text-slate-900">
-            {currentExam?.questions ? currentExam.questions.length : 0}
+            {currentExam?.questions ? toBengaliDigits(currentExam.questions.length) : toBengaliDigits(0)}
           </p>
         </div>
       </div>

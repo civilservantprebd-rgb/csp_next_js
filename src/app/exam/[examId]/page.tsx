@@ -31,8 +31,24 @@ export default function ExamPage() {
       router.push("/");
       return;
     }
-    const parsedStudent = JSON.parse(rawStudent);
+    let parsedStudent: { id: string; name: string } | null = null;
+    try {
+      parsedStudent = JSON.parse(rawStudent);
+    } catch {
+      // corrupted session data — restart the flow
+    }
+    if (!parsedStudent || typeof parsedStudent.id !== "string" || !parsedStudent.id) {
+      router.push("/");
+      return;
+    }
     setStudent(parsedStudent);
+
+    // Deep links skip the home page where time sync normally runs — sync here
+    // too so the countdown never silently falls back to the tamperable device
+    // clock.
+    import("@/lib/bangladesh-time").then(({ syncBangladeshNetworkTime }) => {
+      syncBangladeshNetworkTime();
+    });
 
     fetchExamWithQuestions(examId).then(async (ex) => {
       if (!ex) {
@@ -68,7 +84,7 @@ export default function ExamPage() {
         }
       }
 
-      setSecondsRemaining(Math.max(10, examDurationSecs));
+      setSecondsRemaining(Math.max(1, examDurationSecs));
     });
   }, [examId, router]);
 

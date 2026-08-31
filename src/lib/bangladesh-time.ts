@@ -23,9 +23,14 @@ export function parseBangladeshDateTime(dtStr?: string | null): Date | null {
     return isNaN(d.getTime()) ? null : d;
   }
   if (str.length === 16) str += ":00";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) str += "T00:00:00";
   str += "+06:00";
   const d = new Date(str);
-  return isNaN(d.getTime()) ? new Date(dtStr) : d;
+  if (!isNaN(d.getTime())) return d;
+  // Last resort: never fall back to device-local interpretation of a naive
+  // string — treat it as Bangladesh time explicitly.
+  const fallback = new Date(String(dtStr).trim().replace(" ", "T") + "+06:00");
+  return isNaN(fallback.getTime()) ? null : fallback;
 }
 
 export function getTrueDate(): Date {

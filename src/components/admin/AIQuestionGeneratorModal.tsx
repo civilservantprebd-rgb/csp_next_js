@@ -46,8 +46,6 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
   const [count, setCount] = useState<number>(5);
   const [difficulty, setDifficulty] = useState<"সহজ" | "মাঝারি" | "কঠিন" | "বিসিএস প্রিলিমিনারি মান">("বিসিএস প্রিলিমিনারি মান");
   const [contextText, setContextText] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,13 +58,6 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
   } | null>(null);
 
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    // SECURITY: the Gemini key is no longer persisted in localStorage (XSS could steal it)
-    if (typeof window !== "undefined") {
-      setShowApiKeyInput(true);
-    }
-  }, []);
 
   useEffect(() => {
     if (defaultTopic) setTopic(defaultTopic);
@@ -91,8 +82,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
       subtopic: subtopic.trim(),
       count: Number(count),
       difficulty,
-      contextText: contextText.trim(),
-      apiKey: apiKey.trim()
+      contextText: contextText.trim()
     });
 
     setIsLoading(false);
@@ -177,36 +167,12 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
 
         {/* Content */}
         <div className="overflow-y-auto flex-grow p-4 sm:p-6 space-y-5">
-          {/* API Key Banner / Settings */}
-          <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3.5 flex flex-col gap-2">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-indigo-950 font-bold">
-                <Key className="w-4 h-4 text-indigo-600" />
-                <span>Google Gemini API Key (ফ্রি)</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
-              >
-                {showApiKeyInput ? "লুকান" : apiKey ? "কি পরিবর্তন করুন" : "কী যুক্ত করুন"}
-              </button>
-            </div>
-
-            {showApiKeyInput && (
-              <div className="space-y-1.5 pt-1">
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="AIzaSy... (গুগল এআই স্টুডিও ফ্রি কী)"
-                  className="w-full text-xs font-mono px-3 py-2 rounded-xl border border-indigo-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                />
-                <p className="text-[10px] text-slate-500">
-                  💡 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-600 underline font-bold">aistudio.google.com</a> থেকে ১ মিনিটে একদম ফ্রিতে নিজস্ব API Key নিতে পারেন। এটি আপনার ব্রাউজারে নিরাপদেই থাকবে।
-                </p>
-              </div>
-            )}
+          {/* Gemini API Key status */}
+          <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3.5 flex items-start gap-2 text-xs text-indigo-950">
+            <Key className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+            <span>
+              AI জেনারেটর সার্ভার-সাইড Gemini API Key (GEMINI_API_KEY) ব্যবহার করে — শিক্ষকদের আলাদা কোনো কী যোগ করার প্রয়োজন নেই। সার্ভারে কী সেট না থাকলে নিচে এরর বার্তা দেখানো হবে।
+            </span>
           </div>
 
           {/* Form */}

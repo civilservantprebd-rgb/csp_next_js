@@ -124,6 +124,23 @@ export function parseBulkQuestionsText(
         const cleanAns = ansRaw.replace(/^[\(\[\{\s]+|[\)\]\}\s\.\-]+$/g, "").trim().toLowerCase();
         const normVal = parseBengaliDigits(cleanAns);
 
+        // A line that merely STARTS with "উত্তর" (e.g. "উত্তর দেওয়ার আগে…") is
+        // not an answer line unless the value looks like an option label.
+        const looksLikeOption =
+          /^[কখগঘabcdABCD১-৪1-4]/.test(cleanAns) ||
+          opts.some((o) => o.toLowerCase().trim() === cleanAns);
+
+        if (!looksLikeOption) {
+          // Not an answer line — fall through and treat it as question text
+          ansFound = false;
+          if (!qText) {
+            qText = line.replace(/^([০-৯\d]+[\.\)]|প্রশ্ন\s*[০-৯\d]*\s*[:\.]|Q\s*[০-৯\d]*\s*[:\.])\s*/i, "").trim();
+          } else if (opts.length === 0) {
+            qText += " " + line;
+          }
+          continue;
+        }
+
         if (cleanAns.startsWith("ক") || cleanAns.startsWith("a") || normVal === "1" || normVal === "0") correctIdx = 0;
         else if (cleanAns.startsWith("খ") || cleanAns.startsWith("b") || normVal === "2") correctIdx = 1;
         else if (cleanAns.startsWith("গ") || cleanAns.startsWith("c") || normVal === "3") correctIdx = 2;
@@ -155,7 +172,10 @@ export function parseBulkQuestionsText(
 
       // Check Option line (e.g. "ক) ...", "ক. ...", "(ক) ...", "A) ...", "a.", "1) ...")
       // Check inline multiple options like "ক) ঢাকা  খ) খুলনা  গ) রাজশাহী  ঘ) সিলেট"
-      const inlineOptRegex = /([কখগঘabcdABCD]|[১-৪1-4])[\)\.\-]\s*([^কখগঘabcdABCD১-৪1-4\)\.\-]+)/g;
+      // Split lines that carry multiple options like "ক) ঢাকা খ) খুলনা …" —
+      // option TEXT may itself start with ক/খ/গ/ঘ/digits, so we split on the
+      // option MARKERS rather than excluding letters from the text.
+      const inlineOptRegex = /(?:^|\s)([কখগঘabcdABCD]|[১-৪1-4])[\)\.\-–—]\s*([\s\S]*?)(?=\s*(?:[কখগঘabcdABCD]|[১-৪1-4])[\)\.\-–—]|$)/g;
       const inlineMatches = Array.from(line.matchAll(inlineOptRegex));
 
       if (inlineMatches.length >= 2) {
@@ -166,7 +186,7 @@ export function parseBulkQuestionsText(
         continue;
       }
 
-      const singleOptMatch = line.match(/^(\([কখগঘabcdABCD\d]\)|[কখগঘabcdABCD\d][\)\.\-–—])\s*(.+)/);
+      const singleOptMatch = line.match(/^(\([কখগঘabcdABCD১-৪\d]\)|[কখগঘabcdABCD১-৪\d][\)\.\-–—])\s*(.+)/);
       if (singleOptMatch) {
         opts.push(singleOptMatch[2].trim());
         continue;
@@ -181,13 +201,20 @@ export function parseBulkQuestionsText(
       }
     }
 
+    // Track how many REAL options were parsed before padding placeholders —
+    // padded placeholders must never make a broken block look valid.
+    const realOptCount = opts.length;
+
     // Pad or trim options to exactly 4 if needed
     while (opts.length < 4) {
       opts.push(`অপশন ${opts.length + 1}`);
     }
 
-    const isValid = qText.length > 0 && opts.length >= 4;
+    const hasTooMany = realOptCount > 4;
+    const isValid = qText.length > 0 && opts.length >= 4 && realOptCount >= 2 && !hasTooMany && ansFound;
     let error: string | undefined = undefined;
+    if (hasTooMany) error = "৪টির বেশি অপশন পাওয়া গেছে";
+    else if (realOptCount < 2) error = "অপশন কম পাওয়া গেছে (কমপক্ষে ২টি প্রয়োজন)";
     if (!qText) error = "প্রশ্ন পাওয়া যায়নি";
     else if (!ansFound) error = "সঠিক উত্তর উল্লেখ নেই (ডিফল্ট: ক)";
 

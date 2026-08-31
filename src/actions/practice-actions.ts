@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import type { PracticeQuestion, TopicOption } from "@/lib/practice-helper";
+import type { Exam } from "@/types/exam";
 
 /**
  * Server-side Self-Practice data.
@@ -73,12 +74,20 @@ export async function getPracticeQuestions(
   email?: string
 ): Promise<PracticeQuestion[]> {
   try {
-    // SECURITY: self-practice requires an enrolled student (any course)
-    if (studentId) {
-      const { verifyStudentAccess } = await import("@/actions/student-actions");
-      const access = await verifyStudentAccess(studentId, "ALL", email);
-      if (!access.allowed) return [];
-    }
+    // SECURITY: self-practice requires an enrolled student (any course).
+    // studentId is MANDATORY — omitting it must not bypass verification.
+    const cleanId = String(studentId || "").trim();
+    if (!cleanId) return [];
+
+    const { verifyStudentAccess } = await import("@/actions/student-actions");
+    const access = await verifyStudentAccess(cleanId, "ALL", email);
+    if (!access.allowed) return [];
+
+    const studentCourses = (access.courses || [])
+      .map((c) => String(c || "").trim().toLowerCase())
+      .filter(Boolean);
+
+    const requestedCount = Math.max(1, Math.min(50, Number(count) || 10));
 
     const pool: PracticeQuestion[] = [];
     const normalizedTopic = selectedTopic.trim().toLowerCase();
@@ -88,7 +97,38 @@ export async function getPracticeQuestions(
       selectedTopic === "সকল বিষয় (মিক্সড)" ||
       selectedTopic === "সকল টপিক (মিক্সড)";
 
-    // 1. Persistent Topic Questions repository
+    // Build exam access/lock info once: which exams the student may practice
+    // (course scope) and which exams still have answer-locked keys (scheduled
+    // exams that have not reached their answer-release time).
+    const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+    const { data: allExams } = await supabase
+      .from("exams")
+      .select("id, course, start_time, end_time, leaderboard_end_time, is_result_published");
+
+    const lockedExamIds = new Set<string>();
+    const accessibleExamIds = new Set<string>();
+    (allExams || []).forEach((ex: any) => {
+      const examObj = {
+        id: ex.id,
+        startTime: ex.start_time,
+        endTime: ex.end_time,
+        leaderboardEndTime: ex.leaderboard_end_time,
+        isResultPublished: ex.is_result_published === true
+      } as Exam;
+      const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
+      if (isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
+
+      const exCourse = String(ex.course || "").trim().toLowerCase();
+      const hasCourseAccess =
+        studentCourses.includes("all") ||
+        studentCourses.includes("সকল কোর্স") ||
+        exCourse === "সাধারণ কোর্স" ||
+        studentCourses.includes(exCourse);
+      if (hasCourseAccess) accessibleExamIds.add(ex.id);
+    });
+
+    // 1. Persistent Topic Questions repository (skip questions mirrored from
+    //    answer-locked exams or from exams of courses the student is not in).
     const { data: topicQuestions } = await supabase
       .from("topic_questions")
       .select("id, topic, q, opts, correct, exp, original_subject, original_course, original_exam_title, exam_key");
@@ -96,6 +136,10 @@ export async function getPracticeQuestions(
     (topicQuestions || []).forEach((tq: any, idx: number) => {
       const t = String(tq.topic || "").trim().toLowerCase();
       const matchTopic = isAll || t === normalizedTopic || t.includes(normalizedTopic);
+      if (tq.exam_key) {
+        if (lockedExamIds.has(tq.exam_key)) return;
+        if (!accessibleExamIds.has(tq.exam_key)) return;
+      }
       if (matchTopic && tq.q && tq.opts && tq.opts.length >= 2) {
         pool.push({
           id: tq.id || `tq_${idx}`,
@@ -109,7 +153,8 @@ export async function getPracticeQuestions(
       }
     });
 
-    // 2. Exam questions with the matching topic
+    // 2. Exam questions with the matching topic — only from accessible exams
+    //    whose answers are released (always-open practice exams are fine).
     const { data: examDataList } = await supabase
       .from("exams")
       .select("id, subject, course, title");
@@ -125,6 +170,9 @@ export async function getPracticeQuestions(
     });
 
     for (const ex of examDataList || []) {
+      if (lockedExamIds.has(ex.id)) continue;
+      if (!accessibleExamIds.has(ex.id)) continue;
+
       const examQuestions = (byExam[ex.id] || [])
         .sort((a: any, b: any) => Number(a.order_index) - Number(b.order_index))
         .map((l: any) => l.question_bank)
@@ -168,7 +216,7 @@ export async function getPracticeQuestions(
       [uniqueList[i], uniqueList[j]] = [uniqueList[j], uniqueList[i]];
     }
 
-    return uniqueList.slice(0, Math.min(count, uniqueList.length));
+    return uniqueList.slice(0, requestedCount);
   } catch (err) {
     console.error("Get practice questions error:", err);
     return [];
