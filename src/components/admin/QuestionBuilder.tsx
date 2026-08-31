@@ -37,6 +37,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
   const [selectedTopic, setSelectedTopic] = useState("");
   const [isAddingNewTopic, setIsAddingNewTopic] = useState(false);
   const [newTopicInput, setNewTopicInput] = useState("");
+  const [allTopics, setAllTopics] = useState<string[]>([]);
   const [opt0, setOpt0] = useState("");
   const [opt1, setOpt1] = useState("");
   const [opt2, setOpt2] = useState("");
@@ -59,6 +60,15 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
     loadSolutions();
     setSelectedQuestionIndices([]);
   }, [activeExamKey]);
+
+  // Load the complete topic structure (from every source) into the tree picker
+  useEffect(() => {
+    import("@/actions/admin-actions").then(({ getTopicTreeData }) => {
+      getTopicTreeData().then((d) => setAllTopics(d.topics));
+    });
+  }, []);
+
+  const mergedTopics = Array.from(new Set([...topics, ...allTopics]));
 
   const toggleSelectQuestion = (idx: number) => {
     setSelectedQuestionIndices((prev) =>
@@ -110,7 +120,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
     const questionObj: QuestionItem = {
       q: questionText.trim(),
       opts: [opt0.trim(), opt1.trim(), opt2.trim(), opt3.trim()],
-      ...(selectedTopic.trim() ? { topic: selectedTopic.trim() } : {})
+      topic: selectedTopic.trim() || "সাধারণ"
     };
     const solutionObj: QuestionSolution = {
       correct: Number(correctIdx),
@@ -332,7 +342,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
           <TopicTreeSelector
             selectedTopicPath={selectedTopic}
             onSelectTopicPath={(path) => setSelectedTopic(path)}
-            topics={topics}
+            topics={mergedTopics}
             onTopicsUpdated={() => onRefresh()}
             label="প্রশ্নের টপিক ও সাব-টপিক নির্ধারণ"
             helperText="টপিক নির্বাচন করুন অথবা যেকোনো স্তরে সাব-টপিক তৈরি করুন (পরবর্তী প্রশ্নে বজায় থাকবে)"

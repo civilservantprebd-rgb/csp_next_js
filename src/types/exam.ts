@@ -88,4 +88,5 @@ export interface AppConfigData {
   teacherPass?: string;
   driveRoutineUrl?: string;
   driveSyllabusUrl?: string;
+  pinnedCourses?: string[];
 }

@@ -64,6 +64,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
   const [moveTopic, setMoveTopic] = useState("");
   const [moveSubtopic, setMoveSubtopic] = useState("");
   const [isMoving, setIsMoving] = useState(false);
+  const [allTopics, setAllTopics] = useState<string[]>([]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -116,6 +117,19 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
     fetchBankQuestions();
   }, [queryText, filterTopic, filterSubject]);
 
+  // Load the complete topic structure (from every source) into the tree picker
+  const refreshTreeData = () => {
+    import("@/actions/admin-actions").then(({ getTopicTreeData }) => {
+      getTopicTreeData().then((d) => setAllTopics(d.topics));
+    });
+  };
+
+  useEffect(() => {
+    refreshTreeData();
+  }, []);
+
+  const mergedTopics = Array.from(new Set([...topics, ...allTopics]));
+
   const handleQuickAddTopic = async () => {
     const val = newTopicInput.trim();
     if (!val) return;
@@ -142,7 +156,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
     const qItem: Omit<QuestionItem, "id"> = {
       q: questionText.trim(),
       opts: [opt0.trim(), opt1.trim(), opt2.trim(), opt3.trim()],
-      topic: selectedTopic || undefined
+      topic: selectedTopic || "সাধারণ"
     };
 
     const sol: QuestionSolution = {
@@ -214,6 +228,55 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
     setCorrectIdx(0);
     setExplanation("");
     setSelectedTopic("");
+  };
+
+  // Delete a topic node — its questions move to "সাধারণ" (nothing is deleted)
+  const handleDeleteTopicNode = async (path: string) => {
+    if (path === "সাধারণ") {
+      alert("সাধারণ টপিক ডিলিট করা যাবে না — এটা টপিকছাড়া প্রশ্নের ডিফল্ট গন্তব্য।");
+      return;
+    }
+    if (!confirm(`"${path}" টপিকটি ডিলিট করবেন?\n\nএই টপিকের (ও এর সাব-টপিকের) প্রশ্নগুলো ডিলিট হবে না — "সাধারণ" টপিকে চলে যাবে, সেখান থেকে আবার টপিক দেওয়া যাবে।`)) return;
+    setIsLoading(true);
+    const { deleteTopicNode } = await import("@/actions/admin-actions");
+    const res = await deleteTopicNode(path);
+    setIsLoading(false);
+    if (res.success) {
+      alert(`✅ ডিলিট সম্পন্ন! ${res.moved ?? 0}টি প্রশ্ন "সাধারণ" টপিকে স্থানান্তরিত হয়েছে।`);
+      fetchBankQuestions();
+      refreshTreeData();
+      onRefresh();
+    } else {
+      alert(res.message || "ডিলিট করতে সমস্যা হয়েছে।");
+    }
+  };
+
+  // Rename a topic node — descendants keep their relative depth
+  const handleRenameTopicNode = async (path: string) => {
+    if (path === "সাধারণ") {
+      alert("সাধারণ টপিক রিনেম করা যাবে না।");
+      return;
+    }
+    const segments = path.split(">").map((s) => s.trim()).filter(Boolean);
+    const nodeName = segments[segments.length - 1] || path;
+    const newName = prompt(`"${nodeName}" টপিকের নতুন নাম দিন:`, nodeName);
+    if (!newName || !newName.trim()) return;
+    if (newName.trim() === nodeName) return;
+    const parentPath = segments.slice(0, -1).join(" > ");
+    const newPath = parentPath ? `${parentPath} > ${newName.trim()}` : newName.trim();
+    if (newPath === path) return;
+    setIsLoading(true);
+    const { renameTopicNode } = await import("@/actions/admin-actions");
+    const res = await renameTopicNode(path, newPath);
+    setIsLoading(false);
+    if (res.success) {
+      alert(`✅ রিনেম সম্পন্ন! ${res.renamed ?? 0}টি প্রশ্ন আপডেট হয়েছে।`);
+      fetchBankQuestions();
+      refreshTreeData();
+      onRefresh();
+    } else {
+      alert(res.message || "রিনেম করতে সমস্যা হয়েছে।");
+    }
   };
 
   return (
@@ -366,13 +429,16 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
           <TopicTreeSelector
             selectedTopicPath={selectedTopic}
             onSelectTopicPath={(path) => setSelectedTopic(path)}
-            topics={topics}
+            topics={mergedTopics}
             onTopicsUpdated={() => {
+              refreshTreeData();
               onRefresh();
               fetchBankQuestions();
             }}
+            onDeleteNode={handleDeleteTopicNode}
+            onRenameNode={handleRenameTopicNode}
             label="প্রশ্ন ব্যাংকের টপিক ও সাব-টপিক নির্ধারণ"
-            helperText="টপিক নির্বাচন করুন অথবা যেকোনো স্তরে নতুন সাব-টপিক যোগ করুন"
+            helperText="টপিক নির্বাচন করুন, নতুন সাব-টপিক যোগ করুন, অথবা ✏️/🗑 দিয়ে নাম বদলান/ডিলিট করুন (প্রশ্ন 'সাধারণ'-এ যাবে)"
           />
         </div>
 
@@ -422,7 +488,8 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
               className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 font-medium"
             >
               <option value="ALL">সকল টপিক</option>
-              {topics.map((t) => (
+              <option value="সাধারণ">সাধারণ (টপিকছাড়া)</option>
+              {mergedTopics.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
@@ -444,7 +511,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                 className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-slate-800"
               >
                 <option value="">নতুন টপিক নির্বাচন করুন</option>
-                {topics.map((t) => (
+                {mergedTopics.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
@@ -549,11 +616,9 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                         {toBengaliDigits(idx + 1)}. {q.q}
                       </p>
                       <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                        {q.topic && (
-                          <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
-                            {q.topic}
-                          </span>
-                        )}
+                        <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
+                          {q.topic || "সাধারণ"}
+                        </span>
                       </div>
                     </div>
                   </div>

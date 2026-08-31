@@ -12,7 +12,9 @@ import {
   X,
   Sparkles,
   Tag,
-  CheckCircle2
+  CheckCircle2,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { buildDeepTopicTree, TreeNode, getTopicSegments } from "@/lib/topic-hierarchy";
 import { saveAppConfig } from "@/actions/admin-actions";
@@ -22,6 +24,8 @@ interface TopicTreeSelectorProps {
   onSelectTopicPath: (path: string) => void;
   topics: string[];
   onTopicsUpdated?: (newTopics: string[]) => void;
+  onDeleteNode?: (path: string) => void;
+  onRenameNode?: (path: string) => void;
   className?: string;
   label?: string;
   helperText?: string;
@@ -32,6 +36,8 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
   onSelectTopicPath,
   topics = [],
   onTopicsUpdated,
+  onDeleteNode,
+  onRenameNode,
   className = "",
   label = "টপিক ও সাব-টপিক নির্বাচন",
   helperText = "যেকোনো টপিক/সাব-টপিক সিলেক্ট করুন অথবা নতুন যুক্ত করুন"
@@ -170,12 +176,48 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
                   </button>
                 </div>
 
-                {/* Actions: Select Indicator & Add Subtopic Button */}
+                {/* Actions: Select Indicator, Rename/Delete & Add Subtopic Button */}
                 <div className="flex items-center gap-1 shrink-0">
                   {isSelected && (
                     <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
                       <CheckCircle2 className="w-3 h-3" /> নির্বাচিত
                     </span>
+                  )}
+
+                  {onRenameNode && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRenameNode(node.fullPath);
+                      }}
+                      title="টপিকের নাম বদলান"
+                      className={`p-1.5 rounded-lg transition cursor-pointer ${
+                        isSelected
+                          ? "bg-white/20 hover:bg-white/30 text-white"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-indigo-700"
+                      }`}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {onDeleteNode && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteNode(node.fullPath);
+                      }}
+                      title="টপিক ডিলিট করুন (প্রশ্নগুলো 'সাধারণ' টপিকে চলে যাবে)"
+                      className={`p-1.5 rounded-lg transition cursor-pointer ${
+                        isSelected
+                          ? "bg-white/20 hover:bg-rose-500/60 text-white"
+                          : "bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600"
+                      }`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   )}
 
                   <button

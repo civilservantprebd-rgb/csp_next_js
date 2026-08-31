@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Zap, Clock, BookOpen, CircleHelp, UserPlus, Calendar } from "lucide-react";
+import { Zap, Clock, BookOpen, CircleHelp, UserPlus, Calendar, CheckCircle2 } from "lucide-react";
 import { Exam } from "@/types/exam";
-import { toBengaliDigits } from "@/lib/utils";
+import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
+import { useCompletedExams } from "@/lib/use-completed-exams";
 import { parseBangladeshDateTime, getTrueDate } from "@/lib/bangladesh-time";
 
 interface LiveExamGridProps {
@@ -25,6 +26,9 @@ export const LiveExamGrid: React.FC<LiveExamGridProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Exams the student already submitted → mark as completed
+  const completedExams = useCompletedExams();
+
   // Find current active live exams based on accurate Bangladesh time
   const liveKeys = Object.entries(exams)
     .filter(([_, ex]) => {
@@ -41,6 +45,7 @@ export const LiveExamGrid: React.FC<LiveExamGridProps> = ({
       }
       return true;
     })
+    .sort(sortExamsForStudents)
     .map(([k]) => k);
 
   if (liveKeys.length === 0) {
@@ -81,10 +86,11 @@ export const LiveExamGrid: React.FC<LiveExamGridProps> = ({
         </div>
       </div>
 
-      {/* Live Exams Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-5">
+      {/* Live Exams — all live exams shown (3 per row on desktop, page scrolls) */}
+      <div className="pt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {liveKeys.map((k) => {
           const ex = exams[k];
+          const isCompleted = completedExams.has(k);
           const qCount = ex.questions?.length || 0;
           return (
             <div
@@ -96,8 +102,20 @@ export const LiveExamGrid: React.FC<LiveExamGridProps> = ({
                   <span className="bg-slate-200 text-black text-[11px] font-black px-2.5 py-0.5 rounded-lg border border-slate-355 truncate max-w-[150px]">
                     {ex.course}
                   </span>
-                  <span className="bg-rose-100 text-rose-900 border border-rose-300 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" /> Live
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    {ex.isFree && (
+                      <span className="bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> ফ্রি
+                      </span>
+                    )}
+                    {isCompleted && (
+                      <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                        <CheckCircle2 className="w-2.5 h-2.5" /> সম্পন্ন
+                      </span>
+                    )}
+                    <span className="bg-rose-100 text-rose-900 border border-rose-300 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" /> Live
+                    </span>
                   </span>
                 </div>
 

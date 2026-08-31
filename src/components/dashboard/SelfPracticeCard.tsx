@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Target,
   Sparkles,
@@ -10,26 +10,134 @@ import {
   Play,
   Layers,
   ChevronRight,
-  Loader2
+  ChevronDown,
+  Folder,
+  Check,
+  Loader2,
+  Lock
 } from "lucide-react";
 import { AppConfigData } from "@/types/exam";
 import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
 import type { PracticeQuestion, TopicOption } from "@/lib/practice-helper";
+import { buildDeepTopicTree, TreeNode } from "@/lib/topic-hierarchy";
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface SelfPracticeCardProps {
   config: AppConfigData;
+  onOpenEnrollModal?: (courseName?: string) => void;
 }
 
 const QUESTION_COUNTS = [10, 20, 30, 50];
 
-export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) => {
+export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOpenEnrollModal }) => {
   const [availableTopics, setAvailableTopics] = useState<TopicOption[]>([]);
+  const [enrolled, setEnrolled] = useState<boolean | null>(null);
 
   useEffect(() => {
     getPracticeTopics().then(setAvailableTopics);
+    import("@/lib/student-auth").then(({ getLocalStudentUser }) => {
+      const localUser = getLocalStudentUser();
+      if (!localUser) {
+        setEnrolled(false);
+        return;
+      }
+      import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
+        verifyStudentAccess(localUser.uid, "ALL", localUser.email).then((res) => {
+          setEnrolled(res.allowed);
+        });
+      });
+    });
   }, []);
+
+  // Build a nice hierarchical topic tree (like the topic hub) from the topic paths
+  const topicTree = useMemo(
+    () =>
+      buildDeepTopicTree({
+        topics: availableTopics.map((t) => t.name),
+        courses: [],
+        subjects: [],
+        exams: {},
+        topicQuestions: []
+      }),
+    [availableTopics]
+  );
+
+  const topicCountMap = useMemo(() => {
+    const m = new Map<string, number>();
+    availableTopics.forEach((t) => m.set(t.name, t.count));
+    return m;
+  }, [availableTopics]);
+
+  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
+
+  const renderTopicNode = (node: TreeNode, depth: number) => {
+    const hasChildren = node.children.length > 0;
+    const isExpanded = expandedPaths[node.fullPath] ?? false;
+    const isSelected = selectedTopic === node.fullPath;
+    const count = topicCountMap.get(node.fullPath) ?? node.count;
+    return (
+      <div key={node.fullPath}>
+        <div
+          className={`flex items-center gap-1.5 p-2 rounded-xl border transition cursor-pointer ${
+            isSelected
+              ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+              : "bg-white border-slate-300 text-black hover:border-emerald-400 hover:bg-emerald-50/40"
+          }`}
+        >
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedPaths((p) => ({ ...p, [node.fullPath]: !p[node.fullPath] }));
+              }}
+              className={`p-0.5 rounded hover:bg-black/10 transition cursor-pointer shrink-0 ${
+                isSelected ? "text-white" : "text-slate-400"
+              }`}
+            >
+              {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+          ) : (
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ml-1 ${isSelected ? "bg-white" : "bg-emerald-500"}`} />
+          )}
+
+          <button
+            type="button"
+            onClick={() => setSelectedTopic(node.fullPath)}
+            className="flex items-center gap-1.5 flex-1 min-w-0 text-left font-bold truncate cursor-pointer"
+            title={node.fullPath}
+          >
+            {depth === 0 ? (
+              <span className="text-xs">📂</span>
+            ) : hasChildren ? (
+              <Folder className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-white" : "text-amber-500"}`} />
+            ) : (
+              <Layers className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-white" : "text-indigo-600"}`} />
+            )}
+            <span className="truncate">{node.name}</span>
+            {count > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${
+                  isSelected ? "bg-white/20" : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {toBengaliDigits(count)}টি
+              </span>
+            )}
+          </button>
+
+          {isSelected && <Check className="w-3.5 h-3.5 shrink-0 text-white" />}
+        </div>
+
+        {hasChildren && isExpanded && (
+          <div className="ml-3 sm:ml-4 pl-2.5 border-l-2 border-emerald-100 space-y-1 mt-1">
+            {node.children.map((c) => renderTopicNode(c, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const [selectedTopic, setSelectedTopic] = useState("সকল টপিক (মিক্সড)");
   const [selectedCount, setSelectedCount] = useState(10);
@@ -40,8 +148,24 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
   const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
 
   const handleStartPractice = async () => {
+    // Self practice requires enrollment (any course)
+    if (enrolled !== true) {
+      if (onOpenEnrollModal) {
+        onOpenEnrollModal();
+      } else {
+        alert("🔒 সেলফ প্র্যাকটিস করতে হলে কোনো একটি কোর্সে এনরোল করতে হবে।");
+      }
+      return;
+    }
     setIsLoading(true);
-    const questions = await getPracticeQuestions(selectedTopic, selectedCount);
+    const { getLocalStudentUser } = await import("@/lib/student-auth");
+    const localUser = getLocalStudentUser();
+    const questions = await getPracticeQuestions(
+      selectedTopic,
+      selectedCount,
+      localUser?.uid || "",
+      localUser?.email || ""
+    );
     setPracticeQuestions(questions);
     setIsLoading(false);
     setIsModalOpen(true);
@@ -74,27 +198,39 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
           </div>
         </div>
 
-        {/* Practice Config Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Practice Config — topic on top (full width), count & mode below */}
+        <div className="space-y-5">
           {/* 1. Topic Selector */}
           <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-xs">
             <label className="text-xs font-black text-black flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5 text-black" /> ১. টপিক নির্বাচন করুন:
             </label>
-            <select
-              value={selectedTopic}
-              onChange={(e) => setSelectedTopic(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white/80 text-black focus:outline-none focus:ring-2 focus:ring-black font-black"
-            >
-              <option value="সকল টপিক (মিক্সড)" className="text-black font-bold">সকল টপিক (মিক্সড মডেল টেস্ট)</option>
-              {availableTopics.map((top) => (
-                <option key={top.name} value={top.name} className="text-black font-bold">
-                  {top.name} {top.count > 0 ? `(${toBengaliDigits(top.count)}টি)` : ""}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-1 max-h-52 overflow-y-auto pr-1 rounded-xl border border-slate-300 bg-white/80 p-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedTopic("সকল টপিক (মিক্সড)")}
+                className={`w-full flex items-center gap-1.5 p-2 rounded-xl border transition cursor-pointer text-left ${
+                  selectedTopic === "সকল টপিক (মিক্সড)"
+                    ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                    : "bg-white border-slate-300 text-black hover:border-emerald-400 hover:bg-emerald-50/40"
+                }`}
+              >
+                <Sparkles
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    selectedTopic === "সকল টপিক (মিক্সড)" ? "text-white" : "text-amber-500"
+                  }`}
+                />
+                <span className="font-bold text-xs truncate">সকল টপিক (মিক্সড মডেল টেস্ট)</span>
+                {selectedTopic === "সকল টপিক (মিক্সড)" && (
+                  <Check className="w-3.5 h-3.5 ml-auto shrink-0 text-white" />
+                )}
+              </button>
+              {topicTree.map((node) => renderTopicNode(node, 0))}
+            </div>
           </div>
 
+          {/* 2 + 3. Count & Mode — side by side on desktop, stacked on mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {/* 2. Question Count Selector */}
           <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-xs">
             <label className="text-xs font-black text-black flex items-center gap-1.5">
@@ -151,6 +287,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
               </button>
             </div>
           </div>
+          </div>
 
         </div>
 
@@ -162,25 +299,41 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config }) =>
             <span>{practiceMode === "instant" ? "ইনস্ট্যান্ট উত্তর ও ব্যাখ্যা" : "টাইমারসহ মক টেস্ট"}</span>
           </div>
 
-          <button
-            type="button"
-            disabled={isLoading}
-            onClick={handleStartPractice}
-            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white font-bold px-8 py-3.5 rounded-2xl text-xs sm:text-sm shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-2 cursor-pointer"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>প্রশ্ন প্রস্তুত হচ্ছে...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                <span>প্র্যাকটিস শুরু করুন</span>
-                <ChevronRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
+          {enrolled === false ? (
+            <button
+              type="button"
+              onClick={handleStartPractice}
+              className="w-full sm:w-auto bg-slate-700 hover:bg-slate-800 text-white font-bold px-8 py-3.5 rounded-2xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Lock className="w-4 h-4" />
+              <span>এনরোল প্রয়োজন — প্র্যাকটিস করতে কোর্সে এনরোল করুন</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={isLoading || enrolled === null}
+              onClick={handleStartPractice}
+              className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white font-bold px-8 py-3.5 rounded-2xl text-xs sm:text-sm shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>প্রশ্ন প্রস্তুত হচ্ছে...</span>
+                </>
+              ) : enrolled === null ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>যাচাই হচ্ছে...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>প্র্যাকটিস শুরু করুন</span>
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

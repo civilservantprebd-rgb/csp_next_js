@@ -117,11 +117,11 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-base shadow-xs">
-                    B
+                    আ
                   </div>
                   <div>
                     <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                      BCS One — সিভিল সার্ভিস একাডেমি
+                      আরোহণ — সিভিল সার্ভিস একাডেমি
                     </h1>
                     <p className="text-xs text-slate-500 font-medium">বিসিএস ও সরকারি চাকরি প্রস্তুতি পোর্টাল</p>
                   </div>
@@ -253,13 +253,115 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
               </div>
             )}
 
+            {/* Detailed Question Analysis — question, student answer, correct answer, explanation */}
+            {questions && questions.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  প্রশ্ন ও উত্তর বিশ্লেষণ (প্রতিটি প্রশ্নের বিস্তারিত):
+                </h4>
+
+                {questions.map((q, qIdx) => {
+                  const studentAnsIdx = studentAnswers[qIdx] ?? null;
+                  const sol = solutions[qIdx] || { correct: 0, exp: "" };
+                  const isAnswered = studentAnsIdx !== null;
+                  const isCorrect = isAnswered && studentAnsIdx === sol.correct;
+
+                  return (
+                    <div
+                      key={qIdx}
+                      className={`p-4 rounded-xl border ${
+                        isCorrect
+                          ? "border-emerald-200 bg-emerald-50/30"
+                          : isAnswered
+                          ? "border-rose-200 bg-rose-50/30"
+                          : "border-slate-200 bg-slate-50/40"
+                      }`}
+                    >
+                      {/* Question */}
+                      <p className="font-bold text-slate-900 text-sm leading-relaxed">
+                        {toBengaliDigits(qIdx + 1)}. {q.q}
+                      </p>
+
+                      {/* Options */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2 text-xs">
+                        {q.opts.map((opt, oIdx) => {
+                          const isStudent = oIdx === studentAnsIdx;
+                          const isAns = oIdx === sol.correct;
+                          return (
+                            <div
+                              key={oIdx}
+                              className={`p-2 rounded-lg border flex items-center gap-2 ${
+                                isAns
+                                  ? "border-emerald-300 bg-emerald-100/60 font-bold text-emerald-950"
+                                  : isStudent
+                                  ? "border-rose-300 bg-rose-100/60 font-bold text-rose-950"
+                                  : "border-slate-200 bg-white text-slate-700"
+                              }`}
+                            >
+                              <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 bg-slate-800 text-white">
+                                {optLabels[oIdx]}
+                              </span>
+                              <span className="truncate">{opt}</span>
+                              {isAns && (
+                                <span className="ml-auto text-[9px] font-bold text-emerald-700 shrink-0">✓ সঠিক</span>
+                              )}
+                              {isStudent && !isAns && (
+                                <span className="ml-auto text-[9px] font-bold text-rose-700 shrink-0">আপনার</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Answer summary */}
+                      <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px]">
+                        <span
+                          className={`px-2 py-0.5 rounded-md font-bold ${
+                            !isAnswered
+                              ? "bg-slate-100 text-slate-600"
+                              : isCorrect
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-rose-100 text-rose-800"
+                          }`}
+                        >
+                          {!isAnswered ? "স্কিপ করা হয়েছে" : isCorrect ? "✓ সঠিক উত্তর" : "✗ ভুল উত্তর"}
+                        </span>
+                        {isAnswered && (
+                          <span className="text-slate-600">
+                            আপনার উত্তর:{" "}
+                            <strong>
+                              {optLabels[studentAnsIdx!]} ({q.opts[studentAnsIdx!] || "—"})
+                            </strong>
+                          </span>
+                        )}
+                        <span className="text-emerald-700">
+                          সঠিক উত্তর:{" "}
+                          <strong>
+                            {optLabels[sol.correct]} ({q.opts[sol.correct] || "—"})
+                          </strong>
+                        </span>
+                      </div>
+
+                      {/* Explanation */}
+                      {sol.exp && (
+                        <div className="mt-2 p-2.5 rounded-lg bg-amber-50/60 border border-amber-200 text-xs text-slate-700 leading-relaxed">
+                          <strong className="text-amber-900 block mb-0.5">ব্যাখ্যা:</strong>
+                          {sol.exp}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Institutional Certification Footer */}
             <div className="border-t border-slate-200 pt-5 text-center space-y-1 text-xs text-slate-400">
               <p className="font-semibold text-slate-600">
-                এই মূল্যায়ন প্রতিবেদনটি BCS One ক্লাউড পোর্টাল দ্বারা স্বয়ংক্রিয়ভাবে প্রস্তুতকৃত।
+                এই মূল্যায়ন প্রতিবেদনটি আরোহণ ক্লাউড পোর্টাল দ্বারা স্বয়ংক্রিয়ভাবে প্রস্তুতকৃত।
               </p>
               <p className="text-[10px] text-slate-400">
-                কপিরাইট © {new Date().getFullYear()} BCS One. সর্বস্বত্ব সংরক্ষিত।
+                কপিরাইট © {new Date().getFullYear()} আরোহণ. সর্বস্বত্ব সংরক্ষিত।
               </p>
             </div>
           </div>

@@ -2,7 +2,7 @@ import React from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "শিক্ষক প্যানেল - BCS One",
+  title: "শিক্ষক প্যানেল - আরোহণ",
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

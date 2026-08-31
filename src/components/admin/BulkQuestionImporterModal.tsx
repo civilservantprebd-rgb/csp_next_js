@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   X,
   FileText,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { parseBulkQuestionsText } from "@/lib/question-parser";
 import { addBulkQuestionsToExam, addBulkQuestionsToBank } from "@/actions/admin-actions";
+import { TopicTreeSelector } from "./TopicTreeSelector";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface BulkQuestionImporterModalProps {
@@ -61,7 +62,21 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
   const [rawText, setRawText] = useState("");
   const [selectedTopic, setSelectedTopic] = useState(targetTopic || "");
   const [selectedSubtopic, setSelectedSubtopic] = useState(targetSubtopic || "");
+  const [allTopics, setAllTopics] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const refreshTreeData = () => {
+    import("@/actions/admin-actions").then(({ getTopicTreeData }) => {
+      getTopicTreeData().then((d) => setAllTopics(d.topics));
+    });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    refreshTreeData();
+  }, [isOpen]);
+
+  const mergedTopics = Array.from(new Set([...topics, ...allTopics]));
 
   const parsedResult = useMemo(() => {
     return parseBulkQuestionsText(rawText, selectedTopic, selectedSubtopic);
@@ -181,23 +196,16 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
               />
             </div>
 
-            {/* Optional Topic Assignment for all questions */}
+            {/* Optional Topic Assignment — full hierarchy tree */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                টপিক যুক্ত করুন <span className="text-slate-400 font-normal">(সকল প্রশ্নের জন্য ঐচ্ছিক)</span>
-              </label>
-              <select
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800"
-              >
-                <option value="">সাধারণ (ডিফল্ট টপিক)</option>
-                {topics.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <TopicTreeSelector
+                selectedTopicPath={selectedTopic}
+                onSelectTopicPath={(path) => setSelectedTopic(path)}
+                topics={mergedTopics}
+                onTopicsUpdated={refreshTreeData}
+                label="টপিক ও সাব-টপিক নির্বাচন (সকল প্রশ্নের জন্য)"
+                helperText="যেকোনো স্তরের টপিক/সাবটপিক বাছাই করুন — টপিক না দিলে প্রশ্ন 'সাধারণ' টপিকে যাবে"
+              />
             </div>
           </div>
 

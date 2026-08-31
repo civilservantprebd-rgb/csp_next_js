@@ -17,7 +17,6 @@ const ExamManager = dynamic(() => import("@/components/admin/ExamManager").then(
 const QuestionBuilder = dynamic(() => import("@/components/admin/QuestionBuilder").then(mod => mod.QuestionBuilder), { loading: LoadingFallback });
 const BulkQuestionImporterModal = dynamic(() => import("@/components/admin/BulkQuestionImporterModal").then(mod => mod.BulkQuestionImporterModal));
 const StudentApproval = dynamic(() => import("@/components/admin/StudentApproval").then(mod => mod.StudentApproval), { loading: LoadingFallback });
-const SubmissionsTable = dynamic(() => import("@/components/admin/SubmissionsTable").then(mod => mod.SubmissionsTable), { loading: LoadingFallback });
 const QuestionBankManager = dynamic(() => import("@/components/admin/QuestionBankManager").then(mod => mod.QuestionBankManager), { loading: LoadingFallback });
 const AdminAnalyticsDashboard = dynamic(() => import("@/components/admin/AdminAnalyticsDashboard").then(mod => mod.AdminAnalyticsDashboard), { loading: LoadingFallback });
 const ArchiveManager = dynamic(() => import("@/components/admin/ArchiveManager").then(mod => mod.ArchiveManager), { loading: LoadingFallback });
@@ -41,7 +40,8 @@ import {
   ChevronUp,
   ExternalLink,
   HelpCircle,
-  BookOpen
+  BookOpen,
+  Pin
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
@@ -424,6 +424,16 @@ export default function AdminPage() {
     alert("গুগল ড্রাইভ লিংক সফলভাবে আপডেট করা হয়েছে।");
   };
 
+  // Pin / unpin a course (pinned courses show first on the home page)
+  const handleTogglePinCourse = async (courseName: string) => {
+    const current = config.pinnedCourses || [];
+    const next = current.includes(courseName)
+      ? current.filter((c) => c !== courseName)
+      : [...current, courseName];
+    await saveAppConfig({ pinnedCourses: next });
+    loadData();
+  };
+
 
 
   return (
@@ -472,6 +482,7 @@ export default function AdminPage() {
                 exams={config.exams || {}}
                 courses={config.courses || []}
                 subjects={config.subjects || []}
+                topics={config.topics || []}
                 activeExamKey={selectedExamKey}
                 onSelectExamForQuestions={(k) => {
                   setSelectedExamKey(k);
@@ -558,6 +569,18 @@ export default function AdminPage() {
                                 {toBengaliDigits(idx + 1)}. {course}
                               </span>
                               <div className="flex gap-2 justify-end sm:ml-auto">
+                                <button
+                                  onClick={() => handleTogglePinCourse(course)}
+                                  title={config.pinnedCourses?.includes(course) ? "পিন খুলুন" : "কোর্স পিন করুন"}
+                                  className={`text-xs px-2 py-1 cursor-pointer flex items-center gap-1 font-semibold rounded-lg transition ${
+                                    config.pinnedCourses?.includes(course)
+                                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                      : "text-slate-500 hover:text-amber-600 hover:bg-amber-50"
+                                  }`}
+                                >
+                                  <Pin className="w-3.5 h-3.5" />
+                                  {config.pinnedCourses?.includes(course) ? "পিনকৃত" : "পিন"}
+                                </button>
                                 <button
                                   onClick={() => startEditCourse(idx, course)}
                                   className="text-amber-600 hover:text-amber-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
@@ -735,8 +758,6 @@ export default function AdminPage() {
                 onRefresh={loadData}
               />
             )}
-
-            {activeTab === "submissions" && <SubmissionsTable />}
 
             {activeTab === "drivelinks" && (
               <div className="max-w-md bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">

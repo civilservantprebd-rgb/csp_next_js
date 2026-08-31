@@ -11,7 +11,7 @@ export async function verifyStudentAccess(
   rawStudentId: string,
   examCourse: string,
   email?: string
-): Promise<{ allowed: boolean; studentName?: string; normalizedId?: string; message?: string }> {
+): Promise<{ allowed: boolean; studentName?: string; normalizedId?: string; courses?: string[]; message?: string }> {
   const cleanId = String(rawStudentId).trim();
   const normalizedId = parseBengaliDigits(cleanId).trim();
   const cleanEmail = String(email || "").trim().toLowerCase();
@@ -94,7 +94,8 @@ export async function verifyStudentAccess(
       return {
         allowed: true,
         studentName: matchedStudent.name || "শিক্ষার্থী",
-        normalizedId: matchedStudent.id || normalizedId || cleanId
+        normalizedId: matchedStudent.id || normalizedId || cleanId,
+        courses: matchedStudent.courses || []
       };
     }
 
@@ -115,7 +116,8 @@ export async function verifyStudentAccess(
     return {
       allowed: true,
       studentName: matchedStudent.name || "শিক্ষার্থী",
-      normalizedId: matchedStudent.id || normalizedId || cleanId
+      normalizedId: matchedStudent.id || normalizedId || cleanId,
+        courses: matchedStudent.courses || []
     };
   } catch (err) {
     console.error("Student verification error:", err);
@@ -254,11 +256,17 @@ export async function syncStudentLogin(payload: {
       .or(`id.eq.${cleanId},email.eq.${payload.email.trim()}`)
       .maybeSingle();
 
+    // Only sync students who are already enrolled/approved. Do NOT auto-create new
+    // rows with empty courses: that registers every Google user as a "student" with
+    // no enrollment, which locks them out of Self-Practice and the Topic/Chapter
+    // question bank (verifyStudentAccess requires at least one course).
+    if (!existing) return { success: true };
+
     const now = getTrueDate().toISOString();
     const existingCourses = existing?.courses || [];
 
     const { error } = await supabase.from("allowed_students").upsert({
-      id: existing?.id || cleanId,
+      id: existing.id,
       name: payload.name.trim() || existing?.name || "শিক্ষার্থী",
       email: payload.email.trim() || existing?.email || "",
       courses: existingCourses,
@@ -269,7 +277,7 @@ export async function syncStudentLogin(payload: {
     if (error) {
       // Fallback if photo_url or last_login_at columns are missing in older Supabase schema
       const { error: fallbackErr } = await supabase.from("allowed_students").upsert({
-        id: existing?.id || cleanId,
+        id: existing.id,
         name: payload.name.trim() || existing?.name || "শিক্ষার্থী",
         email: payload.email.trim() || existing?.email || "",
         courses: existingCourses
@@ -508,5 +516,36 @@ export async function fetchTopicQuestionsForStudent(
       questions: [],
       message: "ডাটাবেস থেকে প্রশ্ন লোড করতে সমস্যা হয়েছে।"
     };
+  }
+}
+
+/**
+ * Exam keys the student has already submitted — used to mark exams as
+ * "সম্পন্ন" (completed) in the student-facing exam lists.
+ */
+export async function getCompletedExamKeys(
+  rawStudentId: string,
+  email?: string
+): Promise<string[]> {
+  try {
+    const cleanId = String(rawStudentId || '').trim();
+    if (!cleanId) return [];
+
+    const ids = new Set<string>([cleanId, parseBengaliDigits(cleanId).trim()]);
+
+    // Normalize via enrollment lookup so Google users (uid) match their
+    // allowed_students id (phone) under which submissions are stored
+    const access = await verifyStudentAccess(cleanId, 'ALL', email);
+    if (access.normalizedId) ids.add(access.normalizedId);
+
+    const { data } = await supabase
+      .from('submissions')
+      .select('exam_key')
+      .in('student_id', Array.from(ids).filter(Boolean));
+
+    return Array.from(new Set((data || []).map((r) => r.exam_key).filter(Boolean)));
+  } catch (err) {
+    console.error('Get completed exam keys error:', err);
+    return [];
   }
 }

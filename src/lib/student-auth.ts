@@ -1,5 +1,3 @@
-import { supabase } from "./supabase";
-
 export interface StudentUser {
   uid: string;
   name: string;
@@ -9,18 +7,27 @@ export interface StudentUser {
 
 /**
  * Handle Google Sign-In and persist session using Supabase OAuth
+ * @param targetExamId — if set, the exam auto-starts after login (stored as an intent)
+ * @param redirectPath — if set (and no exam intent), the user returns to this path after login
  */
-export async function loginWithGoogle(targetExamId?: string): Promise<StudentUser | null> {
+export async function loginWithGoogle(targetExamId?: string, redirectPath?: string): Promise<StudentUser | null> {
   try {
     if (typeof window !== "undefined" && targetExamId) {
       sessionStorage.setItem("target_exam_intent", targetExamId);
+    }
+    if (typeof window !== "undefined" && redirectPath) {
+      sessionStorage.setItem("auth_redirect", redirectPath);
     }
 
     // ইউজারের বর্তমান অরিজিন (যেমন: https://aarohon.com বা http://localhost:3000) ডায়নামিকালি রিডাইরেক্ট ইউআরএল হিসেবে ব্যবহার হবে
     const siteUrl = typeof window !== "undefined"
       ? window.location.origin
       : "https://aarohon.com";
-      
+
+    // Lazy-load the Supabase client only when auth is actually used,
+    // so the 180KB SDK never ships in the home page's initial bundle
+    const { supabase } = await import("./supabase");
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -66,6 +73,7 @@ export function updateLocalStudentName(name: string): StudentUser | null {
  */
 export async function logoutStudentUser(): Promise<void> {
   try {
+    const { supabase } = await import("./supabase");
     await supabase.auth.signOut();
     localStorage.removeItem("bcs_student_user");
     sessionStorage.removeItem("current_student");

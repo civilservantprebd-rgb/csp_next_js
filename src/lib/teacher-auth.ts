@@ -10,9 +10,12 @@ import { supabase } from "@/lib/supabase";
  *
  * A user counts as a "teacher" when ANY of these is true:
  *  1. app_metadata.role is "admin" or "teacher" (set in Supabase Dashboard:
- *     Authentication → Users → Edit user → app_metadata)
- *  2. user_metadata.role is "admin" or "teacher"
- *  3. email is listed in the TEACHER_EMAILS env var (comma-separated)
+ *     Authentication → Users → Edit user → app_metadata — server-only, cannot
+ *     be forged by the user)
+ *  2. email is listed in the TEACHER_EMAILS env var (comma-separated)
+ *
+ * NOTE: user_metadata is deliberately NOT trusted — the user can overwrite it
+ * themselves via supabase.auth.updateUser(), so it must never grant admin.
  */
 
 function getAccessTokenFromCookies(): string | null {
@@ -28,9 +31,17 @@ function getAccessTokenFromCookies(): string | null {
 
 export async function getUserFromToken(token?: string | null) {
   if (!token) return null;
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user;
+  try {
+    const { data, error } = await Promise.race([
+      supabase.auth.getUser(token),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Auth timeout")), 4000))
+    ]);
+    if (error || !data.user) return null;
+    return data.user;
+  } catch {
+    // timeout or network failure → treat as unauthenticated (never hang the UI)
+    return null;
+  }
 }
 
 function isTeacherEmail(email?: string): boolean {
@@ -44,11 +55,12 @@ function isTeacherEmail(email?: string): boolean {
 
 export function userIsTeacher(user: {
   app_metadata?: Record<string, unknown>;
-  user_metadata?: Record<string, unknown>;
   email?: string;
 } | null): boolean {
   if (!user) return false;
-  const role = user.app_metadata?.role || user.user_metadata?.role;
+  // Only app_metadata is trusted (set via Supabase Dashboard / admin API).
+  // user_metadata can be self-edited by the user and must never grant admin.
+  const role = user.app_metadata?.role;
   if (role === "admin" || role === "teacher") return true;
   return isTeacherEmail(user.email);
 }

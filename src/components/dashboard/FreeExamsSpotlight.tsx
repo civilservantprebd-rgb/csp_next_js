@@ -3,7 +3,8 @@
 import React, { useMemo } from "react";
 import { Sparkles, Play, Award, BookOpen, Clock, CircleHelp, CheckCircle2, UserPlus } from "lucide-react";
 import { Exam } from "@/types/exam";
-import { toBengaliDigits } from "@/lib/utils";
+import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
+import { useCompletedExams } from "@/lib/use-completed-exams";
 
 interface FreeExamsSpotlightProps {
   exams: Record<string, Exam>;
@@ -16,10 +17,13 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
   onStartExam,
   onOpenEnrollModal,
 }) => {
-  // Filter all free exams across all courses
+  // Filter all free exams across all courses — started/live exams first
   const freeExams = useMemo(() => {
-    return Object.entries(exams).filter(([_, ex]) => ex.isFree);
+    return Object.entries(exams).filter(([_, ex]) => ex.isFree).sort(sortExamsForStudents);
   }, [exams]);
+
+  // Exams the student already submitted → mark as completed
+  const completedExams = useCompletedExams();
 
   if (freeExams.length === 0) {
     return null;
@@ -61,10 +65,10 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
 
       {/* Body Section */}
       <div className="p-5 sm:p-6 flex-grow">
-        {/* Free Exams Grid with vertical scroll limit */}
-        <div className="max-h-[640px] md:max-h-[580px] lg:max-h-[290px] overflow-y-auto pr-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Free Exams — vertical scroll (first ~3 visible, scroll up/down for more) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[640px] lg:max-h-[360px] overflow-y-auto pr-1">
             {freeExams.map(([key, ex]) => {
+              const isCompleted = completedExams.has(key);
               const qCount = ex.questions?.length || 0;
               return (
                 <div
@@ -76,8 +80,15 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
                       <span className="bg-slate-200 text-black text-[11px] font-black px-2.5 py-0.5 rounded-lg border border-slate-355 truncate max-w-[150px]">
                         {ex.course}
                       </span>
-                      <span className="bg-emerald-100 text-emerald-900 text-[11px] font-black px-2.5 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> ফ্রি
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <span className="bg-emerald-100 text-emerald-900 text-[11px] font-black px-2.5 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> ফ্রি
+                        </span>
+                        {isCompleted && (
+                          <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> সম্পন্ন
+                          </span>
+                        )}
                       </span>
                     </div>
 
@@ -110,7 +121,6 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
                 </div>
               );
             })}
-          </div>
         </div>
       </div>
     </section>

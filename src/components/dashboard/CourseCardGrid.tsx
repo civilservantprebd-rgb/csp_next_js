@@ -11,15 +11,19 @@ import {
   CheckCircle2,
   Sparkles,
   ChevronRight,
-  Layers
+  Layers,
+  Pin,
+  Search
 } from "lucide-react";
 import { Exam, SubjectItem } from "@/types/exam";
-import { toBengaliDigits } from "@/lib/utils";
+import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
+import { useCompletedExams } from "@/lib/use-completed-exams";
 
 interface CourseCardGridProps {
   courses: string[];
   subjects: SubjectItem[];
   exams: Record<string, Exam>;
+  pinnedCourses?: string[];
   onStartExam: (examKey: string) => void;
   onOpenEnrollModal: (courseName?: string) => void;
 }
@@ -28,6 +32,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   courses,
   subjects,
   exams,
+  pinnedCourses = [],
   onStartExam,
   onOpenEnrollModal,
 }) => {
@@ -35,6 +40,10 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   const [selectedSubjects, setSelectedSubjects] = useState<Record<string, string>>({});
   // Store selected exam per course { [courseName]: selectedExamKey }
   const [selectedExams, setSelectedExams] = useState<Record<string, string>>({});
+  // Store per-course exam search query
+  const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
+  // Exams the student already submitted → mark as completed
+  const completedExams = useCompletedExams();
 
   const handleSubjectSelect = (courseName: string, subjectName: string) => {
     setSelectedSubjects((prev) => ({
@@ -67,30 +76,41 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
     }));
   };
 
+  // Pinned courses appear first
+  const sortedCourses = [...courses].sort((a, b) => {
+    const pa = pinnedCourses.includes(a) ? 0 : 1;
+    const pb = pinnedCourses.includes(b) ? 0 : 1;
+    return pa - pb;
+  });
+
   return (
     <section className="font-bengali rounded-3xl bg-gradient-to-br from-indigo-50/40 via-white to-violet-50/50 border-2 border-indigo-400 shadow-md shadow-indigo-100/60 ring-1 ring-indigo-300/20 p-5 sm:p-7 transition-all duration-300 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-indigo-100">
-        <div className="space-y-1">
+        <div className="space-y-2.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100/90 text-indigo-950 border border-indigo-200 text-xs font-bold shadow-2xs">
             <Layers className="w-3.5 h-3.5 text-indigo-700" />
             <span>কোর্স ভিত্তিক মডেল টেস্ট</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-indigo-950">
-            Our Batches
+            আমাদের ব্যাচ
           </h3>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {courses.map((courseName) => {
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[860px] lg:max-h-[520px] overflow-y-auto pr-1">
+        {sortedCourses.map((courseName) => {
           // Course subjects
           const courseSubjects = subjects.filter((s) => s.course === courseName);
           const activeSubject = selectedSubjects[courseName] || "ALL";
 
-          // Course exams
-          const courseAllExams = Object.entries(exams).filter(([_, ex]) => ex.course === courseName);
+          // Course exams — live/started exams first so students never scroll to find them
+          const courseAllExams = Object.entries(exams)
+            .filter(([_, ex]) => ex.course === courseName)
+            .sort(sortExamsForStudents);
+          const searchQ = (searchQueries[courseName] || "").trim().toLowerCase();
           const filteredExams = courseAllExams.filter(([_, ex]) => {
             if (activeSubject !== "ALL" && ex.subject !== activeSubject) return false;
+            if (searchQ && !ex.title.toLowerCase().includes(searchQ)) return false;
             return true;
           });
 
@@ -103,20 +123,26 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
               key={courseName}
               className="bg-white rounded-3xl border-2 border-slate-200/80 hover:border-indigo-400 shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden flex flex-col justify-between"
             >
-              {/* Course Card Top Header */}
+              {/* Course Card Top Header — logo, then heading, then enroll button below */}
               <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white p-5 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center space-x-3.5">
+                <div className="space-y-4">
+                  {/* Logo + Heading */}
+                  <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0">
                       <div className="w-full h-full bg-slate-900/90 rounded-[14px] flex items-center justify-center">
                         <GraduationCap className="w-6 h-6 text-amber-300" />
                       </div>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-lg sm:text-xl font-black text-white leading-tight">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-lg sm:text-xl font-black text-white leading-tight line-clamp-2">
                           {courseName}
                         </h4>
+                        {pinnedCourses.includes(courseName) && (
+                          <span className="inline-flex items-center gap-0.5 bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-md">
+                            <Pin className="w-3 h-3" /> পিন
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-indigo-200 mt-0.5">
                         মোট {toBengaliDigits(courseAllExams.length)}টি পরীক্ষা উপলব্ধ
@@ -124,10 +150,10 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                     </div>
                   </div>
 
-                  {/* Enroll in this course button */}
+                  {/* Enroll button below logo & heading */}
                   <button
                     onClick={() => onOpenEnrollModal(courseName)}
-                    className="self-start sm:self-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md hover:shadow-emerald-500/20 transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                    className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md hover:shadow-emerald-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>Enroll Now</span>
@@ -201,6 +227,18 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                     </span>
                   </label>
 
+                  {/* Exam search — students can quickly find an exam by name */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="পরীক্ষার নাম লিখে খুঁজুন..."
+                      value={searchQueries[courseName] || ""}
+                      onChange={(e) => setSearchQueries((prev) => ({ ...prev, [courseName]: e.target.value }))}
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
                   {filteredExams.length === 0 ? (
                     <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6 text-center text-xs text-black font-bold">
                       এই বিষয়ে বর্তমানে কোনো পরীক্ষা যুক্ত নেই। শীঘ্রই যুক্ত করা হবে।
@@ -209,6 +247,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                     <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                       {filteredExams.map(([eKey, ex]) => {
                         const isSelected = activeExamKey === eKey;
+                        const isCompleted = completedExams.has(eKey);
                         const qCount = ex.questions?.length || 0;
                         return (
                           <div
@@ -220,24 +259,27 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                                 : "bg-white border-slate-300 hover:border-slate-400 hover:bg-slate-50"
                             }`}
                           >
-                            <div className="min-w-0 space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h5 className="font-black text-black text-sm truncate">{ex.title}</h5>
+                            <div className="min-w-0 space-y-1.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <h5 className="font-black text-black text-sm truncate flex-1 min-w-0">{ex.title}</h5>
                                 {ex.isFree && (
-                                  <span className="bg-emerald-100 text-emerald-950 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                                  <span className="bg-emerald-100 text-emerald-950 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5 shrink-0">
                                     <Sparkles className="w-2.5 h-2.5" /> ফ্রি
                                   </span>
                                 )}
+                                {isCompleted && (
+                                  <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5 shrink-0">
+                                    <CheckCircle2 className="w-2.5 h-2.5" /> সম্পন্ন
+                                  </span>
+                                )}
                               </div>
-                              <div className="flex items-center gap-3 text-[11px] text-black font-bold">
-                                <span className="flex items-center gap-1">
-                                  <BookOpen className="w-3.5 h-3.5 text-black" /> {ex.subject}
+                              <p className="text-[11px] text-slate-500 font-semibold truncate">{ex.subject}</p>
+                              <div className="flex items-center gap-2 pt-0.5">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                                  <Clock className="w-3 h-3 text-amber-600" /> {toBengaliDigits(ex.timerMinutes)} মিনিট
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3.5 h-3.5 text-amber-600" /> {toBengaliDigits(ex.timerMinutes)} মি.
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <CircleHelp className="w-3.5 h-3.5 text-indigo-700" /> {toBengaliDigits(qCount)} টি প্রশ্ন
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                                  <CircleHelp className="w-3 h-3 text-indigo-600" /> {toBengaliDigits(qCount)}টি প্রশ্ন
                                 </span>
                               </div>
                             </div>

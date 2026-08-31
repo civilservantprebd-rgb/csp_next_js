@@ -1,5 +1,7 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { getTrueDate } from "@/lib/bangladesh-time";
+import type { Exam } from "@/types/exam";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -49,4 +51,33 @@ export function parseTimeSpentToSeconds(timeSpent: string | number | null | unde
     }
   }
   return mins * 60 + secs;
+}
+
+/**
+ * Sort exams so students never have to scroll to find the one to take:
+ *   1. currently live (started & not ended)   — earliest start first
+ *   2. upcoming (scheduled, not started)      — earliest start first
+ *   3. ended                                  — earliest start first
+ *   4. no schedule (always-open practice)     — last
+ */
+export function sortExamsForStudents(a: [string, Exam], b: [string, Exam]): number {
+  const now = getTrueDate().getTime();
+  const ta = a[1].startTime ? new Date(a[1].startTime).getTime() : null;
+  const tb = b[1].startTime ? new Date(b[1].startTime).getTime() : null;
+  const ea = a[1].endTime ? new Date(a[1].endTime).getTime() : null;
+  const eb = b[1].endTime ? new Date(b[1].endTime).getTime() : null;
+
+  const status = (t: number | null, e: number | null): number => {
+    if (t === null) return 3; // no schedule → last
+    if (t <= now && (e === null || e >= now)) return 0; // live now
+    if (t > now) return 1; // upcoming
+    return 2; // ended
+  };
+
+  const sa = status(ta, ea);
+  const sb = status(tb, eb);
+  if (sa !== sb) return sa - sb;
+  if (ta === null) return 0;
+  if (tb === null) return 0;
+  return ta - tb;
 }

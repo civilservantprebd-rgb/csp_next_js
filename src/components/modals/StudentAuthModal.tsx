@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Sparkles,
   Clock,
@@ -193,8 +194,9 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               </div>
               <button
                 type="button"
+                disabled={isLoading}
                 onClick={handleGoogleLogin}
-                className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-200 shadow-2xs transition flex items-center justify-center gap-2.5 text-xs sm:text-sm cursor-pointer"
+                className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-200 shadow-2xs transition flex items-center justify-center gap-2.5 text-xs sm:text-sm cursor-pointer disabled:opacity-60 disabled:cursor-wait"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -214,8 +216,18 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
                     d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.1.74-2.51 1.18-4.23 1.18-3.13 0-5.79-2.38-6.73-5.54l-3.89 3.02C3.37 20.33 7.35 23 12 23z"
                   />
                 </svg>
-                <span>গুগল দিয়ে লগইন করুন</span>
+                {isLoading ? (
+                  <>
+                    <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-300 border-t-slate-700 animate-spin" />
+                    <span>গুগলে রিডাইরেক্ট হচ্ছে...</span>
+                  </>
+                ) : (
+                  <span>গুগল দিয়ে লগইন করুন</span>
+                )}
               </button>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                লগইন সম্পন্ন হলে স্বয়ংক্রিয়ভাবে পরীক্ষা শুরু হবে — আবার চাপতে হবে না।
+              </p>
             </div>
           ) : (
             /* Logged in student starting form */
@@ -223,7 +235,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-3.5 space-y-2">
                 <div className="flex items-center gap-2">
                   {studentUser.photoURL ? (
-                    <img src={studentUser.photoURL} alt="Student avatar" className="w-8 h-8 rounded-full border border-indigo-200" />
+                    <Image src={studentUser.photoURL} alt="Student avatar" width={32} height={32} className="w-8 h-8 rounded-full border border-indigo-200" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center">
                       <User className="w-4 h-4" />

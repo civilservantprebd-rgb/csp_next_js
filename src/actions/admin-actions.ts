@@ -39,7 +39,8 @@ const DEFAULT_DATA: AppConfigData = {
   exams: {},
   teacherPass: "",
   driveRoutineUrl: "https://drive.google.com",
-  driveSyllabusUrl: "https://drive.google.com"
+  driveSyllabusUrl: "https://drive.google.com",
+  pinnedCourses: []
 };
 
 function invalidateConfigCache() {
@@ -150,6 +151,8 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
           };
         });
 
+        const pinnedCourses = settings.pinned_courses || DEFAULT_DATA.pinnedCourses;
+
         const data: AppConfigData = {
           courses,
           subjects,
@@ -158,7 +161,8 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
           exams,
           teacherPass,
           driveRoutineUrl,
-          driveSyllabusUrl
+          driveSyllabusUrl,
+          pinnedCourses
         };
 
         cachedConfig = data;
@@ -208,12 +212,20 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
   inflightFetchLite = (async () => {
     try {
       // Lightweight queries — question TOPICS only (for the topic tree), no full question text
-      const [settingsRes, subjectsRes, examsRes, linksRes, topicsRes] = await Promise.all([
+      const fetchPromiseLite = Promise.all([
         supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
         supabase.from("subjects").select("name, course"),
         supabase.from("exams").select("*"),
         supabase.from("exam_questions_link").select("exam_id, question_bank(topic)"),
         supabase.from("topic_questions").select("topic, original_subject"),
+      ]);
+      const timeoutPromiseLite = new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error("Lite fetch timeout")), 4000)
+      );
+      // Fail fast instead of hanging the page when Supabase is slow/unreachable
+      const [settingsRes, subjectsRes, examsRes, linksRes, topicsRes] = await Promise.race([
+        fetchPromiseLite,
+        timeoutPromiseLite.then(() => { throw new Error("Lite fetch timeout"); })
       ]);
 
       const settings = settingsRes?.data || {};
@@ -274,6 +286,8 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
         createdAt: ""
       }));
 
+      const pinnedCourses = settings.pinned_courses || DEFAULT_DATA.pinnedCourses;
+
       const data: AppConfigData = {
         courses,
         subjects,
@@ -282,7 +296,8 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
         exams,
         teacherPass,
         driveRoutineUrl,
-        driveSyllabusUrl
+        driveSyllabusUrl,
+        pinnedCourses
       };
 
       cachedConfigLite = data;
@@ -312,6 +327,7 @@ export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boo
     if (config.teacherPass) updateData.teacher_pass = config.teacherPass;
     if (config.driveRoutineUrl) updateData.drive_routine_url = config.driveRoutineUrl;
     if (config.driveSyllabusUrl) updateData.drive_syllabus_url = config.driveSyllabusUrl;
+    if (config.pinnedCourses) updateData.pinned_courses = config.pinnedCourses;
 
     if (Object.keys(updateData).length > 0) {
       const { error: settingsError } = await supabase
@@ -431,6 +447,20 @@ export async function addQuestionToExam(
 
     if (examError) throw examError;
 
+    // Deduplicate: skip if an identical question already exists in this exam
+    const qText = String(question.q || "").trim().toLowerCase();
+    if (qText) {
+      const { data: existingLinks } = await supabase
+        .from("exam_questions_link")
+        .select("question_bank(q)")
+        .eq("exam_id", examKey);
+      const exists = (existingLinks || []).some((l: any) => {
+        const qb = Array.isArray(l.question_bank) ? l.question_bank[0] : l.question_bank;
+        return qb && String(qb.q || "").trim().toLowerCase() === qText;
+      });
+      if (exists) return true; // already added — skip silently
+    }
+
     // 1. Insert question into question_bank
     const targetTopic = question.topic?.trim() || "সাধারণ";
     const { data: newQ, error: qError } = await supabase
@@ -535,7 +565,10 @@ export async function searchQuestionBank(
       builder = builder.ilike("q", `%${queryText}%`);
     }
     if (topic && topic !== "ALL") {
-      builder = builder.eq("topic", topic);
+      // "সাধারণ" is the fallback topic — also match questions with no topic assigned
+      builder = topic === "সাধারণ"
+        ? builder.or(`topic.eq.${topic},topic.is.null`)
+        : builder.eq("topic", topic);
     }
     if (subject && subject !== "ALL") {
       builder = builder.eq("subject", subject);
@@ -1077,8 +1110,33 @@ export async function addBulkQuestionsToExam(
 
     if (examError) throw examError;
 
-    const questionsInsert = newQuestions.map((qItem, idx) => {
-      const sol = newSolutions[idx] || { correct: 0, exp: "" };
+    // Deduplicate: (a) within this batch, (b) against questions already in the exam
+    const existingSet = new Set<string>();
+    const { data: existingLinks } = await supabase
+      .from("exam_questions_link")
+      .select("question_bank(q)")
+      .eq("exam_id", examKey);
+    (existingLinks || []).forEach((l: any) => {
+      const qb = Array.isArray(l.question_bank) ? l.question_bank[0] : l.question_bank;
+      if (qb?.q) existingSet.add(String(qb.q).trim().toLowerCase());
+    });
+
+    const seen = new Set<string>();
+    const filteredQuestions: QuestionItem[] = [];
+    const filteredSolutions: QuestionSolution[] = [];
+    newQuestions.forEach((qItem, idx) => {
+      const key = String(qItem.q || "").trim().toLowerCase();
+      if (!key) return;
+      if (seen.has(key) || existingSet.has(key)) return;
+      seen.add(key);
+      filteredQuestions.push(qItem);
+      filteredSolutions.push(newSolutions[idx] || { correct: 0, exp: "" });
+    });
+
+    if (filteredQuestions.length === 0) return { success: true, count: 0 };
+
+    const questionsInsert = filteredQuestions.map((qItem, idx) => {
+      const sol = filteredSolutions[idx];
       const rawTopic = qItem.topic?.trim() || "সাধারণ";
       const fullTopic = qItem.subtopic ? `${rawTopic} > ${qItem.subtopic.trim()}` : rawTopic;
       return {
@@ -1116,9 +1174,9 @@ export async function addBulkQuestionsToExam(
     const { error: linkError } = await supabase.from("exam_questions_link").insert(linksInsert);
     if (linkError) throw linkError;
 
-    const topicQuestionsInsert = newQuestions
+    const topicQuestionsInsert = filteredQuestions
       .map((qItem, idx) => {
-        const sol = newSolutions[idx] || { correct: 0, exp: "" };
+        const sol = filteredSolutions[idx];
         const rawTopic = qItem.topic?.trim() || "সাধারণ";
         const fullTopic = qItem.subtopic ? `${rawTopic} > ${qItem.subtopic.trim()}` : rawTopic;
         return {
@@ -1141,7 +1199,7 @@ export async function addBulkQuestionsToExam(
     }
 
     invalidateConfigCache();
-    return { success: true, count: newQuestions.length };
+    return { success: true, count: filteredQuestions.length };
   } catch (err) {
     console.error("Add bulk questions error:", err);
     return { success: false, count: 0 };
@@ -1401,7 +1459,10 @@ export async function verifyTeacherSession(accessToken?: string): Promise<{ ok: 
 
 // ─── Targeted exam fetch (exam page / result page — no full config needed) ───
 export async function fetchExamWithQuestions(examKey: string): Promise<Exam | null> {
-  try {
+  const timeoutPromise = new Promise<null>((_, reject) =>
+    setTimeout(() => reject(new Error("Exam fetch timeout")), 4000)
+  );
+  const work = (async () => {
     const { data: ex, error } = await supabase
       .from("exams")
       .select("*")
@@ -1438,8 +1499,205 @@ export async function fetchExamWithQuestions(examKey: string): Promise<Exam | nu
       leaderboardEndTime: ex.leaderboard_end_time,
       questions: sortedQs
     };
+  })();
+  try {
+    return await Promise.race([
+      work,
+      timeoutPromise.then(() => { throw new Error("Exam fetch timeout"); })
+    ]);
   } catch (err) {
     console.error("Fetch exam with questions error:", err);
     return null;
+  }
+}
+
+// ─── Topic hierarchy management ─────────────────────────────────────────────
+const TOPIC_PATH_SEP = " > ";
+
+/** Split any topic path into segments regardless of separator/spacing (">", "›", "/", "|"). */
+const splitTopicPath = (t: string | null | undefined) =>
+  String(t || "")
+    .split(/\s*[>›/|]\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+/** Normalize a topic path to the canonical "A > B" form. */
+const normalizeTopicPath = (t: string | null | undefined) => splitTopicPath(t).join(TOPIC_PATH_SEP);
+
+/**
+ * Delete a topic (or subtopic) node. The questions under it (and its
+ * descendants) are NOT deleted — they move to the "সাধারণ" (General) topic,
+ * from where they can be re-allocated later.
+ */
+export async function deleteTopicNode(
+  topicPath: string
+): Promise<{ success: boolean; moved?: number; message?: string }> {
+  try {
+    await requireTeacher();
+    const path = normalizeTopicPath(topicPath);
+    if (!path) return { success: false, message: "টপিক পাথ খালি।" };
+    if (path === "সাধারণ") return { success: false, message: "সাধারণ টপিক ডিলিট করা যাবে না।" };
+
+    // Separator-agnostic match (handles "A>B", "A › B", "A > B" etc.)
+    const isMatch = (t: string) => {
+      const norm = normalizeTopicPath(t);
+      return norm === path || norm.startsWith(path + TOPIC_PATH_SEP);
+    };
+
+    // 1. Move matching topic_questions to "সাধারণ"
+    const { data: tqRows } = await supabase.from("topic_questions").select("id, topic");
+    const tqIds: string[] = [];
+    (tqRows || []).forEach((r: any) => {
+      if (isMatch(r.topic)) tqIds.push(r.id);
+    });
+    if (tqIds.length > 0) {
+      await supabase.from("topic_questions").update({ topic: "সাধারণ" }).in("id", tqIds);
+    }
+
+    // 2. Same for question_bank
+    const { data: qbRows } = await supabase.from("question_bank").select("id, topic");
+    const qbIds: string[] = [];
+    (qbRows || []).forEach((r: any) => {
+      if (isMatch(r.topic)) qbIds.push(r.id);
+    });
+    if (qbIds.length > 0) {
+      await supabase.from("question_bank").update({ topic: "সাধারণ" }).in("id", qbIds);
+    }
+
+    // 3. Remove the node (and descendants) from the registered topics list
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("topics")
+      .eq("id", "main")
+      .maybeSingle();
+    const currentTopics: string[] = settings?.topics || [];
+    const kept = currentTopics.filter((t) => {
+      const norm = normalizeTopicPath(t);
+      return norm !== path && !norm.startsWith(path + TOPIC_PATH_SEP);
+    });
+    if (kept.length !== currentTopics.length) {
+      await supabase.from("app_settings").upsert({ id: "main", topics: kept });
+    }
+
+    invalidateConfigCache();
+    return { success: true, moved: tqIds.length + qbIds.length };
+  } catch (err) {
+    console.error("Delete topic node error:", err);
+    return { success: false, message: "টপিক ডিলিট করতে সমস্যা হয়েছে।" };
+  }
+}
+
+/**
+ * Rename a topic (or subtopic) node. Descendant questions keep their
+ * relative depth: renaming "A > B" to "X > Y" moves "A > B > C" to "X > Y > C".
+ */
+export async function renameTopicNode(
+  oldPath: string,
+  newPath: string
+): Promise<{ success: boolean; renamed?: number; message?: string }> {
+  try {
+    await requireTeacher();
+    const oldP = normalizeTopicPath(oldPath);
+    const newP = normalizeTopicPath(newPath);
+    if (!oldP || !newP) return { success: false, message: "পুরনো ও নতুন টপিক পাথ প্রয়োজন।" };
+    if (oldP === "সাধারণ") return { success: false, message: "সাধারণ টপিক রিনেম করা যাবে না।" };
+    if (oldP === newP) return { success: true, renamed: 0 };
+
+    const buildUpdates = (rows: { id: string; topic?: string | null }[]) => {
+      const grouped: { topic: string; ids: string[] }[] = [];
+      const index = new Map<string, number>();
+      rows.forEach((r) => {
+        const t = normalizeTopicPath(r.topic);
+        let next: string | null = null;
+        if (t === oldP) next = newP;
+        else if (t.startsWith(oldP + TOPIC_PATH_SEP)) next = newP + t.slice(oldP.length);
+        if (next) {
+          let idx = index.get(next);
+          if (idx === undefined) {
+            idx = grouped.length;
+            index.set(next, idx);
+            grouped.push({ topic: next, ids: [] });
+          }
+          grouped[idx].ids.push(r.id);
+        }
+      });
+      return grouped;
+    };
+
+    let renamed = 0;
+
+    const { data: tqRows } = await supabase.from("topic_questions").select("id, topic");
+    for (const g of buildUpdates(tqRows || [])) {
+      await supabase.from("topic_questions").update({ topic: g.topic }).in("id", g.ids);
+      renamed += g.ids.length;
+    }
+
+    const { data: qbRows } = await supabase.from("question_bank").select("id, topic");
+    for (const g of buildUpdates(qbRows || [])) {
+      await supabase.from("question_bank").update({ topic: g.topic }).in("id", g.ids);
+      renamed += g.ids.length;
+    }
+
+    // Update the registered topics list too
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("topics")
+      .eq("id", "main")
+      .maybeSingle();
+    const currentTopics: string[] = settings?.topics || [];
+    const updated = currentTopics.map((t) => {
+      const norm = normalizeTopicPath(t);
+      if (norm === oldP) return newP;
+      if (norm.startsWith(oldP + TOPIC_PATH_SEP)) return newP + norm.slice(oldP.length);
+      return t;
+    });
+    if (JSON.stringify(updated) !== JSON.stringify(currentTopics)) {
+      await supabase.from("app_settings").upsert({ id: "main", topics: updated });
+    }
+
+    invalidateConfigCache();
+    return { success: true, renamed };
+  } catch (err) {
+    console.error("Rename topic node error:", err);
+    return { success: false, message: "টপিক রিনেম করতে সমস্যা হয়েছে।" };
+  }
+}
+
+/**
+ * Unique topic paths from EVERY source (registered topics + topic_questions +
+ * question_bank), so the admin tree shows the complete structure no matter
+ * where questions were added from.
+ */
+export async function getTopicTreeData(): Promise<{ topics: string[] }> {
+  try {
+    await requireTeacher();
+    const set = new Set<string>();
+
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("topics")
+      .eq("id", "main")
+      .maybeSingle();
+    (settings?.topics || []).forEach((t: string) => {
+      const tt = normalizeTopicPath(t);
+      if (tt) set.add(tt);
+    });
+
+    const { data: tq } = await supabase.from("topic_questions").select("topic");
+    (tq || []).forEach((r: any) => {
+      const tt = normalizeTopicPath(r.topic);
+      if (tt) set.add(tt);
+    });
+
+    const { data: qb } = await supabase.from("question_bank").select("topic");
+    (qb || []).forEach((r: any) => {
+      const tt = normalizeTopicPath(r.topic);
+      if (tt) set.add(tt);
+    });
+
+    return { topics: Array.from(set).sort((a, b) => a.localeCompare(b, "bn")) };
+  } catch (err) {
+    console.error("Get topic tree data error:", err);
+    return { topics: [] };
   }
 }

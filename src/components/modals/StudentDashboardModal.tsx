@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   X,
   GraduationCap,
@@ -83,6 +84,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   const [analytics, setAnalytics] = useState<StudentAnalyticsResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPaidStudent, setIsPaidStudent] = useState(false);
+  const [studentCourses, setStudentCourses] = useState<string[]>([]);
 
   // Reading & Quiz Modal States for Study Hub
   const [isReadingOpen, setIsReadingOpen] = useState(false);
@@ -122,6 +124,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
       import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
         verifyStudentAccess(studentId, "ALL", localUser?.email).then((res) => {
           setIsPaidStudent(res.allowed);
+          setStudentCourses(res.courses || []);
         });
       });
 
@@ -246,6 +249,22 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
     refreshStores();
   };
 
+  // Warning count: ended exams in the student's courses that were not taken yet
+  const submittedKeys = new Set(submissions.map((s) => s.examKey));
+  const endedNotTaken = Object.entries(exams).filter(([id, ex]) => {
+    if (
+      studentCourses.length > 0 &&
+      !studentCourses.some((c) => {
+        const sc = String(c || "").trim().toLowerCase();
+        return sc === "all" || sc === "সকল কোর্স" || sc === ex.course;
+      })
+    ) {
+      return false;
+    }
+    if (submittedKeys.has(id)) return false;
+    return isAnswerTimeReached(ex);
+  });
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100">
@@ -255,7 +274,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           <div className="flex items-center space-x-3 min-w-0 flex-1">
             <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-2xs shrink-0">
               {studentUser?.photoURL ? (
-                <img src={studentUser.photoURL} alt="Avatar" className="w-8 h-8 rounded-full" />
+                <Image src={studentUser.photoURL} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full" />
               ) : (
                 <GraduationCap className="w-6 h-6 text-violet-700" />
               )}
@@ -390,6 +409,21 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
         {/* Tab Body */}
         <div className="overflow-y-auto flex-grow pr-1 space-y-4">
+
+          {/* Warning: ended exams not yet taken in the student's courses */}
+          {endedNotTaken.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 flex items-start gap-2.5">
+              <AlertTriangle className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-amber-950">
+                  ⚠️ আপনার কোর্সের {toBengaliDigits(endedNotTaken.length)}টি শেষ হওয়া পরীক্ষায় অংশ নেননি
+                </p>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  এগুলো এখনও দেওয়া যাবে — মিস করবেন না!
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* TAB: STUDY & CHAPTER HUB (PAID EXCLUSIVE CONTENT) */}
           {activeTab === "study" && (

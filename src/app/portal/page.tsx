@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { StudentPortalLoginModal } from "@/components/modals/StudentPortalLoginModal";
@@ -104,7 +105,7 @@ export default function PortalPage() {
               <div className="text-center space-y-4 py-2">
                 <div className="flex items-center justify-center gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
                   {googleUser.photoURL ? (
-                    <img src={googleUser.photoURL} alt="" className="w-9 h-9 rounded-full border-2 border-indigo-200" />
+                    <Image src={googleUser.photoURL} alt="" width={36} height={36} className="w-9 h-9 rounded-full border-2 border-indigo-200" />
                   ) : (
                     <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">
                       {googleUser.name?.[0] || "S"}

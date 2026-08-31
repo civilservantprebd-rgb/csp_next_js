@@ -1,10 +1,32 @@
 import type { Metadata } from "next";
+import { Hind_Siliguri } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 
+// Self-hosted Bengali font (no render-blocking Google Fonts request, no CLS from late font swap)
+const hindSiliguri = Hind_Siliguri({
+  subsets: ["bengali", "latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-hind-siliguri",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "BCS One - ইন্টারেক্টিভ কুইজ পোর্টাল",
-  description: "বিসিএস ও সরকারি চাকরির প্রস্তুতির স্মার্ট ও ইন্টারেক্টিভ কুইজ পোর্টাল",
+  metadataBase: new URL("https://www.aarohon.com"),
+  title: "আরোহণ - প্রিপারেশন পোর্টাল",
+  description: "বিসিএস ও সরকারি চাকরির প্রস্তুতির স্মার্ট প্রিপারেশন পোর্টাল — কুইজ, মডেল টেস্ট, লিডারবোর্ড ও চ্যাপ্টারভিত্তিক পড়াশোনা এক জায়গায়।",
+  openGraph: {
+    title: "আরোহণ - প্রিপারেশন পোর্টাল",
+    description: "বিসিএস ও সরকারি চাকরির প্রস্তুতির স্মার্ট প্রিপারেশন পোর্টাল — কুইজ, মডেল টেস্ট ও চ্যাপ্টারভিত্তিক পড়াশোনা এক জায়গায়।",
+    type: "website",
+    locale: "bn_BD",
+    siteName: "আরোহণ",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "আরোহণ - প্রিপারেশন পোর্টাল",
+    description: "বিসিএস ও সরকারি চাকরির প্রস্তুতির স্মার্ট প্রিপারেশন পোর্টাল",
+  },
 };
 
 export default function RootLayout({
@@ -13,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="bn">
+    <html lang="bn" className={hindSiliguri.variable}>
       <body className="bg-slate-50 text-slate-800 min-h-screen flex flex-col overflow-x-hidden antialiased font-bengali">
         {children}
         <Analytics />

@@ -133,7 +133,7 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
   return (
     <section className="font-bengali rounded-3xl p-5 sm:p-7 md:p-8 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/50 border-2 border-indigo-300 shadow-md shadow-indigo-100/50 ring-1 ring-indigo-200/30 transition-all duration-300">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-indigo-100 pb-5 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 border-b border-indigo-100 pb-5 mb-6">
         <div className="flex items-start sm:items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
             <FolderTree className="w-6 h-6" />
@@ -153,7 +153,7 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
           </div>
         </div>
 
-        <div className="text-xs text-slate-500 bg-white px-3.5 py-1.5 rounded-xl border border-indigo-100 shadow-2xs self-start md:self-auto font-medium">
+        <div className="text-xs text-slate-500 bg-white px-3.5 py-1.5 rounded-xl border border-indigo-100 shadow-2xs self-start md:self-auto font-medium mt-1">
           📖 অধ্যায় ধরে ধরে প্রশ্ন পড়ুন অথবা সরাসরি কুইজ দিন
         </div>
       </div>

@@ -68,9 +68,18 @@ export async function getPracticeTopics(): Promise<TopicOption[]> {
 
 export async function getPracticeQuestions(
   selectedTopic: string,
-  count: number
+  count: number,
+  studentId?: string,
+  email?: string
 ): Promise<PracticeQuestion[]> {
   try {
+    // SECURITY: self-practice requires an enrolled student (any course)
+    if (studentId) {
+      const { verifyStudentAccess } = await import("@/actions/student-actions");
+      const access = await verifyStudentAccess(studentId, "ALL", email);
+      if (!access.allowed) return [];
+    }
+
     const pool: PracticeQuestion[] = [];
     const normalizedTopic = selectedTopic.trim().toLowerCase();
     const isAll =

@@ -450,3 +450,68 @@ export async function getMySubmissionResult(
     return null;
   }
 }
+
+/**
+ * Per-question live-exam statistics: how many students answered this question
+ * correctly / wrongly / skipped during LIVE exams. Used by the topic reading
+ * "এনালাইসিস" section (pie chart).
+ */
+export async function getQuestionLiveStats(
+  qText: string
+): Promise<{ correct: number; wrong: number; skipped: number; total: number }> {
+  const zero = { correct: 0, wrong: 0, skipped: 0, total: 0 };
+  try {
+    const cleanQ = String(qText || "").trim();
+    if (!cleanQ) return zero;
+
+    // Find this question in the bank (exact text match)
+    const { data: qRows } = await supabase
+      .from("question_bank")
+      .select("id, correct")
+      .eq("q", cleanQ)
+      .limit(20);
+    if (!qRows || qRows.length === 0) return zero;
+
+    const correctMap = new Map<string, number>();
+    qRows.forEach((r) => correctMap.set(r.id, Number(r.correct)));
+
+    // Exams that contain these questions
+    const { data: links } = await supabase
+      .from("exam_questions_link")
+      .select("exam_id, question_id, order_index")
+      .in("question_id", qRows.map((r) => r.id));
+    if (!links || links.length === 0) return zero;
+
+    const examIds = Array.from(new Set(links.map((l) => l.exam_id)));
+    let correct = 0;
+    let wrong = 0;
+    let skipped = 0;
+
+    for (const examId of examIds) {
+      const { data: subs } = await supabase
+        .from("submissions")
+        .select("answers")
+        .eq("exam_key", examId)
+        .eq("is_live_submission", true);
+
+      const examLinks = links.filter((l) => l.exam_id === examId);
+      for (const s of subs || []) {
+        for (const link of examLinks) {
+          const ans = Array.isArray(s.answers) ? s.answers[link.order_index] : null;
+          if (ans === null || ans === undefined || ans === -1) {
+            skipped++;
+          } else if (Number(ans) === correctMap.get(link.question_id)) {
+            correct++;
+          } else {
+            wrong++;
+          }
+        }
+      }
+    }
+
+    return { correct, wrong, skipped, total: correct + wrong + skipped };
+  } catch (err) {
+    console.error("Get question live stats error:", err);
+    return zero;
+  }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { EnrollmentRequest, AllowedStudent } from "@/types/student";
 import { getEnrollRequests, approveEnrollRequest } from "@/actions/enroll-actions";
 import {
@@ -472,7 +473,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                     <div className="flex items-center justify-between border-b border-indigo-100 pb-2.5">
                       <div className="flex items-center gap-2">
                         {item.photoURL ? (
-                          <img src={item.photoURL} alt="Avatar" className="w-8 h-8 rounded-full border border-indigo-200" />
+                          <Image src={item.photoURL} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full border border-indigo-200" />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
                             {item.name.charAt(0)}
@@ -579,7 +580,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         {item.photoURL ? (
-                          <img src={item.photoURL} alt="Avatar" className="w-6 h-6 rounded-full border border-slate-200" />
+                          <Image src={item.photoURL} alt="Avatar" width={24} height={24} className="w-6 h-6 rounded-full border border-slate-200" />
                         ) : (
                           <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[10px]">
                             {item.name.charAt(0)}

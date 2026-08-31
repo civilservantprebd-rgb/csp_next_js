@@ -12,10 +12,46 @@ import {
   Zap,
   Bookmark,
   Search,
-  Filter
+  Filter,
+  BarChart3,
+  Loader2
 } from "lucide-react";
 import { PracticeQuestion } from "@/lib/practice-helper";
+import { PieChart } from "@/components/shared/PieChart";
 import { toBengaliDigits } from "@/lib/utils";
+
+type LiveStats = { correct: number; wrong: number; skipped: number; total: number };
+
+interface AnalysisBlockProps {
+  isOpen: boolean;
+  isLoading: boolean;
+  stats: LiveStats | null;
+  onToggle: () => void;
+}
+
+const AnalysisBlock: React.FC<AnalysisBlockProps> = ({ isOpen, isLoading, stats, onToggle }) => (
+  <div className="pt-1">
+    <button
+      type="button"
+      onClick={onToggle}
+      className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition"
+    >
+      <BarChart3 className="w-3.5 h-3.5" />
+      {isOpen ? "এনালাইসিস বন্ধ করুন" : "📊 এনালাইসিস — লাইভ পরীক্ষার পরিসংখ্যান"}
+    </button>
+    {isOpen && (
+      <div className="mt-2 p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
+        {isLoading ? (
+          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+            <Loader2 className="w-3 h-3 animate-spin" /> পরিসংখ্যান লোড হচ্ছে...
+          </div>
+        ) : (
+          <PieChart correct={stats?.correct || 0} wrong={stats?.wrong || 0} skipped={stats?.skipped || 0} />
+        )}
+      </div>
+    )}
+  </div>
+);
 
 interface TopicReadingModalProps {
   isOpen: boolean;
@@ -36,6 +72,9 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
   const [activeTab, setActiveTab] = useState<"list" | "card">("list");
   const [currentCardIdx, setCurrentCardIdx] = useState(0);
   const [revealedAnswers, setRevealedAnswers] = useState<Record<number, boolean>>({});
+  const [analysisOpen, setAnalysisOpen] = useState<Record<number, boolean>>({});
+  const [stats, setStats] = useState<Record<number, LiveStats | null>>({});
+  const [loadingStats, setLoadingStats] = useState<Record<number, boolean>>({});
 
   if (!isOpen) return null;
 
@@ -48,6 +87,20 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
 
   const toggleReveal = (idx: number) => {
     setRevealedAnswers((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const toggleAnalysis = (idx: number) => {
+    const willOpen = !analysisOpen[idx];
+    setAnalysisOpen((prev) => ({ ...prev, [idx]: willOpen }));
+    if (willOpen && !stats[idx]) {
+      setLoadingStats((prev) => ({ ...prev, [idx]: true }));
+      import("@/actions/exam-actions").then(({ getQuestionLiveStats }) => {
+        getQuestionLiveStats(filteredQuestions[idx]?.q || "").then((res) => {
+          setStats((prev) => ({ ...prev, [idx]: res }));
+          setLoadingStats((prev) => ({ ...prev, [idx]: false }));
+        });
+      });
+    }
   };
 
   const optLabels = ["ক", "খ", "গ", "ঘ"];
@@ -196,6 +249,14 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                         <p className="text-slate-800">{q.exp}</p>
                       </div>
                     )}
+
+                    {/* Live-exam analysis (pie chart) */}
+                    <AnalysisBlock
+                      isOpen={!!analysisOpen[idx]}
+                      isLoading={!!loadingStats[idx]}
+                      stats={stats[idx] || null}
+                      onToggle={() => toggleAnalysis(idx)}
+                    />
                   </div>
                 );
               })}
@@ -258,6 +319,14 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                       {filteredQuestions[currentCardIdx].exp}
                     </div>
                   )}
+
+                  {/* Live-exam analysis (pie chart) */}
+                  <AnalysisBlock
+                    isOpen={!!analysisOpen[currentCardIdx]}
+                    isLoading={!!loadingStats[currentCardIdx]}
+                    stats={stats[currentCardIdx] || null}
+                    onToggle={() => toggleAnalysis(currentCardIdx)}
+                  />
 
                   {/* Navigation Buttons */}
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100">

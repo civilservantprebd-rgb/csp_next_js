@@ -4,13 +4,13 @@ import React, { useState } from "react";
 import { Exam, SubjectItem } from "@/types/exam";
 import { createExam, updateExam, deleteExam, toggleExamResultPublish } from "@/actions/admin-actions";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
+import { QuestionBuilder } from "./QuestionBuilder";
 import {
   Plus,
   Trash2,
   Edit3,
   Share2,
   Copy,
-  Bolt,
   X,
   Settings,
   Send,
@@ -25,6 +25,7 @@ interface ExamManagerProps {
   exams: Record<string, Exam>;
   courses: string[];
   subjects: SubjectItem[];
+  topics?: string[];
   activeExamKey: string;
   onSelectExamForQuestions: (examKey: string) => void;
   onRefresh: () => void;
@@ -34,6 +35,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   exams,
   courses,
   subjects,
+  topics = [],
   activeExamKey,
   onSelectExamForQuestions,
   onRefresh,
@@ -64,6 +66,26 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   const filteredSubjects = subjects.filter((s) => s.course === course);
   const editFilteredSubjects = subjects.filter((s) => s.course === editCourse);
 
+  // Convert DB ISO time into the <input type="datetime-local"> format (YYYY-MM-DDTHH:mm)
+  const toDatetimeLocal = (iso?: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  // datetime-local gives a naive "YYYY-MM-DDTHH:mm" string in the admin's local time.
+  // The app treats every exam time as Bangladesh time (UTC+6, no DST). Storing the naive
+  // string directly lets Postgres interpret it as UTC, shifting every exam by 6 hours —
+  // exams then never go live when the admin expects. Attach the explicit +06:00 offset.
+  const toBangladeshIso = (value: string): string => {
+    const v = String(value || "").trim();
+    if (!v) return "";
+    if (v.includes("Z") || v.includes("+") || /-\d{2}:\d{2}$/.test(v)) return v;
+    return v.length === 16 ? `${v}:00+06:00` : `${v}+06:00`;
+  };
+
   const startEdit = (key: string, ex: Exam) => {
     setEditingExamKey(key);
     setEditCourse(ex.course);
@@ -71,8 +93,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
     setEditTitle(ex.title);
     setEditTimerMinutes(ex.timerMinutes);
     setEditPassMark(ex.passMark || 1);
-    setEditStartTime(ex.startTime || "");
-    setEditEndTime(ex.endTime || "");
+    setEditStartTime(toDatetimeLocal(ex.startTime));
+    setEditEndTime(toDatetimeLocal(ex.endTime));
     setEditIsResultPublished(ex.isResultPublished ?? isAnswerTimeReached(ex));
     setEditIsFree(!!ex.isFree);
   };
@@ -107,54 +129,18 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
       title: editTitle.trim(),
       timerMinutes: Number(editTimerMinutes) || 10,
       passMark: Number(editPassMark) || 1,
-      startTime: editStartTime,
-      endTime: editEndTime,
+      startTime: toBangladeshIso(editStartTime),
+      endTime: toBangladeshIso(editEndTime),
       isResultPublished: editIsResultPublished,
       isFree: editIsFree
     });
     setIsLoading(false);
 
     if (success) {
-      setEditingExamKey(null);
       onRefresh();
       alert("এক্সাম সেট সফলভাবে আপডেট করা হয়েছে।");
     } else {
       alert("এক্সাম সেট আপডেট করতে সমস্যা হয়েছে।");
-    }
-  };
-
-  const applyPreset = (type: "now" | "evening" | "night" | "clear") => {
-    if (type === "clear") {
-      setStartTime("");
-      setEndTime("");
-      return;
-    }
-
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const toLocalISO = (d: Date) =>
-      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
-        d.getMinutes()
-      )}`;
-
-    if (type === "now") {
-      setStartTime(toLocalISO(now));
-      const end = new Date(now.getTime() + 60 * 60 * 1000);
-      setEndTime(toLocalISO(end));
-    } else if (type === "evening") {
-      const start = new Date(now);
-      start.setHours(17, 0, 0, 0);
-      const end = new Date(now);
-      end.setHours(18, 0, 0, 0);
-      setStartTime(toLocalISO(start));
-      setEndTime(toLocalISO(end));
-    } else if (type === "night") {
-      const start = new Date(now);
-      start.setHours(20, 0, 0, 0);
-      const end = new Date(now);
-      end.setHours(21, 0, 0, 0);
-      setStartTime(toLocalISO(start));
-      setEndTime(toLocalISO(end));
     }
   };
 
@@ -169,8 +155,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
       title: title.trim(),
       timerMinutes: Number(timerMinutes) || 10,
       passMark: Number(passMark) || 1,
-      startTime,
-      endTime,
+      startTime: toBangladeshIso(startTime),
+      endTime: toBangladeshIso(endTime),
       isResultPublished,
       isFree,
       questions: []
@@ -284,43 +270,6 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
               onChange={(e) => setPassMark(Number(e.target.value))}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
             />
-          </div>
-
-          {/* Quick Schedule Preset Buttons */}
-          <div className="sm:col-span-3 bg-white p-3 rounded-xl border border-slate-200">
-            <span className="text-[11px] font-semibold text-slate-700 block mb-1.5">
-              সময়সূচী দ্রুত সেট করার প্রিসেট:
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => applyPreset("now")}
-                className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-bold px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
-              >
-                <Bolt className="w-3.5 h-3.5" /> এখনই লাইভ
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("evening")}
-                className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-[11px] font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
-              >
-                আজ বিকাল ৫:০০
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("night")}
-                className="bg-violet-100 hover:bg-violet-200 text-violet-700 text-[11px] font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
-              >
-                আজ রাত ৮:০০
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("clear")}
-                className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
-              >
-                মুছে ফেলুন
-              </button>
-            </div>
           </div>
 
           <div>
@@ -457,12 +406,6 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                     <Settings className="w-3 h-3" /> এডিট
                   </button>
                   <button
-                    onClick={() => onSelectExamForQuestions(k)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-medium px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
-                  >
-                    <Edit3 className="w-3 h-3" /> প্রশ্ন যোগ/এডিট
-                  </button>
-                  <button
                     onClick={() => copyShareLink(k)}
                     className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
@@ -481,9 +424,10 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
         </div>
       </div>
 
+      {/* Question builder modal — add/edit questions right inside the exam set */}
       {editingExamKey && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 font-bengali">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-4 relative border border-slate-100 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 font-bengali">
+          <div className="bg-white rounded-3xl max-w-5xl w-full p-5 sm:p-6 shadow-2xl space-y-4 relative border border-slate-100 max-h-[92vh] overflow-y-auto">
             <button
               type="button"
               onClick={() => setEditingExamKey(null)}
@@ -656,6 +600,37 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                 </button>
               </div>
             </form>
+
+            {/* Question add/edit — inside the same edit modal */}
+            <div className="border-t border-slate-200 pt-4 mt-2">
+              <h4 className="font-bold text-indigo-950 text-sm sm:text-base flex items-center gap-2 mb-3">
+                <Edit3 className="w-4 h-4 text-indigo-600" />
+                প্রশ্ন যোগ/এডিট — {editTitle || exams[editingExamKey]?.title || "এই পরীক্ষায়"}
+              </h4>
+              {exams[editingExamKey] && (
+                <QuestionBuilder
+                  activeExamKey={editingExamKey}
+                  exam={{
+                    ...exams[editingExamKey],
+                    course: editCourse || exams[editingExamKey].course,
+                    subject: editSubject || exams[editingExamKey].subject,
+                    title: editTitle || exams[editingExamKey].title,
+                    timerMinutes: Number(editTimerMinutes) || exams[editingExamKey].timerMinutes,
+                    passMark: Number(editPassMark) || 1,
+                    isFree: editIsFree,
+                    isResultPublished: editIsResultPublished
+                  }}
+                  allExams={exams}
+                  onSelectExamKey={(k) => {
+                    if (exams[k]) {
+                      startEdit(k, exams[k]);
+                    }
+                  }}
+                  topics={topics}
+                  onRefresh={onRefresh}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
