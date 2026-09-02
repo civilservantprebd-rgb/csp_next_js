@@ -7,6 +7,7 @@ import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { fetchAppConfigLite } from "@/actions/admin-actions";
 import { getCourseVideos } from "@/actions/video-actions";
+import { verifyStudentAccess } from "@/actions/student-actions";
 import { AppConfigData, Exam } from "@/types/exam";
 import { CourseVideo } from "@/types/video";
 import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
@@ -201,8 +202,7 @@ export default function CourseStudyPage() {
         router.push(`/exam/${examKey}`);
         return;
       } else {
-        const { verifyStudentAccess: verify } = await import("@/actions/student-actions");
-        const res = await verify(localUser.uid, ex.course, localUser.email);
+        const res = await verifyStudentAccess(localUser.uid, ex.course, localUser.email);
         if (res.allowed) {
           sessionStorage.setItem(
             "current_student",
