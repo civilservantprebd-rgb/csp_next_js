@@ -103,10 +103,13 @@ export const UpcomingExamGrid: React.FC<UpcomingExamGridProps> = ({ exams, onOpe
       <div className="pt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {upcoming.map(({ k, ex, start }) => {
           const qCount = ex.questions?.length || 0;
+          const soonToStart = start.getTime() - now <= 60 * 60 * 1000;
           return (
             <div
               key={k}
-              className="group bg-white rounded-2xl p-5 border border-sky-200/90 hover:border-sky-400 shadow-sm hover:shadow-sm transition-all duration-200 flex flex-col justify-between space-y-4"
+              className={`group bg-white rounded-2xl p-5 border shadow-sm hover:shadow-sm transition-all duration-200 flex flex-col justify-between space-y-4 ${
+                soonToStart ? "border-rose-300 ring-1 ring-rose-200" : "border-sky-200/90 hover:border-sky-400"
+              }`}
             >
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
@@ -119,9 +122,15 @@ export const UpcomingExamGrid: React.FC<UpcomingExamGridProps> = ({ exams, onOpe
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" /> ফ্রি
                       </span>
                     )}
-                    <span className="bg-sky-100 text-sky-900 border border-sky-300 text-xs font-black px-2 py-0.5 rounded-md flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-sky-600 animate-ping" /> আসন্ন
-                    </span>
+                    {soonToStart ? (
+                      <span className="bg-rose-100 text-rose-900 border border-rose-300 text-xs font-black px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" /> শুরু হতে চলেছে
+                      </span>
+                    ) : (
+                      <span className="bg-sky-100 text-sky-900 border border-sky-300 text-xs font-black px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-600 animate-ping" /> আসন্ন
+                      </span>
+                    )}
                   </span>
                 </div>
 
@@ -135,7 +144,9 @@ export const UpcomingExamGrid: React.FC<UpcomingExamGridProps> = ({ exams, onOpe
                 </div>
 
                 {/* Live countdown to start */}
-                <div className="bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-xl px-3 py-2.5 flex items-center justify-center gap-1.5 shadow-sm">
+                <div className={`${
+                  soonToStart ? "bg-gradient-to-r from-rose-600 to-red-600" : "bg-gradient-to-r from-sky-600 to-indigo-600"
+                } text-white rounded-xl px-3 py-2.5 flex items-center justify-center gap-1.5 shadow-sm`}>
                   <Hourglass className="w-4 h-4 animate-pulse shrink-0" />
                   <span className="text-sm font-bold opacity-90">শুরু হতে আর</span>
                   <span className="text-sm sm:text-base font-black tracking-wide tabular-nums whitespace-nowrap">

@@ -194,27 +194,18 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
   return (
     <div className="font-bengali">
       {/* Container Box with Soft Emerald / Teal Glow */}
-      <div className="relative rounded-3xl p-5 sm:p-7 md:p-8 bg-white border border-slate-200 shadow-sm transition-all duration-300">
+      <div className="relative rounded-3xl p-4 sm:p-6 md:p-7 bg-white border border-slate-200 shadow-sm transition-all duration-300">
         
         {/* Top Header Badge & Title */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-200 pb-5 mb-6">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-              <Target className="w-6 h-6 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider bg-emerald-200 text-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                  সেলফ প্র্যাকটিস মোড
-                </span>
-                <span className="text-xs font-medium text-slate-700 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500 animate-bounce" /> আনলিমিটেড ফ্রি অনুশীলন
-                </span>
-              </div>
-              <h2 className="text-lg sm:text-xl font-black text-emerald-950 mt-1 tracking-tight">
-                সেলফ-প্র্যাকটিস
-              </h2>
-            </div>
+        <div className="flex items-center gap-3 border-b border-slate-200 pb-4 mb-5">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-teal-600 to-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
+            <Target className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-tight">সেলফ প্র্যাকটিস</h2>
+            <p className="text-xs text-slate-500 font-medium">
+              শুধু এনরোল্ড স্টুডেন্ট — টপিক বেছে প্রশ্ন অনুশীলন করুন
+            </p>
           </div>
         </div>
 

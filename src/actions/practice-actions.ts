@@ -105,8 +105,7 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
 
     const result: TopicOption[] = [];
     topicCountMap.forEach((count, name) => {
-      // লগইন করা স্টুডেন্টের কাছে ০-কাউন্ট টপিক না দেখানোই ভালো (ভুল বোঝাবুঝি এড়াতে)
-      if (!isTeacher && cleanId && count === 0) return;
+      // নিবন্ধিত সব টপিকই দেখানো হয় (০-কাউন্টও) — যাতে কেউ কোনো টপিক "হারিয়ে" না ফেলে
       result.push({ name, count });
     });
     return result.sort((a, b) =>
