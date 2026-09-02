@@ -199,27 +199,28 @@ export default function ExamPage() {
     <>
       <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali">
         <div className="bg-white rounded-3xl p-4 sm:p-8 shadow-md border border-slate-200 space-y-6">
-          <div className="flex flex-row justify-between items-center pb-3 border-b border-slate-100 gap-2 sticky top-0 bg-white z-30 py-0 px-1">
-            {/* Left: Title */}
-            <div className="flex-1 text-left min-w-0 py-3">
-              <span className="inline-block text-xs sm:text-sm md:text-base font-bold text-indigo-700 bg-indigo-50 px-3.5 py-1.5 rounded-full uppercase truncate max-w-full">
+          {/* স্টিকি এক্সাম হেডার — মোবাইল: বামে পরীক্ষার নাম · মাঝে সাবমিট · ডানে সময় */}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sticky top-0 bg-white/95 backdrop-blur-sm z-30 border-b border-slate-100 pb-3 pt-1">
+            {/* Left: exam title (truncated, এক লাইনে) */}
+            <div className="text-left min-w-0 flex items-center overflow-hidden">
+              <span className="inline-block text-[11px] sm:text-sm md:text-base font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full truncate max-w-full leading-tight">
                 {exam.title}
               </span>
             </div>
 
-            {/* Center: Submit Button (Sticky to top) */}
-            <div className="flex-shrink-0 text-center self-start">
+            {/* Center: Submit */}
+            <div className="text-center shrink-0">
               <button
                 onClick={handleManualSubmit}
                 disabled={isSubmitting}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-6 sm:px-10 py-3.5 rounded-t-none rounded-b-2xl transition-all shadow-md hover:shadow-lg cursor-pointer disabled:opacity-50 active:scale-98"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-sm font-bold px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
               >
-                {isSubmitting ? "জমা হচ্ছে..." : "জমা দিন (Submit)"}
+                {isSubmitting ? "জমা হচ্ছে..." : "জমা দিন"}
               </button>
             </div>
 
             {/* Right: Timer */}
-            <div className="flex-1 flex justify-end py-3">
+            <div className="flex justify-end min-w-0">
               <ExamTimer
                 initialSeconds={secondsRemaining}
                 onTimeExpire={handleAutoSubmit}
