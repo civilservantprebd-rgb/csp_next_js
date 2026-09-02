@@ -194,7 +194,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
   return (
     <div className="font-bengali">
       {/* Container Box with Soft Emerald / Teal Glow */}
-      <div className="relative rounded-3xl p-5 sm:p-7 md:p-8 bg-gradient-to-br from-emerald-100/40 via-white to-teal-50/50 border-2 border-emerald-500 shadow-md shadow-emerald-100/60 ring-1 ring-emerald-300/20 transition-all duration-300">
+      <div className="relative rounded-3xl p-5 sm:p-7 md:p-8 bg-white border border-slate-200 shadow-sm transition-all duration-300">
         
         {/* Top Header Badge & Title */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-200 pb-5 mb-6">

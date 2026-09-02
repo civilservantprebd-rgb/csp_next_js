@@ -30,7 +30,7 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
   }
 
   return (
-    <section className="font-bengali rounded-3xl bg-gradient-to-br from-amber-100/40 via-white to-yellow-50/50 border-2 border-amber-500 shadow-md shadow-amber-100/60 ring-1 ring-amber-300/20 flex flex-col justify-between overflow-hidden transition-all duration-300">
+    <section className="font-bengali rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between overflow-hidden transition-all duration-300">
       {/* Header Banner */}
       <div className="bg-amber-100/60 p-5 sm:p-6 border-b border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">

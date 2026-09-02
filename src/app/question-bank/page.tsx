@@ -184,15 +184,15 @@ export default function QuestionBankPage() {
 
       <main className="flex-grow max-w-4xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-5">
         {/* Page header */}
-        <div className="bg-gradient-to-r from-indigo-900 via-indigo-700 to-violet-800 text-white rounded-3xl p-5 sm:p-7 shadow-md">
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
-              <Layers className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0">
+              <Layers className="w-6 h-6 text-indigo-300" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black leading-tight">প্রশ্নব্যাংক</h1>
-              <p className="text-xs sm:text-sm text-indigo-100">
-                টপিক ও চ্যাপ্টারভিত্তিক প্রশ্ন — প্রতিটি প্রশ্নের সঠিক উত্তর ও ব্যাখ্যাসহ বিস্তারিত পড়ুন
+              <h1 className="text-xl sm:text-2xl font-black leading-tight tracking-tight">প্রশ্নব্যাংক</h1>
+              <p className="text-xs sm:text-sm text-slate-400">
+                টপিক ও চ্যাপ্টারভিত্তিক প্রশ্ন — সঠিক উত্তর ও ব্যাখ্যাসহ বিস্তারিত পড়ুন
               </p>
             </div>
           </div>

@@ -53,7 +53,7 @@ export const LiveExamGrid: React.FC<LiveExamGridProps> = ({
   }
 
   return (
-    <section className="relative font-bengali rounded-3xl bg-gradient-to-br from-rose-100/40 via-white to-red-50/50 border-2 border-rose-400 shadow-md shadow-rose-100/60 ring-1 ring-rose-300/20 p-5 sm:p-7 transition-all duration-300">
+    <section className="relative font-bengali rounded-3xl bg-white border border-slate-200 shadow-sm p-5 sm:p-7 transition-all duration-300">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-5 border-b border-rose-200">
         <div className="space-y-1">

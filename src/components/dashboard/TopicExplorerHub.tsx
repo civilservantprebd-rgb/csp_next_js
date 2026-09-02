@@ -132,7 +132,7 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
   }
 
   return (
-    <section className="font-bengali rounded-3xl p-5 sm:p-7 md:p-8 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/50 border-2 border-indigo-300 shadow-md shadow-indigo-100/50 ring-1 ring-indigo-200/30 transition-all duration-300">
+    <section className="font-bengali rounded-3xl p-5 sm:p-7 md:p-8 bg-white border border-slate-200 shadow-sm transition-all duration-300">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 border-b border-indigo-100 pb-5 mb-6">
         <div className="flex items-start sm:items-center gap-3.5">

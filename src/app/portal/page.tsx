@@ -60,9 +60,9 @@ export default function PortalPage() {
 
       <main className="flex-grow max-w-4xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-5">
         {/* Top banner */}
-        <div className="relative bg-gradient-to-tr from-indigo-900 via-indigo-800 to-violet-800 text-white rounded-3xl p-6 sm:p-8 text-center overflow-hidden shadow-lg">
-          <div className="absolute -top-10 -right-10 w-36 h-36 bg-white/10 rounded-full blur-xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-amber-400/20 rounded-full blur-lg pointer-events-none" />
+        <div className="relative bg-gradient-to-tr from-slate-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 text-center overflow-hidden shadow-sm border border-slate-800">
+          <div className="absolute -top-10 -right-10 w-36 h-36 bg-indigo-400/10 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-400/10 rounded-full blur-lg pointer-events-none" />
 
           <div className="relative inline-flex mb-3">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-lg">

@@ -57,7 +57,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   });
 
   return (
-    <section className="font-bengali rounded-3xl bg-gradient-to-br from-indigo-50/40 via-white to-violet-50/50 border-2 border-indigo-400 shadow-md shadow-indigo-100/60 ring-1 ring-indigo-300/20 p-5 sm:p-7 transition-all duration-300 space-y-6">
+    <section className="font-bengali rounded-3xl bg-white border border-slate-200 shadow-sm p-5 sm:p-7 transition-all duration-300 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-indigo-100">
         <div className="space-y-2.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100/90 text-indigo-950 border border-indigo-200 text-xs font-bold shadow-sm">

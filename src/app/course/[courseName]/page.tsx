@@ -224,7 +224,7 @@ export default function CourseStudyPage() {
 
       <main className="flex-grow max-w-7xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-5">
         {/* Course header */}
-        <div className="bg-gradient-to-r from-indigo-950 via-indigo-900 to-violet-950 text-white rounded-3xl p-5 sm:p-7 shadow-lg">
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-800">
           <button
             onClick={() => router.push("/")}
             className="flex items-center gap-1 text-xs text-indigo-200 hover:text-white transition cursor-pointer font-semibold"
