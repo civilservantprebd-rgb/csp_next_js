@@ -74,7 +74,7 @@ export default function PracticePage() {
     try {
       const qs = await getPracticeQuestions(topic, 20, user.uid, user.email);
       if (!qs || qs.length === 0) {
-        setLoadError("এই টপিকে এখনো কোনো প্রশ্ন যোগ হয়নি। অন্য টপিক বেছে নিন।");
+        setLoadError("এই টপিকে বর্তমানে দেখানোর মতো প্রশ্ন পাওয়া যায়নি — নির্ধারিত (লাইভ) পরীক্ষার প্রশ্ন ফলাফল প্রকাশের আগে এখানে দেখানো হয় না। অন্য টপিক বেছে নিন।");
         setBusy(false);
         return;
       }

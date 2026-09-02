@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import {
@@ -15,7 +15,9 @@ import {
   LogIn,
   BookOpen,
   Lightbulb,
-  ShoppingCart
+  ShoppingCart,
+  ArrowUpDown,
+  FolderTree
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
@@ -32,19 +34,27 @@ interface BankQ {
   topic?: string;
 }
 
+interface TopicEntry {
+  name: string;
+  count: number;
+  segs: string[];
+}
+
 export default function QuestionBankPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [user, setUser] = useState<{ uid: string; name: string; email?: string } | null>(null);
-  const [topics, setTopics] = useState<{ name: string; count: number }[]>([]);
+  const [entries, setEntries] = useState<TopicEntry[]>([]);
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState("");
-
-  const [selectedTopic, setSelectedTopic] = useState(searchParams?.get("topic") || "");
-  const [questions, setQuestions] = useState<BankQ[]>([]);
   const [busy, setBusy] = useState(false);
+
+  const [questions, setQuestions] = useState<BankQ[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState("");
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [filter, setFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"count" | "name">("count");
+  const [prefix, setPrefix] = useState<string[]>([]); // টপিক পাথ (যেমন ['বাংলা', 'ব্যাকরণ'])
 
   useEffect(() => {
     const u = getLocalStudentUser();
@@ -58,12 +68,64 @@ export default function QuestionBankPage() {
         setEnrolled(access.allowed);
         if (!access.allowed) return;
         const t = await getPracticeTopics();
-        setTopics(t || []);
+        setEntries(
+          (t || []).map((x: { name: string; count: number }) => ({
+            name: x.name,
+            count: x.count,
+            segs: String(x.name || "")
+              .split(/\s*[>›/|]\s*/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+          }))
+        );
       } catch {
         setLoadError("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
       }
     })();
   }, []);
+
+  const hasHierarchy = useMemo(() => entries.some((e) => e.segs.length > 1), [entries]);
+  const prefixPath = prefix.join(" > ");
+
+  // বর্তমান স্তরের (বা prefix-এর) নিচের টপিক/সাবটপিক
+  const levelNodes = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const map = new Map<string, number>();
+    const add = (label: string, count: number) => map.set(label, (map.get(label) || 0) + count);
+
+    if (!hasHierarchy) {
+      entries
+        .filter((e) => !q || e.name.toLowerCase().includes(q))
+        .forEach((e) => add(e.name, e.count));
+    } else if (prefix.length === 0) {
+      entries
+        .filter((e) => !q || e.segs[0].toLowerCase().includes(q))
+        .forEach((e) => add(e.segs[0], e.count));
+    } else {
+      const pl = prefix.length;
+      entries
+        .filter((e) => {
+          if (e.segs.length <= pl) return false;
+          for (let i = 0; i < pl; i++) if (e.segs[i] !== prefix[i]) return false;
+          return !q || e.segs[pl].toLowerCase().includes(q);
+        })
+        .forEach((e) => add(e.segs[pl], e.count));
+    }
+
+    const nodes = Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+    if (sortBy === "count") nodes.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "bn"));
+    else nodes.sort((a, b) => a.name.localeCompare(b.name, "bn") || b.count - a.count);
+    return nodes;
+  }, [entries, prefix, filter, sortBy, hasHierarchy]);
+
+  // prefix-এর অধীনে মোট প্রশ্ন সংখ্যা (সাবটপিকসহ)
+  const prefixTotal = useMemo(() => {
+    if (!hasHierarchy || prefix.length === 0) return 0;
+    const pl = prefix.length;
+    return entries
+      .filter((e) => e.segs.length >= pl && e.segs.slice(0, pl).every((s, i) => s === prefix[i]))
+      .reduce((sum, e) => sum + e.count, 0);
+  }, [entries, prefix, hasHierarchy]);
 
   const openTopic = async (topic: string) => {
     if (!user) return;
@@ -73,7 +135,9 @@ export default function QuestionBankPage() {
     try {
       const qs = await getPracticeQuestions(topic, 50, user.uid, user.email);
       if (!qs || qs.length === 0) {
-        setLoadError("এই টপিকে এখনো কোনো প্রশ্ন যোগ হয়নি। অন্য টপিক বেছে নিন।");
+        setLoadError(
+          "এই টপিকে বর্তমানে দেখানোর মতো প্রশ্ন পাওয়া যায়নি। নির্ধারিত (লাইভ) পরীক্ষার প্রশ্ন ফলাফল প্রকাশের আগে প্রশ্নব্যাংকে দেখানো হয় না — অন্য টপিক দেখুন।"
+        );
         setBusy(false);
         return;
       }
@@ -86,6 +150,14 @@ export default function QuestionBankPage() {
     setBusy(false);
   };
 
+  const backToList = () => {
+    setQuestions([]);
+    setSelectedTopic("");
+    setPrefix([]);
+    setFilter("");
+    setLoadError("");
+  };
+
   const toggleReveal = (idx: number) => {
     setRevealed((prev) => {
       const next = new Set(prev);
@@ -95,12 +167,9 @@ export default function QuestionBankPage() {
     });
   };
 
-  const revealAll = () => {
-    setRevealed(new Set(questions.map((_, i) => i)));
-  };
+  const revealAll = () => setRevealed(new Set(questions.map((_, i) => i)));
 
   const optLabels = ["ক", "খ", "গ", "ঘ"];
-  const filteredTopics = topics.filter((t) => t.name.toLowerCase().includes(filter.trim().toLowerCase()));
 
   return (
     <>
@@ -176,68 +245,142 @@ export default function QuestionBankPage() {
           <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-2xl">{loadError}</div>
         )}
 
-        {/* Topic list */}
+        {/* ============ Topic / subtopic browsing ============ */}
         {user && enrolled === true && questions.length === 0 && (
           <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
-            <h2 className="font-black text-slate-900 text-base flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600" /> টপিক/চ্যাপ্টার বেছে নিন ({toBengaliDigits(topics.length)})
-            </h2>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="font-black text-slate-900 text-base flex items-center gap-2">
+                <FolderTree className="w-5 h-5 text-indigo-600" />
+                {hasHierarchy && prefix.length > 0
+                  ? prefixPath
+                  : "টপিক / চ্যাপ্টার নির্বাচন করুন"}
+              </h2>
 
+              {/* Sort control */}
+              <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl p-1">
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+                <button
+                  type="button"
+                  onClick={() => setSortBy("count")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    sortBy === "count" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"
+                  }`}
+                >
+                  বেশি প্রশ্ন আগে
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortBy("name")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    sortBy === "name" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"
+                  }`}
+                >
+                  নাম অনুযায়ী
+                </button>
+              </div>
+            </div>
+
+            {/* Breadcrumb / back */}
+            {hasHierarchy && prefix.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <button
+                  type="button"
+                  onClick={backToList}
+                  className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" /> সব টপিক
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrefix((p) => p.slice(0, -1))}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold px-2 py-1 rounded-lg cursor-pointer"
+                >
+                  ← এক ধাপ পেছনে
+                </button>
+                {prefixTotal > 0 && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => openTopic(prefixPath)}
+                    className="ml-auto inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-1.5 rounded-lg cursor-pointer disabled:opacity-60"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" /> এই টপিকসহ সব প্রশ্ন ({toBengaliDigits(prefixTotal)})
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Search */}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="টপিক খুঁজুন..."
+                placeholder="টপিক/সাবটপিক খুঁজুন..."
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
-            {topics.length === 0 && !loadError ? (
+            {entries.length === 0 && !loadError ? (
               <div className="flex items-center justify-center gap-2 py-8 text-slate-400 text-xs font-bold">
                 <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> টপিক লোড হচ্ছে...
               </div>
+            ) : levelNodes.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-6">কোনো টপিক পাওয়া যায়নি</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {filteredTopics.map((t) => (
-                  <button
-                    key={t.name}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => openTopic(t.name)}
-                    className="group flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 transition text-left cursor-pointer disabled:opacity-60"
-                  >
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold text-slate-800 truncate">{t.name}</span>
-                      <span className="text-xs text-slate-400 font-semibold">
-                        {toBengaliDigits(t.count)}টি প্রশ্ন
+                {levelNodes.map((n) => {
+                  const isLeaf = hasHierarchy && prefix.length + 1 >= (entries.find((e) => e.segs[prefix.length] === n.name)?.segs.length ?? 2);
+                  return (
+                    <button
+                      key={n.name}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        if (!hasHierarchy || prefix.length + 1 >= Math.max(...entries.filter((e) => e.segs[prefix.length] === n.name).map((e) => e.segs.length))) {
+                          // লিফ (সর্বশেষ স্তর) বা ফ্ল্যাট — সরাসরি প্রশ্ন খুলি
+                          openTopic(hasHierarchy ? [...prefix, n.name].join(" > ") : n.name);
+                        } else {
+                          setPrefix((p) => [...p, n.name]);
+                          setFilter("");
+                          setLoadError("");
+                        }
+                      }}
+                      className="group flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 transition text-left cursor-pointer disabled:opacity-60"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold text-slate-800 truncate">{n.name}</span>
+                        <span className="text-xs text-slate-400 font-semibold">
+                          {toBengaliDigits(n.count)}টি প্রশ্ন
+                          {hasHierarchy && !isLeaf && " (সাবটপিক আছে)"}
+                        </span>
                       </span>
-                    </span>
-                    <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center shrink-0 transition">
-                      <ChevronRight className="w-4 h-4" />
-                    </span>
-                  </button>
-                ))}
-                {filteredTopics.length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-6 col-span-full">কোনো টপিক পাওয়া যায়নি</p>
-                )}
+                      <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center shrink-0 transition">
+                        {hasHierarchy && !isLeaf ? <ChevronRight className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
+            )}
+
+            {!hasHierarchy && (
+              <p className="text-xs text-slate-400">
+                💡 টপিক নির্বাচন করলে সেই টপিকের সব প্রশ্ন উত্তর/ব্যাখ্যাসহ দেখাবে
+              </p>
             )}
           </section>
         )}
 
-        {/* Reading detail */}
+        {/* ============ Reading detail ============ */}
         {questions.length > 0 && (
           <section className="space-y-4">
             <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm flex items-center justify-between gap-3 flex-wrap">
               <div className="min-w-0">
                 <button
                   type="button"
-                  onClick={() => {
-                    setQuestions([]);
-                    setSelectedTopic("");
-                  }}
+                  onClick={backToList}
                   className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" /> সব টপিক
