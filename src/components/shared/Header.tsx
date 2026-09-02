@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Contact, Trophy, Menu, X, Bell } from "lucide-react";
+import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers } from "lucide-react";
 
 interface HeaderProps {
   onOpenStudentPortal?: () => void;
@@ -192,6 +192,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                 className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-indigo-100"
               >
                 <GraduationCap className="w-5 h-5 text-indigo-500" /> হোম
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenu();
+                  router.push("/practice");
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-teal-200"
+              >
+                <Sparkles className="w-5 h-5 text-teal-500" /> সেলফ প্র্যাকটিস
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenu();
+                  router.push("/question-bank");
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-violet-50 text-slate-700 hover:text-violet-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-violet-200"
+              >
+                <Layers className="w-5 h-5 text-violet-500" /> প্রশ্নব্যাংক
               </button>
 
               <button
