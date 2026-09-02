@@ -5,13 +5,14 @@ import {
   Newspaper,
   CalendarDays,
   Loader2,
-  ChevronRight,
+  ChevronDown,
   ChevronLeft,
+  ChevronRight,
   X,
   Calendar as CalendarIcon,
   Layers
 } from "lucide-react";
-import { getDailyNews, DailyNewsItem } from "@/actions/news-actions";
+import { getDailyNews, incrementNewsRead, DailyNewsItem } from "@/actions/news-actions";
 import { toBengaliDigits } from "@/lib/utils";
 
 /* ---------- বাংলাদেশ (UTC+6) তারিখ হেল্পার ---------- */
@@ -139,92 +140,24 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
   );
 };
 
-/* ---------- বিস্তারিত পপআপ ---------- */
-
-const NewsDetailPopup: React.FC<{ item: DailyNewsItem; onClose: () => void }> = ({ item, onClose }) => {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [onClose]);
-
-  const dateKey = bdParts(item.createdAt)?.key || "";
-
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4 font-bengali">
-      {/* ব্যাকড্রপ */}
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
-
-      {/* গ্লাস কার্ড */}
-      <div className="relative w-full sm:max-w-lg max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-white/70 bg-white/90 backdrop-blur-2xl shadow-2xl shadow-slate-900/30 overflow-hidden animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 duration-300">
-        {/* হেডার */}
-        <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-slate-900/5 shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0">
-              <Newspaper className="w-4 h-4" />
-            </div>
-            <span className="text-xs font-black text-slate-900 tracking-wide truncate">দৈনিক সংবাদ</span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="বন্ধ করুন"
-            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer shrink-0"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* কন্টেন্ট — স্ক্রলযোগ্য */}
-        <div className="px-4 sm:px-5 py-4 overflow-y-auto">
-          {dateKey && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200/70 px-2 py-0.5 rounded-full mb-2.5">
-              <CalendarDays className="w-3 h-3" /> {longLabel(dateKey)}
-            </span>
-          )}
-          <h3 className="font-black text-slate-900 text-base sm:text-lg leading-snug mb-3">{item.heading}</h3>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">{item.body}</p>
-        </div>
-
-        {/* ফুটার */}
-        <div className="px-4 sm:px-5 pb-4 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold py-2.5 rounded-xl transition cursor-pointer shadow-md shadow-slate-900/15"
-          >
-            পড়েছি
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 /* ---------- মূল সেকশন ---------- */
 
 /**
  * হোম পেজের "দৈনিক সংবাদ":
- * - শুধু সর্বশেষ ৩টি হেডিং (কমপ্যাক্ট বক্স) দেখায়
- * - যেকোনো হেডিংয়ে ট্যাপ করলে পপআপে পুরো নিউজ খোলে
+ * - সবগুলোই ছোট হেডিং (সর্বশেষটা উপরে, ছোট "সর্বশেষ" ব্যাজসহ)
+ * - যেকোনো একটায় ট্যাপ করলে সেটা বড় হয়ে পুরো লেখা খোলে (অ্যাকর্ডিয়ন)
  * - "তারিখ" বাটন → ক্যালেন্ডার, ওই দিনের সব সংবাদ দেখা যায়
  */
 export const DailyNewsSection: React.FC = () => {
   const [news, setNews] = useState<DailyNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string>("");
   const [viewKey, setViewKey] = useState<string | null>(null);
   const [calOpen, setCalOpen] = useState(false);
   const [calMonth, setCalMonth] = useState<{ y: number; m: number }>(() => {
     const t = todayBD();
     return { y: t.y, m: t.m };
   });
-  const [reading, setReading] = useState<DailyNewsItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -233,6 +166,7 @@ export const DailyNewsSection: React.FC = () => {
         const list = await getDailyNews();
         if (cancelled) return;
         setNews(list || []);
+        // সব হেডিং ছোট থাকে — ট্যাপ করলেই একটা খোলে
       } catch {
         // টেবিল না থাকলে চুপচাপ খালি
       } finally {
@@ -254,20 +188,23 @@ export const DailyNewsSection: React.FC = () => {
 
   const newsKeys = useMemo(() => new Set(dated.map((x) => x.bd.key)), [dated]);
 
-  // ডিফল্ট: সর্বশেষ ৩টি; তারিখ বাছাই করলে ওই দিনের সব
+  // ডিফল্ট: সবগুলো; তারিখ বাছাই করলে ওই দিনের সব
   const visible = useMemo(() => {
     if (viewKey) return dated.filter((x) => x.bd.key === viewKey);
-    return dated.slice(0, 3);
+    return dated;
   }, [dated, viewKey]);
 
   const selectDay = (key: string) => {
     setViewKey(key);
     setCalOpen(false);
+    const first = dated.find((x) => x.bd.key === key);
+    if (first) setExpandedId(first.n.id);
   };
 
   const resetDay = () => {
     setViewKey(null);
     setCalOpen(false);
+    if (dated.length > 0) setExpandedId(dated[0].n.id);
   };
 
   if (loading) {
@@ -291,9 +228,9 @@ export const DailyNewsSection: React.FC = () => {
             <Newspaper className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-black text-slate-900 text-base leading-tight">দৈনিক সংবাদ</h2>
-            <p className="text-[11px] text-slate-500 font-semibold truncate">
-              {viewKey ? `${longLabel(viewKey)} — ${toBengaliDigits(visible.length)}টি` : "সর্বশেষ আপডেট"}
+            <h2 className="font-black text-black text-base leading-tight">দৈনিক সংবাদ</h2>
+            <p className="text-[11px] text-slate-600 font-semibold truncate">
+              {viewKey ? `${longLabel(viewKey)} — ${toBengaliDigits(visible.length)}টি` : `মোট ${toBengaliDigits(dated.length)}টি সংবাদ`}
             </p>
           </div>
         </div>
@@ -363,7 +300,7 @@ export const DailyNewsSection: React.FC = () => {
         </div>
       )}
 
-      {/* হেডিং তালিকা */}
+      {/* সংবাদের তালিকা — একসাথে ৩টা হেডিং দৃশ্যমান, বাকিগুলো স্ক্রল */}
       {visible.length === 0 ? (
         <div className="py-10 text-center">
           <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
@@ -383,37 +320,67 @@ export const DailyNewsSection: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {visible.map(({ n, bd }, idx) => (
-            <button
-              key={n.id}
-              type="button"
-              onClick={() => setReading(n)}
-              className="w-full text-left rounded-2xl border border-white/70 bg-white/60 backdrop-blur-xl px-3.5 py-3 shadow-sm hover:bg-white/85 hover:shadow-md transition cursor-pointer flex items-center gap-2.5 group"
-            >
-              {idx === 0 && !viewKey && (
-                <span className="shrink-0 bg-slate-900 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                  সর্বশেষ
-                </span>
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block font-bold text-xs sm:text-sm leading-snug text-slate-800 group-hover:text-slate-900">
-                  {n.heading}
-                </span>
-                <span className="block text-[11px] text-slate-400 font-bold mt-0.5">
-                  {shortLabel(bd.key)}
-                </span>
-              </span>
-              <span className="shrink-0 w-7 h-7 rounded-full bg-slate-100 group-hover:bg-slate-900 text-slate-500 group-hover:text-white flex items-center justify-center transition">
-                <ChevronRight className="w-4 h-4" />
-              </span>
-            </button>
-          ))}
+        <div className="max-h-[13.5rem] overflow-y-auto overscroll-contain pr-1 space-y-2 [scrollbar-width:thin] [scrollbar-color:rgb(203_213_225)_transparent]">
+          {visible.map(({ n, bd }, idx) => {
+            const isOpen = expandedId === n.id;
+            return (
+              <div
+                key={n.id}
+                className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-sm ${
+                  isOpen
+                    ? "border-slate-300 bg-white/90 backdrop-blur-xl shadow-md"
+                    : "border-white/70 bg-white/60 backdrop-blur-xl hover:bg-white/80"
+                }`}
+              >
+                {/* হেডিং বার */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // বন্ধ → খোলা: পড়ার কাউন্ট বাড়াই (admin প্যানেলে দেখা যায়)
+                    if (!isOpen) incrementNewsRead(n.id);
+                    setExpandedId(isOpen ? "" : n.id);
+                  }}
+                  className="w-full text-left px-3.5 py-3 cursor-pointer flex items-center gap-2.5"
+                >
+                  {idx === 0 && !viewKey && (
+                    <span className="shrink-0 bg-slate-900 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                      সর্বশেষ
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-bold text-xs sm:text-sm leading-snug text-black">
+                      {n.heading}
+                    </span>
+                    <span className="block text-[11px] text-slate-600 font-bold mt-0.5">
+                      {shortLabel(bd.key)}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
+                      isOpen ? "rotate-180 text-black" : "text-slate-500"
+                    }`}
+                  />
+                </button>
+
+                {/* খোলা বডি */}
+                <div
+                  className={`grid transition-all duration-300 ease-in-out ${
+                    isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="px-3.5 pb-4">
+                      <p className="text-xs sm:text-sm text-black leading-relaxed whitespace-pre-line border-t border-slate-900/5 pt-3">
+                        {n.body}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-
-      {/* বিস্তারিত পপআপ */}
-      {reading && <NewsDetailPopup item={reading} onClose={() => setReading(null)} />}
     </section>
   );
 };

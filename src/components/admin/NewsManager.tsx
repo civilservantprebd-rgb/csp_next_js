@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Newspaper, Plus, Pencil, Trash2, X, Check, Loader2, CalendarDays, AlertCircle } from "lucide-react";
+import { Newspaper, Plus, Pencil, Trash2, X, Check, Loader2, CalendarDays, AlertCircle, Eye } from "lucide-react";
 import { getDailyNews, addDailyNews, updateDailyNews, deleteDailyNews, DailyNewsItem } from "@/actions/news-actions";
 import { toBengaliDigits, formatBangladeshDate } from "@/lib/utils";
 
@@ -200,15 +200,18 @@ export const NewsManager: React.FC = () => {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="text-[11px] font-black text-slate-400">
+                            <span className="text-[11px] font-black text-slate-500">
                               {toBengaliDigits(idx + 1)}.
                             </span>
-                            <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1">
+                            <span className="text-[11px] text-slate-500 font-bold flex items-center gap-1">
                               <CalendarDays className="w-3 h-3" /> {n.createdAt ? formatBangladeshDate(n.createdAt) : "—"}
                             </span>
+                            <span className="text-[10px] font-black text-black bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full flex items-center gap-1 ml-auto">
+                              <Eye className="w-3 h-3" /> {toBengaliDigits(n.readCount ?? 0)} বার পড়া
+                            </span>
                           </div>
-                          <h5 className="font-bold text-slate-900 text-xs sm:text-sm">{n.heading}</h5>
-                          <p className="text-[11px] sm:text-xs text-slate-500 mt-1 leading-relaxed whitespace-pre-line line-clamp-2">
+                          <h5 className="font-black text-black text-xs sm:text-sm">{n.heading}</h5>
+                          <p className="text-[11px] sm:text-xs text-slate-700 mt-1 leading-relaxed whitespace-pre-line line-clamp-2">
                             {n.body}
                           </p>
                         </div>

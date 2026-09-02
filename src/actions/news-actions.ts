@@ -8,22 +8,42 @@ export interface DailyNewsItem {
   heading: string;
   body: string;
   createdAt: string;
+  readCount: number;
 }
 
 /** হোম পেজ / স্টুডেন্টদের জন্য দৈনিক সংবাদ (সবার পড়তে পারা) — সর্বশেষ আগে */
 export async function getDailyNews(): Promise<DailyNewsItem[]> {
   try {
+    // read_count কলাম পুরনো DB-তে নাও থাকতে পারে → ত্রুটি হলে ছাড়া কলাম ছাড়াই আবার চেষ্টা
     const { data, error } = await supabase
       .from("daily_news")
-      .select("id, heading, body, created_at")
+      .select("id, heading, body, created_at, read_count")
       .order("created_at", { ascending: false })
       .limit(100);
-    if (error) throw error;
+    if (error) {
+      if (/read_count/.test(String(error.message || ""))) {
+        const retry = await supabase
+          .from("daily_news")
+          .select("id, heading, body, created_at")
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (retry.error) throw retry.error;
+        return (retry.data || []).map((r) => ({
+          id: r.id,
+          heading: String(r.heading || ""),
+          body: String(r.body || ""),
+          createdAt: r.created_at || "",
+          readCount: 0
+        }));
+      }
+      throw error;
+    }
     return (data || []).map((r) => ({
       id: r.id,
       heading: String(r.heading || ""),
       body: String(r.body || ""),
-      createdAt: r.created_at || ""
+      createdAt: r.created_at || "",
+      readCount: Number(r.read_count ?? 0)
     }));
   } catch (err) {
     console.error("getDailyNews error:", err);
@@ -33,6 +53,21 @@ export async function getDailyNews(): Promise<DailyNewsItem[]> {
       return [];
     }
     return [];
+  }
+}
+
+/**
+ * কোনো সংবাদ খুলে পড়া হলে read_count ১ বাড়ায়।
+ * ক্লায়েন্ট প্রতি খোলায় কল করে — অ্যাডমিন প্যানেলে ভিউ-কাউন্ট দেখানো হয়।
+ */
+export async function incrementNewsRead(id: string): Promise<void> {
+  try {
+    const cleanId = String(id || "").trim();
+    if (!cleanId) return;
+    // read_count কলাম না থাকলে কোনো ক্ষতি নেই (নীরবে ব্যর্থ)
+    await supabase.rpc("increment_daily_news_read", { row_id: cleanId });
+  } catch {
+    // নীরবে ব্যর্থ — পড়ার অভিজ্ঞতা যেন কখনো ভাঙে না
   }
 }
 
