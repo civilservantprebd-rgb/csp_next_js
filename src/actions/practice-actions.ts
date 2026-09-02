@@ -79,14 +79,22 @@ export async function getPracticeQuestions(
   email?: string
 ): Promise<PracticeQuestion[]> {
   try {
-    // SECURITY: self-practice requires an enrolled student (any course).
-    // studentId is MANDATORY — omitting it must not bypass verification.
-    const cleanId = String(studentId || "").trim();
-    if (!cleanId) return [];
+    // SECURITY: self-practice requires an enrolled student (any course) —
+    // UNLESS the caller is a verified teacher (admins may browse the whole
+    // bank, including not-yet-released exams — they are the content owners).
+    const { isTeacherSession } = await import("@/lib/teacher-auth");
+    const isTeacher = await isTeacherSession();
 
-    const { verifyStudentAccess } = await import("@/actions/student-actions");
-    const access = await verifyStudentAccess(cleanId, "ALL", email);
-    if (!access.allowed) return [];
+    const cleanId = String(studentId || "").trim();
+    let access: { allowed: boolean; courses?: string[] } | null = null;
+    if (isTeacher) {
+      access = { allowed: true, courses: ["all"] };
+    } else {
+      if (!cleanId) return [];
+      const { verifyStudentAccess } = await import("@/actions/student-actions");
+      access = await verifyStudentAccess(cleanId, "ALL", email);
+      if (!access.allowed) return [];
+    }
 
     const studentCourses = (access.courses || [])
       .map((c) => String(c || "").trim().toLowerCase())
@@ -136,7 +144,7 @@ export async function getPracticeQuestions(
         isResultPublished: ex.is_result_published === true
       } as Exam;
       const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
-      if (isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
+      if (!isTeacher && isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
 
       const exCourse = String(ex.course || "").trim().toLowerCase();
       const hasCourseAccess =
