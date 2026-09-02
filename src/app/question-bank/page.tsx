@@ -135,6 +135,13 @@ export default function QuestionBankPage() {
     setTopic("");
   }, [subject]);
 
+  // "সব বিষয়" অপশন নেই — প্রথম বিষয়টিই ডিফল্ট
+  useEffect(() => {
+    if (hasHierarchy && subject === "" && subjectOptions.length > 0) {
+      setSubject(subjectOptions[0].name);
+    }
+  }, [hasHierarchy, subject, subjectOptions]);
+
   const openTopic = async (value: string, label: string) => {
     if (!user || !value) return;
     setBusy(true);
@@ -295,7 +302,6 @@ export default function QuestionBankPage() {
                       </span>
                       <span className="relative block">
                         <select value={subject} onChange={(e) => setSubject(e.target.value)} className={selectCls}>
-                          <option value="">সব বিষয়</option>
                           {subjectOptions.map((s) => (
                             <option key={s.name} value={s.name}>
                               {s.name} ({toBengaliDigits(s.count)}টি)

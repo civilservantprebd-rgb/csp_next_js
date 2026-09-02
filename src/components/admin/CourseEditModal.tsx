@@ -51,6 +51,7 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
   const [offer, setOffer] = useState("");
   const [plannedExams, setPlannedExams] = useState("");
   const [plannedVideos, setPlannedVideos] = useState("");
+  const [courseDesc, setCourseDesc] = useState("");
   const [savingPrice, setSavingPrice] = useState(false);
 
   // ভিডিও
@@ -72,6 +73,7 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
       setOffer(p?.offerPrice !== undefined ? String(p.offerPrice) : "");
       setPlannedExams(p?.plannedExams !== undefined ? String(p.plannedExams) : "");
       setPlannedVideos(p?.plannedVideos !== undefined ? String(p.plannedVideos) : "");
+      setCourseDesc(p?.description || "");
     });
     loadVideos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,7 +115,8 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
       price === "" ? null : Number(price),
       offer === "" ? null : Number(offer),
       plannedExams === "" ? null : Number(plannedExams),
-      plannedVideos === "" ? null : Number(plannedVideos)
+      plannedVideos === "" ? null : Number(plannedVideos),
+      courseDesc
     );
     setSavingPrice(false);
     if (res.success) {
@@ -248,6 +251,17 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
                   <input type="number" min={0} value={plannedVideos} onChange={(e) => setPlannedVideos(e.target.value)} placeholder="যেমন: ৬০" className={inputCls} />
                 </label>
               </div>
+
+              <label className="block">
+                <span className="block text-[11px] font-bold text-slate-500 mb-1">কোর্সের সংক্ষিপ্ত বিবরণ (বাংলা — হোম কার্ডে নামের নিচে দেখাবে)</span>
+                <textarea
+                  rows={2}
+                  value={courseDesc}
+                  onChange={(e) => setCourseDesc(e.target.value)}
+                  placeholder="যেমন: বিসিএস প্রিলির জন্য পূর্ণাঙ্গ প্রস্তুতি — ব্যাখ্যাসহ মডেল টেস্ট, লাইভ এক্সাম ও ভিডিও ক্লাস"
+                  className={`${inputCls} resize-none`}
+                />
+              </label>
               <p className="text-[11px] text-slate-400">হোমের কোর্স কার্ডে এই সংখ্যাই দেখাবে — যোগ/এডিট/বাদ সব এখান থেকে</p>
               <button
                 type="button"

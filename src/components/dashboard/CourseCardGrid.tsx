@@ -42,7 +42,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   const fmtTaka = (n: number) => `৳${toBengaliDigits(n.toLocaleString("en-IN"))}`;
 
   // কোর্সের দাম/ছাড় + পরিকল্পিত মোট পরীক্ষা/ভিডিও (হোম কার্ডে)
-  const [prices, setPrices] = useState<Record<string, { price?: number; offerPrice?: number; plannedExams?: number; plannedVideos?: number }>>({});
+  const [prices, setPrices] = useState<Record<string, { price?: number; offerPrice?: number; plannedExams?: number; plannedVideos?: number; description?: string }>>({});
 
   useEffect(() => {
     getCoursePrices()
@@ -112,10 +112,18 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                 </div>
 
                 {planned && (
-                  <p className="text-xs text-indigo-200 mt-2 font-bold">
-                    পরীক্ষা: {p?.plannedExams !== undefined ? toBengaliDigits(p.plannedExams) : "—"} · ভিডিও:{" "}
-                    {p?.plannedVideos !== undefined ? toBengaliDigits(p.plannedVideos) : "—"}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                    {p?.plannedExams !== undefined && (
+                      <span className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-2.5 py-1 rounded-lg text-xs font-bold">
+                        <FileText className="w-3.5 h-3.5 text-amber-300" /> পরীক্ষা {toBengaliDigits(p.plannedExams)}
+                      </span>
+                    )}
+                    {p?.plannedVideos !== undefined && (
+                      <span className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-2.5 py-1 rounded-lg text-xs font-bold">
+                        <Video className="w-3.5 h-3.5 text-sky-300" /> ভিডিও {toBengaliDigits(p.plannedVideos)}
+                      </span>
+                    )}
+                  </div>
                 )}
 
                 <button
@@ -133,7 +141,20 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
               {/* Course body — দাম/ছাড় + সাবজেক্ট (নিচের ডুপ্লিকেট কাউন্ট বাদ) */}
               <div className="p-5 space-y-4 flex-grow">
                 <div>
-                  {p?.price ? (
+                  {p?.description && (
+                    <p className="text-xs text-slate-600 font-medium leading-relaxed mb-3">{p.description}</p>
+                  )}
+                  {p && (p.price === 0 || p.offerPrice === 0) ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-md text-xs font-black">
+                          ফ্রি
+                        </span>
+                        <span className="text-lg font-black text-emerald-700">সম্পূর্ণ ফ্রি</span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-bold mt-1">কোর্সটি ফ্রি — সবাই নিতে পারবে</p>
+                    </>
+                  ) : p?.price ? (
                     p.offerPrice !== undefined && p.offerPrice < p.price ? (
                       <>
                         <div className="flex items-baseline gap-2 flex-wrap">

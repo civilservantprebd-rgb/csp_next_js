@@ -9,6 +9,8 @@ export interface CoursePrice {
   /** পরিকল্পিত মোট: কোর্সের শেষ পর্যন্ত যতটা পরীক্ষা/ভিডিও দেয়া হবে */
   plannedExams?: number;
   plannedVideos?: number;
+  /** কোর্সের সংক্ষিপ্ত বিবরণ (বাংলা) — কার্ডে টাইটেলের নিচে দেখায় */
+  description?: string;
 }
 
 /** সব কোর্সের দাম ও পরিকল্পিত সংখ্যা (পাবলিক — হোম পেজের কার্ডে) */
@@ -24,7 +26,8 @@ export async function getCoursePrices(): Promise<Record<string, CoursePrice>> {
         price: num(r.price),
         offerPrice: num(r.offer_price),
         plannedExams: num(r.planned_exams),
-        plannedVideos: num(r.planned_videos)
+        plannedVideos: num(r.planned_videos),
+        description: r.description ? String(r.description) : undefined
       };
     });
     return out;
@@ -40,7 +43,8 @@ export async function saveCoursePrice(
   price?: number | null,
   offerPrice?: number | null,
   plannedExams?: number | null,
-  plannedVideos?: number | null
+  plannedVideos?: number | null,
+  description?: string | null
 ): Promise<{ success: boolean; message: string }> {
   try {
     await requireTeacher();
@@ -64,7 +68,8 @@ export async function saveCoursePrice(
         price: cleanPrice(price),
         offer_price: cleanPrice(offerPrice),
         planned_exams: cleanNum(plannedExams),
-        planned_videos: cleanNum(plannedVideos)
+        planned_videos: cleanNum(plannedVideos),
+        description: String(description || "").trim() || null
       },
       { onConflict: "course" }
     );

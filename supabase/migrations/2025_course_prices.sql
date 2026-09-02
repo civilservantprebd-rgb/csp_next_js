@@ -10,3 +10,4 @@ create table if not exists public.course_prices (
 -- আগের ভার্সনের টেবিলে কলাম যোগ (if not exists)
 alter table public.course_prices add column if not exists planned_exams  integer;
 alter table public.course_prices add column if not exists planned_videos integer;
+alter table public.course_prices add column if not exists description text;

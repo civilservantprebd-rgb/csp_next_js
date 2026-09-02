@@ -86,6 +86,7 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
     (topicQuestions || []).forEach((tq: any) => {
       const t = String(tq.topic || "").trim();
       mirroredKeys.add(`${norm(tq.q)}___${norm(t)}`);
+      if (t && !topicCountMap.has(t)) topicCountMap.set(t, 0);
       if (t && canSee(tq.exam_key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
     });
 
@@ -97,9 +98,12 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
     (links || []).forEach((link: any) => {
       const q = link.question_bank?.q;
       const t = String(link.question_bank?.topic || "").trim();
-      if (t && q && canSee(link.exam_id)) {
-        const key = `${norm(q)}___${norm(t)}`;
-        if (!mirroredKeys.has(key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+      if (t && q) {
+        if (!topicCountMap.has(t)) topicCountMap.set(t, 0);
+        if (canSee(link.exam_id)) {
+          const key = `${norm(q)}___${norm(t)}`;
+          if (!mirroredKeys.has(key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+        }
       }
     });
 
