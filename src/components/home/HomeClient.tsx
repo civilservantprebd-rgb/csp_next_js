@@ -72,6 +72,15 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
     return () => clearInterval(interval);
   }, [router]);
 
+  // সাইড প্যানেল / প্র্যাকটিস / প্রশ্নব্যাংক থেকে "এনরোল" চাইলে হোমে এসে মোডাল খোলে
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem("open_enroll")) {
+      sessionStorage.removeItem("open_enroll");
+      setIsEnrollOpen(true);
+    }
+  }, []);
+
   // Show the "লগইন হচ্ছে…" overlay immediately on an OAuth callback return, so the
   // user never sees a confusing flash of the home page while the session restores.
   useLayoutEffect(() => {

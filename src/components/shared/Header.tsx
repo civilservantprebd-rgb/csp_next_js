@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers } from "lucide-react";
+import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers, ShoppingCart } from "lucide-react";
 
 interface HeaderProps {
   onOpenStudentPortal?: () => void;
@@ -230,6 +230,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                 className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-emerald-200"
               >
                 <Contact className="w-5 h-5 text-emerald-500" /> Student Portal
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenu();
+                  sessionStorage.setItem("open_enroll", "1");
+                  router.push("/");
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-amber-50 text-slate-700 hover:text-amber-900 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-amber-200"
+              >
+                <ShoppingCart className="w-5 h-5 text-amber-500" /> কোর্স এনরোল করুন
               </button>
             </nav>
 

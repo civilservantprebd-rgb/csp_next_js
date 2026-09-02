@@ -15,9 +15,10 @@ import {
   Loader2,
   Lock,
   LogIn,
-  BookOpen
+  BookOpen,
+  ShoppingCart
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { toBengaliDigits, shuffleArray } from "@/lib/utils";
@@ -34,6 +35,7 @@ interface PracticeQ {
 
 export default function PracticePage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [user, setUser] = useState<{ uid: string; name: string; email?: string } | null>(null);
   const [topics, setTopics] = useState<{ name: string; count: number }[]>([]);
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
@@ -159,6 +161,16 @@ export default function PracticePage() {
             <p className="text-xs text-slate-500">
               যেকোনো একটি কোর্সে এনরোল করে শিক্ষকের অনুমোদন পেলে এই সেকশন খুলে যাবে।
             </p>
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem("open_enroll", "1");
+                router.push("/");
+              }}
+              className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-6 py-2.5 rounded-xl text-sm cursor-pointer transition shadow-sm"
+            >
+              <ShoppingCart className="w-4 h-4" /> কোর্স এনরোল করুন
+            </button>
           </div>
         )}
 
