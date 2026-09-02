@@ -42,7 +42,19 @@ export default function PortalPage() {
     const gUser = getLocalStudentUser();
     if (gUser) {
       setGoogleUser(gUser);
-      setActiveStudentId(gUser.uid);
+      // আসল এনরোলমেন্ট-রেকর্ডের আইডি ব্যবহার করি (allowed_students-এ ফোন/uid যেটাই হোক):
+      // পরীক্ষার সাবমিশন ও বিশ্লেষণ সেই আইডিতে সেভ হয়, তাই uid-এ খুঁজলে খালি দেখাত।
+      (async () => {
+        let effId = gUser.uid;
+        try {
+          const { verifyStudentAccess } = await import("@/actions/student-actions");
+          const res = await verifyStudentAccess(gUser.uid, "ALL", gUser.email);
+          if (res.allowed && res.normalizedId) effId = res.normalizedId;
+        } catch {
+          // verify ব্যর্থ হলে uid-ই থাকবে
+        }
+        setActiveStudentId(effId);
+      })();
     }
   }, [router, configAttempt]);
 

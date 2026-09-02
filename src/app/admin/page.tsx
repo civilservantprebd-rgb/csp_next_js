@@ -1,5 +1,7 @@
 "use client";
 
+import { CourseEditModal } from "@/components/admin/CourseEditModal";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/shared/Header";
@@ -69,6 +71,21 @@ export default function AdminPage() {
   // Course editing state
   const [editingCourseIdx, setEditingCourseIdx] = useState<number | null>(null);
   const [editCourseName, setEditCourseName] = useState("");
+  const [editingCourse, setEditingCourse] = useState<string | null>(null);
+  const [courseDirty, setCourseDirty] = useState(false);
+
+  const openCourseEdit = (c: string) => {
+    setEditingCourse(c);
+    setCourseDirty(false);
+  };
+  const closeCourseEdit = () => {
+    if (courseDirty) {
+      window.location.reload(); // নাম/দাম/ভিডিও পরিবর্তন সব জায়গায় প্রতিফলিত হবে
+    } else {
+      setEditingCourse(null);
+    }
+  };
+  const markCourseDirty = () => setCourseDirty(true);
 
   // Topic states (standalone topic names)
   const [newTopicName, setNewTopicName] = useState("");
@@ -544,8 +561,9 @@ export default function AdminPage() {
                                   {config.pinnedCourses?.includes(course) ? "পিনকৃত" : "পিন"}
                                 </button>
                                 <button
-                                  onClick={() => startEditCourse(idx, course)}
-                                  className="text-amber-600 hover:text-amber-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
+                                  onClick={() => openCourseEdit(course)}
+                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1 transition"
+                                  title="নাম, দাম, ভিডিও, পরীক্ষা — সব এক জায়গায় এডিট করুন"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" /> এডিট
                                 </button>
@@ -564,6 +582,21 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {editingCourse && (
+              <CourseEditModal
+                course={editingCourse}
+                exams={config.exams || {}}
+                subjects={config.subjects || []}
+                onClose={closeCourseEdit}
+                onChanged={markCourseDirty}
+                onManageExams={(c) => {
+                  setEditingCourse(null);
+                  setCourseDirty(false);
+                  setActiveTab("exams");
+                }}
+              />
             )}
 
             {activeTab === "subjects" && (

@@ -203,7 +203,7 @@ export default function ExamPage() {
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sticky top-0 bg-white/95 backdrop-blur-sm z-30 border-b border-slate-100 pb-3 pt-1">
             {/* Left: exam title (truncated, এক লাইনে) */}
             <div className="text-left min-w-0 flex items-center overflow-hidden">
-              <span className="inline-block text-[11px] sm:text-sm md:text-base font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full truncate max-w-full leading-tight">
+              <span className="inline-block text-[13px] sm:text-sm md:text-base font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full truncate max-w-full leading-tight">
                 {exam.title}
               </span>
             </div>
@@ -213,7 +213,7 @@ export default function ExamPage() {
               <button
                 onClick={handleManualSubmit}
                 disabled={isSubmitting}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-sm font-bold px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] sm:text-sm font-bold px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
               >
                 {isSubmitting ? "জমা হচ্ছে..." : "জমা দিন"}
               </button>

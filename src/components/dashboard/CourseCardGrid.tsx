@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { Exam, SubjectItem } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
-import { getCourseVideoCounts } from "@/actions/video-actions";
+
+import { getCoursePrices } from "@/actions/course-actions";
 
 interface CourseCardGridProps {
   courses: string[];
@@ -38,14 +39,16 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   onOpenCourse,
   onOpenEnrollModal,
 }) => {
-  // Video count per course (shown on cards)
-  const [videoCounts, setVideoCounts] = useState<Record<string, number>>({});
+  const fmtTaka = (n: number) => `৳${toBengaliDigits(n.toLocaleString("en-IN"))}`;
+
+  // কোর্সের দাম/ছাড় + পরিকল্পিত মোট পরীক্ষা/ভিডিও (হোম কার্ডে)
+  const [prices, setPrices] = useState<Record<string, { price?: number; offerPrice?: number; plannedExams?: number; plannedVideos?: number }>>({});
 
   useEffect(() => {
-    getCourseVideoCounts()
-      .then(setVideoCounts)
+    getCoursePrices()
+      .then(setPrices)
       .catch(() => {
-        // counts are decorative — course cards still render without them
+        // দাম নেই মানেই কার্ডে "শীঘ্রই" লেখা দেখাবে
       });
   }, []);
 
@@ -68,7 +71,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
             কোর্স বেছে নিন — ভিডিও ক্লাস ও পরীক্ষা এক জায়গায়
           </h3>
           <p className="text-xs sm:text-sm text-black font-bold">
-            যেকোনো কোর্সে ট্যাপ করলে ভিডিও লাইব্রেরি, বিষয়ভিত্তিক ক্লাস ও পরীক্ষাসমূহ দেখতে পাবেন
+            প্রতিটি কোর্সে পরিকল্পিত পরীক্ষা ও ভিডিও — এনরোল করে ধাপে ধাপে সব কনটেন্ট পাবেন
           </p>
         </div>
       </div>
@@ -76,8 +79,8 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sortedCourses.map((courseName) => {
           const courseSubjects = subjects.filter((s) => s.course === courseName);
-          const examCount = Object.values(exams).filter((ex) => ex.course === courseName).length;
-          const videoCount = videoCounts[courseName] || 0;
+          const p = prices[courseName];
+          const planned = p?.plannedExams !== undefined || p?.plannedVideos !== undefined;
 
           return (
             <div
@@ -104,11 +107,16 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-indigo-200 mt-0.5">
-                      মোট {toBengaliDigits(examCount)}টি পরীক্ষা · {toBengaliDigits(videoCount)}টি ভিডিও
-                    </p>
+
                   </div>
                 </div>
+
+                {planned && (
+                  <p className="text-xs text-indigo-200 mt-2 font-bold">
+                    পরীক্ষা: {p?.plannedExams !== undefined ? toBengaliDigits(p.plannedExams) : "—"} · ভিডিও:{" "}
+                    {p?.plannedVideos !== undefined ? toBengaliDigits(p.plannedVideos) : "—"}
+                  </p>
+                )}
 
                 <button
                   onClick={(e) => {
@@ -122,24 +130,30 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                 </button>
               </div>
 
-              {/* Course body — quick stats */}
+              {/* Course body — দাম/ছাড় + সাবজেক্ট (নিচের ডুপ্লিকেট কাউন্ট বাদ) */}
               <div className="p-5 space-y-4 flex-grow">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
-                    <FileText className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
-                    <span className="block text-base font-black text-slate-900">{toBengaliDigits(examCount)}</span>
-                    <span className="block text-xs text-slate-500 font-bold">পরীক্ষা</span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
-                    <Video className="w-4 h-4 text-rose-600 mx-auto mb-1" />
-                    <span className="block text-base font-black text-slate-900">{toBengaliDigits(videoCount)}</span>
-                    <span className="block text-xs text-slate-500 font-bold">ভিডিও ক্লাস</span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
-                    <BookOpen className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
-                    <span className="block text-base font-black text-slate-900">{toBengaliDigits(courseSubjects.length)}</span>
-                    <span className="block text-xs text-slate-500 font-bold">বিষয়</span>
-                  </div>
+                <div>
+                  {p?.price ? (
+                    p.offerPrice !== undefined && p.offerPrice < p.price ? (
+                      <>
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-2xl font-black text-emerald-700">{fmtTaka(p.offerPrice)}</span>
+                          <span className="text-sm text-slate-400 line-through font-bold">{fmtTaka(p.price)}</span>
+                          <span className="bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black px-2 py-0.5 rounded-md">
+                            {toBengaliDigits(Math.round((1 - p.offerPrice / p.price) * 100))}% ছাড়
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-bold mt-1">ছাড়সহ কোর্স মূল্য</p>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-black text-slate-900">{fmtTaka(p.price)}</span>
+                        <p className="text-xs text-slate-500 font-bold mt-1">কোর্স মূল্য</p>
+                      </>
+                    )
+                  ) : (
+                    <span className="text-sm font-bold text-slate-400">কোর্সের দাম শীঘ্রই প্রকাশ হবে</span>
+                  )}
                 </div>
 
                 {courseSubjects.length > 0 && (

@@ -18,14 +18,14 @@ export const QuestionList: React.FC<QuestionListProps> = ({
   const bengaliOptionLetters = ["ক", "খ", "গ", "ঘ"];
 
   return (
-    <div className="space-y-4 font-bengali">
+    <div className="space-y-2 font-bengali">
       {questions.map((q, qIdx) => {
         const hasAnswered = studentAnswers[qIdx] !== null;
 
         return (
           <div
             key={qIdx}
-            className="py-4 space-y-3.5 border-b border-slate-100 last:border-b-0"
+            className="py-3 space-y-3 border-b border-slate-100 last:border-b-0"
           >
             <h3 className="font-bold text-slate-900 text-lg sm:text-xl leading-snug">
               <span className="text-indigo-600 mr-1.5">{toBengaliDigits(qIdx + 1)}.</span>

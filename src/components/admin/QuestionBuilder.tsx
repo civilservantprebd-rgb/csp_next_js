@@ -13,6 +13,7 @@ import { Plus, Trash2, Edit2, CheckCircle2, Layers, Tag, BookOpen, Upload, FileT
 import { toBengaliDigits } from "@/lib/utils";
 import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
 import { AIQuestionGeneratorModal } from "./AIQuestionGeneratorModal";
+import { QuestionBankSearchModal } from "./QuestionBankSearchModal";
 import { TopicTreeSelector } from "./TopicTreeSelector";
 
 interface QuestionBuilderProps {
@@ -48,6 +49,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [selectedQuestionIndices, setSelectedQuestionIndices] = useState<number[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
@@ -224,6 +226,16 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
             <span>বাল্ক প্রশ্ন ইম্পোর্ট (Smart Paste)</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => setIsBankModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+            title="আগের পরীক্ষা/প্রশ্নব্যাংকের পুরনো প্রশ্ন এই পরীক্ষায় যুক্ত করুন"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>পুরনো প্রশ্ন থেকে যোগ</span>
+          </button>
+
           {allExams && onSelectExamKey && Object.keys(allExams).length > 1 && (
             <div className="flex items-center gap-2">
               <select
@@ -261,6 +273,18 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
         examTitle={exam.title}
         topics={topics}
         onClose={() => setIsBulkModalOpen(false)}
+        onSuccess={async () => {
+          await loadSolutions();
+          onRefresh();
+        }}
+      />
+
+      <QuestionBankSearchModal
+        isOpen={isBankModalOpen}
+        onClose={() => setIsBankModalOpen(false)}
+        examKey={activeExamKey}
+        existingQuestionTexts={(exam.questions || []).map((q) => q.q)}
+        topics={topics}
         onSuccess={async () => {
           await loadSolutions();
           onRefresh();

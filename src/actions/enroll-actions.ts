@@ -46,6 +46,36 @@ export async function submitEnrollRequest(payload: {
       return { success: false, message: "ট্রানজেকশন আইডি (TrxID) লিখুন।" };
     }
 
+    // ইতিমধ্যে এনরোল করা আছে কিনা — একই কোর্সে আবার রিকোয়েস্ট ব্লক করুন
+    try {
+      const safeEmail = String(sessionUser.email || cleanEmail || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[(),;*]/g, "");
+      const { data: existing } = await supabase
+        .from("allowed_students")
+        .select("courses, email")
+        .or(`id.eq.${sessionUser.id}${safeEmail ? `,email.eq.${safeEmail}` : ""}`)
+        .maybeSingle();
+      if (existing) {
+        const ownedCourses: string[] = Array.isArray(existing.courses) ? existing.courses : [];
+        const ownedNorm = ownedCourses.map((c: string) => String(c || "").trim().toLowerCase()).filter(Boolean);
+        const wantList = Array.isArray(payload.course) ? payload.course : [payload.course];
+        const alreadyEnrolled = wantList.find((c: string) => {
+          const w = String(c || "").trim().toLowerCase();
+          return ownedNorm.includes("all") || ownedNorm.includes("সকল কোর্স") || ownedNorm.includes(w);
+        });
+        if (alreadyEnrolled) {
+          return {
+            success: false,
+            message: "আপনি ইতিমধ্যে এই কোর্সে এনরোল করেছেন — আবার রিকোয়েস্ট পাঠানোর দরকার নেই। আপনার অ্যাক্সেস ইতিমধ্যে চালু আছে।"
+          };
+        }
+      }
+    } catch {
+      // চেক ব্যর্থ হলে রিকোয়েস্ট ফ্লো চলবে (কঠোর বাধা নয়)
+    }
+
     // One pending request per TRX id — prevents reusing the same payment
     // receipt across multiple accounts/courses.
     const { data: trxReq } = await supabase

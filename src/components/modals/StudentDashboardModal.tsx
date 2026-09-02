@@ -535,9 +535,9 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     return;
                   }
                   const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
-                  const res = await fetchTopicQuestionsForStudent(studentId, fullPath);
+                  const res = await fetchTopicQuestionsForStudent(studentId, fullPath, studentUser?.email);
                   if (!res.success || res.questions.length === 0) {
-                    alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
+                    alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
                     return;
                   }
                   setReadingQuestions(res.questions);
@@ -550,9 +550,9 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     return;
                   }
                   const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
-                  const res = await fetchTopicQuestionsForStudent(studentId, fullPath);
+                  const res = await fetchTopicQuestionsForStudent(studentId, fullPath, studentUser?.email);
                   if (!res.success || res.questions.length === 0) {
-                    alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
+                    alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
                     return;
                   }
                   const shuffled = shuffleArray([...res.questions]);

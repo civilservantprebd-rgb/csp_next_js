@@ -595,9 +595,14 @@ export async function fetchTopicQuestionsForStudent(
       }
     });
 
+    const questionsArr = Array.from(uniqueMap.values());
     return {
       success: true,
-      questions: Array.from(uniqueMap.values())
+      questions: questionsArr,
+      message:
+        questionsArr.length === 0
+          ? "এই অংশে বর্তমানে দেখানোর মতো প্রশ্ন নেই — শুধু আপনার এনরোল্ড কোর্সের + প্রকাশিত (লাইভ-সমাপ্ত) প্রশ্নই দেখানো হয়। অন্য টপিক দেখুন; প্রয়োজনে শিক্ষককে জানান।"
+          : undefined
     };
   } catch (err: any) {
     console.error("fetchTopicQuestionsForStudent error:", err);

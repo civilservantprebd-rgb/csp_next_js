@@ -498,6 +498,13 @@ export async function renameCourse(
       .eq("original_course", oldV);
     if (tqErr) throw tqErr;
 
+    // 6. course_prices (টেবিল না থাকলে কিছু হবে না)
+    try {
+      await supabase.from("course_prices").update({ course: newV }).eq("course", oldV);
+    } catch {
+      // ignore missing table
+    }
+
     invalidateConfigCache();
     return { success: true };
   } catch (err) {

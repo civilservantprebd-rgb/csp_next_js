@@ -127,98 +127,46 @@ export const AdminAnalyticsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Middle Section: Course Wise Breakdown & Teacher Question Contributions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        
-        {/* 1. Course Wise Enrollment Breakdown */}
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-indigo-600" />
-              কোর্স ভিত্তিক শিক্ষার্থী এনরোলমেন্ট
-            </h4>
-            <span className="text-sm font-bold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full">
-              {toBengaliDigits(Object.keys(data.courseEnrollmentMap).length)}টি কোর্স
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {Object.keys(data.courseEnrollmentMap).length === 0 ? (
-              <p className="text-xs text-slate-400 py-6 text-center">কোনো এনরোলমেন্ট ডাটা পাওয়া যায়নি।</p>
-            ) : (
-              Object.entries(data.courseEnrollmentMap).map(([courseName, count]) => {
-                const percentage = data.totalEnrollments > 0
-                  ? Math.round((count / data.totalEnrollments) * 100)
-                  : 0;
-
-                return (
-                  <div key={courseName} className="space-y-1.5 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-800">{courseName}</span>
-                      <span className="font-black text-indigo-900">
-                        {toBengaliDigits(count)} জন ({toBengaliDigits(percentage)}%)
-                      </span>
-                    </div>
-                    {/* Progress Bar */}
-                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                      <div
-                        className="bg-indigo-600 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+      {/* Middle Section: Course Wise Enrollment (full width) */}
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-indigo-600" />
+            কোর্স ভিত্তিক শিক্ষার্থী এনরোলমেন্ট
+          </h4>
+          <span className="text-sm font-bold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full">
+            {toBengaliDigits(Object.keys(data.courseEnrollmentMap).length)}টি কোর্স
+          </span>
         </div>
 
-        {/* 2. Teacher Question Creation Breakdown */}
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-600" />
-              টিচার প্যানেল ও প্রশ্ন তৈরির অবদান
-            </h4>
-            <span className="text-sm font-bold bg-amber-50 text-amber-800 px-2.5 py-0.5 rounded-full">
-              মোট {toBengaliDigits(data.totalQuestionBankCount)}টি প্রশ্ন
-            </span>
-          </div>
+        <div className="space-y-3">
+          {Object.keys(data.courseEnrollmentMap).length === 0 ? (
+            <p className="text-xs text-slate-400 py-6 text-center">কোনো এনরোলমেন্ট ডাটা পাওয়া যায়নি।</p>
+          ) : (
+            Object.entries(data.courseEnrollmentMap).map(([courseName, count]) => {
+              const percentage = data.totalEnrollments > 0
+                ? Math.round((count / data.totalEnrollments) * 100)
+                : 0;
 
-          <div className="space-y-3">
-            {Object.entries(data.teacherQuestionStats).map(([teacherName, stats]) => (
-              <div key={teacherName} className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/70 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl bg-amber-200 text-amber-900 font-bold flex items-center justify-center text-xs">
-                      👨‍🏫
-                    </div>
-                    <span className="font-bold text-xs sm:text-sm text-slate-900">{teacherName}</span>
+              return (
+                <div key={courseName} className="space-y-1.5 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800">{courseName}</span>
+                    <span className="font-black text-indigo-900">
+                      {toBengaliDigits(count)} জন ({toBengaliDigits(percentage)}%)
+                    </span>
                   </div>
-                  <span className="bg-amber-600 text-white text-xs font-black px-2.5 py-0.5 rounded-lg">
-                    মোট {toBengaliDigits(stats.total)}টি
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                  <div className="bg-white p-2.5 rounded-xl border border-amber-100 text-center">
-                    <span className="text-xs text-slate-400 block">পরীক্ষার প্রশ্ন (Exam)</span>
-                    <strong className="text-slate-800 font-bold text-sm">
-                      {toBengaliDigits(stats.examQuestions)}টি
-                    </strong>
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-amber-100 text-center">
-                    <span className="text-xs text-slate-400 block">টপিক প্রশ্ন (Practice)</span>
-                    <strong className="text-slate-800 font-bold text-sm">
-                      {toBengaliDigits(stats.topicQuestions)}টি
-                    </strong>
+                  <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${percentage}%` }}
+                    />
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              );
+            })
+          )}
         </div>
-
       </div>
 
       {/* Bottom Section: Exam Submission Breakdown */}

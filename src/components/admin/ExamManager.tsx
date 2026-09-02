@@ -448,7 +448,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
               <p className="text-xs text-slate-500">পরীক্ষার নাম, কোর্স, সাবজেক্ট এবং ফলাফল প্রকাশ নিয়ন্ত্রণ করুন</p>
             </div>
 
-            <form onSubmit={handleUpdate} className="space-y-4 pt-2">
+            <form id="exam-edit-form" onSubmit={handleUpdate} className="space-y-4 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-600 mb-1">কোর্স</label>
@@ -588,22 +588,6 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setEditingExamKey(null)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer"
-                >
-                  বাতিল
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm transition shadow disabled:opacity-50 cursor-pointer"
-                >
-                  {isLoading ? "সংরক্ষণ হচ্ছে..." : "পরিবর্তন সংরক্ষণ করুন"}
-                </button>
-              </div>
             </form>
 
             {/* Question add/edit — inside the same edit modal */}
@@ -635,6 +619,25 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                   onRefresh={onRefresh}
                 />
               )}
+            </div>
+
+            {/* সংরক্ষণ / বাতিল — একদম নিচে (form attribute-এর কারণে এখান থেকেও কাজ করে) */}
+            <div className="pt-5 border-t border-slate-200 flex flex-col sm:flex-row justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setEditingExamKey(null)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+              >
+                বাতিল
+              </button>
+              <button
+                type="submit"
+                form="exam-edit-form"
+                disabled={isLoading}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs sm:text-sm transition shadow disabled:opacity-50 cursor-pointer"
+              >
+                {isLoading ? "সংরক্ষণ হচ্ছে..." : "পরিবর্তন সংরক্ষণ করুন"}
+              </button>
             </div>
           </div>
         </div>

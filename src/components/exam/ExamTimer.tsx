@@ -56,7 +56,7 @@ export const ExamTimer: React.FC<ExamTimerProps> = ({
   const timeFormatted = `${toBengaliDigits(m.toString().padStart(2, "0"))}:${toBengaliDigits(s.toString().padStart(2, "0"))}`;
 
   return (
-    <div className="flex items-center gap-2 bg-rose-50/80 text-rose-700 px-4 py-2 rounded-xl font-mono font-bold text-sm sm:text-base border border-rose-100 shadow-sm">
+    <div className="flex items-center gap-2 bg-rose-50/80 text-rose-700 px-3 py-1.5 rounded-xl font-mono font-bold text-base sm:text-lg border border-rose-100 shadow-sm">
       <Clock className="w-5 h-5 text-rose-600 animate-pulse" />
       <span>{timeFormatted}</span>
     </div>

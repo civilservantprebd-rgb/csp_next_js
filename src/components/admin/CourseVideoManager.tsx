@@ -211,7 +211,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
       )}
 
       {/* Add / Edit Form */}
-      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
+      <form id="video-manager-form" onSubmit={handleSubmit} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
         <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
           {editingId ? <><Edit2 className="w-4 h-4 text-indigo-600" /> ভিডিও এডিট করুন</> : <><Plus className="w-4 h-4 text-emerald-600" /> নতুন ভিডিও যোগ করুন (প্লেলিস্টে)</>}
           {editingId && (
@@ -237,15 +237,14 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">সাবজেক্ট / প্লেলিস্ট *</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">সাবজেক্ট / প্লেলিস্ট (খালি = কোর্স-লেভেল)</label>
             <input
               type="text"
               list="subject-options"
-              placeholder="যেমন: বাংলা সাহিত্য"
+              placeholder="যেমন: বাংলা সাহিত্য — অথবা খালি রাখুন"
               value={form.subject}
               onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-              required
             />
             <datalist id="subject-options">
               {courseSubjects.map((s) => (
@@ -318,7 +317,11 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
-          onClick={() => setFilterCourse("ALL")}
+          onClick={() => {
+            setFilterCourse("ALL");
+            setForm((f) => ({ ...f, course: "", subject: "" }));
+            setEditingId(null);
+          }}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
             filterCourse === "ALL" ? "bg-rose-600 text-white border-rose-600" : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
           }`}
@@ -332,7 +335,12 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
             <button
               key={c}
               type="button"
-              onClick={() => setFilterCourse(c)}
+              onClick={() => {
+                setFilterCourse(c);
+                // কোর্স বাছাই → ফর্মেও ওই কোর্স বসে যায় (সাবজেক্ট রিসেট)
+                setForm((f) => ({ ...f, course: c, subject: "" }));
+                setEditingId(null);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
                 isSel ? "bg-rose-600 text-white border-rose-600" : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
               }`}
@@ -375,7 +383,23 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
                         {toBengaliDigits(playlist.items.length)}টি ভিডিও
                       </span>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterCourse(courseNode.course);
+                        setForm((f) => ({
+                          ...f,
+                          course: courseNode.course,
+                          subject: playlist.subject === "সাধারণ" ? "" : playlist.subject
+                        }));
+                        setEditingId(null);
+                        document.getElementById("video-manager-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                      className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1.5 rounded-lg text-xs cursor-pointer inline-flex items-center gap-1"
+                      title="এই প্লেলিস্টে নতুন ভিডিও যোগ করুন"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> এতে যোগ করুন
+                    </button>
                   </div>
 
                   {/* Playlist videos */}
