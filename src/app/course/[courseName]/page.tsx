@@ -12,7 +12,7 @@ import { verifyStudentAccess } from "@/actions/student-actions";
 import { AppConfigData, Exam } from "@/types/exam";
 import { CourseVideo } from "@/types/video";
 import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
-import { getLocalStudentUser } from "@/lib/student-auth";
+import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { getLocalIdentity, setVerifiedStudent } from "@/lib/student-identity";
 import {
   ChevronLeft,
@@ -29,7 +29,8 @@ import {
   Loader2,
   ShieldCheck,
   ShoppingCart,
-  Layers
+  Layers,
+  LogIn
 } from "lucide-react";
 
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
@@ -59,10 +60,6 @@ export default function CourseStudyPage() {
   // Modal player — ভিডিওতে ট্যাপ করলেই খোলে
   const [playingVideo, setPlayingVideo] = useState<CourseVideo | null>(null);
 
-  // Manual identity gate
-  const [gateId, setGateId] = useState("");
-  const [gateBusy, setGateBusy] = useState(false);
-  const [gateError, setGateError] = useState("");
 
   // Exam start modal state
   const [authOpen, setAuthOpen] = useState(false);
@@ -146,42 +143,11 @@ export default function CourseStudyPage() {
     );
   }, [courseExams, examSearch]);
 
-  // ম্যানুয়াল (মোবাইল/আইডি) স্টুডেন্ট যাচাই — একবার সফল হলে পরিচয় মনে থাকবে
-  const handleManualVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const rawId = gateId.trim();
-    if (!rawId) {
-      setGateError("আপনার স্টুডেন্ট আইডি / মোবাইল / ইমেইল লিখুন।");
-      return;
-    }
-    setGateBusy(true);
-    setGateError("");
-    try {
-      const res = await verifyStudentAccess(rawId, courseName);
-      if (res.allowed) {
-        setVerifiedStudent({
-          id: res.normalizedId || rawId,
-          name: res.studentName || rawId
-        });
-        sessionStorage.setItem(
-          "current_student",
-          JSON.stringify({ id: res.normalizedId || rawId, name: res.studentName || rawId })
-        );
-        setGateId("");
-        await checkAccess();
-      } else {
-        setGateError(res.message || "অ্যাক্সেস মেলেনি। এনরোলমেন্ট যাচাই করে দেখুন।");
-      }
-    } finally {
-      setGateBusy(false);
-    }
-  };
 
   const handleStartExam = async (examKey: string) => {
     const ex = examsObj[examKey];
     if (!ex) return;
     const googleUser = getLocalStudentUser();
-    const identity = getLocalIdentity();
 
     if (googleUser) {
       const { isExamCurrentlyLive } = await import("@/lib/bangladesh-time");
@@ -215,29 +181,6 @@ export default function CourseStudyPage() {
       return;
     }
 
-    if (identity) {
-      if (ex.isFree) {
-        sessionStorage.setItem(
-          "current_student",
-          JSON.stringify({ id: identity.id, name: identity.name || videoResult?.name || "শিক্ষার্থী" })
-        );
-        router.push(`/exam/${examKey}`);
-        return;
-      } else {
-        const res = await verifyStudentAccess(identity.id, ex.course, identity.email);
-        if (res.allowed) {
-          sessionStorage.setItem(
-            "current_student",
-            JSON.stringify({ id: res.normalizedId || identity.id, name: res.studentName || identity.name || "শিক্ষার্থী" })
-          );
-          router.push(`/exam/${examKey}`);
-          return;
-        }
-        alert(res.message || "এই কোর্সে আপনার এনরোলমেন্ট নেই — Enroll করে শিক্ষকের অনুমোদন নিন।");
-        setEnrollOpen(true);
-        return;
-      }
-    }
 
     setPendingExam(ex);
     setAuthOpen(true);
@@ -531,36 +474,23 @@ export default function CourseStudyPage() {
                       <div className="space-y-1">
                         <p className="font-black text-slate-900 text-sm sm:text-base">এনরোল্ড স্টুডেন্টরাই ভিডিও ক্লাস দেখতে পারবেন</p>
                         <p className="text-xs text-slate-500 max-w-md leading-relaxed">
-                          কোর্স কিনে শিক্ষকের অনুমোদন পেলে নিচে আপনার আইডি/মোবাইল দিয়ে যাচাই করলেই সব প্লেলিস্ট আনলক হবে।{" "}
+                          কোর্স কিনে শিক্ষকের অনুমোদন পেলে Google লগইন করলেই সব প্লেলিস্ট আনলক হয়ে যাবে।{" "}
                           <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-amber-700 cursor-pointer">
                             আগে কোর্স কিনুন
                           </button>
                           ।
                         </p>
                       </div>
-                      <form onSubmit={handleManualVerify} className="w-full max-w-sm space-y-2">
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={gateId}
-                            onChange={(e) => setGateId(e.target.value)}
-                            placeholder="স্টুডেন্ট আইডি / মোবাইল / ইমেইল"
-                            className="flex-1 px-3.5 py-2.5 rounded-xl bg-white text-slate-900 text-xs sm:text-sm border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                          />
-                          <button
-                            type="submit"
-                            disabled={gateBusy}
-                            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
-                          >
-                            {gateBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                            যাচাই করুন
-                          </button>
-                        </div>
-                        {gateError && <p className="text-rose-600 text-sm text-left">{gateError}</p>}
-                        {videoResult?.message && !gateError && (
-                          <p className="text-slate-400 text-sm text-left">{videoResult.message}</p>
-                        )}
-                      </form>
+                      <button
+                        type="button"
+                        onClick={() => loginWithGoogle(undefined, `/course/${encodeURIComponent(courseName)}`)}
+                        className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-3 rounded-xl text-xs sm:text-sm transition shadow-md cursor-pointer"
+                      >
+                        <LogIn className="w-4 h-4" /> Google দিয়ে লগইন করুন
+                      </button>
+                      {videoResult?.message && (
+                        <p className="text-slate-400 text-sm">{videoResult.message}</p>
+                      )}
                     </>
                   )}
                 </div>
@@ -593,7 +523,7 @@ export default function CourseStudyPage() {
                   <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-indigo-600 cursor-pointer">
                     কোর্স কিনুন
                   </button>
-                  {!hasGoogleUser && " বা উপরে আইডি দিয়ে যাচাই করুন"}
+                  {!hasGoogleUser && " বা Google দিয়ে লগইন করুন"}
                 </p>
               </div>
             ) : playlists.length === 0 ? (

@@ -11,23 +11,20 @@ import { EnrollModal } from "@/components/modals/EnrollModal";
 import { fetchAppConfigLite } from "@/actions/admin-actions";
 import { AppConfigData } from "@/types/exam";
 import { Submission } from "@/types/submission";
-import { Contact, ArrowRight, Sparkles, Phone, UserCheck, CircleAlert } from "lucide-react";
+import { Contact, ArrowRight, Sparkles, CircleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { parseBengaliDigits } from "@/lib/utils";
-import { getLocalStudentUser } from "@/lib/student-auth";
-import { setVerifiedStudent, getVerifiedStudent } from "@/lib/student-identity";
+import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 
 export default function PortalPage() {
   const router = useRouter();
-  const [studentId, setStudentId] = useState("");
   const [activeStudentId, setActiveStudentId] = useState("");
   const [config, setConfig] = useState<AppConfigData | null>(null);
+  const [configError, setConfigError] = useState("");
+  const [configAttempt, setConfigAttempt] = useState(0);
   const [isDashOpen, setIsDashOpen] = useState(false);
   const [isPortalModalOpen, setIsPortalModalOpen] = useState(false);
   const [isEnrollOpen, setIsEnrollOpen] = useState(false);
   const [selectedSub, setSelectedSub] = useState<Submission | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [savedId, setSavedId] = useState<string | null>(null);
   const [googleUser, setGoogleUser] = useState<{ uid: string; name: string; photoURL?: string } | null>(null);
 
   useEffect(() => {
@@ -41,8 +38,8 @@ export default function PortalPage() {
     fetchAppConfigLite()
       .then(setConfig)
       .catch(() => {
-        console.error("App config fetch failed on portal page.");
-        setErrorMsg("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
+        console.error("Portal page config fetch failed.");
+        setConfigError("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
       });
 
     const gUser = getLocalStudentUser();
@@ -50,50 +47,32 @@ export default function PortalPage() {
       setGoogleUser(gUser);
       setActiveStudentId(gUser.uid);
       setIsDashOpen(true);
-    } else if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("bcs_last_student_id");
-      if (stored) setSavedId(stored);
-      const verified = getVerifiedStudent();
-      if (verified && verified.id) {
-        // Returning ID-verified student: reopen the dashboard directly. Without
-        // a Google session the dashboard itself explains that login is needed
-        // (with a Google-login button) instead of showing a bare login wall.
-        setActiveStudentId(verified.id);
-        setIsDashOpen(true);
-      }
     }
-  }, [router]);
+  }, [router, configAttempt]);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = studentId.trim();
-    if (!clean) {
-      setErrorMsg("দয়া করে আপনার স্টুডেন্ট আইডি বা মোবাইল নম্বর দিন।");
-      return;
+  const handleGoogleLogin = async () => {
+    try {
+      await loginWithGoogle(undefined, "/portal");
+    } catch (err) {
+      console.error(err);
     }
-    const norm = parseBengaliDigits(clean).trim();
-    if (typeof window !== "undefined") {
-      localStorage.setItem("bcs_last_student_id", norm || clean);
-    }
-    setActiveStudentId(norm || clean);
-    setVerifiedStudent({ id: norm || clean });
-    setIsDashOpen(true);
-  };
-
-  const handleUseSaved = (id: string) => {
-    const norm = parseBengaliDigits(id).trim();
-    setActiveStudentId(norm || id);
-    setVerifiedStudent({ id: norm || id });
-    setIsDashOpen(true);
   };
 
   return (
     <>
-      <Header onOpenStudentPortal={() => setIsPortalModalOpen(true)} />
+      <Header
+        onOpenStudentPortal={() => {
+          if (getLocalStudentUser()) {
+            setIsDashOpen(true);
+          } else {
+            setIsPortalModalOpen(true);
+          }
+        }}
+      />
 
       <main className="flex-grow max-w-lg w-full mx-auto p-4 sm:p-6 font-bengali flex items-center justify-center">
-        <div className="relative w-full bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
-          {/* Top Banner Gradient */}
+        <div className="relative w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+          {/* Top Banner */}
           <div className="relative bg-gradient-to-tr from-indigo-900 via-indigo-800 to-violet-800 text-white p-6 sm:p-8 text-center overflow-hidden">
             <div className="absolute -top-10 -right-10 w-36 h-36 bg-white/10 rounded-full blur-xl pointer-events-none" />
             <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-amber-400/20 rounded-full blur-lg pointer-events-none" />
@@ -104,7 +83,7 @@ export default function PortalPage() {
                   <Contact className="w-8 h-8 text-amber-300" />
                 </div>
               </div>
-              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-slate-950 text-xs font-black shadow">
+              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-black shadow">
                 <Sparkles className="w-3 h-3" />
               </span>
             </div>
@@ -115,9 +94,24 @@ export default function PortalPage() {
             </p>
           </div>
 
-          <div className="p-6 sm:p-8 space-y-5">
-            {/* Google session detected: show reopen button instead of ID form */}
-            {googleUser ? (
+          <div className="p-6 sm:p-8">
+            {configError && (
+              <div className="space-y-3">
+                <div className="bg-rose-50 border border-rose-200/80 text-rose-700 text-xs p-3.5 rounded-2xl flex items-start gap-2.5">
+                  <CircleAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <p className="leading-snug">{configError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfigAttempt((n) => n + 1)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl text-sm cursor-pointer transition"
+                >
+                  আবার চেষ্টা করুন
+                </button>
+              </div>
+            )}
+
+            {!configError && googleUser && (
               <div className="text-center space-y-4 py-2">
                 <div className="flex items-center justify-center gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
                   {googleUser.photoURL ? (
@@ -129,79 +123,52 @@ export default function PortalPage() {
                   )}
                   <div className="text-left">
                     <p className="text-xs font-bold text-slate-800">{googleUser.name}</p>
-                    <p className="text-sm text-slate-500">লগইন আছেন</p>
+                    <p className="text-[11px] text-slate-500">লগইন আছেন</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setActiveStudentId(googleUser.uid); setVerifiedStudent({ id: googleUser.uid, name: googleUser.name }); setIsDashOpen(true); }}
+                  onClick={() => {
+                    setActiveStudentId(googleUser.uid);
+                    setIsDashOpen(true);
+                  }}
                   className="w-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
                 >
                   <span>ড্যাশবোর্ড খুলুন</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-            ) : (
-              // No Google session: show the classic ID form
-              <>
-                {errorMsg && (
-                  <div className="bg-rose-50 border border-rose-200/80 text-rose-700 text-xs p-3.5 rounded-2xl flex items-start gap-2.5 shadow-sm">
-                    <CircleAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                    <p className="leading-snug">{errorMsg}</p>
-                  </div>
-                )}
+            )}
 
-                {savedId && (
-                  <div className="bg-indigo-50/70 border border-indigo-100 p-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2 text-indigo-900 min-w-0">
-                      <UserCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-                      <span className="truncate">আগের আইডি: <strong className="font-mono font-bold text-indigo-700">{savedId}</strong></span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleUseSaved(savedId)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl transition text-sm shrink-0 shadow-sm cursor-pointer"
-                    >
-                      সরাসরি প্রবেশ
-                    </button>
-                  </div>
-                )}
+            {!configError && !googleUser && (
+              <div className="text-center space-y-5 py-2">
+                <div className="space-y-2">
+                  <h3 className="text-base font-black text-slate-900">Google লগইন আবশ্যক</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+                    ফলাফল, পারফরম্যান্স বিশ্লেষণ, ভুল উত্তরের খাতা ও বুকমার্ক দেখতে
+                    <strong className="text-slate-700"> Google অ্যাকাউন্ট দিয়ে লগইন</strong> করুন।
+                    লগইনের পর আপনার রেকর্ড স্বয়ংক্রিয়ভাবে খুলে যাবে।
+                  </p>
+                </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      স্টুডেন্ট আইডি / মোবাইল নম্বর
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Phone className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        placeholder="যেমন: 01700000000"
-                        value={studentId}
-                        onChange={(e) => {
-                          setStudentId(e.target.value);
-                          if (errorMsg) setErrorMsg("");
-                        }}
-                        className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm font-mono transition text-slate-900 placeholder:text-slate-400 shadow-inner"
-                      />
-                    </div>
-                    <p className="text-sm text-slate-400 mt-1.5">
-                      💡 ভর্তির সময় ব্যবহৃত মোবাইল নম্বরটিই আপনার স্টুডেন্ট আইডি
-                    </p>
-                  </div>
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3.5 px-4 rounded-2xl border border-slate-300 shadow-sm transition flex items-center justify-center gap-2.5 text-sm cursor-pointer"
+                >
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.68 1.54 14.98 1 12 1 7.35 1 3.37 3.67 1.39 7.56l3.89 3.02C6.21 7.42 8.87 5.04 12 5.04z" />
+                    <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.7-4.99 3.7-8.62z" />
+                    <path fill="#FBBC05" d="M5.28 14.78a7.02 7.02 0 0 1-.37-2.22c0-.77.13-1.51.37-2.22L1.39 7.32A11.96 11.96 0 0 0 0 12c0 1.72.36 3.35.99 4.83l4.29-3.05z" />
+                    <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.1.74-2.51 1.18-4.23 1.18-3.13 0-5.79-2.38-6.73-5.54l-3.89 3.02C3.37 20.33 7.35 23 12 23z" />
+                  </svg>
+                  Google দিয়ে লগইন করুন
+                </button>
 
-                  <button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
-                  >
-                    <span>ড্যাশবোর্ডে প্রবেশ করুন</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </form>
-              </>
+                <p className="text-xs text-slate-400">
+                  💡 যে Google অ্যাকাউন্টে এনরোলমেন্ট নিবন্ধিত সেই অ্যাকাউন্ট দিয়েই লগইন করুন।
+                </p>
+              </div>
             )}
           </div>
         </div>
