@@ -20,6 +20,7 @@ const StudentApproval = dynamic(() => import("@/components/admin/StudentApproval
 const QuestionBankManager = dynamic(() => import("@/components/admin/QuestionBankManager").then(mod => mod.QuestionBankManager), { loading: LoadingFallback });
 const AdminAnalyticsDashboard = dynamic(() => import("@/components/admin/AdminAnalyticsDashboard").then(mod => mod.AdminAnalyticsDashboard), { loading: LoadingFallback });
 const ArchiveManager = dynamic(() => import("@/components/admin/ArchiveManager").then(mod => mod.ArchiveManager), { loading: LoadingFallback });
+const CourseVideoManager = dynamic(() => import("@/components/admin/CourseVideoManager").then(mod => mod.CourseVideoManager), { loading: LoadingFallback });
 import { fetchAppConfig, fetchAppConfigLite, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
 import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
@@ -712,6 +713,8 @@ export default function AdminPage() {
                 </div>
               )
             )}
+
+            {activeTab === "videos" && <CourseVideoManager courses={config.courses || []} />}
 
             {activeTab === "archive" && (
               <ArchiveManager

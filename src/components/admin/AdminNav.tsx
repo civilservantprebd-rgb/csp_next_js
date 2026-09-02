@@ -10,7 +10,8 @@ import {
   Layers,
   BarChart3,
   Link2,
-  Archive
+  Archive,
+  Video
 } from "lucide-react";
 
 export type AdminTabType =
@@ -21,6 +22,7 @@ export type AdminTabType =
   | "students"
   | "questions"
   | "question_bank"
+  | "videos"
   | "archive"
   | "drivelinks";
 
@@ -38,6 +40,7 @@ export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) =>
     { id: "subjects", label: "সাবজেক্ট", icon: BookOpen },
     { id: "students", label: "আইডি ও রিকোয়েস্ট", icon: Users },
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
+    { id: "videos", label: "কোর্স ভিডিও", icon: Video },
     { id: "archive", label: "আর্কাইভ", icon: Archive },
     { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2 },
   ];

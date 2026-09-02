@@ -275,13 +275,13 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
         {/* Chapter & Subtopic Exploration Hub */}
         <TopicExplorerHub config={config} onOpenEnrollModal={handleOpenEnrollModal} />
 
-        {/* Dynamic Course Card Grid (Each course is a box with subjects, exams, enroll button & start exam button) */}
+        {/* Course Directory — each course opens its study page (video classes + exams) */}
         <CourseCardGrid
           courses={coursesList}
           subjects={subjectsList}
           exams={examsObj}
           pinnedCourses={config.pinnedCourses || []}
-          onStartExam={handleStartExamByKey}
+          onOpenCourse={(course) => router.push(`/course/${encodeURIComponent(course)}`)}
           onOpenEnrollModal={handleOpenEnrollModal}
         />
       </main>
