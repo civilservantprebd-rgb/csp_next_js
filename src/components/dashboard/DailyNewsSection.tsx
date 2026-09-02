@@ -5,9 +5,8 @@ import {
   Newspaper,
   CalendarDays,
   Loader2,
-  ChevronDown,
-  ChevronLeft,
   ChevronRight,
+  ChevronLeft,
   X,
   Calendar as CalendarIcon,
   Layers
@@ -51,7 +50,7 @@ function shortLabel(key: string): string {
 /* ---------- মিনি ক্যালেন্ডার ---------- */
 
 interface MiniCalendarProps {
-  month: number; // 1-12
+  month: number;
   year: number;
   newsKeys: Set<string>;
   selectedKey: string | null;
@@ -64,8 +63,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
   month, year, newsKeys, selectedKey, onSelect, onPrev, onNext
 }) => {
   const firstDow = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
-  // সপ্তাহ শুরু শনিবার থেকে
-  const offset = (firstDow + 1) % 7;
+  const offset = (firstDow + 1) % 7; // সপ্তাহ শুরু শনিবার
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const today = todayBD();
   const cells: (number | null)[] = [
@@ -75,7 +73,6 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
 
   return (
     <div className="select-none">
-      {/* মাস নেভিগেশন */}
       <div className="flex items-center justify-between mb-2">
         <button
           type="button"
@@ -98,7 +95,6 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
         </button>
       </div>
 
-      {/* সপ্তাহের নাম */}
       <div className="grid grid-cols-7 gap-1 mb-1">
         {WEEKDAYS.map((w) => (
           <span key={w} className="text-center text-[9px] font-black text-slate-400 py-0.5">
@@ -107,7 +103,6 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
         ))}
       </div>
 
-      {/* দিনের গ্রিড */}
       <div className="grid grid-cols-7 gap-1">
         {cells.map((day, idx) => {
           if (day === null) return <span key={`x_${idx}`} />;
@@ -144,25 +139,92 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
   );
 };
 
+/* ---------- বিস্তারিত পপআপ ---------- */
+
+const NewsDetailPopup: React.FC<{ item: DailyNewsItem; onClose: () => void }> = ({ item, onClose }) => {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  const dateKey = bdParts(item.createdAt)?.key || "";
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4 font-bengali">
+      {/* ব্যাকড্রপ */}
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
+
+      {/* গ্লাস কার্ড */}
+      <div className="relative w-full sm:max-w-lg max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-white/70 bg-white/90 backdrop-blur-2xl shadow-2xl shadow-slate-900/30 overflow-hidden animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 duration-300">
+        {/* হেডার */}
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-slate-900/5 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0">
+              <Newspaper className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-black text-slate-900 tracking-wide truncate">দৈনিক সংবাদ</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="বন্ধ করুন"
+            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* কন্টেন্ট — স্ক্রলযোগ্য */}
+        <div className="px-4 sm:px-5 py-4 overflow-y-auto">
+          {dateKey && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200/70 px-2 py-0.5 rounded-full mb-2.5">
+              <CalendarDays className="w-3 h-3" /> {longLabel(dateKey)}
+            </span>
+          )}
+          <h3 className="font-black text-slate-900 text-base sm:text-lg leading-snug mb-3">{item.heading}</h3>
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">{item.body}</p>
+        </div>
+
+        {/* ফুটার */}
+        <div className="px-4 sm:px-5 pb-4 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold py-2.5 rounded-xl transition cursor-pointer shadow-md shadow-slate-900/15"
+          >
+            পড়েছি
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ---------- মূল সেকশন ---------- */
 
 /**
- * হোম পেজের "দৈনিক সংবাদ" — মিনিমালিস্ট গ্লাস-প্যানেল:
- * - উপরে স্টিকি কমপ্যাক্ট বার (শিরোনাম + ক্যালেন্ডার) — নিচে স্ক্রল করলে
- *   কনটেন্ট বারটার নিচে ভাঁজ হয়ে (fold) যায়
- * - প্রথম সংবাদ (সর্বশেষ) বড় করে খোলা, বাকিগুলো অ্যাকর্ডিয়ন (ট্যাপ = ভাঁজ খোলা)
- * - ক্যালেন্ডার আইকনে ট্যাপ → যেকোনো দিন বাছাই, ওই দিনের সব সংবাদ পড়া যায়
+ * হোম পেজের "দৈনিক সংবাদ":
+ * - শুধু সর্বশেষ ৩টি হেডিং (কমপ্যাক্ট বক্স) দেখায়
+ * - যেকোনো হেডিংয়ে ট্যাপ করলে পপআপে পুরো নিউজ খোলে
+ * - "তারিখ" বাটন → ক্যালেন্ডার, ওই দিনের সব সংবাদ দেখা যায়
  */
 export const DailyNewsSection: React.FC = () => {
   const [news, setNews] = useState<DailyNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string>("");
-  const [viewKey, setViewKey] = useState<string | null>(null); // null = সব
+  const [viewKey, setViewKey] = useState<string | null>(null);
   const [calOpen, setCalOpen] = useState(false);
   const [calMonth, setCalMonth] = useState<{ y: number; m: number }>(() => {
     const t = todayBD();
     return { y: t.y, m: t.m };
   });
+  const [reading, setReading] = useState<DailyNewsItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,7 +233,6 @@ export const DailyNewsSection: React.FC = () => {
         const list = await getDailyNews();
         if (cancelled) return;
         setNews(list || []);
-        if (list && list.length > 0) setExpandedId(list[0].id);
       } catch {
         // টেবিল না থাকলে চুপচাপ খালি
       } finally {
@@ -183,7 +244,6 @@ export const DailyNewsSection: React.FC = () => {
     };
   }, []);
 
-  // প্রতিটি সংবাদের BD-তারিখ
   const dated = useMemo(
     () =>
       (news || [])
@@ -194,25 +254,20 @@ export const DailyNewsSection: React.FC = () => {
 
   const newsKeys = useMemo(() => new Set(dated.map((x) => x.bd.key)), [dated]);
 
+  // ডিফল্ট: সর্বশেষ ৩টি; তারিখ বাছাই করলে ওই দিনের সব
   const visible = useMemo(() => {
-    if (!viewKey) return dated;
-    return dated.filter((x) => x.bd.key === viewKey);
+    if (viewKey) return dated.filter((x) => x.bd.key === viewKey);
+    return dated.slice(0, 3);
   }, [dated, viewKey]);
-
-  // খোলা আইটেমটা visible-এর মধ্যে না থাকলে প্রথমটা খুলে দিই
-  const openItem = visible.find((x) => x.n.id === expandedId) || visible[0];
 
   const selectDay = (key: string) => {
     setViewKey(key);
     setCalOpen(false);
-    const first = dated.find((x) => x.bd.key === key);
-    if (first) setExpandedId(first.n.id);
   };
 
   const resetDay = () => {
     setViewKey(null);
     setCalOpen(false);
-    if (dated.length > 0) setExpandedId(dated[0].n.id);
   };
 
   if (loading) {
@@ -228,175 +283,137 @@ export const DailyNewsSection: React.FC = () => {
   if (news.length === 0) return null;
 
   return (
-    <section className="font-bengali rounded-3xl border border-white/60 bg-white/45 backdrop-blur-xl shadow-lg shadow-slate-900/5 overflow-hidden">
-      {/* ===== স্ক্রল প্যানেল: বার + কার্ডগুলো ===== */}
-      <div className="max-h-[560px] overflow-y-auto overscroll-contain">
-        {/* স্টিকি কমপ্যাক্ট বার — স্ক্রল করলে কার্ডগুলো এর নিচে ভাঁজ হয়ে যায় */}
-        <div className="sticky top-0 z-20 px-4 sm:px-5 pt-4 pb-2.5 bg-white/70 backdrop-blur-2xl border-b border-white/70 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-md shadow-slate-900/20 shrink-0">
-                <Newspaper className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-black text-slate-900 text-base leading-tight">দৈনিক সংবাদ</h2>
-                <p className="text-[11px] text-slate-500 font-semibold truncate">
-                  {viewKey ? `${longLabel(viewKey)} — মোট ${toBengaliDigits(visible.length)}টি` : "প্রতিদিনের গুরুত্বপূর্ণ আপডেট"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="hidden sm:inline text-[10px] font-bold text-slate-500 bg-white/80 border border-white/90 px-2 py-1 rounded-full shadow-sm">
-                {toBengaliDigits(news.length)}টি সংবাদ
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setCalOpen((v) => !v);
-                  const t = todayBD();
-                  setCalMonth({ y: t.y, m: t.m });
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer shadow-sm ${
-                  viewKey
-                    ? "bg-slate-900 text-white hover:bg-slate-700"
-                    : "bg-white/80 border border-white/90 text-slate-700 hover:bg-slate-100"
-                }`}
-                title="তারিখ ধরে সংবাদ দেখুন"
-              >
-                <CalendarDays className="w-3.5 h-3.5" />
-                {viewKey ? shortLabel(viewKey) : "তারিখ"}
-              </button>
-              {viewKey && (
-                <button
-                  type="button"
-                  onClick={resetDay}
-                  className="w-8 h-8 rounded-xl bg-white/80 border border-white/90 text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer shadow-sm"
-                  title="সব সংবাদ দেখুন"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+    <section className="font-bengali rounded-3xl border border-white/60 bg-white/45 backdrop-blur-xl shadow-lg shadow-slate-900/5 p-4 sm:p-5">
+      {/* হেডার */}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-md shadow-slate-900/20 shrink-0">
+            <Newspaper className="w-5 h-5" />
           </div>
-
-          {/* ক্যালেন্ডার ড্রপডাউন */}
-          {calOpen && (
-            <div className="mt-3 rounded-2xl border border-white/80 bg-white/95 backdrop-blur-2xl shadow-xl shadow-slate-900/10 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
-                  <CalendarIcon className="w-3.5 h-3.5" /> তারিখ বাছাই করুন
-                </p>
-                <button
-                  type="button"
-                  onClick={resetDay}
-                  className="text-[11px] font-bold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                >
-                  সব দেখুন
-                </button>
-              </div>
-              <MiniCalendar
-                month={calMonth.m}
-                year={calMonth.y}
-                newsKeys={newsKeys}
-                selectedKey={viewKey}
-                onSelect={selectDay}
-                onPrev={() => {
-                  setCalMonth(({ y, m }) => (m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 }));
-                }}
-                onNext={() => {
-                  setCalMonth(({ y, m }) => (m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 }));
-                }}
-              />
-              <p className="text-[10px] text-slate-400 font-semibold mt-2 flex items-center gap-1">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-900" /> চিহ্নিত দিনগুলোতে সংবাদ আছে
-              </p>
-            </div>
-          )}
+          <div className="min-w-0">
+            <h2 className="font-black text-slate-900 text-base leading-tight">দৈনিক সংবাদ</h2>
+            <p className="text-[11px] text-slate-500 font-semibold truncate">
+              {viewKey ? `${longLabel(viewKey)} — ${toBengaliDigits(visible.length)}টি` : "সর্বশেষ আপডেট"}
+            </p>
+          </div>
         </div>
 
-        {/* ===== সংবাদের কার্ডসমূহ ===== */}
-        {visible.length === 0 ? (
-          <div className="px-4 sm:px-5 py-10 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
-              <Layers className="w-6 h-6" />
-            </div>
-            <p className="text-xs font-bold text-slate-500">
-              {viewKey ? `${longLabel(viewKey)} তারিখে কোনো সংবাদ নেই` : "কোনো সংবাদ নেই"}
-            </p>
-            {viewKey && (
-              <button
-                type="button"
-                onClick={resetDay}
-                className="mt-3 text-xs font-bold text-white bg-slate-900 hover:bg-slate-700 px-4 py-2 rounded-xl transition cursor-pointer"
-              >
-                সব সংবাদ দেখুন
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="p-3 sm:p-4 space-y-2">
-            {visible.map(({ n, bd }, idx) => {
-              const isOpen = openItem?.n.id === n.id;
-              const isFirst = idx === 0;
-              return (
-                <div
-                  key={n.id}
-                  className={`rounded-2xl border transition-all duration-300 shadow-sm overflow-hidden ${
-                    isOpen
-                      ? "border-slate-300 bg-white/90 backdrop-blur-xl shadow-md"
-                      : "border-white/70 bg-white/55 backdrop-blur-xl hover:bg-white/75 hover:shadow-md"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setExpandedId(isOpen ? "" : n.id)}
-                    className="w-full text-left px-3.5 py-3 cursor-pointer flex items-start gap-2.5"
-                  >
-                    {isFirst && !viewKey && (
-                      <span className="mt-0.5 shrink-0 bg-slate-900 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                        সর্বশেষ
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={`block font-bold text-xs sm:text-sm leading-snug ${
-                          isOpen ? "text-slate-900" : "text-slate-700"
-                        }`}
-                      >
-                        {n.heading}
-                      </span>
-                      <span className="block text-[11px] text-slate-400 font-bold mt-0.5">
-                        {shortLabel(bd.key)}
-                      </span>
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 shrink-0 mt-0.5 transition-transform duration-300 ${
-                        isOpen ? "rotate-180 text-slate-900" : "text-slate-400"
-                      }`}
-                    />
-                  </button>
-
-                  {/* ভাঁজ-খোলা বডি (মসৃণ অ্যাকর্ডিয়ন) */}
-                  <div
-                    className={`grid transition-all duration-300 ease-in-out ${
-                      isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                    }`}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="px-3.5 pb-3.5">
-                        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line border-t border-slate-900/5 pt-2.5">
-                          {n.body}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setCalOpen((v) => !v);
+              const t = todayBD();
+              setCalMonth({ y: t.y, m: t.m });
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer shadow-sm ${
+              viewKey
+                ? "bg-slate-900 text-white hover:bg-slate-700"
+                : "bg-white/80 border border-white/90 text-slate-700 hover:bg-slate-100"
+            }`}
+            title="তারিখ ধরে সংবাদ দেখুন"
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            {viewKey ? shortLabel(viewKey) : "তারিখ"}
+          </button>
+          {viewKey && (
+            <button
+              type="button"
+              onClick={resetDay}
+              className="w-8 h-8 rounded-xl bg-white/80 border border-white/90 text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer shadow-sm"
+              title="সব দেখুন"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* ক্যালেন্ডার ড্রপডাউন */}
+      {calOpen && (
+        <div className="mb-3 rounded-2xl border border-white/80 bg-white/95 backdrop-blur-2xl shadow-xl shadow-slate-900/10 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
+              <CalendarIcon className="w-3.5 h-3.5" /> তারিখ বাছাই করুন
+            </p>
+            <button
+              type="button"
+              onClick={resetDay}
+              className="text-[11px] font-bold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+            >
+              সব দেখুন
+            </button>
+          </div>
+          <MiniCalendar
+            month={calMonth.m}
+            year={calMonth.y}
+            newsKeys={newsKeys}
+            selectedKey={viewKey}
+            onSelect={selectDay}
+            onPrev={() => {
+              setCalMonth(({ y, m }) => (m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 }));
+            }}
+            onNext={() => {
+              setCalMonth(({ y, m }) => (m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 }));
+            }}
+          />
+          <p className="text-[10px] text-slate-400 font-semibold mt-2 flex items-center gap-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-900" /> চিহ্নিত দিনগুলোতে সংবাদ আছে
+          </p>
+        </div>
+      )}
+
+      {/* হেডিং তালিকা */}
+      {visible.length === 0 ? (
+        <div className="py-10 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
+            <Layers className="w-6 h-6" />
+          </div>
+          <p className="text-xs font-bold text-slate-500">
+            {viewKey ? `${longLabel(viewKey)} তারিখে কোনো সংবাদ নেই` : "কোনো সংবাদ নেই"}
+          </p>
+          {viewKey && (
+            <button
+              type="button"
+              onClick={resetDay}
+              className="mt-3 text-xs font-bold text-white bg-slate-900 hover:bg-slate-700 px-4 py-2 rounded-xl transition cursor-pointer"
+            >
+              সব সংবাদ দেখুন
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {visible.map(({ n, bd }, idx) => (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => setReading(n)}
+              className="w-full text-left rounded-2xl border border-white/70 bg-white/60 backdrop-blur-xl px-3.5 py-3 shadow-sm hover:bg-white/85 hover:shadow-md transition cursor-pointer flex items-center gap-2.5 group"
+            >
+              {idx === 0 && !viewKey && (
+                <span className="shrink-0 bg-slate-900 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                  সর্বশেষ
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block font-bold text-xs sm:text-sm leading-snug text-slate-800 group-hover:text-slate-900">
+                  {n.heading}
+                </span>
+                <span className="block text-[11px] text-slate-400 font-bold mt-0.5">
+                  {shortLabel(bd.key)}
+                </span>
+              </span>
+              <span className="shrink-0 w-7 h-7 rounded-full bg-slate-100 group-hover:bg-slate-900 text-slate-500 group-hover:text-white flex items-center justify-center transition">
+                <ChevronRight className="w-4 h-4" />
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* বিস্তারিত পপআপ */}
+      {reading && <NewsDetailPopup item={reading} onClose={() => setReading(null)} />}
     </section>
   );
 };

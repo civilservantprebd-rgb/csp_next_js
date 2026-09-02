@@ -254,22 +254,22 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
         </div>
       </header>
 
-      {/* Side panel (drawer) — light theme, matches site modals */}
+      {/* Side panel (drawer) — glass, black & white */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={closeMenu}
             aria-hidden="true"
           />
 
           {/* Panel — slides in from the right */}
-          <div className="absolute right-0 top-0 h-full w-72 max-w-[85%] bg-white text-slate-800 shadow-2xl flex flex-col border-l border-slate-200">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <div className="absolute right-0 top-0 h-full w-72 max-w-[85%] bg-white/75 backdrop-blur-2xl text-slate-800 shadow-2xl shadow-slate-900/20 flex flex-col border-l border-white/60">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-900/5">
               <span className="flex items-center gap-2 font-black text-base text-indigo-900">
-                <span className="bg-gradient-to-tr from-amber-400 to-indigo-500 p-1.5 rounded-lg">
-                  <GraduationCap className="w-4 h-4 text-slate-900" />
+                <span className="bg-indigo-50 border border-indigo-100 text-indigo-600 p-1.5 rounded-lg">
+                  <GraduationCap className="w-4 h-4" />
                 </span>
                 আরোহণ
               </span>
@@ -277,7 +277,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                 type="button"
                 onClick={closeMenu}
                 aria-label="মেনু বন্ধ করুন"
-                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer"
+                className="p-2 rounded-lg bg-white/70 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 cursor-pointer border border-slate-900/5"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -287,9 +287,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               <button
                 type="button"
                 onClick={goHome}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-indigo-100"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
               >
-                <GraduationCap className="w-5 h-5 text-indigo-500" /> হোম
+                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <GraduationCap className="w-4 h-4" />
+                </span>
+                হোম
               </button>
 
               <button
@@ -298,9 +301,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                   closeMenu();
                   router.push("/practice");
                 }}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-teal-200"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
               >
-                <Sparkles className="w-5 h-5 text-teal-500" /> সেলফ প্র্যাকটিস
+                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                সেলফ প্র্যাকটিস
               </button>
 
               <button
@@ -309,25 +315,34 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                   closeMenu();
                   router.push("/question-bank");
                 }}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-violet-50 text-slate-700 hover:text-violet-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-violet-200"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
               >
-                <Layers className="w-5 h-5 text-violet-500" /> প্রশ্নব্যাংক
+                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Layers className="w-4 h-4" />
+                </span>
+                প্রশ্নব্যাংক
               </button>
 
               <button
                 type="button"
                 onClick={openLeaderboard}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-amber-50 text-slate-700 hover:text-amber-900 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-amber-200"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
               >
-                <Trophy className="w-5 h-5 text-amber-500" /> লিডারবোর্ড
+                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4" />
+                </span>
+                লিডারবোর্ড
               </button>
 
               <button
                 type="button"
                 onClick={openStudentPortal}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-emerald-200"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
               >
-                <Contact className="w-5 h-5 text-emerald-500" /> Student Portal
+                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Contact className="w-4 h-4" />
+                </span>
+                Student Portal
               </button>
 
               <button
@@ -337,14 +352,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                   sessionStorage.setItem("open_enroll", "1");
                   router.push("/");
                 }}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-amber-50 text-slate-700 hover:text-amber-900 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-amber-200"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
               >
-                <ShoppingCart className="w-5 h-5 text-amber-500" /> কোর্স এনরোল করুন
+                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <ShoppingCart className="w-4 h-4" />
+                </span>
+                কোর্স এনরোল করুন
               </button>
             </nav>
 
-            <div className="px-4 py-3 border-t border-slate-200">
-              <p className="text-xs text-slate-400 font-medium">
+            <div className="px-4 py-3 border-t border-slate-900/5">
+              <p className="text-xs text-slate-500 font-medium">
                 BCS & Job Preparation Portal
               </p>
             </div>
