@@ -31,7 +31,7 @@ html {
 
 @media print {
   html {
-    font-size: 16px !important;
+    font-size: 15px !important;
   }
 
   html,
@@ -84,5 +84,32 @@ html {
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+}
+
+/* ---- Marksheet PDF pagination safety (mobile printing) ---- */
+@media print {
+  /* কখনো লাইন/অনুচ্ছেদ মাঝপথে কেটে নতুন পেজে যাবে না */
+  #printable-marksheet h1,
+  #printable-marksheet h2,
+  #printable-marksheet h3,
+  #printable-marksheet h4,
+  #printable-marksheet p,
+  #printable-marksheet span,
+  #printable-marksheet li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* বিশ্লেষণ সেকশন নতুন পেজ থেকে শুরু — মাঝপথে অর্ধেক সেকশন ভাঙা বন্ধ */
+  #printable-marksheet [data-analysis-section] {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* পেজের প্রস্থের বাইরে কিছু যাবে না (মোবাইল প্রিন্টে অনুভূমিক কাটা বন্ধ) */
+  #printable-marksheet,
+  #printable-marksheet * {
+    max-width: 100% !important;
   }
 }

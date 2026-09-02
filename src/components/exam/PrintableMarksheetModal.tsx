@@ -255,7 +255,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
 
             {/* Detailed Question Analysis — question, student answer, correct answer, explanation */}
             {questions && questions.length > 0 && (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-2" data-analysis-section>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider print:break-after-avoid">
                   প্রশ্ন ও উত্তর বিশ্লেষণ (প্রতিটি প্রশ্নের বিস্তারিত):
                 </h4>
