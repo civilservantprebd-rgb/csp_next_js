@@ -36,17 +36,19 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
 
   useEffect(() => {
-    getPracticeTopics()
-      .then(setAvailableTopics)
-      .catch(() => {
-        // topic list is decorative — the card still renders
-      });
     import("@/lib/student-auth").then(({ getLocalStudentUser }) => {
       const localUser = getLocalStudentUser();
       if (!localUser) {
         setEnrolled(false);
         return;
       }
+      // টপিক তালিকা স্টুডেন্টের অ্যাক্সেস অনুযায়ী (কোর্স + লক ফিল্টারসহ) —
+      // যাতে কাউন্ট আর খুললে-খালি — কখনো না মেলে
+      getPracticeTopics(localUser.uid, localUser.email)
+        .then(setAvailableTopics)
+        .catch(() => {
+          // topic list is decorative — the card still renders
+        });
       // শিক্ষক/অ্যাডমিন — এনরোলমেন্ট ছাড়াই পুরো ব্যাংকে প্রবেশ
       verifyTeacherSession()
         .then((t) => {

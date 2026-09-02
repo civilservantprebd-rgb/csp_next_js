@@ -13,8 +13,57 @@ import type { Exam } from "@/types/exam";
  * actually starts — the home page stays light.
  */
 
-export async function getPracticeTopics(): Promise<TopicOption[]> {
+export async function getPracticeTopics(studentId?: string, email?: string): Promise<TopicOption[]> {
   try {
+    const { isTeacherSession } = await import("@/lib/teacher-auth");
+    const isTeacher = await isTeacherSession();
+    const norm = (s: string) => String(s || "").trim().toLowerCase();
+    const cleanId = String(studentId || "").trim();
+
+    // স্টুডেন্ট হলে: কোন কোন পরীক্ষা দেখতে পারে (কোর্স) আর কোনগুলো লক করা —
+    // কাউন্ট যেন fetch-এর সাথে মিলে যায় (অন্যথায় "১০টা দেখায়, খুললে খালি")।
+    let accessibleExamIds: Set<string> | null = null;
+    let lockedExamIds = new Set<string>();
+
+    if (!isTeacher && cleanId) {
+      const { verifyStudentAccess } = await import("@/actions/student-actions");
+      const access = await verifyStudentAccess(cleanId, "ALL", email);
+      if (!access.allowed) return [];
+
+      const studentCourses = (access.courses || [])
+        .map((c: string) => String(c || "").trim().toLowerCase())
+        .filter(Boolean);
+
+      const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+      const { data: allExams } = await supabase
+        .from("exams")
+        .select("id, course, start_time, end_time, leaderboard_end_time, is_result_published");
+      accessibleExamIds = new Set<string>();
+      (allExams || []).forEach((ex: any) => {
+        const examObj = {
+          startTime: ex.start_time,
+          endTime: ex.end_time,
+          leaderboardEndTime: ex.leaderboard_end_time,
+          isResultPublished: ex.is_result_published === true
+        } as Exam;
+        const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
+        if (isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
+        const exCourse = String(ex.course || "").trim().toLowerCase();
+        const hasAccess =
+          studentCourses.includes("all") ||
+          studentCourses.includes("সকল কোর্স") ||
+          exCourse === "সাধারণ কোর্স" ||
+          studentCourses.includes(exCourse);
+        if (hasAccess) accessibleExamIds!.add(ex.id);
+      });
+    }
+
+    // শিক্ষক / exam_key-বিহীন (স্থায়ী মিরর) → সব; স্টুডেন্ট → নিজের কোর্স + আনলকড
+    const canSee = (examKey: string | null | undefined): boolean => {
+      if (isTeacher || !examKey) return true;
+      return !!accessibleExamIds && accessibleExamIds.has(examKey) && !lockedExamIds.has(examKey);
+    };
+
     const topicCountMap = new Map<string, number>();
 
     // 1. Registered topic list in app_settings
@@ -29,40 +78,37 @@ export async function getPracticeTopics(): Promise<TopicOption[]> {
       if (trimmed && !topicCountMap.has(trimmed)) topicCountMap.set(trimmed, 0);
     });
 
-    // 2. Count from permanent topicQuestions repository
+    // 2. Count from permanent topicQuestions repository (visible rows only)
     const { data: topicQuestions } = await supabase
       .from("topic_questions")
-      .select("topic, q");
-
+      .select("topic, q, exam_key");
+    const mirroredKeys = new Set<string>();
     (topicQuestions || []).forEach((tq: any) => {
       const t = String(tq.topic || "").trim();
-      if (t) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+      mirroredKeys.add(`${norm(tq.q)}___${norm(t)}`);
+      if (t && canSee(tq.exam_key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
     });
 
-    // 3. Count from exams where question has a topic tag (excluding questions
-    //    already mirrored in topicQuestions). Matching uses NORMALIZED keys
-    //    (trim + lowercase) so whitespace/format variance never double-counts,
-    //    and the check is O(1) per link via a precomputed set.
+    // 3. Count exam-linked questions (excluding already-mirrored), visible only
     const { data: links } = await supabase
       .from("exam_questions_link")
-      .select("question_bank(topic, q)");
-
-    const norm = (s: string) => String(s || "").trim().toLowerCase();
-    const mirroredKeys = new Set(
-      (topicQuestions || []).map((tq: any) => `${norm(tq.q)}___${norm(tq.topic)}`)
-    );
+      .select("exam_id, question_bank(topic, q)");
 
     (links || []).forEach((link: any) => {
       const q = link.question_bank?.q;
       const t = String(link.question_bank?.topic || "").trim();
-      if (t && q) {
+      if (t && q && canSee(link.exam_id)) {
         const key = `${norm(q)}___${norm(t)}`;
         if (!mirroredKeys.has(key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
       }
     });
 
     const result: TopicOption[] = [];
-    topicCountMap.forEach((count, name) => result.push({ name, count }));
+    topicCountMap.forEach((count, name) => {
+      // লগইন করা স্টুডেন্টের কাছে ০-কাউন্ট টপিক না দেখানোই ভালো (ভুল বোঝাবুঝি এড়াতে)
+      if (!isTeacher && cleanId && count === 0) return;
+      result.push({ name, count });
+    });
     return result.sort((a, b) =>
       b.count !== a.count ? b.count - a.count : a.name.localeCompare(b.name, "bn")
     );

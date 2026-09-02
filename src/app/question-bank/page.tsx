@@ -74,7 +74,7 @@ export default function QuestionBankPage() {
         } else {
           setEnrolled(true);
         }
-        const t = await getPracticeTopics();
+        const t = await getPracticeTopics(u.uid, u.email);
         setEntries(
           (t || []).map((x: { name: string; count: number }) => ({
             name: x.name,
