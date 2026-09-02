@@ -19,7 +19,7 @@ import {
   ArrowUpDown,
   FolderTree
 } from "lucide-react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
 import { verifyTeacherSession } from "@/actions/admin-actions";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
@@ -42,7 +42,6 @@ interface TopicEntry {
 }
 
 export default function QuestionBankPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [user, setUser] = useState<{ uid: string; name: string; email?: string } | null>(null);
   const [entries, setEntries] = useState<TopicEntry[]>([]);
