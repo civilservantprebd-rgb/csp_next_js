@@ -6,8 +6,7 @@ import dynamic from "next/dynamic";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { FreeExamsSpotlight } from "@/components/dashboard/FreeExamsSpotlight";
-import { SelfPracticeCard } from "@/components/dashboard/SelfPracticeCard";
-import { TopicExplorerHub } from "@/components/dashboard/TopicExplorerHub";
+
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
 import { UpcomingExamGrid } from "@/components/dashboard/UpcomingExamGrid";
@@ -268,11 +267,6 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
           onOpenEnrollModal={handleOpenEnrollModal}
         />
 
-        {/* Custom Subject Self-Practice Card */}
-        <SelfPracticeCard config={config} onOpenEnrollModal={handleOpenEnrollModal} />
-
-        {/* Chapter & Subtopic Exploration Hub */}
-        <TopicExplorerHub config={config} onOpenEnrollModal={handleOpenEnrollModal} />
 
         {/* Course Directory — each course opens its study page (video classes + exams) */}
         <CourseCardGrid
