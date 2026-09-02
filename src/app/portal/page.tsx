@@ -13,6 +13,7 @@ import { Submission } from "@/types/submission";
 import { Contact, ArrowRight, Sparkles, CircleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
+import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
 
 export default function PortalPage() {
   const router = useRouter();
@@ -48,7 +49,18 @@ export default function PortalPage() {
         let effId = gUser.uid;
         try {
           const { verifyStudentAccess } = await import("@/actions/student-actions");
-          const res = await verifyStudentAccess(gUser.uid, "ALL", gUser.email);
+          let res = await verifyStudentAccess(gUser.uid, "ALL", gUser.email);
+          // Google uid/email-এ এনরোলমেন্ট না মিললে আগে যাচাই-কৃত
+          // (ফোন/ম্যানুয়াল) পরিচয় দিয়ে চেষ্টা — ইমেইলবিহীন ফোন-এনরোল্ডরাও
+          // পোর্টাল থেকে প্রশ্ন/পরীক্ষা পড়তে পারবে।
+          if (!res.allowed) {
+            const { getVerifiedStudent } = await import("@/lib/student-identity");
+            const verified = getVerifiedStudent();
+            if (verified && verified.id && verified.id !== gUser.uid) {
+              const alt = await verifyStudentAccess(verified.id, "ALL", verified.email);
+              if (alt.allowed) res = alt;
+            }
+          }
           if (res.allowed && res.normalizedId) effId = res.normalizedId;
         } catch {
           // verify ব্যর্থ হলে uid-ই থাকবে
@@ -156,6 +168,9 @@ export default function PortalPage() {
       </main>
 
       <Footer />
+
+      {/* লগইন-পর এনরোল্ড কোর্সের WhatsApp গ্রুপে জয়েন প্রম্পট (একবার) */}
+      <WhatsAppJoinPopup />
 
       {config && (
         <>

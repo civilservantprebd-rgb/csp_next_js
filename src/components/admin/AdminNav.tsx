@@ -11,7 +11,9 @@ import {
   BarChart3,
   Link2,
   Archive,
-  Video
+  Video,
+  Newspaper,
+  MessageCircle
 } from "lucide-react";
 
 export type AdminTabType =
@@ -24,7 +26,9 @@ export type AdminTabType =
   | "question_bank"
   | "videos"
   | "archive"
-  | "drivelinks";
+  | "drivelinks"
+  | "news"
+  | "whatsapp";
 
 interface AdminNavProps {
   activeTab: AdminTabType;
@@ -41,6 +45,8 @@ export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) =>
     { id: "students", label: "আইডি ও রিকোয়েস্ট", icon: Users },
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
     { id: "videos", label: "কোর্স ভিডিও", icon: Video },
+    { id: "news", label: "দৈনিক সংবাদ", icon: Newspaper },
+    { id: "whatsapp", label: "WhatsApp গ্রুপ", icon: MessageCircle },
     { id: "archive", label: "আর্কাইভ", icon: Archive },
     { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2 },
   ];

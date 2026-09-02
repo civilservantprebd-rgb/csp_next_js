@@ -116,6 +116,23 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
     }
   };
 
+  // স্টাডি হাবের পড়া/কুইজ ফেচ: প্রথমে বর্তমান পরিচয়ে (studentId + Google email),
+  // এতে এনরোলমেন্ট না মিললে/প্রশ্ন না এলে আগে যাচাই-কৃত (ফোন/ম্যানুয়াল) পরিচয়
+  // দিয়ে রিট্রাই — ইমেইলবিহীন পুরনো ফোন-এনরোলমেন্টও যেন পড়তে পারে।
+  const fetchHubQuestions = async (fullPath: string) => {
+    const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
+    let res = await fetchTopicQuestionsForStudent(studentId, fullPath, studentUser?.email);
+    if (!res.success || res.questions.length === 0) {
+      const { getVerifiedStudent } = await import("@/lib/student-identity");
+      const verified = getVerifiedStudent();
+      if (verified && verified.id && verified.id !== studentId) {
+        const alt = await fetchTopicQuestionsForStudent(verified.id, fullPath, verified.email);
+        if (alt.success && alt.questions.length > 0) return alt;
+      }
+    }
+    return res;
+  };
+
   useEffect(() => {
     if (isOpen && studentId) {
       setIsLoading(true);
@@ -534,8 +551,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     alert("🔒 এই প্রশ্নগুলো পড়তে কোর্সে এনরোল করুন।");
                     return;
                   }
-                  const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
-                  const res = await fetchTopicQuestionsForStudent(studentId, fullPath, studentUser?.email);
+                  const res = await fetchHubQuestions(fullPath);
                   if (!res.success || res.questions.length === 0) {
                     alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
                     return;
@@ -549,8 +565,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     alert("🔒 এই কুইজ দিতে কোর্সে এনরোল করুন।");
                     return;
                   }
-                  const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
-                  const res = await fetchTopicQuestionsForStudent(studentId, fullPath, studentUser?.email);
+                  const res = await fetchHubQuestions(fullPath);
                   if (!res.success || res.questions.length === 0) {
                     alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
                     return;

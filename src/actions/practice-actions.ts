@@ -30,10 +30,10 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
       const access = await verifyStudentAccess(cleanId, "ALL", email);
       if (!access.allowed) return [];
 
-      const studentCourses = (access.courses || [])
-        .map((c: string) => String(c || "").trim().toLowerCase())
-        .filter(Boolean);
-
+      // নিয়ম: যেকোনো একটি কোর্সে এনরোল্ড থাকলেই সব কোর্সের প্রশ্নব্যাংক/
+      // প্র্যাকটিস অ্যাক্সেসযোগ্য — কোর্স-স্কোপ ফিল্টার আর নেই। শুধু যেসব
+      // নির্ধারিত (লাইভ) পরীক্ষার উত্তর এখনো প্রকাশিত নয় সেগুলো লক থাকে
+      // (কাউন্ট fetch-এর সাথে মিলে যায় — "১০টা দেখায়, খুললে খালি" নয়)।
       const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
       const { data: allExams } = await supabase
         .from("exams")
@@ -48,17 +48,11 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
         } as Exam;
         const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
         if (isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
-        const exCourse = String(ex.course || "").trim().toLowerCase();
-        const hasAccess =
-          studentCourses.includes("all") ||
-          studentCourses.includes("সকল কোর্স") ||
-          exCourse === "সাধারণ কোর্স" ||
-          studentCourses.includes(exCourse);
-        if (hasAccess) accessibleExamIds!.add(ex.id);
+        accessibleExamIds!.add(ex.id);
       });
     }
 
-    // শিক্ষক / exam_key-বিহীন (স্থায়ী মিরর) → সব; স্টুডেন্ট → নিজের কোর্স + আনলকড
+    // শিক্ষক / exam_key-বিহীন (স্থায়ী মিরর) → সব; স্টুডেন্ট → সব (কোর্স-নির্বিশেষে) কিন্তু লক-বিহীন
     const canSee = (examKey: string | null | undefined): boolean => {
       if (isTeacher || !examKey) return true;
       return !!accessibleExamIds && accessibleExamIds.has(examKey) && !lockedExamIds.has(examKey);
@@ -128,7 +122,7 @@ export async function getPracticeQuestions(
   email?: string
 ): Promise<PracticeQuestion[]> {
   try {
-    // SECURITY: self-practice requires an enrolled student (any course) —
+    // SECURITY: self-practice requires an enrolled student (ANY course) —
     // UNLESS the caller is a verified teacher (admins may browse the whole
     // bank, including not-yet-released exams — they are the content owners).
     const { isTeacherSession } = await import("@/lib/teacher-auth");
@@ -144,10 +138,6 @@ export async function getPracticeQuestions(
       access = await verifyStudentAccess(cleanId, "ALL", email);
       if (!access.allowed) return [];
     }
-
-    const studentCourses = (access.courses || [])
-      .map((c) => String(c || "").trim().toLowerCase())
-      .filter(Boolean);
 
     const requestedCount = Math.max(1, Math.min(50, Number(count) || 10));
 
@@ -174,9 +164,9 @@ export async function getPracticeQuestions(
       );
     };
 
-    // Build exam access/lock info once: which exams the student may practice
-    // (course scope) and which exams still have answer-locked keys (scheduled
-    // exams that have not reached their answer-release time).
+    // Build exam access/lock info: any enrolled student (ANY course) may
+    // practice every course's questions; only answer-locked scheduled exams
+    // (results not yet published) are excluded.
     const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
     const { data: allExams } = await supabase
       .from("exams")
@@ -194,14 +184,8 @@ export async function getPracticeQuestions(
       } as Exam;
       const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
       if (!isTeacher && isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
-
-      const exCourse = String(ex.course || "").trim().toLowerCase();
-      const hasCourseAccess =
-        studentCourses.includes("all") ||
-        studentCourses.includes("সকল কোর্স") ||
-        exCourse === "সাধারণ কোর্স" ||
-        studentCourses.includes(exCourse);
-      if (hasCourseAccess) accessibleExamIds.add(ex.id);
+      // এনরোল্ড (যেকোনো একটি কোর্স) হলে সব কোর্সের প্রশ্নই অ্যাক্সেসযোগ্য
+      accessibleExamIds.add(ex.id);
     });
 
     // 1. Persistent Topic Questions repository (skip questions mirrored from

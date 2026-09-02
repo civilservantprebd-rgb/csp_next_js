@@ -47,6 +47,8 @@ export default function QuestionBankPage() {
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [accessId, setAccessId] = useState("");
+  const [accessEmail, setAccessEmail] = useState("");
 
   // ড্রপডাউন স্টেট
   const [subject, setSubject] = useState("");
@@ -65,15 +67,34 @@ export default function QuestionBankPage() {
     (async () => {
       try {
         const teacher = await verifyTeacherSession();
+        // কার্যকর পরিচয়: Google uid/email-ই প্রথম। এতে এনরোলমেন্ট না মিললে
+        // আগে যাচাই-কৃত (ফোন/ম্যানুয়াল) পরিচয় দিয়ে চেষ্টা — পুরনো
+        // ইমেইলবিহীন ফোন-এনরোলমেন্টের শিক্ষার্থীরাও যেন প্রশ্ন পড়তে পারেন।
+        let effId = u.uid;
+        let effEmail = u.email;
         if (!teacher.ok) {
           const { verifyStudentAccess } = await import("@/actions/student-actions");
-          const access = await verifyStudentAccess(u.uid, "ALL", u.email);
+          let access = await verifyStudentAccess(u.uid, "ALL", u.email);
+          if (!access.allowed) {
+            const { getVerifiedStudent } = await import("@/lib/student-identity");
+            const verified = getVerifiedStudent();
+            if (verified && verified.id && verified.id !== u.uid) {
+              const alt = await verifyStudentAccess(verified.id, "ALL", verified.email);
+              if (alt.allowed) {
+                access = alt;
+                effId = verified.id;
+                effEmail = verified.email || "";
+              }
+            }
+          }
           setEnrolled(access.allowed);
           if (!access.allowed) return;
         } else {
           setEnrolled(true);
         }
-        const t = await getPracticeTopics(u.uid, u.email);
+        setAccessId(effId);
+        setAccessEmail(effEmail || "");
+        const t = await getPracticeTopics(effId, effEmail);
         setEntries(
           (t || []).map((x: { name: string; count: number }) => ({
             name: x.name,
@@ -148,7 +169,7 @@ export default function QuestionBankPage() {
     setLoadError("");
     setRevealed(new Set());
     try {
-      const qs = await getPracticeQuestions(value, 50, user.uid, user.email);
+      const qs = await getPracticeQuestions(value, 50, accessId || user.uid, accessEmail || user.email);
       if (!qs || qs.length === 0) {
         setLoadError(
           "এই নির্বাচনে বর্তমানে দেখানোর মতো প্রশ্ন পাওয়া যায়নি — নির্ধারিত (লাইভ) পরীক্ষার প্রশ্ন ফলাফল প্রকাশের আগে প্রশ্নব্যাংকে দেখানো হয় না। অন্য বিষয়/টপিক বেছে নিন।"

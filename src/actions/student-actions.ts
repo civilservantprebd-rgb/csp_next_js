@@ -490,13 +490,9 @@ export async function fetchTopicQuestionsForStudent(
   try {
     const cleanTarget = (targetPath || "").trim().toLowerCase();
 
-    const studentCourses = (access.courses || [])
-      .map((c) => String(c || "").trim().toLowerCase())
-      .filter(Boolean);
-
     // SECURITY: only expose correct/exp for questions the student is allowed to
-    // see — never for answer-locked scheduled exams (before release), and never
-    // for exams of courses the student is not enrolled in.
+    // see — never for answer-locked scheduled exams (before release). যেকোনো
+    // একটি কোর্সে এনরোল্ড থাকলেই সব কোর্সের প্রশ্ন পড়া যায় (কোর্স-স্কোপ নয়)।
     const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
     const { data: allExams } = await supabase
       .from("exams")
@@ -514,13 +510,7 @@ export async function fetchTopicQuestionsForStudent(
       } as Exam;
       const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
       if (isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
-      const exCourse = String(ex.course || "").trim().toLowerCase();
-      const hasCourseAccess =
-        studentCourses.includes("all") ||
-        studentCourses.includes("সকল কোর্স") ||
-        exCourse === "সাধারণ কোর্স" ||
-        studentCourses.includes(exCourse);
-      if (hasCourseAccess) accessibleExamIds.add(ex.id);
+      accessibleExamIds.add(ex.id);
     });
 
     const { getTopicSegments } = await import("@/lib/topic-hierarchy");

@@ -10,6 +10,9 @@ import { FreeExamsSpotlight } from "@/components/dashboard/FreeExamsSpotlight";
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
 import { UpcomingExamGrid } from "@/components/dashboard/UpcomingExamGrid";
+import { DailyNewsSection } from "@/components/dashboard/DailyNewsSection";
+import { NewNewsPopup } from "@/components/dashboard/NewNewsPopup";
+import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
 import { AppConfigData, Exam } from "@/types/exam";
 import { Submission } from "@/types/submission";
 import { syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
@@ -255,7 +258,9 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
 
       <main className="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 md:p-6 space-y-10">
 
-        
+        {/* দৈনিক সংবাদ — শিক্ষক/অ্যাডমিন নয় এমন সবার জন্য */}
+        <DailyNewsSection />
+
         {/* Live Exams (if any) */}
         <LiveExamGrid
           exams={examsObj}
@@ -289,6 +294,12 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
       </main>
 
       <Footer onOpenTeacherLogin={() => setIsTeacherLoginOpen(true)} />
+
+      {/* নতুন সংবাদ এলে একবার পপআপ (হোম পেজে বা হোমে ফিরে এলে) */}
+      <NewNewsPopup />
+
+      {/* লগইন-পর এনরোল্ড কোর্সের WhatsApp গ্রুপে জয়েন প্রম্পট (একবার) */}
+      <WhatsAppJoinPopup />
 
       {/* Modals */}
       <EnrollModal
