@@ -103,16 +103,48 @@ export default function CourseStudyPage() {
   const isUnlocked = videoResult?.allowed === true;
   const videos = videoResult?.videos || [];
 
-  // সাবজেক্ট → প্লেলিস্ট
+  // সাবজেক্ট → প্লেলিস্ট। নিয়ম:
+  //  - কোর্সে সাবজেক্ট (config.subjects) থাকলে সেগুলো আলাদা প্লেলিস্ট;
+  //    সাবজেক্টবিহীন ভিডিও "সাধারণ" (কোর্স-লেভেল) প্লেলিস্টে থাকে।
+  //  - কোর্সে কোনো সাবজেক্টই না থাকলে সব ভিডিও একটাই কোর্স-লেভেল প্লেলিস্টে।
   const playlists = useMemo(() => {
+    const definedSubjects = (config?.subjects || [])
+      .filter((s) => s.course === courseName)
+      .map((s) => s.name);
+    const hasSubjects = definedSubjects.length > 0;
+
+    const label = (v: CourseVideo) => {
+      const subj = String(v.subject || "").trim();
+      if (!subj) return hasSubjects ? "সাধারণ" : courseName || "সাধারণ";
+      return subj;
+    };
+
     const map = new Map<string, CourseVideo[]>();
     videos.forEach((v) => {
-      const subj = v.subject || "সাধারণ";
+      const subj = label(v);
       if (!map.has(subj)) map.set(subj, []);
       map.get(subj)!.push(v);
     });
-    return Array.from(map.entries()).map(([subject, items]) => ({ subject, items }));
-  }, [videos]);
+
+    // সাজানো: নির্ধারিত সাবজেক্ট আগে → বাকি (অনির্বাচিত সাবজেক্ট) → "সাধারণ" শেষে;
+    // সাবজেক্টবিহীন কোর্সে শুধু কোর্স-নামের একটাই প্লেলিস্ট।
+    const desired: string[] = hasSubjects
+      ? [
+          ...definedSubjects,
+          ...Array.from(map.keys()).filter(
+            (k) => !definedSubjects.includes(k) && k !== "সাধারণ"
+          ),
+          ...(map.has("সাধারণ") ? ["সাধারণ"] : [])
+        ]
+      : [courseName || "সাধারণ"];
+
+    const result: { subject: string; items: CourseVideo[] }[] = [];
+    desired.forEach((name) => {
+      const items = map.get(name);
+      if (items && items.length > 0) result.push({ subject: name, items });
+    });
+    return result;
+  }, [videos, config, courseName]);
 
   const visiblePlaylists = subjectFilter === "ALL" ? playlists : playlists.filter((p) => p.subject === subjectFilter);
 
