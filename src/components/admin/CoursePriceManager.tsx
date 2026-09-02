@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Tag, Save, Loader2 } from "lucide-react";
+import { Tag, Save, Loader2, FileText } from "lucide-react";
 import { getCoursePrices, saveCoursePrice } from "@/actions/course-actions";
 import { toBengaliDigits } from "@/lib/utils";
+import { CourseDetailsModal } from "@/components/admin/CourseDetailsModal";
 
 interface CoursePriceManagerProps {
   courses: string[];
@@ -13,6 +14,7 @@ export const CoursePriceManager: React.FC<CoursePriceManagerProps> = ({ courses 
   const [drafts, setDrafts] = useState<Record<string, { price: string; offer: string }>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [detailsCourse, setDetailsCourse] = useState<string | null>(null);
 
   useEffect(() => {
     getCoursePrices().then((prices) => {
@@ -97,7 +99,15 @@ export const CoursePriceManager: React.FC<CoursePriceManagerProps> = ({ courses 
                 />
               </label>
             </div>
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setDetailsCourse(course)}
+                className="inline-flex items-center gap-1.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-3.5 py-2 rounded-xl text-xs cursor-pointer transition"
+                title="কোর্সের বিস্তারিত লিখুন/এডিট/ডিলিট করুন — কোর্স পেজে দেখাবে"
+              >
+                <FileText className="w-3.5 h-3.5" /> বিস্তারিত লিখুন / এডিট
+              </button>
               <button
                 type="button"
                 disabled={saving[course]}
@@ -123,6 +133,8 @@ export const CoursePriceManager: React.FC<CoursePriceManagerProps> = ({ courses 
           </div>
         ))}
       </div>
+
+      <CourseDetailsModal course={detailsCourse} onClose={() => setDetailsCourse(null)} />
     </div>
   );
 };

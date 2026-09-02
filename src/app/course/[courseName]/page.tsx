@@ -7,6 +7,7 @@ import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { VideoPlayerModal } from "@/components/course/VideoPlayerModal";
 import { fetchAppConfigLite } from "@/actions/admin-actions";
+import { fetchCourseDetails } from "@/actions/course-actions";
 import { getCourseVideosForStudent, StudentVideoAccess } from "@/actions/video-actions";
 import { verifyStudentAccess } from "@/actions/student-actions";
 import { AppConfigData, Exam } from "@/types/exam";
@@ -56,6 +57,7 @@ export default function CourseStudyPage() {
   const [checking, setChecking] = useState(true);
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [examSearch, setExamSearch] = useState("");
+  const [courseDetails, setCourseDetails] = useState("");
 
   // Modal player — ভিডিওতে ট্যাপ করলেই খোলে
   const [playingVideo, setPlayingVideo] = useState<CourseVideo | null>(null);
@@ -97,6 +99,10 @@ export default function CourseStudyPage() {
         console.error("App config fetch failed on course page.");
         setLoadError("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
       });
+    // কোর্সের বিস্তারিত (শিক্ষক প্যানেল থেকে লেখা) — কোর্স পেজে দেখায়
+    fetchCourseDetails(courseName)
+      .then(setCourseDetails)
+      .catch(() => {});
     checkAccess();
   }, [courseName, checkAccess, loadAttempt]);
 
@@ -297,6 +303,16 @@ export default function CourseStudyPage() {
             </button>
           </div>
         </div>
+
+        {/* কোর্সের বিস্তারিত — শিক্ষক প্যানেল থেকে লেখা (লিখুন/এডিট/ডিলিট) */}
+        {courseDetails && (
+          <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm">
+            <h3 className="font-black text-slate-900 text-base flex items-center gap-2 mb-3">
+              <BookOpen className="w-5 h-5 text-indigo-600" /> কোর্সের বিস্তারিত
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">{courseDetails}</p>
+          </section>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* ============ LEFT: exams + video playlists ============ */}
