@@ -73,22 +73,29 @@ export default function QuestionBankPage() {
         let effId = u.uid;
         let effEmail = u.email;
         if (!teacher.ok) {
-          const { verifyStudentAccess } = await import("@/actions/student-actions");
-          let access = await verifyStudentAccess(u.uid, "ALL", u.email);
-          if (!access.allowed) {
+          const { checkEnrollmentCached } = await import("@/lib/access-cache");
+          // ফাস্ট-পাথ: প্রথমবার সার্ভারে চেক → ফলাফল localStorage-এ ক্যাশ;
+          // পরের বার (TTL-এর মধ্যে) লোকাল স্টোরেজ থেকেই — কোনো নেটওয়ার্ক কল নেই।
+          let allowed = false;
+          const g = await checkEnrollmentCached(u.uid, u.email);
+          if (g.allowed) {
+            allowed = true;
+          } else {
+            // Google uid/email-এ এনরোলমেন্ট না মিললে আগে যাচাই-কৃত
+            // (ফোন/ম্যানুয়াল) পরিচয় দিয়ে চেষ্টা — সেটাও ক্যাশ-সহ
             const { getVerifiedStudent } = await import("@/lib/student-identity");
             const verified = getVerifiedStudent();
             if (verified && verified.id && verified.id !== u.uid) {
-              const alt = await verifyStudentAccess(verified.id, "ALL", verified.email);
+              const alt = await checkEnrollmentCached(verified.id, verified.email);
               if (alt.allowed) {
-                access = alt;
+                allowed = true;
                 effId = verified.id;
                 effEmail = verified.email || "";
               }
             }
           }
-          setEnrolled(access.allowed);
-          if (!access.allowed) return;
+          setEnrolled(allowed);
+          if (!allowed) return;
         } else {
           setEnrolled(true);
         }

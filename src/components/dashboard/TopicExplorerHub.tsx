@@ -42,8 +42,9 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
     import("@/lib/student-auth").then(({ getLocalStudentUser }) => {
       const localUser = getLocalStudentUser();
       if (localUser) {
-        import("@/actions/student-actions")
-          .then(({ verifyStudentAccess }) => verifyStudentAccess(localUser.uid, "ALL", localUser.email))
+        // ফাস্ট-পাথ: প্রথমবার সার্ভার চেক → ক্যাশ; পরের বার localStorage থেকেই
+        import("@/lib/access-cache")
+          .then(({ checkEnrollmentCached }) => checkEnrollmentCached(localUser.uid, localUser.email))
           .then((res) => setIsPaidStudent(res.allowed))
           .catch(() => {
             // enrollment status is a display flag — the default (false) is safe

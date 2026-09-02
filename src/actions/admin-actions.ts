@@ -1606,6 +1606,72 @@ export async function fetchExamWithQuestions(examKey: string): Promise<Exam | nu
   }
 }
 
+// ─── Targeted lightweight fetches — শুধু যা দরকার, পুরো কনফিগ নয় ──────────────
+
+function mapExamMetaRow(ex: any): Exam {
+  return {
+    id: ex.id,
+    course: ex.course,
+    subject: ex.subject,
+    title: ex.title,
+    timerMinutes: ex.timer_minutes,
+    isFree: ex.is_free,
+    passMark: Number(ex.pass_mark ?? 0),
+    startTime: ex.start_time,
+    endTime: ex.end_time,
+    isResultPublished: ex.is_result_published,
+    leaderboardStartTime: ex.leaderboard_start_time,
+    leaderboardEndTime: ex.leaderboard_end_time,
+    questions: []
+  };
+}
+
+const EXAM_META_COLS = "id, course, subject, title, timer_minutes, is_free, pass_mark, start_time, end_time, is_result_published, leaderboard_start_time, leaderboard_end_time";
+
+/** একটি মাত্র পরীক্ষার মেটা (প্রশ্ন ছাড়া) — টাইটেল/লিডারবোর্ড/স্ট্যাটাস দেখানোর জন্য। */
+export async function fetchExamMeta(examKey: string): Promise<Exam | null> {
+  try {
+    const { data, error } = await supabase
+      .from("exams")
+      .select(EXAM_META_COLS)
+      .eq("id", examKey)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapExamMetaRow(data);
+  } catch {
+    return null;
+  }
+}
+
+/** সব পরীক্ষার হালকা তালিকা (প্রশ্ন ছাড়া) — লিডারবোর্ড সার্চ/ড্রপডাউনের জন্য। */
+export async function fetchExamMetaList(): Promise<Record<string, Exam>> {
+  try {
+    const { data, error } = await supabase.from("exams").select(EXAM_META_COLS);
+    if (error) return {};
+    const map: Record<string, Exam> = {};
+    (data || []).forEach((ex) => {
+      map[ex.id] = mapExamMetaRow(ex);
+    });
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+/** কোর্সের নামের তালিকা (app_settings থেকে) — মেটাডেটা/যাচাইয়ের জন্য (পুরো কনফিগ নয়)। */
+export async function fetchCourseNameList(): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("courses")
+      .eq("id", "main")
+      .maybeSingle();
+    return Array.isArray(data?.courses) ? (data.courses as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── Topic hierarchy management ─────────────────────────────────────────────
 const TOPIC_PATH_SEP = " > ";
 

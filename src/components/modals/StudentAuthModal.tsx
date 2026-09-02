@@ -17,7 +17,7 @@ import {
   LogIn
 } from "lucide-react";
 import { verifyStudentAccess } from "@/actions/student-actions";
-import { checkStudentAlreadySubmitted } from "@/actions/exam-actions";
+import { checkAttemptBlocked } from "@/lib/exam-attempt-cache";
 import { isExamCurrentlyLive } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
@@ -80,7 +80,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
       // Free exam: anyone logged in with Google can take it
       if (isLive) {
         setIsLoading(true);
-        const already = await checkStudentAlreadySubmitted(exam.id, studentUser.uid);
+        const already = await checkAttemptBlocked(exam.id, studentUser.uid);
         setIsLoading(false);
         if (already) {
           setErrorMsg("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
@@ -103,7 +103,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
       const targetId = res.normalizedId || studentUser.uid;
 
       if (isLive) {
-        const already = await checkStudentAlreadySubmitted(exam.id, targetId);
+        const already = await checkAttemptBlocked(exam.id, targetId);
         setIsLoading(false);
         if (already) {
           setErrorMsg("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");

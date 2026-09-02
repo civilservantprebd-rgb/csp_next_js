@@ -7,7 +7,7 @@ import { Footer } from "@/components/shared/Footer";
 import { LeaderboardTable } from "@/components/leaderboard/LeaderboardTable";
 import { LeaderboardExamSearch } from "@/components/leaderboard/LeaderboardExamSearch";
 import { fetchLeaderboard } from "@/actions/exam-actions";
-import { fetchAppConfigLite } from "@/actions/admin-actions";
+import { fetchExamMeta, fetchExamMetaList } from "@/actions/admin-actions";
 import { LeaderboardItem } from "@/types/submission";
 import { Exam } from "@/types/exam";
 import { parseBangladeshDateTime, isAnswerTimeReached } from "@/lib/bangladesh-time";
@@ -23,18 +23,28 @@ export default function StandaloneLeaderboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchAppConfigLite().then(async (config) => {
-      setAllExams(config.exams || {});
-      const ex = config.exams?.[examId];
-      if (ex) {
-        setExam(ex);
-        setIsLoading(true);
-        setItems([]);
-        const data = await fetchLeaderboard(examId);
-        setItems(data);
+    let cancelled = false;
+    (async () => {
+      try {
+        // শুধু এই পরীক্ষার মেটা + সার্চের জন্য হালকা তালিকা — পুরো কনফিগ নয়
+        const [meta, list] = await Promise.all([fetchExamMeta(examId), fetchExamMetaList()]);
+        if (cancelled) return;
+        setAllExams(list);
+        if (meta) {
+          setExam(meta);
+          setIsLoading(true);
+          setItems([]);
+          const data = await fetchLeaderboard(examId);
+          if (!cancelled) setItems(data);
+        }
+        setIsLoading(false);
+      } catch {
+        if (!cancelled) setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [examId]);
 
   const handleSelectExam = (key: string) => {

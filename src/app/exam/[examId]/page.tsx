@@ -71,9 +71,10 @@ export default function ExamPage() {
       }
 
       // Pre-check if already submitted during live period
+      // (ফাস্ট-পাথ: ব্রাউজার ক্যাশে থাকলে সাথে সাথে ব্লক; নাহলে সার্ভার চেক — লজিক অপরিবর্তিত)
       if (isExamCurrentlyLive(ex)) {
-        const { checkStudentAlreadySubmitted } = await import("@/actions/exam-actions");
-        const already = await checkStudentAlreadySubmitted(examId, parsedStudent.id);
+        const { checkAttemptBlocked } = await import("@/lib/exam-attempt-cache");
+        const already = await checkAttemptBlocked(examId, parsedStudent.id);
         if (already) {
           alert("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
           router.push("/");
@@ -143,6 +144,13 @@ export default function ExamPage() {
     const timeFormatted = `${mins} মি. ${secs} সে.`;
 
     if (res.success) {
+      // একবার সাবমিশন সফল — ক্যাশে চিহ্নিত রাখি যেন পরের চেষ্টায় সাথে সাথে ওয়ার্নিং আসে
+      try {
+        const { markExamAttempted } = await import("@/lib/exam-attempt-cache");
+        markExamAttempted(student.id, examId);
+      } catch {
+        // cache optional — সার্ভার চেকই চূড়ান্ত
+      }
       sessionStorage.setItem(
         "last_result",
         JSON.stringify({

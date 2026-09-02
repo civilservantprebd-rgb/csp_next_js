@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { fetchAppConfigLite } from "@/actions/admin-actions";
+import { fetchCourseNameList } from "@/actions/admin-actions";
 
 function decodeParam(raw: string): string {
   try {
@@ -14,8 +14,9 @@ export async function generateMetadata({ params }: { params: { courseName: strin
   const name = decodeParam(params?.courseName || "");
   let course = name || "কোর্স";
   try {
-    const config = await fetchAppConfigLite();
-    if (name && (config.courses || []).includes(name)) course = name;
+    // শুধু কোর্সের নামের তালিকা (app_settings) — পুরো কনফিগ নয়
+    const courses = await fetchCourseNameList();
+    if (name && courses.includes(name)) course = name;
   } catch {
     // fallback
   }

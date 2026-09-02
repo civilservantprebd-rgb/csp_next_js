@@ -152,13 +152,14 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
       }
 
       // Check paid status — a rejection must never leave the dashboard spinner on
-      import("@/actions/student-actions")
-        .then(({ verifyStudentAccess }) => {
-          return verifyStudentAccess(studentId, "ALL", localUser?.email).then((res) => {
+      // (ফাস্ট-পাথ: প্রথমবার সার্ভার চেক → ক্যাশ; পরের বার localStorage থেকেই)
+      import("@/lib/access-cache")
+        .then(({ checkEnrollmentCached }) =>
+          checkEnrollmentCached(studentId, localUser?.email).then((res) => {
             setIsPaidStudent(res.allowed);
             setStudentCourses(res.courses || []);
-          });
-        })
+          })
+        )
         .catch(() => setIsLoading(false));
 
       // Submission history — a network failure clears the loading state (and any

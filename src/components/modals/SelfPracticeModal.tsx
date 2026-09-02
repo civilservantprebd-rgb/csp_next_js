@@ -30,6 +30,8 @@ interface SelfPracticeModalProps {
   subjectName: string;
   mode: "instant" | "exam";
   onRestart: () => void;
+  /** আলাদা উইন্ডো/পেজে পুরো-স্ক্রিন সেশন হিসেবে দেখালে true — ওভারলে ছাড়া পেজ-লেআউট। */
+  standalone?: boolean;
 }
 
 export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
@@ -39,6 +41,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
   subjectName,
   mode,
   onRestart,
+  standalone = false,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
@@ -94,7 +97,13 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
 
   if (questions.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm font-bengali">
+      <div
+        className={
+          standalone
+            ? "min-h-dvh w-full bg-gradient-to-b from-teal-50/70 via-slate-50 to-indigo-50/60 font-bengali flex items-center justify-center p-4"
+            : "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm font-bengali"
+        }
+      >
         <div className="bg-white rounded-3xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl">
           <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
           <h3 className="text-lg font-bold text-slate-900">প্রশ্ন পাওয়া যায়নি</h3>
@@ -131,15 +140,9 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
   const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
   const handleSelectOption = (qIdx: number, optIdx: number) => {
-    if (mode === "instant" && userAnswers[qIdx] !== undefined) return; // Locked in instant mode
-    setUserAnswers((prev) => {
-      if (mode === "exam" && prev[qIdx] === optIdx) {
-        const next = { ...prev };
-        delete next[qIdx];
-        return next;
-      }
-      return { ...prev, [qIdx]: optIdx };
-    });
+    // একটা উত্তর দাগালেই প্রশ্নটি লক হয়ে যায় (উভয় মুডে) — বদলানো যায় না
+    if (userAnswers[qIdx] !== undefined) return;
+    setUserAnswers((prev) => ({ ...prev, [qIdx]: optIdx }));
   };
 
   const handleNextInstant = () => {
@@ -183,11 +186,20 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
     onRestart();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
-      <div className={`bg-white rounded-3xl w-full flex flex-col shadow-2xl border border-slate-100 overflow-hidden ${
+  // আলাদা উইন্ডো/পেজ-সেশন বনাম মোডাল ওভারলে — লেআউট ক্লাস
+  const rootCls = standalone
+    ? "min-h-dvh w-full bg-gradient-to-b from-teal-50/70 via-slate-50 to-indigo-50/60 font-bengali p-2 sm:p-5"
+    : "fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200";
+
+  const cardCls = standalone
+    ? "bg-white rounded-3xl w-full max-w-3xl mx-auto flex flex-col shadow-2xl border border-slate-100 overflow-hidden h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2.5rem)]"
+    : `bg-white rounded-3xl w-full flex flex-col shadow-2xl border border-slate-100 overflow-hidden ${
         mode === "exam" && !isFinished ? "max-w-4xl max-h-[95vh]" : "max-w-2xl max-h-[92vh]"
-      }`}>
+      }`;
+
+  return (
+    <div className={rootCls}>
+      <div className={cardCls}>
         
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 shrink-0">
@@ -327,11 +339,14 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
           ) : (
             /* ================= 2. MOCK TEST FULL LIST VIEW ================= */
             <div className="p-4 sm:p-6 overflow-y-auto flex-grow space-y-6">
-              <div className="bg-teal-50/60 p-3.5 rounded-2xl border border-teal-100 flex items-center justify-between text-xs text-teal-900">
+              <div className="bg-teal-50/60 p-3.5 rounded-2xl border border-teal-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-teal-900">
                 <span className="font-semibold flex items-center gap-1.5">
-                  <ListChecks className="w-4 h-4 text-teal-600" /> সকল প্রশ্নের উত্তর নির্বাচন করে নিচে &ldquo;পরীক্ষা জমা দিন&rdquo; বাটনে ক্লিক করুন।
+                  <ListChecks className="w-4 h-4 text-teal-600 shrink-0" />
+                  <span>
+                    প্রতিটি প্রশ্নে একবার উত্তর দিলেই সেটি <strong>লক</strong> হয়ে যাবে — সাবধানে উত্তর দিন। সব উত্তর দিয়ে &ldquo;পরীক্ষা জমা দিন&rdquo; চাপুন।
+                  </span>
                 </span>
-                <span className="bg-white border border-teal-200 px-2.5 py-1 rounded-lg font-bold text-teal-800">
+                <span className="bg-white border border-teal-200 px-2.5 py-1 rounded-lg font-bold text-teal-800 shrink-0">
                   {toBengaliDigits(answeredCount)} / {toBengaliDigits(total)} সম্পন্ন
                 </span>
               </div>
@@ -383,10 +398,14 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                               key={optIdx}
                               type="button"
                               onClick={() => handleSelectOption(qIdx, optIdx)}
-                              className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
-                                isSelected
-                                  ? "bg-teal-600 border-teal-600 text-white font-bold shadow-sm"
-                                  : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800"
+                              className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                                hasAnswered
+                                  ? isSelected
+                                    ? "bg-teal-600 border-teal-600 text-white font-bold shadow-sm cursor-default"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                                  : isSelected
+                                    ? "bg-teal-600 border-teal-600 text-white font-bold shadow-sm cursor-pointer"
+                                    : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800 cursor-pointer active:scale-[0.99]"
                               }`}
                             >
                               <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
@@ -401,6 +420,13 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                           );
                         })}
                       </div>
+
+                      {hasAnswered && (
+                        <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                          উত্তর দিয়ে দেওয়া হয়েছে — পরিবর্তন করা যাবে না
+                        </p>
+                      )}
                     </div>
                   );
                 })}

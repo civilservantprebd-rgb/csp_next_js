@@ -17,11 +17,10 @@ import {
   Lock
 } from "lucide-react";
 import { AppConfigData } from "@/types/exam";
-import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
+import { getPracticeTopics } from "@/actions/practice-actions";
 import { verifyTeacherSession } from "@/actions/admin-actions";
-import type { PracticeQuestion, TopicOption } from "@/lib/practice-helper";
+import type { TopicOption } from "@/lib/practice-helper";
 import { buildDeepTopicTree, TreeNode } from "@/lib/topic-hierarchy";
-import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface SelfPracticeCardProps {
@@ -56,15 +55,17 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
             setEnrolled(true);
             return;
           }
-          return import("@/actions/student-actions").then(({ verifyStudentAccess }) =>
-            verifyStudentAccess(localUser.uid, "ALL", localUser.email)
-              .then((res) => setEnrolled(res.allowed))
-              .catch(() => {
-                // Never leave the UI stuck on "যাচাই হচ্ছে..." — treat a failed
-                // check as not-enrolled so the enroll CTA shows instead.
-                setEnrolled(false);
-              })
-          );
+          // ফাস্ট-পাথ: প্রথমবার সার্ভারে চেক → ক্যাশ; পরের বার localStorage থেকেই
+          return import("@/lib/access-cache")
+            .then(({ checkEnrollmentCached }) =>
+              checkEnrollmentCached(localUser.uid, localUser.email)
+                .then((res) => setEnrolled(res.allowed))
+                .catch(() => {
+                  // Never leave the UI stuck on "যাচাই হচ্ছে..." — treat a failed
+                  // check as not-enrolled so the enroll CTA shows instead.
+                  setEnrolled(false);
+                })
+            );
         })
         .catch(() => setEnrolled(false));
     });
@@ -163,11 +164,9 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
   const [selectedCount, setSelectedCount] = useState(10);
   const [practiceMode, setPracticeMode] = useState<"instant" | "exam">("instant");
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
 
-  const handleStartPractice = async () => {
+  const handleStartPractice = () => {
     // Self practice requires enrollment (any course)
     if (enrolled !== true) {
       if (onOpenEnrollModal) {
@@ -177,18 +176,18 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
       }
       return;
     }
-    setIsLoading(true);
-    const { getLocalStudentUser } = await import("@/lib/student-auth");
-    const localUser = getLocalStudentUser();
-    const questions = await getPracticeQuestions(
-      selectedTopic,
-      selectedCount,
-      localUser?.uid || "",
-      localUser?.email || ""
-    );
-    setPracticeQuestions(questions);
-    setIsLoading(false);
-    setIsModalOpen(true);
+    // ইনস্ট্যান্ট ও মক-টেস্ট — দুই মুডেই আলাদা উইন্ডো/ট্যাবে সেশন খুলি
+    const params = new URLSearchParams({
+      topic: selectedTopic,
+      count: String(selectedCount),
+      mode: practiceMode,
+    });
+    if (typeof window !== "undefined") {
+      setIsLoading(true);
+      window.open(`/practice/session?${params.toString()}`, "_blank", "noopener,noreferrer");
+      // লোডিং-স্টেট বেশিক্ষণ না রাখি — উইন্ডো নিজে থেকেই প্রশ্ন লোড করে
+      setTimeout(() => setIsLoading(false), 800);
+    }
   };
 
   return (
@@ -322,16 +321,11 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
           ) : (
             <button
               type="button"
-              disabled={isLoading || enrolled === null}
+              disabled={enrolled === null}
               onClick={handleStartPractice}
               className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white font-bold px-8 py-3.5 rounded-2xl text-xs sm:text-sm shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>প্রশ্ন প্রস্তুত হচ্ছে...</span>
-                </>
-              ) : enrolled === null ? (
+              {enrolled === null ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>যাচাই হচ্ছে...</span>
@@ -339,7 +333,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-white" />
-                  <span>প্র্যাকটিস শুরু করুন</span>
+                  <span>{isLoading ? "উইন্ডো খুলছে..." : "প্র্যাকটিস শুরু করুন"}</span>
                   <ChevronRight className="w-4 h-4" />
                 </>
               )}
@@ -347,16 +341,6 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
           )}
         </div>
       </div>
-
-      {/* Interactive Practice Session Modal */}
-      <SelfPracticeModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        questions={practiceQuestions}
-        subjectName={selectedTopic}
-        mode={practiceMode}
-        onRestart={handleStartPractice}
-      />
     </div>
   );
 };

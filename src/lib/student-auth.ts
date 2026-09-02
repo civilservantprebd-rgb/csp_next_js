@@ -74,7 +74,17 @@ export function updateLocalStudentName(name: string): StudentUser | null {
 export async function logoutStudentUser(): Promise<void> {
   try {
     const { supabase } = await import("./supabase");
+    const localUser = getLocalStudentUser();
     await supabase.auth.signOut();
+    // এনরোলমেন্ট-ক্যাশ মুছে দিই — লগআউট করলে পরের লগইনে নতুন করে সার্ভার-যাচাই হবে
+    if (localUser) {
+      try {
+        const { clearEnrollmentCache } = await import("./access-cache");
+        clearEnrollmentCache(localUser.uid, localUser.email);
+      } catch {
+        // ignore — cache optional
+      }
+    }
     localStorage.removeItem("bcs_student_user");
     sessionStorage.removeItem("current_student");
     // ম্যানুয়াল পরিচয়ও মুছে দিন — পরের লগইনে আবার পরিষ্কারভাবে যাচাই হবে

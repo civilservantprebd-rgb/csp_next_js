@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { fetchAppConfigLite } from "@/actions/admin-actions";
+import { fetchExamMeta } from "@/actions/admin-actions";
 
 // লিডারবোর্ড শেয়ার করলে টাইটেলসহ কার্ড যায় (exam name)
 export async function generateMetadata({ params }: { params: { examId: string } }): Promise<Metadata> {
   const examId = params?.examId || "";
   let title = "লিডারবোর্ড";
   try {
-    const config = await fetchAppConfigLite();
-    const ex = config.exams?.[examId];
+    // শুধু এই পরীক্ষার মেটা — পুরো কনফিগ নয়
+    const ex = await fetchExamMeta(examId);
     if (ex?.title) title = `${ex.title} — লিডারবোর্ড`;
   } catch {
     // fallback title
