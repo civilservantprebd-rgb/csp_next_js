@@ -228,23 +228,9 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
   };
 
   const handleOpenStudentPortal = () => {
-    const localUser = getLocalStudentUser();
-    if (localUser) {
-      setActivePortalStudentId(localUser.uid);
-      setIsStudentDashOpen(true);
-      return;
-    }
-    // A phone/ID-verified student (verified on a course page or /portal) is a
-    // known identity — open the dashboard with it. The dashboard then shows
-    // either their records (when the Google session matches) or a clear
-    // "login required" banner with a Google-login button — never a bare wall.
-    const verified = getVerifiedStudent();
-    if (verified && verified.id) {
-      setActivePortalStudentId(verified.id);
-      setIsStudentDashOpen(true);
-      return;
-    }
-    setIsStudentPortalLoginOpen(true);
+    // Student Portal একটি আলাদা পেজ (/portal) — popup-মডাল নয়। সেখানে
+    // লগইন/ড্যাশবোর্ড পেজের ভেতরেই দেখায়।
+    router.push("/portal");
   };
 
   const handleStudentPortalLoginSuccess = (id: string) => {

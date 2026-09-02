@@ -58,6 +58,9 @@ import {
 
 interface StudentDashboardModalProps {
   isOpen: boolean;
+  /** Popup না — আলাদা পেজে (embedded) রেন্ডার হলে true দিন: ব্যাকড্রপ/ফিক্সড
+      ওভারলে ছাড়া সাধারণ কার্ড হিসেবে দেখায়, পেজ স্ক্রল স্বাভাবিক থাকে। */
+  embedded?: boolean;
   studentId: string;
   exams: Record<string, Exam>;
   config?: AppConfigData;
@@ -69,6 +72,7 @@ interface StudentDashboardModalProps {
 
 export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   isOpen,
+  embedded = false,
   studentId,
   exams,
   config,
@@ -287,8 +291,8 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100">
+    <div className={embedded ? "font-bengali" : "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200"}>
+      <div className={embedded ? "bg-white rounded-3xl max-w-3xl w-full mx-auto p-4 sm:p-6 border border-slate-200 shadow-sm" : "bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100"}>
         
         {/* Header */}
         <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
@@ -354,9 +358,11 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">লগআউট</span>
             </button>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
-              <X className="w-5 h-5" />
-            </button>
+            {!embedded && (
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 
