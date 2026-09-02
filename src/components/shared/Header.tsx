@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers, ShoppingCart } from "lucide-react";
+import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers, ShoppingCart, Clock, Video, Loader2 } from "lucide-react";
+import { getRecentNotifications, type NotifItem } from "@/actions/notification-actions";
+import { toBengaliDigits } from "@/lib/utils";
 
 interface HeaderProps {
   onOpenStudentPortal?: () => void;
@@ -17,6 +19,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
   const [isTeacher, setIsTeacher] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState<NotifItem[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [seenAt, setSeenAt] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    return Number(localStorage.getItem("notif_last_seen") || 0) || 0;
+  });
 
   useEffect(() => {
     const refreshTeacherState = () => {
@@ -81,8 +89,40 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
     else router.push("/");
   };
 
+  const unreadCount = notifs.filter((n) => new Date(n.timeISO).getTime() > seenAt).length;
+
+  const loadNotifications = async () => {
+    setNotifLoading(true);
+    try {
+      const list = await getRecentNotifications();
+      setNotifs(list);
+    } catch {
+      // নেটওয়ার্ক সমস্যা হলে বেল খালি থাকে
+    }
+    setNotifLoading(false);
+  };
+
+  const markAllSeen = () => {
+    const nowMs = Date.now();
+    localStorage.setItem("notif_last_seen", String(nowMs));
+    setSeenAt(nowMs);
+  };
+
+  const timeAgo = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "এইমাত্র";
+    if (m < 60) return `${toBengaliDigits(m)} মিনিট আগে`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${toBengaliDigits(h)} ঘণ্টা আগে`;
+    return `${toBengaliDigits(Math.floor(h / 24))} দিন আগে`;
+  };
+
   const toggleBell = () => {
-    setIsNotifOpen((v) => !v);
+    setIsNotifOpen((v) => {
+      if (!v && notifs.length === 0) loadNotifications();
+      return !v;
+    });
     setIsMenuOpen(false);
   };
 
@@ -100,20 +140,78 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               onClick={toggleBell}
               aria-label="নোটিফিকেশন"
               aria-expanded={isNotifOpen}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 cursor-pointer transition"
+              className="relative p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 cursor-pointer transition"
             >
               <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center shadow-sm border border-white">
+                  {toBengaliDigits(unreadCount)}
+                </span>
+              )}
             </button>
 
             {/* Notification dropdown */}
             {isNotifOpen && (
-              <div className="absolute left-0 top-full mt-2 w-72 max-w-[85vw] bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50 font-bengali">
-                <div className="flex items-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-800 font-bold text-sm border-b border-indigo-100">
-                  <Bell className="w-4 h-4" /> নোটিফিকেশন
+              <div className="absolute left-0 top-full mt-2 w-80 max-w-[88vw] bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50 font-bengali">
+                <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
+                  <span className="flex items-center gap-2 font-bold text-sm text-slate-800">
+                    <Bell className="w-4 h-4 text-indigo-600" /> নোটিফিকেশন
+                    {unreadCount > 0 && (
+                      <span className="bg-rose-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full">
+                        {toBengaliDigits(unreadCount)} নতুন
+                      </span>
+                    )}
+                  </span>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllSeen}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                    >
+                      সব পড়া হয়েছে
+                    </button>
+                  )}
                 </div>
-                <div className="px-4 py-6 text-center space-y-1.5">
-                  <p className="text-sm font-semibold text-slate-700">কোনো নতুন নোটিফিকেশন নেই</p>
-                  <p className="text-xs text-slate-400">নতুন পরীক্ষা বা ফলাফল প্রকাশের খবর এখানে দেখাবে।</p>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                  {notifLoading && notifs.length === 0 && (
+                    <div className="px-4 py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> লোড হচ্ছে...
+                    </div>
+                  )}
+                  {!notifLoading && notifs.length === 0 && (
+                    <div className="px-4 py-8 text-center space-y-1.5">
+                      <p className="text-sm font-semibold text-slate-600">কোনো নতুন নোটিফিকেশন নেই</p>
+                      <p className="text-xs text-slate-400">পরীক্ষা শুরু/শেষ, নতুন পরীক্ষা ও নতুন ভিডিওর খবর এখানে আসবে।</p>
+                    </div>
+                  )}
+                  {notifs.map((n) => {
+                    const isNew = new Date(n.timeISO).getTime() > seenAt;
+                    const iconBox =
+                      n.type === "new_video"
+                        ? "bg-rose-50 text-rose-600"
+                        : n.type === "new_exam"
+                        ? "bg-indigo-50 text-indigo-600"
+                        : "bg-amber-50 text-amber-600";
+                    return (
+                      <div key={n.id} className={`px-4 py-3 flex gap-3 ${isNew ? "bg-indigo-50/40" : ""}`}>
+                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${iconBox}`}>
+                          {n.type === "new_video" ? (
+                            <Video className="w-4 h-4" />
+                          ) : n.type === "new_exam" ? (
+                            <GraduationCap className="w-4 h-4" />
+                          ) : (
+                            <Clock className="w-4 h-4" />
+                          )}
+                        </span>
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="text-xs font-bold text-slate-800">{n.title}</p>
+                          <p className="text-xs text-slate-500 leading-relaxed">{n.body}</p>
+                          <p className="text-[11px] text-slate-400">{timeAgo(n.timeISO)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
