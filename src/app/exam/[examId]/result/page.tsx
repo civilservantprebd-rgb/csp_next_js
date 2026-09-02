@@ -9,9 +9,8 @@ import { fetchExamWithQuestions } from "@/actions/admin-actions";
 import { getExamSolutions, getExamCandidateRank } from "@/actions/exam-actions";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { Exam, QuestionSolution } from "@/types/exam";
-import { Award, ListChecks, Trophy, Home, Loader2, Clock, X, Lock, Sparkles, AlertTriangle, Printer } from "lucide-react";
+import { Award, ListChecks, Trophy, Home, Loader2, Clock, X, Lock, Sparkles, AlertTriangle } from "lucide-react";
 import { formatBangladeshClock, toBengaliDigits } from "@/lib/utils";
-import { PrintableMarksheetModal } from "@/components/exam/PrintableMarksheetModal";
 
 import { saveMistakesFromSubmission } from "@/lib/mistake-bookmark-store";
 
@@ -26,7 +25,6 @@ export default function ExamResultPage() {
   const [showReview, setShowReview] = useState(false);
   const [showLockedModal, setShowLockedModal] = useState(false);
   const [recordMissing, setRecordMissing] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
   const [rankInfo, setRankInfo] = useState<{
     practiceRank: number;
     totalCandidates: number;
@@ -308,22 +306,6 @@ export default function ExamResultPage() {
               <ListChecks className="w-4 h-4" /> উত্তর পর্যালোচনা (Review)
             </button>
 
-            <button
-              onClick={async () => {
-                if (!isPublished) {
-                  setShowLockedModal(true);
-                  return;
-                }
-                if (!solutions) {
-                  const data = await getExamSolutions(examId);
-                  setSolutions(data || []);
-                }
-                setShowPrintModal(true);
-              }}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              <Printer className="w-4 h-4 text-indigo-600" /> মার্কশিট (PDF)
-            </button>
 
             <button
               onClick={() => router.push(`/leaderboard/${examId}`)}
@@ -340,27 +322,6 @@ export default function ExamResultPage() {
             </button>
           </div>
 
-          {/* Printable Marksheet Modal */}
-          {exam && (
-            <PrintableMarksheetModal
-              isOpen={showPrintModal}
-              onClose={() => setShowPrintModal(false)}
-              examTitle={resultData.examTitle}
-              courseName={exam.course}
-              subjectName={exam.subject}
-              studentName={resultData.studentName}
-              studentId={resultData.studentId}
-              totalQuestions={resultData.totalQuestions || exam.questions?.length || 0}
-              score={resultData.score ?? 0}
-              correct={resultData.correct ?? 0}
-              incorrect={resultData.incorrect ?? 0}
-              timeSpent={resultData.timeSpent || "১০ মিনিট"}
-              submittedAt={resultData.submittedAtISO || new Date().toISOString()}
-              questions={exam.questions || []}
-              solutions={solutions || []}
-              studentAnswers={resultData.answers || []}
-            />
-          )}
 
           {showReview && exam && solutions && (
             <div className="pt-4 border-t border-slate-100 space-y-4">
