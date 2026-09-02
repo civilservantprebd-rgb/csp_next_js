@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
+import { verifyTeacherSession } from "@/actions/admin-actions";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { toBengaliDigits } from "@/lib/utils";
 
@@ -63,10 +64,16 @@ export default function QuestionBankPage() {
 
     (async () => {
       try {
-        const { verifyStudentAccess } = await import("@/actions/student-actions");
-        const access = await verifyStudentAccess(u.uid, "ALL", u.email);
-        setEnrolled(access.allowed);
-        if (!access.allowed) return;
+        // শিক্ষক/অ্যাডমিন — এনরোলমেন্ট ছাড়াই পুরো প্রশ্নব্যাংকে প্রবেশ
+        const teacher = await verifyTeacherSession();
+        if (!teacher.ok) {
+          const { verifyStudentAccess } = await import("@/actions/student-actions");
+          const access = await verifyStudentAccess(u.uid, "ALL", u.email);
+          setEnrolled(access.allowed);
+          if (!access.allowed) return;
+        } else {
+          setEnrolled(true);
+        }
         const t = await getPracticeTopics();
         setEntries(
           (t || []).map((x: { name: string; count: number }) => ({

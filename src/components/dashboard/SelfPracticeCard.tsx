@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { AppConfigData } from "@/types/exam";
 import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
+import { verifyTeacherSession } from "@/actions/admin-actions";
 import type { PracticeQuestion, TopicOption } from "@/lib/practice-helper";
 import { buildDeepTopicTree, TreeNode } from "@/lib/topic-hierarchy";
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
@@ -46,17 +47,24 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
         setEnrolled(false);
         return;
       }
-      import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
-        verifyStudentAccess(localUser.uid, "ALL", localUser.email)
-          .then((res) => {
-            setEnrolled(res.allowed);
-          })
-          .catch(() => {
-            // Never leave the UI stuck on "যাচাই হচ্ছে..." — treat a failed
-            // check as not-enrolled so the enroll CTA shows instead.
-            setEnrolled(false);
-          });
-      });
+      // শিক্ষক/অ্যাডমিন — এনরোলমেন্ট ছাড়াই পুরো ব্যাংকে প্রবেশ
+      verifyTeacherSession()
+        .then((t) => {
+          if (t.ok) {
+            setEnrolled(true);
+            return;
+          }
+          return import("@/actions/student-actions").then(({ verifyStudentAccess }) =>
+            verifyStudentAccess(localUser.uid, "ALL", localUser.email)
+              .then((res) => setEnrolled(res.allowed))
+              .catch(() => {
+                // Never leave the UI stuck on "যাচাই হচ্ছে..." — treat a failed
+                // check as not-enrolled so the enroll CTA shows instead.
+                setEnrolled(false);
+              })
+          );
+        })
+        .catch(() => setEnrolled(false));
     });
   }, []);
 
