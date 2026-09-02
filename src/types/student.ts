@@ -26,4 +26,5 @@ export interface EnrollmentRequest {
   trxId: string;
   timestamp: string;
   email?: string;
+  coupon?: string;
 }

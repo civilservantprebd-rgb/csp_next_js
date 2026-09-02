@@ -26,6 +26,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
   const [name, setName] = useState("");
   const [trxId, setTrxId] = useState("");
+  const [coupon, setCoupon] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -98,6 +99,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
       course: selectedCourses,
       name,
       trxId,
+      coupon,
     });
 
     setIsLoading(false);
@@ -112,8 +114,9 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl relative border border-slate-100 flex flex-col">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto font-bengali animate-in fade-in duration-200">
+      <div className="min-h-full flex items-center justify-center p-3 sm:p-4">
+        <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl relative border border-slate-100 flex flex-col my-auto">
         {/* Close Button */}
         <button
           onClick={handleClose}
@@ -161,6 +164,12 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                 <span className="text-slate-500">ট্রান্সেকশন আইডি:</span>
                 <span className="font-mono font-bold text-emerald-700">{trxId}</span>
               </div>
+              {coupon && (
+                <div className="flex justify-between items-center py-1 border-t border-slate-200/60">
+                  <span className="text-slate-500">কুপন কোড:</span>
+                  <span className="font-mono font-bold text-emerald-700">{coupon}</span>
+                </div>
+              )}
             </div>
 
             <div className="pt-2">
@@ -315,6 +324,22 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                       onChange={(e) => setTrxId(e.target.value.toUpperCase())}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm font-mono uppercase bg-slate-50/50 hover:bg-white focus:bg-white transition"
                     />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      bKash/Nagad থেকে পাওয়া পুরো TrxID লিখুন — অক্ষর-সংখ্যা যেকোনোটা চলবে
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      কুপন কোড (যদি থাকে)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: AROHON50"
+                      value={coupon}
+                      onChange={(e) => setCoupon(e.target.value.toUpperCase())}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm font-mono uppercase bg-slate-50/50 hover:bg-white focus:bg-white transition"
+                    />
                   </div>
 
                   <div className="pt-2">
@@ -332,6 +357,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

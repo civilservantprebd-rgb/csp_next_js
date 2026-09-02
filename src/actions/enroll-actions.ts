@@ -11,6 +11,7 @@ export async function submitEnrollRequest(payload: {
   name: string;
   course: string | string[];
   trxId: string;
+  coupon?: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
     // SECURITY: enrollment requests grant paid-course access after teacher
@@ -39,9 +40,10 @@ export async function submitEnrollRequest(payload: {
       return { success: false, message: "ইমেইল ঠিকানা সঠিক নয়।" };
     }
 
+    // যেকোনো TrxID গ্রহণ করা হয় (ফরম্যাট যাচাই নেই) — শিক্ষক ম্যানুয়ালি ভেরিফাই করেন
     const trx = String(payload.trxId || "").trim().toUpperCase();
-    if (!/^[A-Z0-9]{6,40}$/.test(trx)) {
-      return { success: false, message: "ট্রানজেকশন আইডি (TRX ID) সঠিক নয় — bKash/Nagad থেকে কপি করা সম্পূর্ণ নম্বরটি দিন।" };
+    if (!trx) {
+      return { success: false, message: "ট্রানজেকশন আইডি (TrxID) লিখুন।" };
     }
 
     // One pending request per TRX id — prevents reusing the same payment
@@ -69,14 +71,21 @@ export async function submitEnrollRequest(payload: {
       return { success: false, message: "আপনি ইতিমধ্যে একটি এনরোলমেন্ট রিকোয়েস্ট জমা দিয়েছেন। শিক্ষকের অনুমোদনের অপেক্ষায় থাকুন।" };
     }
 
-    const { error } = await supabase.from("enroll_requests").insert({
+    const coupon = String(payload.coupon || "").trim().toUpperCase();
+    const toInsert: Record<string, unknown> = {
       student_uid: sessionUser.id,
       email: String(sessionUser.email || cleanEmail || ""),
       name: payload.name.trim(),
       course: courseStr,
       trx_id: trx,
       created_at: getTrueDate().toISOString()
-    });
+    };
+    if (coupon) {
+      // coupon কলাম থাকলে সেভ হয়; পুরনো DB-তে কলাম না থাকলে কোনো এরর ছাড়াই বাদ পড়ে
+      const { error: probeErr } = await supabase.from("enroll_requests").select("coupon").limit(1);
+      if (!probeErr) toInsert.coupon = coupon;
+    }
+    const { error } = await supabase.from("enroll_requests").insert(toInsert);
 
     if (error) throw error;
 
@@ -109,7 +118,8 @@ export async function getEnrollRequests(): Promise<EnrollmentRequest[]> {
       name: r.name,
       course: r.course,
       trxId: r.trx_id,
-      timestamp: r.created_at
+      timestamp: r.created_at,
+      coupon: (r as any)?.coupon || ""
     }));
   } catch (err) {
     console.error("Fetch enroll requests error:", err);

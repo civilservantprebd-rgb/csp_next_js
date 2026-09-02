@@ -315,6 +315,14 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                         <span>
                           TrxID: <span className="font-mono font-bold text-amber-700">{req.trxId}</span>
                         </span>
+                        {req.coupon && (
+                          <>
+                            <span>|</span>
+                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-semibold">
+                              কুপন: {req.coupon}
+                            </span>
+                          </>
+                        )}
                         {req.timestamp && (
                           <>
                             <span>|</span>
