@@ -86,7 +86,7 @@ export const BookmarkButton: React.FC<BookmarkButtonProps> = ({
         isSmall ? "p-1.5 text-xs" : "px-2.5 py-1.5 text-xs"
       } ${
         isSaved
-          ? "bg-amber-100 text-amber-900 border border-amber-300 font-bold shadow-2xs"
+          ? "bg-amber-100 text-amber-900 border border-amber-300 font-bold shadow-sm"
           : "bg-slate-100/80 hover:bg-slate-200/80 text-slate-600 border border-slate-200"
       }`}
     >
@@ -95,7 +95,7 @@ export const BookmarkButton: React.FC<BookmarkButtonProps> = ({
           isSaved ? "fill-amber-500 text-amber-600" : "text-slate-500"
         }`}
       />
-      <span className="hidden sm:inline text-[11px]">
+      <span className="hidden sm:inline text-sm">
         {isSaved ? "বুকমার্ক সংরক্ষিত" : "বুকমার্ক"}
       </span>
     </button>

@@ -12,9 +12,14 @@ export const SubmissionsTable: React.FC = () => {
 
   const loadSubmissions = async () => {
     setIsLoading(true);
-    const list = await getAllSubmissions();
-    setSubmissions(list);
-    setIsLoading(false);
+    try {
+      const list = await getAllSubmissions();
+      setSubmissions(list);
+    } catch (err) {
+      console.error("Load submissions error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -44,7 +49,7 @@ export const SubmissionsTable: React.FC = () => {
           </button>
           <button
             onClick={handleClearAll}
-            className="text-[11px] sm:text-xs text-rose-600 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+            className="text-sm sm:text-xs text-rose-600 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
           >
             <Trash2 className="w-3 h-3" /> সকল মুছুন
           </button>

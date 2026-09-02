@@ -52,8 +52,12 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const loadSolutions = async () => {
-    const data = await getExamSolutions(activeExamKey);
-    setSolutions(data || []);
+    try {
+      const data = await getExamSolutions(activeExamKey);
+      setSolutions(data || []);
+    } catch (err) {
+      console.error("Load solutions error:", err);
+    }
   };
 
   useEffect(() => {
@@ -63,9 +67,12 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
 
   // Load the complete topic structure (from every source) into the tree picker
   useEffect(() => {
-    import("@/actions/admin-actions").then(({ getTopicTreeData }) => {
-      getTopicTreeData().then((d) => setAllTopics(d.topics));
-    });
+    import("@/actions/admin-actions")
+      .then(({ getTopicTreeData }) => getTopicTreeData())
+      .then((d) => setAllTopics(d.topics))
+      .catch(() => {
+        // tree picker simply falls back to the props-provided topics
+      });
   }, []);
 
   const mergedTopics = Array.from(new Set([...topics, ...allTopics]));
@@ -192,7 +199,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
     <div className="space-y-6 font-bengali">
       <div className="bg-amber-50 p-4 sm:p-5 rounded-2xl border border-amber-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
-          <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold">
+          <span className="text-xs bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold">
             {exam.course} • {exam.subject}
           </span>
           <h3 className="font-bold text-amber-900 text-sm sm:text-base mt-1">{exam.title}</h3>
@@ -211,7 +218,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
           <button
             type="button"
             onClick={() => setIsBulkModalOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>বাল্ক প্রশ্ন ইম্পোর্ট (Smart Paste)</span>
@@ -275,7 +282,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">অপশন ১ (ক)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ১ (ক)</label>
             <input
               type="text"
               required
@@ -286,7 +293,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">অপশন ২ (খ)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ২ (খ)</label>
             <input
               type="text"
               required
@@ -297,7 +304,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">অপশন ৩ (গ)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ৩ (গ)</label>
             <input
               type="text"
               required
@@ -308,7 +315,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">অপশন ৪ (ঘ)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ৪ (ঘ)</label>
             <input
               type="text"
               required
@@ -348,7 +355,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
         </div>
 
         {/* Topic Tree Selector */}
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
           <TopicTreeSelector
             selectedTopicPath={selectedTopic}
             onSelectTopicPath={(path) => setSelectedTopic(path)}
@@ -448,7 +455,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
                           {toBengaliDigits(idx + 1)}. {q.q}
                         </p>
                         {q.topic && (
-                          <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold border border-indigo-200">
+                          <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold border border-indigo-200">
                             টপিক: {q.topic}
                           </span>
                         )}

@@ -118,6 +118,11 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
         setQuestions(res.questions || []);
         setTotalQuestions(res.total || 0);
       }
+    } catch (err) {
+      // No inline error state exists in this component (other flows alert), so
+      // log the failure and keep the previous results; the finally below still
+      // resets the loading spinner so the search UI never hangs.
+      console.error("Question bank search failed:", err);
     } finally {
       if (seq === searchSeqRef.current) setIsLoading(false);
     }
@@ -133,9 +138,12 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
 
   // Load the complete topic structure (from every source) into the tree picker
   const refreshTreeData = () => {
-    import("@/actions/admin-actions").then(({ getTopicTreeData }) => {
-      getTopicTreeData().then((d) => setAllTopics(d.topics));
-    });
+    import("@/actions/admin-actions")
+      .then(({ getTopicTreeData }) => getTopicTreeData())
+      .then((d) => setAllTopics(d.topics))
+      .catch(() => {
+        // tree picker simply falls back to the props-provided topics
+      });
   };
 
   useEffect(() => {
@@ -298,7 +306,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
       {/* Top Banner with bulk upload */}
       <div className="bg-amber-50 p-4 sm:p-5 rounded-2xl border border-amber-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
-          <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold">
+          <span className="text-xs bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold">
             সেন্ট্রাল ডাটাবেজ
           </span>
           <h3 className="font-bold text-amber-900 text-sm sm:text-base mt-1">সেন্ট্রাল প্রশ্ন ব্যাংক ভাণ্ডার</h3>
@@ -317,7 +325,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
           <button
             type="button"
             onClick={() => setIsBulkModalOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>প্রশ্ন ব্যাংকে বাল্ক আপলোড</span>
@@ -366,7 +374,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">অপশন ১ (ক)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ১ (ক)</label>
             <input
               type="text"
               required
@@ -377,7 +385,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">অপশন ২ (খ)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ২ (খ)</label>
             <input
               type="text"
               required
@@ -388,7 +396,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">অপশন ৩ (গ)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ৩ (গ)</label>
             <input
               type="text"
               required
@@ -399,7 +407,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">অপশন ৪ (ঘ)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ৪ (ঘ)</label>
             <input
               type="text"
               required
@@ -439,7 +447,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
         </div>
 
         {/* Hierarchical Topic Selector */}
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
           <TopicTreeSelector
             selectedTopicPath={selectedTopic}
             onSelectTopicPath={(path) => setSelectedTopic(path)}
@@ -630,7 +638,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                         {toBengaliDigits(idx + 1)}. {q.q}
                       </p>
                       <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                        <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
+                        <span className="text-xs bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
                           {q.topic || "সাধারণ"}
                         </span>
                       </div>
@@ -655,7 +663,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-100">
+                <div className="grid grid-cols-2 gap-1.5 pt-1 text-sm text-slate-600 bg-white p-2 rounded-lg border border-slate-100">
                   {q.opts.map((opt: string, oIdx: number) => (
                     <div key={oIdx} className={`flex items-center gap-1 truncate ${oIdx === q.correct ? "text-emerald-700 font-bold" : ""}`}>
                       <span className="text-slate-400 font-medium">
@@ -667,7 +675,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                 </div>
 
                 {q.exp && (
-                  <p className="text-[10px] text-slate-500 bg-white p-2 rounded-lg border border-slate-100 leading-relaxed">
+                  <p className="text-xs text-slate-500 bg-white p-2 rounded-lg border border-slate-100 leading-relaxed">
                     <strong>ব্যাখ্যা:</strong> {q.exp}
                   </p>
                 )}

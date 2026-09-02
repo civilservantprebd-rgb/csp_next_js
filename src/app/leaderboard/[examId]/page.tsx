@@ -74,7 +74,7 @@ export default function StandaloneLeaderboardPage() {
               onSelect={handleSelectExam}
             />
             {exam && (
-              <div className="flex items-center gap-2 flex-wrap text-[11px] font-bold text-slate-600">
+              <div className="flex items-center gap-2 flex-wrap text-sm font-bold text-slate-600">
                 <span className="bg-indigo-50 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-lg">
                   📁 {exam.course}
                 </span>

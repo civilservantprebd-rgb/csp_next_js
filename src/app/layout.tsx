@@ -1,15 +1,6 @@
 import type { Metadata } from "next";
-import { Hind_Siliguri } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
-
-// Self-hosted Bengali font (no render-blocking Google Fonts request, no CLS from late font swap)
-const hindSiliguri = Hind_Siliguri({
-  subsets: ["bengali", "latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-hind-siliguri",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.aarohon.com"),
@@ -35,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="bn" className={hindSiliguri.variable}>
+    <html lang="bn">
       <body className="bg-slate-50 text-slate-800 min-h-screen flex flex-col overflow-x-hidden antialiased font-bengali">
         {children}
         <Analytics />

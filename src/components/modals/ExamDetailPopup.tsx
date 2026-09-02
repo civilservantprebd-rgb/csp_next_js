@@ -7,7 +7,7 @@ import { Exam, QuestionItem, QuestionSolution } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
 import { fetchExamWithQuestions } from "@/actions/admin-actions";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
-import { toBengaliDigits } from "@/lib/utils";
+import { formatBangladeshClock, toBengaliDigits } from "@/lib/utils";
 import { PrintableMarksheetModal } from "@/components/exam/PrintableMarksheetModal";
 import { BookmarkButton } from "@/components/shared/BookmarkButton";
 import { saveMistakesFromSubmission } from "@/lib/mistake-bookmark-store";
@@ -36,25 +36,32 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
       Promise.all([
         fetchExamWithQuestions(submission.examKey),
         getExamSolutions(submission.examKey)
-      ]).then(([ex, sols]) => {
-        setExamQuestions(ex?.questions || null);
-        setSolutions(sols);
-        setIsLoading(false);
-        const qs =
-          ex?.questions && ex.questions.length > 0
-            ? ex.questions
-            : exam?.questions || [];
-        if (sols && qs.length > 0 && submission.studentId) {
-          saveMistakesFromSubmission(
-            submission.studentId,
-            submission.examTitle,
-            qs,
-            sols,
-            submission.answers || [],
-            ex?.subject || exam?.subject || ""
-          );
-        }
-      });
+      ])
+        .then(([ex, sols]) => {
+          setExamQuestions(ex?.questions || null);
+          setSolutions(sols);
+          setIsLoading(false);
+          const qs =
+            ex?.questions && ex.questions.length > 0
+              ? ex.questions
+              : exam?.questions || [];
+          if (sols && qs.length > 0 && submission.studentId) {
+            saveMistakesFromSubmission(
+              submission.studentId,
+              submission.examTitle,
+              qs,
+              sols,
+              submission.answers || [],
+              ex?.subject || exam?.subject || ""
+            );
+          }
+        })
+        .catch((err) => {
+          // A rejected solutions fetch must never leave the modal stuck on
+          // "সমাধান লোড হচ্ছে..." — stop the spinner and log the failure.
+          console.error("Failed to load exam solutions:", err);
+          setIsLoading(false);
+        });
     }
   }, [isOpen, submission, exam]);
 
@@ -89,7 +96,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPrintModal(true)}
-                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm"
               >
                 <Printer className="w-3.5 h-3.5 text-indigo-600" />
                 <span>মার্কশিট (PDF)</span>
@@ -133,9 +140,9 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                 শিক্ষক কর্তৃক ফলাফল রিলিজ করার পর প্রতিটি প্রশ্নের সঠিক উত্তর, আপনার উত্তর এবং পূর্ণাঙ্গ ব্যাখ্যা দেখতে পাবেন।
               </p>
               {exam?.endTime && (
-                <div className="inline-block bg-white border border-amber-200 px-3.5 py-1.5 rounded-xl text-xs text-amber-900 font-medium shadow-2xs">
+                <div className="inline-block bg-white border border-amber-200 px-3.5 py-1.5 rounded-xl text-xs text-amber-900 font-medium shadow-sm">
                   ⏰ পরীক্ষা সমাপ্তির সময়:{" "}
-                  <strong>{new Date(exam.endTime).toLocaleString("bn-BD")}</strong>
+                  <strong>{formatBangladeshClock(exam.endTime)}</strong>
                 </div>
               )}
             </div>
@@ -153,15 +160,15 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
               const isSkipped = studentAnsIdx === null;
 
               const statusBadge = isSkipped ? (
-                <span className="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded font-bold">
+                <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded font-bold">
                   স্কিপড
                 </span>
               ) : isCorrect ? (
-                <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded font-bold">
+                <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded font-bold">
                   সঠিক
                 </span>
               ) : (
-                <span className="bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded font-bold">
+                <span className="bg-rose-100 text-rose-700 text-xs px-2 py-0.5 rounded font-bold">
                   ভুল
                 </span>
               );
@@ -190,15 +197,15 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                       {statusBadge}
                     </div>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-slate-600">
+                  <p className="text-sm sm:text-xs text-slate-600">
                     <strong>আপনার উত্তর:</strong>{" "}
                     {studentAnsIdx !== null && q.opts[studentAnsIdx] ? q.opts[studentAnsIdx] : "দেওয়া হয়নি"}
                   </p>
-                  <p className="text-[11px] sm:text-xs text-emerald-700">
+                  <p className="text-sm sm:text-xs text-emerald-700">
                     <strong>সঠিক উত্তর:</strong> {q.opts[sol.correct] || "—"}
                   </p>
                   {sol.exp && (
-                    <p className="text-[11px] sm:text-xs text-slate-500 bg-white p-2 rounded-lg border border-slate-100 mt-1">
+                    <p className="text-sm sm:text-xs text-slate-500 bg-white p-2 rounded-lg border border-slate-100 mt-1">
                       <strong>ব্যাখ্যা:</strong> {sol.exp}
                     </p>
                   )}

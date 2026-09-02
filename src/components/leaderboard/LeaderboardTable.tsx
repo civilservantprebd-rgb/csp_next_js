@@ -71,7 +71,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
         )}
       </div>
 
-      <div id="printable-leaderboard" className="overflow-x-auto bg-white rounded-2xl border border-slate-200 shadow-xs">
+      <div id="printable-leaderboard" className="overflow-x-auto bg-white rounded-2xl border border-slate-200 shadow-sm">
         <table className="w-full text-left border-collapse text-xs sm:text-sm">
           <thead>
             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
@@ -124,7 +124,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                     <td className="p-3 font-semibold text-slate-800">{sub.studentName}</td>
                     <td className="p-3 text-center">
                       <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        className={`text-xs px-2 py-0.5 rounded-full font-bold ${
                           sub.isPassed ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
                         }`}
                       >

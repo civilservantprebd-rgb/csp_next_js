@@ -70,7 +70,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-xs font-bengali print:static print:p-0 print:bg-white print:block print:inset-auto print:animate-none print:backdrop-blur-none print:transform-none">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm font-bengali print:static print:p-0 print:bg-white print:block print:inset-auto print:animate-none print:backdrop-blur-none print:transform-none">
       {/* Container */}
       <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 print:m-0 print:p-0 print:border-none print:shadow-none print:max-w-none print:rounded-none print:max-h-none print:overflow-visible print:block">
         
@@ -91,7 +91,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
             >
               <Printer className="w-4 h-4" />
               <span>প্রিন্ট / PDF ডাউনলোড</span>
@@ -116,7 +116,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
             <div className="border-b-2 border-slate-900 pb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:break-inside-avoid">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-base shadow-sm">
                     আ
                   </div>
                   <div>
@@ -132,8 +132,8 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
                 <span className="inline-block bg-slate-100 text-slate-800 font-bold px-2.5 py-1 rounded-md border border-slate-200">
                   অফিসিয়াল মার্কশিট
                 </span>
-                <p className="text-[11px] text-slate-500 pt-1 font-mono">রিপোর্ট আইডি: {reportId}</p>
-                <p className="text-[11px] text-slate-500">তারিখ: {reportDate}</p>
+                <p className="text-sm text-slate-500 pt-1 font-mono">রিপোর্ট আইডি: {reportId}</p>
+                <p className="text-sm text-slate-500">তারিখ: {reportDate}</p>
               </div>
             </div>
 
@@ -171,22 +171,22 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-[10px] text-slate-500 block">মোট প্রশ্ন</span>
+                  <span className="text-xs text-slate-500 block">মোট প্রশ্ন</span>
                   <span className="text-lg font-bold text-slate-900">{toBengaliDigits(totalQuestions)}</span>
                 </div>
 
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <span className="text-[10px] text-emerald-700 block">সঠিক (+১)</span>
+                  <span className="text-xs text-emerald-700 block">সঠিক (+১)</span>
                   <span className="text-lg font-bold text-emerald-800">{toBengaliDigits(correct)}</span>
                 </div>
 
                 <div className="p-3 bg-rose-50 rounded-xl border border-rose-200">
-                  <span className="text-[10px] text-rose-700 block">ভুল (-০.৫)</span>
+                  <span className="text-xs text-rose-700 block">ভুল (-০.৫)</span>
                   <span className="text-lg font-bold text-rose-800">{toBengaliDigits(incorrect)}</span>
                 </div>
 
                 <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
-                  <span className="text-[10px] text-indigo-700 block">চূড়ান্ত প্রাপ্ত স্কোর</span>
+                  <span className="text-xs text-indigo-700 block">চূড়ান্ত প্রাপ্ত স্কোর</span>
                   <span className="text-xl font-black text-indigo-900">{toBengaliDigits(score)}</span>
                 </div>
               </div>
@@ -239,7 +239,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
 
                         <div>
                           {!isAnswered ? (
-                            <span className="text-slate-400 font-bold text-[10px]">ফাঁকা</span>
+                            <span className="text-slate-400 font-bold text-xs">ফাঁকা</span>
                           ) : isCorrect ? (
                             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                           ) : (
@@ -298,15 +298,15 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
                                   : "border-slate-200 bg-white text-slate-700"
                               }`}
                             >
-                              <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 bg-slate-800 text-white">
+                              <span className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0 bg-slate-800 text-white">
                                 {optLabels[oIdx]}
                               </span>
                               <span className="truncate print:whitespace-normal print:overflow-visible">{opt}</span>
                               {isAns && (
-                                <span className="ml-auto text-[9px] font-bold text-emerald-700 shrink-0">✓ সঠিক</span>
+                                <span className="ml-auto text-xs font-bold text-emerald-700 shrink-0">✓ সঠিক</span>
                               )}
                               {isStudent && !isAns && (
-                                <span className="ml-auto text-[9px] font-bold text-rose-700 shrink-0">আপনার</span>
+                                <span className="ml-auto text-xs font-bold text-rose-700 shrink-0">আপনার</span>
                               )}
                             </div>
                           );
@@ -314,7 +314,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
                       </div>
 
                       {/* Answer summary */}
-                      <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px]">
+                      <div className="flex flex-wrap items-center gap-2 mt-2 text-sm">
                         <span
                           className={`px-2 py-0.5 rounded-md font-bold ${
                             !isAnswered
@@ -360,7 +360,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
               <p className="font-semibold text-slate-600">
                 এই মূল্যায়ন প্রতিবেদনটি আরোহণ ক্লাউড পোর্টাল দ্বারা স্বয়ংক্রিয়ভাবে প্রস্তুতকৃত।
               </p>
-              <p className="text-[10px] text-slate-400">
+              <p className="text-xs text-slate-400">
                 কপিরাইট © {new Date().getFullYear()} আরোহণ. সর্বস্বত্ব সংরক্ষিত।
               </p>
             </div>

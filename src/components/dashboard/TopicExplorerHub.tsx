@@ -42,11 +42,12 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
     import("@/lib/student-auth").then(({ getLocalStudentUser }) => {
       const localUser = getLocalStudentUser();
       if (localUser) {
-        import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
-          verifyStudentAccess(localUser.uid, "ALL", localUser.email).then((res) => {
-            setIsPaidStudent(res.allowed);
+        import("@/actions/student-actions")
+          .then(({ verifyStudentAccess }) => verifyStudentAccess(localUser.uid, "ALL", localUser.email))
+          .then((res) => setIsPaidStudent(res.allowed))
+          .catch(() => {
+            // enrollment status is a display flag — the default (false) is safe
           });
-        });
       }
     });
   }, []);
@@ -140,10 +141,10 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-900 px-2.5 py-0.5 rounded-full border border-indigo-200">
+              <span className="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-900 px-2.5 py-0.5 rounded-full border border-indigo-200">
                 অধ্যায় ও সাব-টপিক রিডিং জোন
               </span>
-              <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
+              <span className="text-xs font-medium text-slate-500 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-amber-500" /> বিষয়ভিত্তিক প্রস্তুতি
               </span>
             </div>
@@ -153,7 +154,7 @@ export const TopicExplorerHub: React.FC<TopicExplorerHubProps> = ({ config, onOp
           </div>
         </div>
 
-        <div className="text-xs text-slate-500 bg-white px-3.5 py-1.5 rounded-xl border border-indigo-100 shadow-2xs self-start md:self-auto font-medium mt-1">
+        <div className="text-xs text-slate-500 bg-white px-3.5 py-1.5 rounded-xl border border-indigo-100 shadow-sm self-start md:self-auto font-medium mt-1">
           📖 অধ্যায় ধরে ধরে প্রশ্ন পড়ুন অথবা সরাসরি কুইজ দিন
         </div>
       </div>

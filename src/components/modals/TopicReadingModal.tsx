@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   BookOpen,
@@ -34,7 +34,7 @@ const AnalysisBlock: React.FC<AnalysisBlockProps> = ({ isOpen, isLoading, stats,
     <button
       type="button"
       onClick={onToggle}
-      className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition"
+      className="text-sm font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition"
     >
       <BarChart3 className="w-3.5 h-3.5" />
       {isOpen ? "এনালাইসিস বন্ধ করুন" : "📊 এনালাইসিস — লাইভ পরীক্ষার পরিসংখ্যান"}
@@ -42,7 +42,7 @@ const AnalysisBlock: React.FC<AnalysisBlockProps> = ({ isOpen, isLoading, stats,
     {isOpen && (
       <div className="mt-2 p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
         {isLoading ? (
-          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <div className="text-sm text-slate-400 flex items-center gap-1.5">
             <Loader2 className="w-3 h-3 animate-spin" /> পরিসংখ্যান লোড হচ্ছে...
           </div>
         ) : (
@@ -72,9 +72,28 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
   const [activeTab, setActiveTab] = useState<"list" | "card">("list");
   const [currentCardIdx, setCurrentCardIdx] = useState(0);
   const [revealedAnswers, setRevealedAnswers] = useState<Record<number, boolean>>({});
-  const [analysisOpen, setAnalysisOpen] = useState<Record<number, boolean>>({});
-  const [stats, setStats] = useState<Record<number, LiveStats | null>>({});
-  const [loadingStats, setLoadingStats] = useState<Record<number, boolean>>({});
+  // Analysis state is keyed by the question's STABLE id (q.id, with the question
+  // text as fallback) — NOT by its position in the filtered list — so searching
+  // or filtering can never show one question's stats under another question.
+  const [analysisOpen, setAnalysisOpen] = useState<Record<string, boolean>>({});
+  const [stats, setStats] = useState<Record<string, LiveStats | null>>({});
+  const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
+
+  // Fresh session whenever the modal opens for a (possibly new) question set:
+  // clear the previous topic's reveal/analysis state so stale pie charts and
+  // reveals can never leak into the next topic (this component stays mounted
+  // between opens and simply returns null when closed).
+  useEffect(() => {
+    if (isOpen) {
+      setRevealedAnswers({});
+      setAnalysisOpen({});
+      setStats({});
+      setLoadingStats({});
+      setCurrentCardIdx(0);
+      setSearchQuery("");
+      setActiveTab("list");
+    }
+  }, [isOpen, questions]);
 
   if (!isOpen) return null;
 
@@ -89,35 +108,46 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
     setRevealedAnswers((prev) => ({ ...prev, [idx]: !prev[idx] }));
   };
 
-  const toggleAnalysis = (idx: number) => {
-    const willOpen = !analysisOpen[idx];
-    setAnalysisOpen((prev) => ({ ...prev, [idx]: willOpen }));
-    if (willOpen && !stats[idx]) {
-      setLoadingStats((prev) => ({ ...prev, [idx]: true }));
-      import("@/actions/exam-actions").then(({ getQuestionLiveStats }) => {
-        getQuestionLiveStats(filteredQuestions[idx]?.q || "").then((res) => {
-          setStats((prev) => ({ ...prev, [idx]: res }));
-          setLoadingStats((prev) => ({ ...prev, [idx]: false }));
+  // Question identity used as the analysis-map key: the PracticeQuestion id,
+  // with the question text as fallback. Stable under search/filter changes.
+  const qKeyOf = (q: PracticeQuestion): string => q.id || q.q;
+
+  const toggleAnalysis = (q: PracticeQuestion) => {
+    const key = qKeyOf(q);
+    const willOpen = !analysisOpen[key];
+    setAnalysisOpen((prev) => ({ ...prev, [key]: willOpen }));
+    if (willOpen && !stats[key]) {
+      setLoadingStats((prev) => ({ ...prev, [key]: true }));
+      import("@/actions/exam-actions")
+        .then(({ getQuestionLiveStats }) => {
+          return getQuestionLiveStats(q.q || "").then((res) => {
+            setStats((prev) => ({ ...prev, [key]: res }));
+            setLoadingStats((prev) => ({ ...prev, [key]: false }));
+          });
+        })
+        .catch(() => {
+          // A failed fetch must never leave this question stuck on the loading
+          // spinner — always clear its per-question loading flag.
+          setLoadingStats((prev) => ({ ...prev, [key]: false }));
         });
-      });
     }
   };
 
   const optLabels = ["ক", "খ", "গ", "ঘ"];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs font-bengali animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
 
         {/* Modal Top Header */}
         <div className="p-4 sm:p-6 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] bg-indigo-100 text-indigo-900 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">
+                <span className="text-xs bg-indigo-100 text-indigo-900 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">
                   স্টাডি ও রিডিং মোড
                 </span>
                 <span className="text-xs text-slate-500 font-medium">
@@ -135,7 +165,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
               <button
                 type="button"
                 onClick={onStartQuiz}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
               >
                 <Zap className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">এই টপিকের কুইজ দিন</span>
@@ -169,7 +199,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
               type="button"
               onClick={() => setActiveTab("list")}
               className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === "list"
-                  ? "bg-white text-slate-900 shadow-2xs"
+                  ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-800"
                 }`}
             >
@@ -179,7 +209,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
               type="button"
               onClick={() => setActiveTab("card")}
               className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === "card"
-                  ? "bg-white text-slate-900 shadow-2xs"
+                  ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-800"
                 }`}
             >
@@ -202,7 +232,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                 return (
                   <div
                     key={q.id || idx}
-                    className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3"
+                    className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <h4 className="font-bold text-slate-900 text-sm sm:text-base leading-relaxed">
@@ -224,7 +254,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                               }`}
                           >
                             <span
-                              className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${isCorrect
+                              className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${isCorrect
                                   ? "bg-emerald-600 text-white"
                                   : "bg-slate-200 text-slate-600"
                                 }`}
@@ -243,7 +273,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                     {/* Explanation */}
                     {q.exp && (
                       <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/80 text-xs text-amber-950 leading-relaxed space-y-1">
-                        <span className="font-bold text-amber-900 flex items-center gap-1 text-[11px]">
+                        <span className="font-bold text-amber-900 flex items-center gap-1 text-sm">
                           <Sparkles className="w-3 h-3 text-amber-600" /> সঠিক উত্তর ও ব্যাখ্যা:
                         </span>
                         <p className="text-slate-800">{q.exp}</p>
@@ -252,10 +282,10 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
 
                     {/* Live-exam analysis (pie chart) */}
                     <AnalysisBlock
-                      isOpen={!!analysisOpen[idx]}
-                      isLoading={!!loadingStats[idx]}
-                      stats={stats[idx] || null}
-                      onToggle={() => toggleAnalysis(idx)}
+                      isOpen={!!analysisOpen[qKeyOf(q)]}
+                      isLoading={!!loadingStats[qKeyOf(q)]}
+                      stats={stats[qKeyOf(q)] || null}
+                      onToggle={() => toggleAnalysis(q)}
                     />
                   </div>
                 );
@@ -292,7 +322,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                         <div
                           key={oIdx}
                           className={`p-3 rounded-xl border flex items-center gap-2.5 transition ${isRevealed && isCorrect
-                              ? "border-emerald-400 bg-emerald-50 text-emerald-950 font-bold shadow-xs"
+                              ? "border-emerald-400 bg-emerald-50 text-emerald-950 font-bold shadow-sm"
                               : "border-slate-200 bg-slate-50 text-slate-800"
                             }`}
                         >
@@ -322,10 +352,10 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
 
                   {/* Live-exam analysis (pie chart) */}
                   <AnalysisBlock
-                    isOpen={!!analysisOpen[currentCardIdx]}
-                    isLoading={!!loadingStats[currentCardIdx]}
-                    stats={stats[currentCardIdx] || null}
-                    onToggle={() => toggleAnalysis(currentCardIdx)}
+                    isOpen={!!analysisOpen[qKeyOf(filteredQuestions[currentCardIdx])]}
+                    isLoading={!!loadingStats[qKeyOf(filteredQuestions[currentCardIdx])]}
+                    stats={stats[qKeyOf(filteredQuestions[currentCardIdx])] || null}
+                    onToggle={() => toggleAnalysis(filteredQuestions[currentCardIdx])}
                   />
 
                   {/* Navigation Buttons */}

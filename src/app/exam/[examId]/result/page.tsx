@@ -10,7 +10,7 @@ import { getExamSolutions, getExamCandidateRank } from "@/actions/exam-actions";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { Exam, QuestionSolution } from "@/types/exam";
 import { Award, ListChecks, Trophy, Home, Loader2, Clock, X, Lock, Sparkles, AlertTriangle, Printer } from "lucide-react";
-import { toBengaliDigits } from "@/lib/utils";
+import { formatBangladeshClock, toBengaliDigits } from "@/lib/utils";
 import { PrintableMarksheetModal } from "@/components/exam/PrintableMarksheetModal";
 
 import { saveMistakesFromSubmission } from "@/lib/mistake-bookmark-store";
@@ -25,6 +25,7 @@ export default function ExamResultPage() {
   const [solutions, setSolutions] = useState<QuestionSolution[] | null>(null);
   const [showReview, setShowReview] = useState(false);
   const [showLockedModal, setShowLockedModal] = useState(false);
+  const [recordMissing, setRecordMissing] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [rankInfo, setRankInfo] = useState<{
     practiceRank: number;
@@ -77,15 +78,20 @@ export default function ExamResultPage() {
                   let answers = currentRes.answers;
                   let submittedAtISO = currentRes.submittedAtISO || "";
 
-                  if (dbRes) {
-                    if (dbRes.submittedAtISO) submittedAtISO = dbRes.submittedAtISO;
-                    if (!dbRes.isPendingEvaluation) {
-                      score = dbRes.score;
-                      correct = dbRes.correct;
-                      incorrect = dbRes.incorrect;
-                      if (dbRes.answers && dbRes.answers.length === answers.length) {
-                        answers = dbRes.answers;
-                      }
+                  if (!dbRes) {
+                    // Answers are released but no submission row backs this
+                    // identity — never render (or print) forged sessionStorage
+                    // data on the result page.
+                    setRecordMissing(true);
+                    return;
+                  }
+                  if (dbRes.submittedAtISO) submittedAtISO = dbRes.submittedAtISO;
+                  if (!dbRes.isPendingEvaluation) {
+                    score = dbRes.score;
+                    correct = dbRes.correct;
+                    incorrect = dbRes.incorrect;
+                    if (dbRes.answers && dbRes.answers.length === answers.length) {
+                      answers = dbRes.answers;
                     }
                   }
 
@@ -160,14 +166,41 @@ export default function ExamResultPage() {
     );
   }
 
+  if (recordMissing) {
+    return (
+      <>
+        <Header />
+        <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-6">
+          <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-sm border border-slate-200/90 text-center space-y-4">
+            <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
+              <X className="w-6 h-6" />
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900">কোনো জমা রেকর্ড পাওয়া যায়নি</h2>
+            <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+              এই পরিচয়ে এই পরীক্ষার কোনো সাবমিশন সার্ভারে নেই, তাই ফলাফল বা মার্কশিট
+              দেখানো সম্ভব নয়। আপনি যদি পরীক্ষা দিয়ে থাকেন, অনুগ্রহ করে আবার লগইন করে চেষ্টা করুন।
+            </p>
+            <button
+              onClick={() => router.push("/")}
+              className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold px-6 py-3 rounded-xl transition text-sm cursor-pointer"
+            >
+              <Home className="w-4 h-4" /> হোমে ফিরে যান
+            </button>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
   return (
     <>
       <Header />
 
       <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-6">
-        <div className="bg-white rounded-3xl p-5 sm:p-8 shadow-xs border border-slate-200/90 space-y-5">
+        <div className="bg-white rounded-3xl p-5 sm:p-8 shadow-sm border border-slate-200/90 space-y-5">
           <div className="text-center bg-white p-6 rounded-2xl border border-slate-200/80 space-y-2">
-            <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+            <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center mx-auto shadow-sm">
               <Award className="w-7 h-7 text-white" />
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900">অভিনন্দন! পরীক্ষা সম্পন্ন হয়েছে</h2>
@@ -178,9 +211,9 @@ export default function ExamResultPage() {
 
           {/* Late / Practice Exam Rank Card */}
           {resultData.isLiveSubmission === false && (
-            <div className="p-4 bg-white rounded-2xl border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="p-4 bg-white rounded-2xl border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
               <div className="space-y-1">
-                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 text-sm font-bold px-2.5 py-0.5 rounded-full">
                   <AlertTriangle className="w-3 h-3 text-amber-700" /> অনুশীলন পরীক্ষা (লাইভ সমাপ্তির পরে প্রদত্ত)
                 </span>
                 <p className="text-xs text-slate-600 font-medium">
@@ -188,8 +221,8 @@ export default function ExamResultPage() {
                 </p>
               </div>
               {rankInfo && (
-                <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 text-center shrink-0 shadow-2xs">
-                  <span className="text-[10px] text-slate-500 block">
+                <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 text-center shrink-0 shadow-sm">
+                  <span className="text-xs text-slate-500 block">
                     মোট {toBengaliDigits(rankInfo.totalCandidates)} জন পরীক্ষার্থীর মধ্যে
                   </span>
                   <span className="text-base sm:text-lg font-black text-slate-900">
@@ -202,17 +235,17 @@ export default function ExamResultPage() {
 
           {/* Official leaderboard rank — live (scheduled-time) takers only */}
           {resultData.isLiveSubmission === true && rankInfo && (
-            <div className="p-4 bg-white rounded-2xl border border-indigo-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="p-4 bg-white rounded-2xl border border-indigo-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
               <div className="space-y-1">
-                <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-900 border border-indigo-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-900 border border-indigo-200 text-sm font-bold px-2.5 py-0.5 rounded-full">
                   <Trophy className="w-3 h-3 text-indigo-600" /> অফিসিয়াল লিডারবোর্ড অবস্থান
                 </span>
                 <p className="text-xs text-slate-600 font-medium">
                   লাইভ (নির্ধারিত সময়ে) দেওয়া পরীক্ষার্থীদের মধ্যে আপনার অবস্থান।
                 </p>
               </div>
-              <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 text-center shrink-0 shadow-2xs">
-                <span className="text-[10px] text-slate-500 block">
+              <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 text-center shrink-0 shadow-sm">
+                <span className="text-xs text-slate-500 block">
                   মোট {toBengaliDigits(rankInfo.totalCandidates)} জন লাইভ পরীক্ষার্থীর মধ্যে
                 </span>
                 <span className="text-base sm:text-lg font-black text-slate-900">
@@ -234,29 +267,29 @@ export default function ExamResultPage() {
           )}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-2xs">
-              <span className="text-[11px] sm:text-xs text-slate-500 block mb-1">মোট প্রশ্ন</span>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-sm">
+              <span className="text-sm sm:text-xs text-slate-500 block mb-1">মোট প্রশ্ন</span>
               <span className="text-lg sm:text-xl font-bold text-slate-900">
                 {toBengaliDigits(resultData.totalQuestions)}
               </span>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-2xs">
-              <span className="text-[11px] sm:text-xs text-emerald-600 block mb-1">সঠিক উত্তর</span>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-sm">
+              <span className="text-sm sm:text-xs text-emerald-600 block mb-1">সঠিক উত্তর</span>
               <span className="text-lg sm:text-xl font-bold text-emerald-700">
                 {!isPublished ? "অপ্রকাশিত" : toBengaliDigits(resultData.correct ?? 0)}
               </span>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-2xs">
-              <span className="text-[11px] sm:text-xs text-rose-600 block mb-1">ভুল উত্তর (-০.৫)</span>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-sm">
+              <span className="text-sm sm:text-xs text-rose-600 block mb-1">ভুল উত্তর (-০.৫)</span>
               <span className="text-lg sm:text-xl font-bold text-rose-700">
                 {!isPublished ? "অপ্রকাশিত" : toBengaliDigits(resultData.incorrect ?? 0)}
               </span>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-2xs">
-              <span className="text-[11px] sm:text-xs text-indigo-600 block mb-1">চূড়ান্ত স্কোর</span>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-sm">
+              <span className="text-sm sm:text-xs text-indigo-600 block mb-1">চূড়ান্ত স্কোর</span>
               <span className="text-xl sm:text-2xl font-black text-indigo-700">
                 {!isPublished ? (
                   <span className="text-xs text-slate-500 block leading-tight font-medium">ফলাফল প্রকাশের অপেক্ষায়</span>
@@ -270,7 +303,7 @@ export default function ExamResultPage() {
           <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
             <button
               onClick={handleToggleReview}
-              className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
             >
               <ListChecks className="w-4 h-4" /> উত্তর পর্যালোচনা (Review)
             </button>
@@ -287,14 +320,14 @@ export default function ExamResultPage() {
                 }
                 setShowPrintModal(true);
               }}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
             >
               <Printer className="w-4 h-4 text-indigo-600" /> মার্কশিট (PDF)
             </button>
 
             <button
               onClick={() => router.push(`/leaderboard/${examId}`)}
-              className="bg-white hover:bg-slate-50 text-slate-800 font-bold border border-slate-200 px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+              className="bg-white hover:bg-slate-50 text-slate-800 font-bold border border-slate-200 px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
             >
               <Trophy className="w-4 h-4 text-amber-500" /> লিডারবোর্ড
             </button>
@@ -344,7 +377,7 @@ export default function ExamResultPage() {
 
       {/* Locked Result / Review Popup */}
       {showLockedModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-100 relative">
             <button
               onClick={() => setShowLockedModal(false)}
@@ -371,7 +404,7 @@ export default function ExamResultPage() {
               {exam?.endTime && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-950 font-medium">
                   ⏰ পরীক্ষা সমাপ্তির সময়:{" "}
-                  <strong>{new Date(exam.endTime).toLocaleString("bn-BD")}</strong>
+                  <strong>{formatBangladeshClock(exam.endTime)}</strong>
                 </div>
               )}
 

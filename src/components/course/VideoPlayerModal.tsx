@@ -61,11 +61,11 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ video, playl
               <h3 className="text-white font-black text-sm sm:text-lg leading-snug">{video.title}</h3>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 {video.subject && (
-                  <span className="bg-sky-500/15 text-sky-300 border border-sky-400/30 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  <span className="bg-sky-500/15 text-sky-300 border border-sky-400/30 text-xs font-bold px-2 py-0.5 rounded-md">
                     {video.subject}
                   </span>
                 )}
-                <span className="text-slate-500 text-[10px]">
+                <span className="text-slate-500 text-xs">
                   {playlist.length > 0 && <>প্লেলিস্টে {toBengaliDigits(idx + 1)} / {toBengaliDigits(playlist.length)}</>}
                 </span>
               </div>
@@ -107,7 +107,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ video, playl
           {/* Same-subject playlist quick switch */}
           {playlist.length > 1 && (
             <div className="border-t border-slate-800 pt-3">
-              <p className="text-[11px] font-bold text-slate-400 mb-2 flex items-center gap-1.5">
+              <p className="text-sm font-bold text-slate-400 mb-2 flex items-center gap-1.5">
                 <PlayCircle className="w-3.5 h-3.5 text-indigo-400" /> এই প্লেলিস্টের আরও ভিডিও ({toBengaliDigits(playlist.length)}টি)
               </p>
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -133,7 +133,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ video, playl
                           </span>
                         )}
                       </div>
-                      <p className="px-2 py-1.5 text-[10px] font-bold text-slate-300 line-clamp-2 leading-snug">{v.title}</p>
+                      <p className="px-2 py-1.5 text-xs font-bold text-slate-300 line-clamp-2 leading-snug">{v.title}</p>
                     </button>
                   );
                 })}

@@ -15,6 +15,7 @@ import { AppConfigData, Exam } from "@/types/exam";
 import { Submission } from "@/types/submission";
 import { syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
 import { getLocalStudentUser } from "@/lib/student-auth";
+import { getVerifiedStudent } from "@/lib/student-identity";
 
 // Lazy-load modals: their JS (~150KB total) only downloads when actually opened
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
@@ -231,9 +232,19 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
     if (localUser) {
       setActivePortalStudentId(localUser.uid);
       setIsStudentDashOpen(true);
-    } else {
-      setIsStudentPortalLoginOpen(true);
+      return;
     }
+    // A phone/ID-verified student (verified on a course page or /portal) is a
+    // known identity — open the dashboard with it. The dashboard then shows
+    // either their records (when the Google session matches) or a clear
+    // "login required" banner with a Google-login button — never a bare wall.
+    const verified = getVerifiedStudent();
+    if (verified && verified.id) {
+      setActivePortalStudentId(verified.id);
+      setIsStudentDashOpen(true);
+      return;
+    }
+    setIsStudentPortalLoginOpen(true);
   };
 
   const handleStudentPortalLoginSuccess = (id: string) => {

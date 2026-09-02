@@ -42,7 +42,11 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   const [videoCounts, setVideoCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    getCourseVideoCounts().then(setVideoCounts);
+    getCourseVideoCounts()
+      .then(setVideoCounts)
+      .catch(() => {
+        // counts are decorative — course cards still render without them
+      });
   }, []);
 
   // Pinned courses appear first
@@ -56,7 +60,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
     <section className="font-bengali rounded-3xl bg-gradient-to-br from-indigo-50/40 via-white to-violet-50/50 border-2 border-indigo-400 shadow-md shadow-indigo-100/60 ring-1 ring-indigo-300/20 p-5 sm:p-7 transition-all duration-300 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-indigo-100">
         <div className="space-y-2.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100/90 text-indigo-950 border border-indigo-200 text-xs font-bold shadow-2xs">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100/90 text-indigo-950 border border-indigo-200 text-xs font-bold shadow-sm">
             <Layers className="w-3.5 h-3.5 text-indigo-700" />
             <span>আমাদের ব্যাচ</span>
           </div>
@@ -95,7 +99,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                         {courseName}
                       </h4>
                       {pinnedCourses.includes(courseName) && (
-                        <span className="inline-flex items-center gap-0.5 bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-md shrink-0">
+                        <span className="inline-flex items-center gap-0.5 bg-amber-400 text-slate-950 text-xs font-black px-1.5 py-0.5 rounded-md shrink-0">
                           <Pin className="w-3 h-3" /> পিন
                         </span>
                       )}
@@ -124,17 +128,17 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                     <FileText className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
                     <span className="block text-base font-black text-slate-900">{toBengaliDigits(examCount)}</span>
-                    <span className="block text-[9px] text-slate-500 font-bold">পরীক্ষা</span>
+                    <span className="block text-xs text-slate-500 font-bold">পরীক্ষা</span>
                   </div>
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                     <Video className="w-4 h-4 text-rose-600 mx-auto mb-1" />
                     <span className="block text-base font-black text-slate-900">{toBengaliDigits(videoCount)}</span>
-                    <span className="block text-[9px] text-slate-500 font-bold">ভিডিও ক্লাস</span>
+                    <span className="block text-xs text-slate-500 font-bold">ভিডিও ক্লাস</span>
                   </div>
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                     <BookOpen className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
                     <span className="block text-base font-black text-slate-900">{toBengaliDigits(courseSubjects.length)}</span>
-                    <span className="block text-[9px] text-slate-500 font-bold">বিষয়</span>
+                    <span className="block text-xs text-slate-500 font-bold">বিষয়</span>
                   </div>
                 </div>
 
@@ -143,13 +147,13 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                     {courseSubjects.slice(0, 8).map((s) => (
                       <span
                         key={s.name}
-                        className="bg-indigo-50 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-200"
+                        className="bg-indigo-50 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded-md border border-indigo-200"
                       >
                         {s.name}
                       </span>
                     ))}
                     {courseSubjects.length > 8 && (
-                      <span className="text-[10px] text-slate-400 font-bold px-1 py-0.5">
+                      <span className="text-xs text-slate-400 font-bold px-1 py-0.5">
                         +{toBengaliDigits(courseSubjects.length - 8)}টি
                       </span>
                     )}

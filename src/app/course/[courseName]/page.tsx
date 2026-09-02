@@ -49,6 +49,8 @@ export default function CourseStudyPage() {
   const courseName = decodeParam(String(params.courseName || ""));
 
   const [config, setConfig] = useState<AppConfigData | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [videoResult, setVideoResult] = useState<StudentVideoAccess | null>(null);
   const [checking, setChecking] = useState(true);
   const [subjectFilter, setSubjectFilter] = useState("ALL");
@@ -73,20 +75,33 @@ export default function CourseStudyPage() {
   const checkAccess = useCallback(async () => {
     if (!courseName) return;
     setChecking(true);
-    const access = await getCourseVideosForStudent(courseName, getLocalIdentity());
-    setVideoResult(access);
-    if (access.allowed && access.name) {
-      const id = getLocalIdentity();
-      if (id) setVerifiedStudent({ id: id.id, name: access.name, email: id.email });
+    try {
+      const access = await getCourseVideosForStudent(courseName, getLocalIdentity());
+      setVideoResult(access);
+      if (access.allowed && access.name) {
+        const id = getLocalIdentity();
+        if (id) setVerifiedStudent({ id: id.id, name: access.name, email: id.email });
+      }
+    } catch (err) {
+      // Access check failed (network/server): keep any previous result, log the
+      // failure, and let `finally` switch the "enrollment check" spinner off.
+      console.error("Course access check failed:", err);
+    } finally {
+      setChecking(false);
     }
-    setChecking(false);
   }, [courseName]);
 
   useEffect(() => {
     if (!courseName) return;
-    fetchAppConfigLite().then(setConfig);
+    setLoadError("");
+    fetchAppConfigLite()
+      .then(setConfig)
+      .catch(() => {
+        console.error("App config fetch failed on course page.");
+        setLoadError("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
+      });
     checkAccess();
-  }, [courseName, checkAccess]);
+  }, [courseName, checkAccess, loadAttempt]);
 
   const isUnlocked = videoResult?.allowed === true;
   const videos = videoResult?.videos || [];
@@ -238,8 +253,22 @@ export default function CourseStudyPage() {
 
   if (!config) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 font-bengali text-slate-500 gap-2">
-        <Loader2 className="w-5 h-5 animate-spin text-indigo-600" /> কোর্স লোড হচ্ছে...
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-slate-50 font-bengali text-slate-500">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-600" /> কোর্স লোড হচ্ছে...
+        </div>
+        {loadError && (
+          <div className="text-center px-4 space-y-3">
+            <p className="text-rose-600 text-xs font-bold">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => setLoadAttempt((n) => n + 1)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl cursor-pointer"
+            >
+              আবার চেষ্টা করুন
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -278,7 +307,7 @@ export default function CourseStudyPage() {
 
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {courseSubjects.slice(0, 12).map((s) => (
-                  <span key={s.name} className="bg-white/10 border border-white/20 text-[10px] font-bold px-2 py-0.5 rounded-lg">
+                  <span key={s.name} className="bg-white/10 border border-white/20 text-xs font-bold px-2 py-0.5 rounded-lg">
                     {s.name}
                   </span>
                 ))}
@@ -298,11 +327,11 @@ export default function CourseStudyPage() {
           {/* ============ LEFT: exams + video playlists ============ */}
           <div className="lg:col-span-8 space-y-5">
             {/* Exams section — সবার উপরে, যাতে পরীক্ষা সহজে পাওয়া যায় */}
-            <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
+            <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-indigo-600" /> পরীক্ষাসমূহ
-                  <span className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-indigo-200">
+                  <span className="bg-indigo-50 text-indigo-700 text-xs font-black px-2 py-0.5 rounded-md border border-indigo-200">
                     {toBengaliDigits(examCount)}টি
                   </span>
                 </h3>
@@ -339,17 +368,17 @@ export default function CourseStudyPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-black text-slate-900 text-sm truncate">{ex.title}</h4>
                             {ex.isFree && (
-                              <span className="bg-emerald-100 text-emerald-950 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5 shrink-0">
+                              <span className="bg-emerald-100 text-emerald-950 text-xs font-black px-2 py-0.5 rounded-md flex items-center gap-0.5 shrink-0">
                                 <CheckCircle2 className="w-2.5 h-2.5" /> ফ্রি
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[11px] text-slate-500 font-semibold">{ex.subject}</span>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <span className="text-sm text-slate-500 font-semibold">{ex.subject}</span>
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                               <Clock className="w-3 h-3 text-amber-600" /> {toBengaliDigits(ex.timerMinutes)} মিনিট
                             </span>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                               <CircleHelp className="w-3 h-3 text-indigo-600" /> {toBengaliDigits(qCount)}টি প্রশ্ন
                             </span>
                           </div>
@@ -368,12 +397,12 @@ export default function CourseStudyPage() {
             </section>
 
             {/* ভিডিও ক্লাস সেকশন — বড় প্লেয়ার নেই, ট্যাপ করলেই মোডালে শুরু */}
-            <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
+            <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
                   <Video className="w-5 h-5 text-rose-600" /> ভিডিও ক্লাস
                   {isUnlocked && (
-                    <span className="bg-rose-50 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-rose-200">
+                    <span className="bg-rose-50 text-rose-700 text-xs font-black px-2 py-0.5 rounded-md border border-rose-200">
                       {toBengaliDigits(videos.length)}টি ভিডিও
                     </span>
                   )}
@@ -397,7 +426,7 @@ export default function CourseStudyPage() {
                       <button
                         type="button"
                         onClick={() => setSubjectFilter("ALL")}
-                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                        className={`px-3 py-1.5 rounded-xl text-sm font-bold transition cursor-pointer border ${
                           subjectFilter === "ALL" ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
                         }`}
                       >
@@ -408,7 +437,7 @@ export default function CourseStudyPage() {
                           key={p.subject}
                           type="button"
                           onClick={() => setSubjectFilter(p.subject)}
-                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                          className={`px-3 py-1.5 rounded-xl text-sm font-bold transition cursor-pointer border ${
                             subjectFilter === p.subject ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
                           }`}
                         >
@@ -430,7 +459,7 @@ export default function CourseStudyPage() {
                             </span>
                             <div className="min-w-0">
                               <h4 className="font-black text-slate-900 text-sm sm:text-base truncate">{playlist.subject}</h4>
-                              <p className="text-[10px] text-slate-400 font-semibold">
+                              <p className="text-xs text-slate-400 font-semibold">
                                 প্লেলিস্ট · {toBengaliDigits(playlist.items.length)}টি ক্লাস
                               </p>
                             </div>
@@ -452,11 +481,11 @@ export default function CourseStudyPage() {
                                     className="w-full h-full object-cover opacity-90 group-hover:opacity-60 transition"
                                   />
                                   <span className="absolute inset-0 flex items-center justify-center">
-                                    <span className="w-12 h-12 rounded-full bg-black/60 group-hover:bg-rose-600 text-white flex items-center justify-center backdrop-blur-xs transition shadow-lg">
+                                    <span className="w-12 h-12 rounded-full bg-black/60 group-hover:bg-rose-600 text-white flex items-center justify-center backdrop-blur-sm transition shadow-lg">
                                       <PlayCircle className="w-6 h-6" />
                                     </span>
                                   </span>
-                                  <span className="absolute bottom-1.5 right-1.5 bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                                  <span className="absolute bottom-1.5 right-1.5 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">
                                     {toBengaliDigits(vIdx + 1)}
                                   </span>
                                 </div>
@@ -527,9 +556,9 @@ export default function CourseStudyPage() {
                             যাচাই করুন
                           </button>
                         </div>
-                        {gateError && <p className="text-rose-600 text-[11px] text-left">{gateError}</p>}
+                        {gateError && <p className="text-rose-600 text-sm text-left">{gateError}</p>}
                         {videoResult?.message && !gateError && (
-                          <p className="text-slate-400 text-[11px] text-left">{videoResult.message}</p>
+                          <p className="text-slate-400 text-sm text-left">{videoResult.message}</p>
                         )}
                       </form>
                     </>
@@ -540,17 +569,17 @@ export default function CourseStudyPage() {
           </div>
 
           {/* ============ RIGHT: সাবজেক্ট/প্লেলিস্ট ইন্ডেক্স ============ */}
-          <aside className="lg:col-span-4 lg:sticky lg:top-4 bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-2xs space-y-4">
+          <aside className="lg:col-span-4 lg:sticky lg:top-4 bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4">
             <div>
               <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
                 <Layers className="w-5 h-5 text-indigo-600" /> প্লেলিস্ট ইন্ডেক্স
                 {isUnlocked && (
-                  <span className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-indigo-200">
+                  <span className="bg-indigo-50 text-indigo-700 text-xs font-black px-2 py-0.5 rounded-md border border-indigo-200">
                     {toBengaliDigits(playlists.length)}টি
                   </span>
                 )}
               </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-sm text-slate-500 mt-0.5">
                 {isUnlocked ? "সাবজেক্ট অনুযায়ী ক্লাস — ট্যাপ করলেই ভিডিও শুরু হবে" : "এনরোল্ড স্টুডেন্টদের জন্য"}
               </p>
             </div>
@@ -558,7 +587,7 @@ export default function CourseStudyPage() {
             {!isUnlocked ? (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center space-y-2">
                 <Lock className="w-6 h-6 text-slate-400 mx-auto" />
-                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">
                   ভিডিও প্লেলিস্টগুলো লক করা আছে।
                   <br />
                   <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-indigo-600 cursor-pointer">
@@ -569,7 +598,7 @@ export default function CourseStudyPage() {
               </div>
             ) : playlists.length === 0 ? (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
-                <p className="text-[11px] text-slate-400">কোনো প্লেলিস্ট নেই</p>
+                <p className="text-sm text-slate-400">কোনো প্লেলিস্ট নেই</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -589,7 +618,7 @@ export default function CourseStudyPage() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs font-black text-slate-900 truncate">{p.subject}</span>
-                      <span className="text-[10px] text-slate-500 font-semibold">{toBengaliDigits(p.items.length)}টি ক্লাস</span>
+                      <span className="text-xs text-slate-500 font-semibold">{toBengaliDigits(p.items.length)}টি ক্লাস</span>
                     </span>
                   </button>
                 ))}
@@ -597,7 +626,7 @@ export default function CourseStudyPage() {
                   <button
                     type="button"
                     onClick={() => setSubjectFilter("ALL")}
-                    className="w-full text-center text-[11px] font-bold text-indigo-600 hover:text-indigo-800 py-1 cursor-pointer"
+                    className="w-full text-center text-sm font-bold text-indigo-600 hover:text-indigo-800 py-1 cursor-pointer"
                   >
                     সব প্লেলিস্ট দেখুন
                   </button>

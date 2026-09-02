@@ -66,9 +66,12 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const refreshTreeData = () => {
-    import("@/actions/admin-actions").then(({ getTopicTreeData }) => {
-      getTopicTreeData().then((d) => setAllTopics(d.topics));
-    });
+    import("@/actions/admin-actions")
+      .then(({ getTopicTreeData }) => getTopicTreeData())
+      .then((d) => setAllTopics(d.topics))
+      .catch(() => {
+        // tree picker simply falls back to the props-provided topics
+      });
   };
 
   useEffect(() => {
@@ -127,12 +130,12 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs font-bengali animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
         {/* Header */}
         <div className="p-5 sm:p-6 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -165,7 +168,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                 <button
                   type="button"
                   onClick={handlePasteSample}
-                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"
+                  className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"
                 >
                   <Sparkles className="w-3 h-3" /> নমুনা দেখুন
                 </button>
@@ -173,7 +176,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"
+                    className="text-sm font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
                     <Trash2 className="w-3 h-3" /> পরিষ্কার করুন
                   </button>
@@ -192,7 +195,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
 ঘ) অপশন ৪
 উত্তর: খ
 ব্যাখ্যা: ব্যাখ্যা লিখুন (ঐচ্ছিক)`}
-                className="w-full h-full min-h-[260px] sm:min-h-[300px] p-4 rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-xs sm:text-sm font-mono leading-relaxed resize-none shadow-2xs"
+                className="w-full h-full min-h-[260px] sm:min-h-[300px] p-4 rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-xs sm:text-sm font-mono leading-relaxed resize-none shadow-sm"
               />
             </div>
 
@@ -216,10 +219,10 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                 <Layers className="w-3.5 h-3.5 text-indigo-600" /> লাইভ প্রিভিউ
               </h4>
               <div className="flex items-center gap-2 text-xs">
-                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded-md">
                   {toBengaliDigits(parsedResult.validCount)}টি প্রস্তুত
                 </span>
-                <span className="bg-slate-200 text-slate-700 text-[10px] font-medium px-2 py-0.5 rounded-md">
+                <span className="bg-slate-200 text-slate-700 text-xs font-medium px-2 py-0.5 rounded-md">
                   মোট {toBengaliDigits(parsedResult.totalParsed)}টি শনাক্ত
                 </span>
               </div>
@@ -236,7 +239,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                 parsedResult.blocks.map((b, idx) => (
                   <div
                     key={idx}
-                    className={`p-3.5 rounded-xl border bg-white space-y-2 shadow-2xs text-xs ${
+                    className={`p-3.5 rounded-xl border bg-white space-y-2 shadow-sm text-xs ${
                       b.isValid
                         ? "border-emerald-200"
                         : "border-amber-300 bg-amber-50/30"
@@ -254,19 +257,19 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                     </div>
 
                     {(b.topic || b.subtopic) && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md w-fit border border-indigo-100">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md w-fit border border-indigo-100">
                         <span>📁 {b.topic}</span>
                         {b.subtopic && <span>❯ {b.subtopic}</span>}
                       </div>
                     )}
 
                     {b.error && (
-                      <p className="text-[10px] text-amber-700 font-medium">
+                      <p className="text-xs text-amber-700 font-medium">
                         ⚠️ {b.error}
                       </p>
                     )}
 
-                    <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
+                    <div className="grid grid-cols-2 gap-1.5 pt-1 text-sm">
                       {b.opts.map((opt, optIdx) => (
                         <div
                           key={optIdx}
@@ -282,7 +285,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                     </div>
 
                     {b.exp && (
-                      <p className="text-[10px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 leading-relaxed">
+                      <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 leading-relaxed">
                         <strong>ব্যাখ্যা:</strong> {b.exp}
                       </p>
                     )}
@@ -317,7 +320,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
               type="button"
               disabled={parsedResult.validCount === 0 || isSubmitting}
               onClick={handleImport}
-              className={`flex-1 sm:flex-initial text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 sm:flex-initial text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-pointer ${
                 parsedResult.validCount === 0 || isSubmitting
                   ? "bg-slate-300 cursor-not-allowed text-slate-500"
                   : "bg-slate-900 hover:bg-slate-800 active:scale-[0.98]"

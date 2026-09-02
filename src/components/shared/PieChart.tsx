@@ -14,7 +14,7 @@ export const PieChart: React.FC<PieChartProps> = ({ correct, wrong, skipped }) =
   const total = correct + wrong + skipped;
   if (total === 0) {
     return (
-      <div className="text-[11px] text-slate-400 py-2 text-center">
+      <div className="text-sm text-slate-400 py-2 text-center">
         এখনো কোনো লাইভ পরীক্ষার পরিসংখ্যান নেই
       </div>
     );
@@ -53,7 +53,7 @@ export const PieChart: React.FC<PieChartProps> = ({ correct, wrong, skipped }) =
         )}
       </svg>
 
-      <div className="space-y-1 text-[11px]">
+      <div className="space-y-1 text-sm">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
           <span className="font-bold text-emerald-700">সঠিক: {toBengaliDigits(correct)}</span>

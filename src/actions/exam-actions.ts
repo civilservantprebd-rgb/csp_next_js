@@ -3,7 +3,7 @@
 import { supabase } from "@/lib/supabase";
 import { Exam, QuestionSolution } from "@/types/exam";
 import { Submission, LeaderboardItem } from "@/types/submission";
-import { parseBangladeshDateTime, getTrueDate } from "@/lib/bangladesh-time";
+import { parseBangladeshDateTime, getTrueDate, LIVE_GRACE_MS } from "@/lib/bangladesh-time";
 import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
@@ -96,6 +96,19 @@ export async function checkStudentAlreadySubmitted(
   }
 }
 
+/**
+ * Returns whether the current caller holds a verified Supabase session. Used by
+ * the exam hall to refuse starting an exam — and burning a full-length attempt —
+ * when the student cannot submit at the end anyway (submission requires a
+ * server-verified session).
+ */
+export async function ensureExamSession(): Promise<{ session: boolean; name?: string; id?: string }> {
+  const { getSessionUserFromCookies } = await import("@/lib/teacher-auth");
+  const sessionUser = await getSessionUserFromCookies();
+  if (!sessionUser) return { session: false };
+  return { session: true, id: sessionUser.id, name: sessionUser.name };
+}
+
 export async function submitExamAnswers(payload: {
   studentName: string;
   studentId: string;
@@ -172,6 +185,13 @@ export async function submitExamAnswers(payload: {
       if (access.normalizedId) recordStudentId = access.normalizedId;
       // Use the enrollment record's name (not a client-supplied one) on the leaderboard
       if (access.studentName) recordStudentName = access.studentName;
+    } else if (sessionUser.id) {
+      // SECURITY: free exams previously stored the client-supplied student id
+      // verbatim — anyone could file submissions under another student's id and
+      // lock that student out of the live attempt. Bind the record to the
+      // verified session uid instead (not forgeable from the client).
+      recordStudentId = sessionUser.id;
+      if (sessionUser.name) recordStudentName = sessionUser.name;
     }
 
     // Validate + sanitize answers (never trust the client's shape blindly)
@@ -199,8 +219,8 @@ export async function submitExamAnswers(payload: {
 
     // Is submitted within live scheduled window (with a small grace period so an
     // on-time submission right at the deadline isn't misclassified as a late
-    // "practice" attempt)
-    const LIVE_GRACE_MS = 10 * 1000;
+    // "practice" attempt). LIVE_GRACE_MS lives in bangladesh-time.ts so answer
+    // release (isAnswerTimeReached) delays itself past the same boundary.
     const isLiveSubmission = (startTime && endTime)
       ? (now.getTime() >= startTime.getTime() && now.getTime() <= endTime.getTime() + LIVE_GRACE_MS)
       : false;
@@ -267,7 +287,18 @@ export async function submitExamAnswers(payload: {
       .select("id")
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      // 23505 = unique violation: a concurrent tab/request already inserted a
+      // live submission for this student (DB-level once-only guarantee).
+      if ((insertError as { code?: string })?.code === "23505") {
+        return {
+          success: false,
+          isLive: true,
+          message: "আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক আইডি দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।"
+        };
+      }
+      throw insertError;
+    }
 
     return {
       success: true,
@@ -338,10 +369,19 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
 
     if (subError) throw subError;
 
+    // PII: student ids on the leaderboard are phone numbers. Never expose them
+    // in full to anonymous viewers — the session owner (uid match) still sees
+    // their own full id; everyone else sees only the last 2 digits.
+    const { getSessionUserFromCookies } = await import("@/lib/teacher-auth");
+    const sessionUser = await getSessionUserFromCookies();
+
     const subs: Submission[] = (subData || []).map((row) => ({
       id: row.id,
       studentName: row.student_name,
-      studentId: row.student_id,
+      studentId:
+        sessionUser && sessionUser.id && sessionUser.id === row.student_id
+          ? row.student_id
+          : "••••••" + String(row.student_id || "").slice(-2),
       examKey: row.exam_key,
       examTitle: row.exam_title,
       score: Number(row.score ?? 0),
@@ -507,6 +547,50 @@ export async function getMySubmissionResult(
     if (error) throw error;
     const row = data?.[0];
     if (!row) return null;
+
+    // If the row is still pending evaluation but answers are now released,
+    // evaluate it here (idempotently) so the student's result page never shows
+    // placeholder 0s while the review section shows the real per-question marks.
+    if (row.is_pending_evaluation) {
+      const { data: exRow } = await supabase
+        .from("exams")
+        .select("start_time, end_time, leaderboard_end_time, is_result_published")
+        .eq("id", examKey)
+        .maybeSingle();
+      if (exRow) {
+        const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+        const releaseExam = {
+          startTime: exRow.start_time,
+          endTime: exRow.end_time,
+          leaderboardEndTime: exRow.leaderboard_end_time,
+          isResultPublished: exRow.is_result_published === true
+        } as Exam;
+        if (isAnswerTimeReached(releaseExam)) {
+          const solutions = await getExamSolutions(examKey);
+          if (solutions) {
+            const rawAnswers = Array.isArray(row.answers) ? row.answers : [];
+            let cor = 0;
+            let incor = 0;
+            rawAnswers.forEach((v: any, qIdx: number) => {
+              const sol = solutions[qIdx];
+              if (v !== null && v !== -1 && v !== undefined && sol) {
+                if (Number(v) === sol.correct) cor++;
+                else incor++;
+              }
+            });
+            const sc = Math.max(0, cor - incor * 0.5);
+            await supabase
+              .from("submissions")
+              .update({ score: sc, correct: cor, incorrect: incor, is_pending_evaluation: false })
+              .eq("id", row.id);
+            row.score = sc;
+            row.correct = cor;
+            row.incorrect = incor;
+            row.is_pending_evaluation = false;
+          }
+        }
+      }
+    }
 
     return {
       score: Number(row.score ?? 0),

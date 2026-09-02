@@ -44,7 +44,7 @@ export const QuestionList: React.FC<QuestionListProps> = ({
                     disabled={isOtherLocked}
                     className={`p-2.5 sm:p-3 rounded-xl text-left border transition flex items-center space-x-3 cursor-pointer ${
                       isSelected
-                        ? "bg-indigo-600 text-white border-indigo-600 font-bold shadow-xs"
+                        ? "bg-indigo-600 text-white border-indigo-600 font-bold shadow-sm"
                         : "bg-white text-slate-800 border-slate-100 hover:bg-slate-50"
                     } ${isOtherLocked ? "opacity-60 cursor-not-allowed" : ""}`}
                   >

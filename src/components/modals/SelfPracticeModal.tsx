@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   X,
   Sparkles,
@@ -46,6 +46,19 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
   const [secondsRemaining, setSecondsRemaining] = useState(questions.length * 60);
   const [showReviewAfterExam, setShowReviewAfterExam] = useState(false);
   const examDeadlineRef = useRef<number>(0);
+  const [restartTick, setRestartTick] = useState(0);
+
+  // Restart stability key: the session reset below fires when this STABLE key
+  // (question ids in order) changes — NOT when the parent merely rebuilds the
+  // questions array with identical content — so unrelated prop churn can never
+  // wipe in-progress answers mid-quiz. A "আবার দিন" restart feeds in a new
+  // (reshuffled) array whose order differs, which changes this key; the
+  // restartTick below additionally guarantees the reset even when the new key
+  // happens to be unchanged (e.g. a one-question set or a no-op parent).
+  const questionsKey = useMemo(
+    () => questions.map((q) => q.id || q.q).join("|"),
+    [questions]
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -56,7 +69,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
       setSecondsRemaining(questions.length * 60);
       examDeadlineRef.current = Date.now() + questions.length * 60 * 1000;
     }
-  }, [isOpen, questions]);
+  }, [isOpen, questionsKey, restartTick]);
 
   // Exam mode timer — anchored to an absolute deadline (recomputed from the
   // clock every tick) so background-tab interval throttling can never silently
@@ -81,7 +94,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
 
   if (questions.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-bengali">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm font-bengali">
         <div className="bg-white rounded-3xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl">
           <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
           <h3 className="text-lg font-bold text-slate-900">প্রশ্ন পাওয়া যায়নি</h3>
@@ -161,8 +174,17 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
   const currentQ = questions[currentIndex];
   const isCurrentAnswered = userAnswers[currentIndex] !== undefined;
 
+  // "আবার দিন" — genuine restart. Bump restartTick FIRST so the reset effect
+  // always fires (answers cleared, isFinished false, timer/deadline restarted),
+  // then ask the parent (onRestart) to hand back the next round's questions —
+  // typically a reshuffled copy of the same set (see StudentDashboardModal).
+  const handleRestart = () => {
+    setRestartTick((t) => t + 1);
+    onRestart();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-xs font-bengali animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
       <div className={`bg-white rounded-3xl w-full flex flex-col shadow-2xl border border-slate-100 overflow-hidden ${
         mode === "exam" && !isFinished ? "max-w-4xl max-h-[95vh]" : "max-w-2xl max-h-[92vh]"
       }`}>
@@ -175,10 +197,10 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-2 py-0.5 rounded">
+                <span className="text-xs bg-teal-100 text-teal-800 font-bold px-2 py-0.5 rounded">
                   {subjectName}
                 </span>
-                <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded">
+                <span className="text-xs bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded">
                   {mode === "instant" ? "ইনস্ট্যান্ট প্র্যাকটিস" : "মক টেস্ট (লিস্ট ভিউ)"}
                 </span>
               </div>
@@ -233,7 +255,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
 
               {/* Question Box */}
               <div className="bg-slate-50/70 p-4 sm:p-5 rounded-2xl border border-slate-200/80">
-                <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block mb-1">
+                <span className="text-xs font-bold text-teal-700 uppercase tracking-wider block mb-1">
                   {currentQ.topic ? `টপিক: ${currentQ.topic}` : "প্রশ্ন"}
                 </span>
                 <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-relaxed">
@@ -264,7 +286,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                       key={optIdx}
                       type="button"
                       onClick={() => handleSelectOption(currentIndex, optIdx)}
-                      className={`w-full p-3.5 rounded-xl border text-left text-xs sm:text-sm transition flex items-center justify-between gap-3 cursor-pointer shadow-2xs ${optStyle}`}
+                      className={`w-full p-3.5 rounded-xl border text-left text-xs sm:text-sm transition flex items-center justify-between gap-3 cursor-pointer shadow-sm ${optStyle}`}
                     >
                       <div className="flex items-center gap-3">
                         <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0">
@@ -307,7 +329,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
             <div className="p-4 sm:p-6 overflow-y-auto flex-grow space-y-6">
               <div className="bg-teal-50/60 p-3.5 rounded-2xl border border-teal-100 flex items-center justify-between text-xs text-teal-900">
                 <span className="font-semibold flex items-center gap-1.5">
-                  <ListChecks className="w-4 h-4 text-teal-600" /> সকল প্রশ্নের উত্তর নির্বাচন করে নিচে "পরীক্ষা জমা দিন" বাটনে ক্লিক করুন।
+                  <ListChecks className="w-4 h-4 text-teal-600" /> সকল প্রশ্নের উত্তর নির্বাচন করে নিচে &ldquo;পরীক্ষা জমা দিন&rdquo; বাটনে ক্লিক করুন।
                 </span>
                 <span className="bg-white border border-teal-200 px-2.5 py-1 rounded-lg font-bold text-teal-800">
                   {toBengaliDigits(answeredCount)} / {toBengaliDigits(total)} সম্পন্ন
@@ -325,7 +347,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                       key={q.id || qIdx}
                       className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 ${
                         hasAnswered
-                          ? "bg-teal-50/20 border-teal-200 shadow-2xs"
+                          ? "bg-teal-50/20 border-teal-200 shadow-sm"
                           : "bg-white border-slate-200/90"
                       }`}
                     >
@@ -333,7 +355,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                       <div className="flex items-start justify-between gap-3 mb-3.5">
                         <div>
                           {q.topic && (
-                            <span className="text-[10px] text-teal-700 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-md mb-1.5 inline-block">
+                            <span className="text-xs text-teal-700 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-md mb-1.5 inline-block">
                               {q.topic}
                             </span>
                           )}
@@ -342,7 +364,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                           </h4>
                         </div>
 
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-md shrink-0 ${
                           hasAnswered
                             ? "bg-teal-100 text-teal-800"
                             : "bg-slate-100 text-slate-500"
@@ -363,11 +385,11 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                               onClick={() => handleSelectOption(qIdx, optIdx)}
                               className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
                                 isSelected
-                                  ? "bg-teal-600 border-teal-600 text-white font-bold shadow-xs"
+                                  ? "bg-teal-600 border-teal-600 text-white font-bold shadow-sm"
                                   : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800"
                               }`}
                             >
-                              <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                              <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
                                 isSelected
                                   ? "bg-white text-teal-700"
                                   : "bg-white text-slate-700 border border-slate-200"
@@ -404,19 +426,19 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
             {/* Score Tiles */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-lg mx-auto text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">মোট প্রশ্ন</span>
+                <span className="text-xs text-slate-500 block">মোট প্রশ্ন</span>
                 <span className="text-base font-bold text-slate-900">{toBengaliDigits(total)}</span>
               </div>
               <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                <span className="text-[10px] text-emerald-700 block">সঠিক (+১)</span>
+                <span className="text-xs text-emerald-700 block">সঠিক (+১)</span>
                 <span className="text-base font-bold text-emerald-800">{toBengaliDigits(correctCount)}</span>
               </div>
               <div className="p-3 bg-rose-50 rounded-xl border border-rose-200">
-                <span className="text-[10px] text-rose-700 block">ভুল (-০.৫)</span>
+                <span className="text-xs text-rose-700 block">ভুল (-০.৫)</span>
                 <span className="text-base font-bold text-rose-800">{toBengaliDigits(incorrectCount)}</span>
               </div>
               <div className="p-3 bg-teal-50 rounded-xl border border-teal-200">
-                <span className="text-[10px] text-teal-700 block">মোট স্কোর</span>
+                <span className="text-xs text-teal-700 block">মোট স্কোর</span>
                 <span className="text-lg font-black text-teal-900">{toBengaliDigits(score)}</span>
               </div>
             </div>
@@ -467,15 +489,15 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                             {toBengaliDigits(qIdx + 1)}. {q.q}
                           </span>
                           {isCorrect ? (
-                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
+                            <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
                               <CheckCircle2 className="w-3 h-3" /> সঠিক
                             </span>
                           ) : isAnswered ? (
-                            <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
+                            <span className="bg-rose-100 text-rose-800 text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
                               <XCircle className="w-3 h-3" /> ভুল
                             </span>
                           ) : (
-                            <span className="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded shrink-0">
+                            <span className="bg-slate-200 text-slate-700 text-xs font-bold px-2 py-0.5 rounded shrink-0">
                               ফাঁকা
                             </span>
                           )}
@@ -504,7 +526,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                         </div>
 
                         {q.exp && (
-                          <div className="p-3 bg-white/80 rounded-xl border border-slate-200 text-[11px] text-slate-600 leading-relaxed">
+                          <div className="p-3 bg-white/80 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed">
                             <strong>ব্যাখ্যা:</strong> {q.exp}
                           </div>
                         )}
@@ -539,7 +561,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                 <button
                   type="button"
                   onClick={handleNextInstant}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
                 >
                   <span>{currentIndex === total - 1 ? "ফলাফল দেখুন" : "পরবর্তী"}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -555,7 +577,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                 <button
                   type="button"
                   onClick={handleFinishExam}
-                  className="bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                  className="bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>পরীক্ষা জমা দিন (Submit)</span>
@@ -566,7 +588,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
             <div className="flex items-center justify-between w-full gap-2">
               <button
                 type="button"
-                onClick={onRestart}
+                onClick={handleRestart}
                 className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -576,7 +598,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-xs transition cursor-pointer"
+                className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-sm transition cursor-pointer"
               >
                 সম্পন্ন
               </button>

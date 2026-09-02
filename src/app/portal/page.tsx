@@ -15,7 +15,7 @@ import { Contact, ArrowRight, Sparkles, Phone, UserCheck, CircleAlert } from "lu
 import { useRouter } from "next/navigation";
 import { parseBengaliDigits } from "@/lib/utils";
 import { getLocalStudentUser } from "@/lib/student-auth";
-import { setVerifiedStudent } from "@/lib/student-identity";
+import { setVerifiedStudent, getVerifiedStudent } from "@/lib/student-identity";
 
 export default function PortalPage() {
   const router = useRouter();
@@ -38,7 +38,12 @@ export default function PortalPage() {
       return;
     }
 
-    fetchAppConfigLite().then(setConfig);
+    fetchAppConfigLite()
+      .then(setConfig)
+      .catch(() => {
+        console.error("App config fetch failed on portal page.");
+        setErrorMsg("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
+      });
 
     const gUser = getLocalStudentUser();
     if (gUser) {
@@ -48,6 +53,14 @@ export default function PortalPage() {
     } else if (typeof window !== "undefined") {
       const stored = localStorage.getItem("bcs_last_student_id");
       if (stored) setSavedId(stored);
+      const verified = getVerifiedStudent();
+      if (verified && verified.id) {
+        // Returning ID-verified student: reopen the dashboard directly. Without
+        // a Google session the dashboard itself explains that login is needed
+        // (with a Google-login button) instead of showing a bare login wall.
+        setActiveStudentId(verified.id);
+        setIsDashOpen(true);
+      }
     }
   }, [router]);
 
@@ -91,7 +104,7 @@ export default function PortalPage() {
                   <Contact className="w-8 h-8 text-amber-300" />
                 </div>
               </div>
-              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-slate-950 text-[10px] font-black shadow">
+              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-slate-950 text-xs font-black shadow">
                 <Sparkles className="w-3 h-3" />
               </span>
             </div>
@@ -116,7 +129,7 @@ export default function PortalPage() {
                   )}
                   <div className="text-left">
                     <p className="text-xs font-bold text-slate-800">{googleUser.name}</p>
-                    <p className="text-[11px] text-slate-500">লগইন আছেন</p>
+                    <p className="text-sm text-slate-500">লগইন আছেন</p>
                   </div>
                 </div>
                 <button
@@ -147,7 +160,7 @@ export default function PortalPage() {
                     <button
                       type="button"
                       onClick={() => handleUseSaved(savedId)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl transition text-[11px] shrink-0 shadow-sm cursor-pointer"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl transition text-sm shrink-0 shadow-sm cursor-pointer"
                     >
                       সরাসরি প্রবেশ
                     </button>
@@ -175,7 +188,7 @@ export default function PortalPage() {
                         className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm font-mono transition text-slate-900 placeholder:text-slate-400 shadow-inner"
                       />
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1.5">
+                    <p className="text-sm text-slate-400 mt-1.5">
                       💡 ভর্তির সময় ব্যবহৃত মোবাইল নম্বরটিই আপনার স্টুডেন্ট আইডি
                     </p>
                   </div>

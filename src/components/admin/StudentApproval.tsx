@@ -29,7 +29,7 @@ import {
   Sparkles,
   Ban
 } from "lucide-react";
-import { parseBengaliDigits, toBengaliDigits } from "@/lib/utils";
+import { formatBangladeshClock, parseBengaliDigits, toBengaliDigits } from "@/lib/utils";
 
 interface StudentApprovalProps {
   courses: string[];
@@ -62,23 +62,28 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
 
   const loadData = async () => {
     setIsLoading(true);
-    const reqs = await getEnrollRequests();
-    setRequests(reqs);
+    try {
+      const reqs = await getEnrollRequests();
+      setRequests(reqs);
 
-    // Seed the per-request course selection with the student's requested courses
-    const seed: Record<string, string[]> = {};
-    reqs.forEach((r) => {
-      const key = r.docId || r.id;
-      seed[key] = (r.course || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    });
-    setRequestCourses(seed);
+      // Seed the per-request course selection with the student's requested courses
+      const seed: Record<string, string[]> = {};
+      reqs.forEach((r) => {
+        const key = r.docId || r.id;
+        seed[key] = (r.course || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      });
+      setRequestCourses(seed);
 
-    const list = await getAllAllowedStudents();
-    setStudents(list);
-    setIsLoading(false);
+      const list = await getAllAllowedStudents();
+      setStudents(list);
+    } catch (err) {
+      console.error("Load enrollment data error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -267,7 +272,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
   return (
     <div className="space-y-6 font-bengali">
       {/* Pending Enroll Requests Banner */}
-      <div className="bg-amber-50/70 p-4 sm:p-5 rounded-2xl border border-amber-200 space-y-3 shadow-2xs">
+      <div className="bg-amber-50/70 p-4 sm:p-5 rounded-2xl border border-amber-200 space-y-3 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-amber-900 text-xs sm:text-sm flex items-center gap-1.5">
             <Bell className="w-4 h-4 text-amber-600 animate-pulse" /> অপেক্ষমান এনরোলমেন্ট রিকোয়েস্ট (
@@ -294,7 +299,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
               return (
                 <div
                   key={docKey}
-                  className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col gap-3 text-xs shadow-2xs"
+                  className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col gap-3 text-xs shadow-sm"
                 >
                   {/* Request summary + actions */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -314,7 +319,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                           <>
                             <span>|</span>
                             <span className="text-slate-400">
-                              {new Date(req.timestamp).toLocaleString("bn-BD")}
+                              {formatBangladeshClock(req.timestamp)}
                             </span>
                           </>
                         )}
@@ -323,7 +328,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => handleApprove(req)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer shadow-xs flex items-center gap-1"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer shadow-sm flex items-center gap-1"
                       >
                         <Check className="w-3.5 h-3.5" /> ভেরিফাই ও এনরোল করুন
                       </button>
@@ -338,14 +343,14 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
 
                   {/* Course access selection — teacher decides at verify time */}
                   <div className="border-t border-amber-100 pt-2.5">
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1.5">
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
                       ভেরিফাই করার সময় কোন কোন কোর্সে অ্যাক্সেস দেবেন (নির্বাচন করুন):
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
                         onClick={() => toggleRequestCourse(docKey, "ALL")}
-                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                        className={`px-3 py-1.5 rounded-xl text-sm font-bold transition cursor-pointer border ${
                           selCourses.includes("ALL")
                             ? "bg-amber-500 text-slate-950 border-amber-500"
                             : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
@@ -360,7 +365,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                             key={c}
                             type="button"
                             onClick={() => toggleRequestCourse(docKey, c)}
-                            className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                            className={`px-3 py-1.5 rounded-xl text-sm font-bold transition cursor-pointer border ${
                               isSel
                                 ? "bg-indigo-600 text-white border-indigo-600"
                                 : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
@@ -387,7 +392,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
 
         <form onSubmit={handleAddManual} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
           <div>
-            <label className="block text-[11px] font-medium text-slate-700 mb-1">স্টুডেন্ট আইডি / ইমেইল / মোবাইল</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">স্টুডেন্ট আইডি / ইমেইল / মোবাইল</label>
             <input
               type="text"
               required
@@ -398,7 +403,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-700 mb-1">শিক্ষার্থীর নাম</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">শিক্ষার্থীর নাম</label>
             <input
               type="text"
               required
@@ -409,7 +414,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-700 mb-1">প্রাথমিক এনরোলমেন্ট কোর্স</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">প্রাথমিক এনরোলমেন্ট কোর্স</label>
             <select
               value={newCourse}
               onChange={(e) => setNewCourse(e.target.value)}
@@ -593,7 +598,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                         )}
                         <div>
                           <p className="font-bold text-indigo-950">{item.name}</p>
-                          <p className="text-[11px] text-slate-500 font-mono">{item.email || item.id}</p>
+                          <p className="text-sm text-slate-500 font-mono">{item.email || item.id}</p>
                         </div>
                       </div>
 
@@ -601,7 +606,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                         <button
                           type="button"
                           onClick={() => handleSaveEdit(item.id)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 cursor-pointer transition shadow-xs"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 cursor-pointer transition shadow-sm"
                         >
                           <Save className="w-3.5 h-3.5" /> সেভ করুন
                         </button>
@@ -617,7 +622,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
 
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">শিক্ষার্থীর নাম</label>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">শিক্ষার্থীর নাম</label>
                         <input
                           type="text"
                           value={editName}
@@ -628,7 +633,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5">
                           অনুমোদিত কোর্সসমূহ (এক বা একাধিক চেক করুন):
                         </label>
                         <div className="flex flex-wrap gap-2 p-3 bg-white rounded-xl border border-slate-200">
@@ -670,7 +675,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
               return (
                 <div
                   key={item.id}
-                  className={`p-3.5 rounded-2xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-2xs ${
+                  className={`p-3.5 rounded-2xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-sm ${
                     isSelected
                       ? "border-indigo-500 bg-indigo-50/30"
                       : "border-slate-200 bg-white hover:bg-slate-50/80"
@@ -694,33 +699,33 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                         {item.photoURL ? (
                           <Image src={item.photoURL} alt="Avatar" width={24} height={24} className="w-6 h-6 rounded-full border border-slate-200" />
                         ) : (
-                          <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[10px]">
+                          <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
                             {item.name.charAt(0)}
                           </div>
                         )}
                         <span className="text-slate-900 font-bold">{item.name}</span>
                         {item.email && (
-                          <span className="text-slate-500 font-medium text-[11px] truncate">
+                          <span className="text-slate-500 font-medium text-sm truncate">
                             ({item.email})
                           </span>
                         )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                        <span className="text-[10px] text-slate-400 font-medium">এনরোলমেন্ট:</span>
+                        <span className="text-xs text-slate-400 font-medium">এনরোলমেন্ট:</span>
                         {!item.courses || item.courses.length === 0 ? (
-                          <span className="bg-rose-50 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-md border border-rose-200">
+                          <span className="bg-rose-50 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-md border border-rose-200">
                             কোনো কোর্সে এনরোল করা হয়নি
                           </span>
                         ) : item.courses.includes("ALL") ? (
-                          <span className="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-200">
+                          <span className="bg-emerald-50 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded-md border border-emerald-200">
                             সকল কোর্স (All Courses)
                           </span>
                         ) : (
                           item.courses.map((c) => (
                             <span
                               key={c}
-                              className="bg-indigo-50 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-200"
+                              className="bg-indigo-50 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded-md border border-indigo-200"
                             >
                               {c}
                             </span>

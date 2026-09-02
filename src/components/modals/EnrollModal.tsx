@@ -112,7 +112,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl relative border border-slate-100 flex flex-col">
         {/* Close Button */}
         <button
@@ -179,7 +179,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
             {/* Header */}
             <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 p-5 sm:p-6 text-white relative">
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="inline-flex items-center gap-1 bg-indigo-500/50 border border-white/20 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 bg-indigo-500/50 border border-white/20 text-white text-sm font-semibold px-2.5 py-0.5 rounded-full">
                   <ShieldCheck className="w-3 h-3" /> কোর্স এডমিশন
                 </span>
               </div>
@@ -201,7 +201,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
               {!studentUser ? (
                 /* Google Sign In Requirement View */
                 <div className="text-center py-6 space-y-4">
-                  <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-2xs">
+                  <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-sm">
                     <LogIn className="w-6 h-6" />
                   </div>
                   <div className="space-y-1">
@@ -213,7 +213,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                   <button
                     type="button"
                     onClick={handleGoogleLogin}
-                    className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-200 shadow-2xs transition flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
+                    className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-200 shadow-sm transition flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                       <path
@@ -245,7 +245,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                     </label>
                     <div className="bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl text-xs flex items-center justify-between">
                       <span className="text-slate-600 truncate max-w-[200px]">{studentUser.email}</span>
-                      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-100">সংযুক্ত</span>
+                      <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-md border border-indigo-100">সংযুক্ত</span>
                     </div>
                   </div>
 
@@ -254,7 +254,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                       <label className="block text-xs font-bold text-slate-700">
                         কোর্স নির্বাচন করুন (একাধিক সিলেক্ট করা যাবে) <span className="text-rose-500">*</span>
                       </label>
-                      <span className="text-[10px] text-indigo-600 font-bold">
+                      <span className="text-xs text-indigo-600 font-bold">
                         {selectedCourses.length}টি নির্বাচিত
                       </span>
                     </div>
@@ -269,7 +269,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                             onClick={() => handleToggleCourse(c)}
                             className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer text-left ${
                               isChecked
-                                ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
                                 : "bg-white border-slate-200 text-slate-700 hover:border-indigo-300"
                             }`}
                           >

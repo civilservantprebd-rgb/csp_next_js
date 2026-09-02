@@ -73,9 +73,10 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
     }
 
     try {
-      const siteUrl = typeof window !== "undefined" && window.location.hostname.includes("localhost")
-        ? "http://localhost:3000"
-        : "https://xmetriex.vercel.app";
+      // Always redirect back to the origin the teacher is actually on — the old
+      // hardcoded staging domain (xmetriex.vercel.app) sent reset links to a
+      // dead site. Same pattern as student-auth.ts.
+      const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://aarohon.com";
         
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: siteUrl
@@ -90,7 +91,7 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 font-bengali">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-bengali">
       <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-4 relative border border-slate-100">
         <button
           onClick={onClose}
@@ -144,7 +145,7 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
               >
                 পাসওয়ার্ড ভুলে গেছেন?
               </button>

@@ -46,14 +46,14 @@ export const StudentPortalLoginModal: React.FC<StudentPortalLoginModalProps> = (
           onClick={onClose}
           type="button"
           aria-label="বন্ধ করুন"
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100/80 hover:bg-slate-200/80 text-slate-600 flex items-center justify-center transition cursor-pointer backdrop-blur-xs"
+          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100/80 hover:bg-slate-200/80 text-slate-600 flex items-center justify-center transition cursor-pointer backdrop-blur-sm"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Header */}
         <div className="p-6 sm:p-8 text-center border-b border-slate-100/60 bg-white/40 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100/50 flex items-center justify-center mx-auto text-indigo-900 shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100/50 flex items-center justify-center mx-auto text-indigo-900 shadow-sm">
             <Contact className="w-7 h-7" />
           </div>
 
@@ -68,7 +68,7 @@ export const StudentPortalLoginModal: React.FC<StudentPortalLoginModalProps> = (
         {/* Body */}
         <div className="p-6 sm:p-8 space-y-4 bg-slate-50/40">
           {errorMsg && (
-            <div className="bg-rose-50/80 border border-rose-200/50 text-rose-700 text-xs p-3.5 rounded-xl flex items-start gap-2 backdrop-blur-xs">
+            <div className="bg-rose-50/80 border border-rose-200/50 text-rose-700 text-xs p-3.5 rounded-xl flex items-start gap-2 backdrop-blur-sm">
               <CircleAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
               <p className="leading-snug">{errorMsg}</p>
             </div>
@@ -79,11 +79,11 @@ export const StudentPortalLoginModal: React.FC<StudentPortalLoginModalProps> = (
               type="button"
               disabled={isLoading}
               onClick={handleGoogleLogin}
-              className="w-14 h-14 rounded-full border border-slate-200 hover:border-indigo-300 bg-white hover:bg-slate-50 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md active:scale-95 group"
+              className="w-14 h-14 rounded-full border border-slate-200 hover:border-indigo-300 bg-white hover:bg-slate-50 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-95 group"
               aria-label="Google Login"
             >
               {isLoading ? (
-                <span className="text-[11px] text-slate-400 font-bold">...</span>
+                <span className="text-sm text-slate-400 font-bold">...</span>
               ) : (
                 <svg className="w-6 h-6 transition-transform duration-200 group-hover:scale-110" viewBox="0 0 24 24">
                   <path

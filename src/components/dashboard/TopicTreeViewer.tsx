@@ -79,7 +79,7 @@ export const TopicTreeViewer: React.FC<TopicTreeViewerProps> = ({
             </span>
           </div>
 
-          <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full shrink-0 border border-slate-200/60">
+          <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full shrink-0 border border-slate-200/60">
             {toBengaliDigits(node.count)}টি প্রশ্ন
           </span>
         </div>
@@ -90,18 +90,18 @@ export const TopicTreeViewer: React.FC<TopicTreeViewerProps> = ({
             <button
               type="button"
               onClick={onLockedAction}
-              className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
+              className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
               title="এই প্রশ্নগুলো দেখতে কোর্সে এনরোল করুন"
             >
               <span className="text-xs">🔒</span>
-              <span className="text-[11px] font-black text-amber-900">লক করা</span>
+              <span className="text-sm font-black text-amber-900">লক করা</span>
             </button>
           ) : (
             <>
               <button
                 type="button"
                 onClick={() => onOpenReading(node.fullPath, node.name)}
-                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
                 title="এই অংশের সব প্রশ্ন পড়ুন"
               >
                 <BookOpen className="w-3 h-3 text-indigo-600" />
@@ -111,7 +111,7 @@ export const TopicTreeViewer: React.FC<TopicTreeViewerProps> = ({
               <button
                 type="button"
                 onClick={() => onStartQuiz(node.fullPath, node.name)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
                 title="এই অংশের ওপর ইনস্ট্যান্ট কুইজ দিন"
               >
                 <Zap className="w-3 h-3 fill-white" />
@@ -132,7 +132,7 @@ export const TopicTreeViewer: React.FC<TopicTreeViewerProps> = ({
         {tree.map((node) => (
           <div
             key={node.id}
-            className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden"
+            className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
           >
             {renderNodeBar(node, true)}
             {node.children && node.children.length > 0 && expandedNodes[node.id] && (

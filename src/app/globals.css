@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* বাংলা ফন্ট: Kalpurush (self-hosted, free license)। unicode-range শুধু বাংলা
+   ব্লকের জন্য, তাই ইংরেজি অক্ষর ও সংখ্যা সিস্টেমের sans-serif ফন্টে রেন্ডার হয়
+   (আরো পরিষ্কার পড়া যায়) — বাংলা যেকোনো অক্ষরেই Kalpurush ব্যবহৃত হবে। */
+@font-face {
+  font-family: "Kalpurush";
+  src: url("/fonts/Kalpurush-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0964-0965, U+0980-09FF, U+200C-200D;
+}
+
+/* Readability knob: পুরো সাইটের বেস ফন্ট-সাইজ।
+   16px = Tailwind ডিফল্ট, 20px = বড় (বর্তমান), 22px = আরও বড়।
+   text-xs/text-sm/text-base-এর মতো সব rem-ভিত্তিক সাইজ এর সাথে বাড়ে। */
+html {
+  font-size: 20px;
+}
+
 /* Print-to-PDF: force real A4 pages so mobile browsers don't render on a
    squeezed device-width "page" — without this, the sm:/md: grids collapse,
    columns cram together and the marksheet looks broken on phones. */
@@ -11,6 +30,10 @@
 }
 
 @media print {
+  html {
+    font-size: 16px !important;
+  }
+
   html,
   body {
     width: 100% !important;

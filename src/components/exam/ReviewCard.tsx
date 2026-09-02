@@ -35,7 +35,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
         return (
           <div
             key={idx}
-            className="p-5 sm:p-6 rounded-3xl border border-slate-200 bg-white space-y-4 shadow-2xs"
+            className="p-5 sm:p-6 rounded-3xl border border-slate-200 bg-white space-y-4 shadow-sm"
           >
             <div className="flex justify-between items-start gap-3 flex-wrap sm:flex-nowrap">
               <div className="space-y-1 flex-grow">

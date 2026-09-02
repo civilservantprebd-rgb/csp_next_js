@@ -123,7 +123,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs font-bengali animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
       <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
         {/* Close Button */}
         <button
@@ -139,11 +139,11 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
         <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 p-5 text-white relative">
           <div className="flex items-center gap-2 mb-1.5">
             {isFree ? (
-              <span className="inline-flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold px-2.5 py-0.5 rounded-full">
                 🎁 সম্পূর্ণ ফ্রি মক
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold px-2.5 py-0.5 rounded-full">
                 👑 প্রিমিয়াম এক্সাম ({exam.course})
               </span>
             )}
@@ -151,7 +151,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
           <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
             {exam.title}
           </h2>
-          <p className="text-[11px] text-indigo-300 mt-1 font-medium">
+          <p className="text-sm text-indigo-300 mt-1 font-medium">
             বিষয়: {exam.subject}
           </p>
         </div>
@@ -159,15 +159,15 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
         {/* Exam Metrics Row */}
         <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-100 py-3 text-center text-xs">
           <div className="border-r border-slate-200/60">
-            <span className="text-[10px] text-slate-500 block">মোট প্রশ্ন</span>
+            <span className="text-xs text-slate-500 block">মোট প্রশ্ন</span>
             <strong className="text-slate-800 font-bold">{toBengaliDigits(qCount)} টি</strong>
           </div>
           <div className="border-r border-slate-200/60">
-            <span className="text-[10px] text-slate-500 block">সময় বরাদ্দ</span>
+            <span className="text-xs text-slate-500 block">সময় বরাদ্দ</span>
             <strong className="text-slate-800 font-bold">{toBengaliDigits(exam.timerMinutes)} মিনিট</strong>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 block">পূর্ণমান</span>
+            <span className="text-xs text-slate-500 block">পূর্ণমান</span>
             <strong className="text-slate-800 font-bold">{toBengaliDigits(qCount)} নম্বর</strong>
           </div>
         </div>
@@ -183,7 +183,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
           {!studentUser ? (
             /* Google Login required */
             <div className="text-center py-4 space-y-4">
-              <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-2xs">
+              <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-sm">
                 <LogIn className="w-5 h-5" />
               </div>
               <div className="space-y-1">
@@ -196,7 +196,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
                 type="button"
                 disabled={isLoading}
                 onClick={handleGoogleLogin}
-                className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-200 shadow-2xs transition flex items-center justify-center gap-2.5 text-xs sm:text-sm cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl border border-slate-200 shadow-sm transition flex items-center justify-center gap-2.5 text-xs sm:text-sm cursor-pointer disabled:opacity-60 disabled:cursor-wait"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -225,7 +225,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
                   <span>গুগল দিয়ে লগইন করুন</span>
                 )}
               </button>
-              <p className="text-[10px] text-slate-400 leading-relaxed">
+              <p className="text-xs text-slate-400 leading-relaxed">
                 লগইন সম্পন্ন হলে স্বয়ংক্রিয়ভাবে পরীক্ষা শুরু হবে — আবার চাপতে হবে না।
               </p>
             </div>
@@ -243,7 +243,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
                   )}
                   <div className="min-w-0">
                     <h4 className="text-xs font-bold text-slate-800 truncate">{studentUser.name}</h4>
-                    <p className="text-[10px] text-slate-500 truncate">{studentUser.email}</p>
+                    <p className="text-xs text-slate-500 truncate">{studentUser.email}</p>
                   </div>
                 </div>
               </div>
@@ -264,7 +264,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-xs transition duration-150 flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer disabled:opacity-50"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-sm transition duration-150 flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer disabled:opacity-50"
               >
                 <span>{isLoading ? "যাচাই করা হচ্ছে..." : "পরীক্ষা শুরু করুন"}</span>
                 <ArrowRight className="w-4 h-4" />

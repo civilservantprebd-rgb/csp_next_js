@@ -133,7 +133,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs font-bengali animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
@@ -143,7 +143,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                <span className="text-xs bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
                   AI জেনারেটর
                 </span>
                 <span className="text-xs text-indigo-200">
@@ -301,7 +301,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
                   <button
                     type="button"
                     onClick={handleCopyRaw}
-                    className="text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
+                    className="text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
                   >
                     {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                     <span>{copied ? "কপি হয়েছে!" : "টেক্সট কপি"}</span>
@@ -336,7 +336,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
                                   : "bg-white border-slate-200 text-slate-700"
                               }`}
                             >
-                              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] shrink-0 ${
+                              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-xs shrink-0 ${
                                 isCorrect ? "bg-emerald-600 text-white font-black" : "bg-slate-100 text-slate-600"
                               }`}>
                                 {optLabels[optIdx]}
@@ -348,7 +348,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
                       </div>
 
                       {sol.exp && (
-                        <div className="mt-1 p-2 rounded-xl bg-amber-50/70 border border-amber-200/60 text-amber-900 text-[11px] leading-relaxed">
+                        <div className="mt-1 p-2 rounded-xl bg-amber-50/70 border border-amber-200/60 text-amber-900 text-sm leading-relaxed">
                           <strong className="text-amber-950">💡 ব্যাখ্যা:</strong> {sol.exp}
                         </div>
                       )}

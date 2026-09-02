@@ -52,7 +52,20 @@ export default function ExamPage() {
 
     fetchExamWithQuestions(examId).then(async (ex) => {
       if (!ex) {
-        alert("পরীক্ষা পাওয়া যায়নি।");
+        // fetchExamWithQuestions returns null when there is no verified session
+        // (or, for paid exams, no enrollment). Tell the student which case it is
+        // instead of a generic "not found".
+        try {
+          const { ensureExamSession } = await import("@/actions/exam-actions");
+          const sess = await ensureExamSession();
+          if (!sess.session) {
+            alert("পরীক্ষা দেওয়ার জন্য Google লগইন প্রয়োজন। অনুগ্রহ করে হোম পেজ থেকে লগইন করুন।");
+          } else {
+            alert("এই পরীক্ষাটিতে অংশগ্রহণের অনুমতি নেই (এনরোলমেন্ট যাচাই করা যায়নি)।");
+          }
+        } catch {
+          alert("পরীক্ষা পাওয়া যায়নি।");
+        }
         router.push("/");
         return;
       }
@@ -236,7 +249,7 @@ export default function ExamPage() {
 
       {/* Beautiful & Simple Submit Confirmation Popup */}
       {isConfirmModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-100 relative">
             <button
               onClick={() => setIsConfirmModalOpen(false)}
@@ -270,13 +283,13 @@ export default function ExamPage() {
               {/* Status Summary Pills */}
               <div className="grid grid-cols-3 gap-2 py-1">
                 <div className="bg-slate-50 border border-slate-100 rounded-xl p-2 text-center">
-                  <span className="text-[10px] text-slate-500 block">মোট প্রশ্ন</span>
+                  <span className="text-xs text-slate-500 block">মোট প্রশ্ন</span>
                   <span className="text-sm font-bold text-slate-800">
                     {toBengaliDigits(totalQuestions)}
                   </span>
                 </div>
                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2 text-center">
-                  <span className="text-[10px] text-emerald-700 block">উত্তর দেওয়া</span>
+                  <span className="text-xs text-emerald-700 block">উত্তর দেওয়া</span>
                   <span className="text-sm font-bold text-emerald-700">
                     {toBengaliDigits(answeredCount)}
                   </span>
@@ -288,7 +301,7 @@ export default function ExamPage() {
                       : "bg-slate-50 border-slate-100 text-slate-400"
                   }`}
                 >
-                  <span className="text-[10px] block">বাকি আছে</span>
+                  <span className="text-xs block">বাকি আছে</span>
                   <span className="text-sm font-bold">
                     {toBengaliDigits(unansweredCount)}
                   </span>

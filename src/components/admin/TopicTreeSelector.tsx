@@ -128,7 +128,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
               <div
                 className={`p-2 rounded-xl border flex items-center justify-between gap-1.5 transition ${
                   isSelected
-                    ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                    ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
                     : "bg-white border-slate-200/90 text-slate-800 hover:border-indigo-300 hover:bg-slate-50"
                 }`}
               >
@@ -179,7 +179,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
                 {/* Actions: Select Indicator, Rename/Delete & Add Subtopic Button */}
                 <div className="flex items-center gap-1 shrink-0">
                   {isSelected && (
-                    <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
+                    <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
                       <CheckCircle2 className="w-3 h-3" /> নির্বাচিত
                     </span>
                   )}
@@ -228,7 +228,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
                       setNewNodeName("");
                     }}
                     title="এই টপিকের ভেতর নতুন সাব-টপিক যোগ করুন"
-                    className={`px-2 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                    className={`px-2 py-1 rounded-lg text-sm font-bold transition flex items-center gap-1 cursor-pointer ${
                       isSelected
                         ? "bg-white/20 hover:bg-white/30 text-white"
                         : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/60"
@@ -299,7 +299,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
           <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
             <Tag className="w-3.5 h-3.5 text-indigo-600" /> {label}
           </label>
-          <p className="text-[11px] text-slate-500">{helperText}</p>
+          <p className="text-sm text-slate-500">{helperText}</p>
         </div>
 
         {/* Add Main Topic Button */}
@@ -363,7 +363,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-slate-500 shrink-0 font-medium">নির্ধারিত টপিক:</span>
           {selectedTopicPath ? (
-            <span className="font-bold text-indigo-800 bg-white px-2.5 py-0.5 rounded-lg border border-indigo-100 truncate shadow-2xs">
+            <span className="font-bold text-indigo-800 bg-white px-2.5 py-0.5 rounded-lg border border-indigo-100 truncate shadow-sm">
               {selectedTopicPath}
             </span>
           ) : (
@@ -374,7 +374,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
           <button
             type="button"
             onClick={() => onSelectTopicPath("")}
-            className="text-[10px] text-rose-600 hover:underline font-bold shrink-0 cursor-pointer"
+            className="text-xs text-rose-600 hover:underline font-bold shrink-0 cursor-pointer"
           >
             ক্লিয়ার করুন
           </button>
@@ -387,7 +387,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
           <div className="text-center py-6 text-slate-400 space-y-1">
             <Layers className="w-6 h-6 mx-auto text-slate-300" />
             <p className="text-xs">কোনো টপিক তৈরি করা নেই।</p>
-            <p className="text-[11px]">উপরের "+ নতুন প্রধান টপিক" বাটনে ক্লিক করে তৈরি করুন।</p>
+            <p className="text-sm">উপরের &ldquo;+ নতুন প্রধান টপিক&rdquo; বাটনে ক্লিক করে তৈরি করুন।</p>
           </div>
         ) : (
           renderTreeNodes(tree)

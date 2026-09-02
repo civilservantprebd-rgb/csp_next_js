@@ -11,6 +11,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Use service role on server side to bypass RLS, fallback to anon key on client side
+if (typeof window === "undefined" && !supabaseServiceKey) {
+  console.error(
+    "[BCS One] SUPABASE_SERVICE_ROLE_KEY is not set on the server — the RLS-protected " +
+      "course_videos table (no policies) will DENY every query, so videos appear " +
+      "unavailable. Set it in .env.local (see .env.local.example)."
+  );
+}
 export const supabase = createClient(
   supabaseUrl,
   (typeof window === "undefined" && supabaseServiceKey) ? supabaseServiceKey : supabaseAnonKey,

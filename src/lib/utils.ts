@@ -37,6 +37,40 @@ export function toBengaliDigits(num: number | string | null | undefined): string
   return String(num).replace(/[0-9]/g, (d) => enDigits[d] || d);
 }
 
+/**
+ * Render a timestamp as the Bangladesh (UTC+6) wall clock, e.g. "৫:০০ PM".
+ * The input may be an ISO string (absolute) or a naive BD string (interpreted
+ * as +06:00 by parseBangladeshDateTime). Timezone-safe: it never delegates to
+ * the device locale, so a browser set to another timezone still shows the real
+ * BD wall-clock time.
+ */
+export function formatBangladeshClock(value: string | Date | null | undefined): string {
+  const parsed = value instanceof Date ? value : parseBangladeshDateTime(value);
+  if (!parsed || isNaN(parsed.getTime())) return "";
+  // Shift into the UTC+6 wall clock, then read UTC fields — never the device
+  // timezone — so the displayed time is the actual Bangladesh time.
+  const bd = new Date(parsed.getTime() + 6 * 60 * 60 * 1000);
+  let hours = bd.getUTCHours();
+  const minutes = bd.getUTCMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  const mm = minutes < 10 ? `০${toBengaliDigits(minutes)}` : toBengaliDigits(minutes);
+  return `${toBengaliDigits(hours)}:${mm} ${ampm}`;
+}
+
+/**
+ * Timezone-safe Bangladesh (UTC+6) DATE renderer in the numeric bn-BD shape
+ * ("D/M/YYYY" with Bengali digits) for date-only displays (ArchiveManager's
+ * deletedAt column uses toLocaleDateString, so it needs the date, not a clock).
+ */
+export function formatBangladeshDate(value: string | Date | null | undefined): string {
+  const parsed = value instanceof Date ? value : parseBangladeshDateTime(value);
+  if (!parsed || isNaN(parsed.getTime())) return "";
+  const bd = new Date(parsed.getTime() + 6 * 60 * 60 * 1000);
+  return `${toBengaliDigits(bd.getUTCDate())}/${toBengaliDigits(bd.getUTCMonth() + 1)}/${toBengaliDigits(bd.getUTCFullYear())}`;
+}
+
 export function parseTimeSpentToSeconds(timeSpent: string | number | null | undefined): number {
   if (timeSpent === undefined || timeSpent === null || timeSpent === "") return Infinity;
   if (typeof timeSpent === "number") return isNaN(timeSpent) ? Infinity : timeSpent;

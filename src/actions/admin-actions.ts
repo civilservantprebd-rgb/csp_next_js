@@ -1537,12 +1537,26 @@ export async function fetchExamWithQuestions(examKey: string): Promise<Exam | nu
     setTimeout(() => reject(new Error("Exam fetch timeout")), 4000)
   );
   const work = (async () => {
+    // SECURITY: question content (q + options) of any exam — including paid and
+    // upcoming live papers — must not be readable by anonymous callers. Require
+    // a verified session, and for paid exams a verified enrollment in the
+    // exam's course. (correct/exp keys are never part of this payload.)
+    const { getSessionUserFromCookies } = await import("@/lib/teacher-auth");
+    const sessionUser = await getSessionUserFromCookies();
+    if (!sessionUser) return null;
+
     const { data: ex, error } = await supabase
       .from("exams")
       .select("*")
       .eq("id", examKey)
       .maybeSingle();
     if (error || !ex) return null;
+
+    if (ex.is_free !== true) {
+      const { verifyStudentAccess } = await import("@/actions/student-actions");
+      const access = await verifyStudentAccess(sessionUser.id, ex.course || "", sessionUser.email);
+      if (!access.allowed) return null;
+    }
 
     const { data: links } = await supabase
       .from("exam_questions_link")

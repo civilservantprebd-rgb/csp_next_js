@@ -34,7 +34,7 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
       {/* Header Banner */}
       <div className="bg-amber-100/60 p-5 sm:p-6 border-b border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-200/90 text-black border border-amber-300 text-xs font-black shadow-2xs">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-200/90 text-black border border-amber-300 text-xs font-black shadow-sm">
             <Sparkles className="w-3.5 h-3.5 text-amber-700" />
             <span>সবার জন্য সম্পূর্ণ ফ্রি</span>
           </div>
@@ -50,13 +50,13 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
           {onOpenEnrollModal && (
             <button
               onClick={() => onOpenEnrollModal()}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-[0.98]"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-[0.98]"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>Enroll Now</span>
             </button>
           )}
-          <div className="shrink-0 bg-white px-3.5 py-1.5 rounded-xl border border-amber-300 text-xs font-black text-black flex items-center gap-1.5 shadow-2xs">
+          <div className="shrink-0 bg-white px-3.5 py-1.5 rounded-xl border border-amber-300 text-xs font-black text-black flex items-center gap-1.5 shadow-sm">
             <Award className="w-4 h-4 text-amber-600" />
             <span>মোট {toBengaliDigits(freeExams.length)}টি ফ্রি পরীক্ষা</span>
           </div>
@@ -73,19 +73,19 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
               return (
                 <div
                   key={key}
-                  className="bg-white rounded-2xl p-5 border border-amber-200/90 hover:border-amber-400 shadow-2xs hover:shadow-xs transition-all duration-200 flex flex-col justify-between space-y-4 group"
+                  className="bg-white rounded-2xl p-5 border border-amber-200/90 hover:border-amber-400 shadow-sm hover:shadow-sm transition-all duration-200 flex flex-col justify-between space-y-4 group"
                 >
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="bg-slate-200 text-black text-[11px] font-black px-2.5 py-0.5 rounded-lg border border-slate-355 truncate max-w-[150px]">
+                      <span className="bg-slate-200 text-black text-sm font-black px-2.5 py-0.5 rounded-lg border border-slate-300 truncate max-w-[150px]">
                         {ex.course}
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0">
-                        <span className="bg-emerald-100 text-emerald-900 text-[11px] font-black px-2.5 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
+                        <span className="bg-emerald-100 text-emerald-900 text-sm font-black px-2.5 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" /> ফ্রি
                         </span>
                         {isCompleted && (
-                          <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                          <span className="bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">
                             <CheckCircle2 className="w-2.5 h-2.5" /> সম্পন্ন
                           </span>
                         )}
@@ -113,7 +113,7 @@ export const FreeExamsSpotlight: React.FC<FreeExamsSpotlightProps> = ({
 
                   <button
                     onClick={() => onStartExam(key)}
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 px-4 rounded-xl shadow-xs transition duration-150 flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer active:scale-[0.98]"
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 px-4 rounded-xl shadow-sm transition duration-150 flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer active:scale-[0.98]"
                   >
                     <Play className="w-4 h-4 fill-slate-950 text-slate-950" />
                     <span>ফ্রি পরীক্ষা শুরু করুন</span>

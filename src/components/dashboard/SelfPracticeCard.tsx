@@ -35,7 +35,11 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
 
   useEffect(() => {
-    getPracticeTopics().then(setAvailableTopics);
+    getPracticeTopics()
+      .then(setAvailableTopics)
+      .catch(() => {
+        // topic list is decorative — the card still renders
+      });
     import("@/lib/student-auth").then(({ getLocalStudentUser }) => {
       const localUser = getLocalStudentUser();
       if (!localUser) {
@@ -87,7 +91,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
         <div
           className={`flex items-center gap-1.5 p-2 rounded-xl border transition cursor-pointer ${
             isSelected
-              ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+              ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
               : "bg-white border-slate-300 text-black hover:border-emerald-400 hover:bg-emerald-50/40"
           }`}
         >
@@ -124,7 +128,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
             <span className="truncate">{node.name}</span>
             {count > 0 && (
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${
+                className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${
                   isSelected ? "bg-white/20" : "bg-slate-100 text-slate-600"
                 }`}
               >
@@ -190,10 +194,10 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-200 text-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                <span className="text-xs font-bold uppercase tracking-wider bg-emerald-200 text-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-300">
                   সেলফ প্র্যাকটিস মোড
                 </span>
-                <span className="text-[10px] font-medium text-slate-700 flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-700 flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-500 animate-bounce" /> আনলিমিটেড ফ্রি অনুশীলন
                 </span>
               </div>
@@ -207,7 +211,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
         {/* Practice Config — topic on top (full width), count & mode below */}
         <div className="space-y-5">
           {/* 1. Topic Selector */}
-          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-xs">
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-sm">
             <label className="text-xs font-black text-black flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5 text-black" /> ১. টপিক নির্বাচন করুন:
             </label>
@@ -217,7 +221,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
                 onClick={() => setSelectedTopic("সকল টপিক (মিক্সড)")}
                 className={`w-full flex items-center gap-1.5 p-2 rounded-xl border transition cursor-pointer text-left ${
                   selectedTopic === "সকল টপিক (মিক্সড)"
-                    ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                    ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
                     : "bg-white border-slate-300 text-black hover:border-emerald-400 hover:bg-emerald-50/40"
                 }`}
               >
@@ -238,7 +242,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
           {/* 2 + 3. Count & Mode — side by side on desktop, stacked on mobile */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {/* 2. Question Count Selector */}
-          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-xs">
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-sm">
             <label className="text-xs font-black text-black flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-black" /> ২. প্রশ্নের সংখ্যা:
             </label>
@@ -250,7 +254,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
                   onClick={() => setSelectedCount(cnt)}
                   className={`py-1.5 rounded-xl text-xs font-black transition cursor-pointer border-2 ${
                     selectedCount === cnt
-                      ? "bg-black border-black text-white shadow-xs"
+                      ? "bg-black border-black text-white shadow-sm"
                       : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
                   }`}
                 >
@@ -261,7 +265,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
           </div>
 
           {/* 3. Mode Selector */}
-          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-xs">
+          <div className="space-y-1.5 bg-white/45 backdrop-blur-md p-3.5 rounded-2xl border border-slate-300 shadow-sm">
             <label className="text-xs font-black text-black flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-black" /> ৩. অনুশীলনের ধরন:
             </label>
@@ -269,27 +273,27 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
               <button
                 type="button"
                 onClick={() => setPracticeMode("instant")}
-                className={`p-2 rounded-xl text-[10px] sm:text-xs font-black transition cursor-pointer border-2 text-center flex flex-col items-center justify-center ${
+                className={`p-2 rounded-xl text-xs sm:text-xs font-black transition cursor-pointer border-2 text-center flex flex-col items-center justify-center ${
                   practiceMode === "instant"
                     ? "bg-black border-black text-white shadow-sm"
                     : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
                 }`}
               >
                 <span>ইনস্ট্যান্ট মোড</span>
-                <span className={`text-[9px] font-bold ${practiceMode === "instant" ? "text-slate-300" : "text-black"}`}>ক্লিক করলেই উত্তর</span>
+                <span className={`text-xs font-bold ${practiceMode === "instant" ? "text-slate-300" : "text-black"}`}>ক্লিক করলেই উত্তর</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPracticeMode("exam")}
-                className={`p-2 rounded-xl text-[10px] sm:text-xs font-black transition cursor-pointer border-2 text-center flex flex-col items-center justify-center ${
+                className={`p-2 rounded-xl text-xs sm:text-xs font-black transition cursor-pointer border-2 text-center flex flex-col items-center justify-center ${
                   practiceMode === "exam"
                     ? "bg-black border-black text-white shadow-sm"
                     : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
                 }`}
               >
                 <span>মক টেস্ট মোড</span>
-                <span className={`text-[9px] font-bold ${practiceMode === "exam" ? "text-slate-300" : "text-black"}`}>টাইমারসহ পরীক্ষা</span>
+                <span className={`text-xs font-bold ${practiceMode === "exam" ? "text-slate-300" : "text-black"}`}>টাইমারসহ পরীক্ষা</span>
               </button>
             </div>
           </div>

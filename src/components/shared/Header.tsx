@@ -71,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               <h1 className="text-xl sm:text-2xl font-black tracking-wide bg-gradient-to-r from-white via-indigo-100 to-indigo-200 bg-clip-text text-transparent">
                 আরোহণ
               </h1>
-              <p className="text-[11px] text-indigo-300 font-medium font-bengali">
+              <p className="text-sm text-indigo-300 font-medium font-bengali">
                 স্মার্ট ও ইন্টারেক্টিভ প্রিপারেশন পোর্টাল
               </p>
             </div>

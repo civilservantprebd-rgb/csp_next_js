@@ -22,7 +22,7 @@ import {
   HelpCircle,
   RefreshCw
 } from "lucide-react";
-import { toBengaliDigits } from "@/lib/utils";
+import { formatBangladeshDate, toBengaliDigits } from "@/lib/utils";
 
 interface ArchiveManagerProps {
   exams: Record<string, Exam>;
@@ -43,9 +43,14 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
 
   const loadArchive = async () => {
     setIsLoading(true);
-    const data = await getArchivedQuestions();
-    setArchived(data || []);
-    setIsLoading(false);
+    try {
+      const data = await getArchivedQuestions();
+      setArchived(data || []);
+    } catch (err) {
+      console.error("Load archive error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -121,7 +126,7 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
   return (
     <div className="space-y-5 font-bengali">
       {/* Header Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/20 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+      <div className="bg-amber-500/10 border border-amber-500/20 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
             <Archive className="w-6 h-6" />
@@ -140,7 +145,7 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
           type="button"
           onClick={loadArchive}
           disabled={isLoading}
-          className="self-end sm:self-auto bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+          className="self-end sm:self-auto bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
           <span>রিফ্রেশ</span>
@@ -242,7 +247,7 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
           <div className="text-center py-12 bg-slate-50 border border-dashed border-slate-200 rounded-3xl space-y-2">
             <Archive className="w-8 h-8 mx-auto text-slate-300" />
             <p className="text-xs font-bold text-slate-600">আর্কাইভে কোনো প্রশ্ন নেই।</p>
-            <p className="text-[11px] text-slate-400">টিচার প্যানেল থেকে কোনো প্রশ্ন মুছে ফেললে তা এখানে জমা থাকবে।</p>
+            <p className="text-sm text-slate-400">টিচার প্যানেল থেকে কোনো প্রশ্ন মুছে ফেললে তা এখানে জমা থাকবে।</p>
           </div>
         ) : (
           filteredQuestions.map((item, idx) => {
@@ -252,8 +257,8 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
                 key={item.id || idx}
                 className={`p-4 rounded-2xl border transition ${
                   isSelected
-                    ? "bg-amber-50/50 border-amber-300 shadow-xs"
-                    : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+                    ? "bg-amber-50/50 border-amber-300 shadow-sm"
+                    : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
                 } space-y-3`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -278,7 +283,7 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
                       </div>
 
                       {/* Metadata badges */}
-                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[11px]">
+                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-sm">
                         <span
                           className={`px-2 py-0.5 rounded-md font-bold ${
                             item.sourceType === "exam"
@@ -304,7 +309,7 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
                         {item.deletedAt && (
                           <span className="text-slate-400 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {new Date(item.deletedAt).toLocaleDateString("bn-BD")}
+                            {formatBangladeshDate(item.deletedAt)}
                           </span>
                         )}
                       </div>
@@ -347,7 +352,7 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
                           : "bg-white border border-slate-200"
                       }`}
                     >
-                      <span className="text-slate-400 font-mono text-[10px]">
+                      <span className="text-slate-400 font-mono text-xs">
                         {toBengaliDigits(oIdx + 1)})
                       </span>
                       <span>{opt}</span>

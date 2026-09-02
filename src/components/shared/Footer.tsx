@@ -30,7 +30,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTeacherLogin }) => {
             href={`https://wa.me/${whatsappNumber}`}
             target="_blank"
             rel="noreferrer"
-            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-medium transition flex items-center gap-1.5 shadow-sm"
+            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-3 py-1.5 rounded-xl text-sm font-medium transition flex items-center gap-1.5 shadow-sm"
           >
             <MessageCircle className="w-4 h-4 text-emerald-400" /> WhatsApp
           </a>
@@ -38,21 +38,21 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTeacherLogin }) => {
             href={facebookUrl}
             target="_blank"
             rel="noreferrer"
-            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-medium transition flex items-center gap-1.5 shadow-sm"
+            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-3 py-1.5 rounded-xl text-sm font-medium transition flex items-center gap-1.5 shadow-sm"
           >
             <Facebook className="w-4 h-4 text-indigo-400" /> Facebook
           </a>
           {onOpenTeacherLogin ? (
             <button
               onClick={onOpenTeacherLogin}
-              className="bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 px-3 py-1.5 rounded-xl text-sm font-semibold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Shield className="w-4 h-4 text-amber-300" /> Teacher Panel
             </button>
           ) : (
             <Link
               href="/admin"
-              className="bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 px-3 py-1.5 rounded-xl text-sm font-semibold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Shield className="w-4 h-4 text-amber-300" /> Teacher Panel
             </Link>

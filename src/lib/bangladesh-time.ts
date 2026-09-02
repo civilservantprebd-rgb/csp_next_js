@@ -14,6 +14,15 @@ let timeSync: TimeSyncState = {
   basePerfTime: 0
 };
 
+/**
+ * Live-window grace: submissions arriving up to this long after endTime are
+ * still classified as live (protects on-time auto-submits from network
+ * latency). Answer keys must NOT unlock before this grace has elapsed, or a
+ * scripted client could fetch the key and submit a perfect score inside the
+ * live window (see isAnswerTimeReached).
+ */
+export const LIVE_GRACE_MS = 10 * 1000;
+
 export function parseBangladeshDateTime(dtStr?: string | null): Date | null {
   if (!dtStr) return null;
   let str = String(dtStr).trim();
@@ -143,14 +152,17 @@ export function isAnswerTimeReached(exam: Exam): boolean {
   // ১. শিক্ষক প্যানেল থেকে যদি রেজাল্ট ম্যানুয়ালি প্রকাশ/রিলিজ করা থাকে
   if (exam.isResultPublished === true) return true;
 
-  // ২. পরীক্ষার নির্ধারিত শেষ সময় (endTime বা leaderboardEndTime) যদি পার হয়ে যায়
+  // ২. পরীক্ষার নির্ধারিত শেষ সময় (endTime বা leaderboardEndTime) যদি পার হয়ে যায়।
+  //     LIVE_GRACE_MS-এর আগে উত্তর কখনো খুলবে না — যাতে কী-রিলিজ আর লাইভ-জমা
+  //     উইন্ডো ওভারল্যাপ না করে (স্ক্রিপ্টেড পারফেক্ট স্কোর প্রতিরোধ)।
+  //     শিক্ষক আগেই ফলাফল পাবলিশ করলে (isResultPublished) সঙ্গে সঙ্গে খুলবে।
   const now = getTrueDate();
   if (exam.endTime) {
     const endTime = parseBangladeshDateTime(exam.endTime);
-    if (endTime && now >= endTime) return true;
+    if (endTime && now.getTime() >= endTime.getTime() + LIVE_GRACE_MS) return true;
   } else if (exam.leaderboardEndTime) {
     const endTime = parseBangladeshDateTime(exam.leaderboardEndTime);
-    if (endTime && now >= endTime) return true;
+    if (endTime && now.getTime() >= endTime.getTime() + LIVE_GRACE_MS) return true;
   }
 
   return false;

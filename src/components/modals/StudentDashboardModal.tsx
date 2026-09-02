@@ -122,28 +122,38 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         setNewName(localUser.name);
       }
 
-      // Check paid status
-      import("@/actions/student-actions").then(({ verifyStudentAccess }) => {
-        verifyStudentAccess(studentId, "ALL", localUser?.email).then((res) => {
-          setIsPaidStudent(res.allowed);
-          setStudentCourses(res.courses || []);
-        });
-      });
+      // Check paid status — a rejection must never leave the dashboard spinner on
+      import("@/actions/student-actions")
+        .then(({ verifyStudentAccess }) => {
+          return verifyStudentAccess(studentId, "ALL", localUser?.email).then((res) => {
+            setIsPaidStudent(res.allowed);
+            setStudentCourses(res.courses || []);
+          });
+        })
+        .catch(() => setIsLoading(false));
 
-      getStudentSubmissions(studentId).then(async (data) => {
-        if (data === null) {
-          // Not authorized to view these records (no matching login session)
-          setAccessDenied(true);
+      // Submission history — a network failure clears the loading state (and any
+      // stale analytics) and shows the empty state; it is NOT an access denial.
+      getStudentSubmissions(studentId)
+        .then(async (data) => {
+          if (data === null) {
+            // Not authorized to view these records (no matching login session)
+            setAccessDenied(true);
+            setSubmissions([]);
+            setAnalytics(null);
+            setIsLoading(false);
+            return;
+          }
+          setSubmissions(data);
+          const analyticsRes = await calculateStudentAnalytics(data, exams);
+          setAnalytics(analyticsRes);
+          setIsLoading(false);
+        })
+        .catch(() => {
           setSubmissions([]);
           setAnalytics(null);
           setIsLoading(false);
-          return;
-        }
-        setSubmissions(data);
-        const analyticsRes = await calculateStudentAnalytics(data, exams);
-        setAnalytics(analyticsRes);
-        setIsLoading(false);
-      });
+        });
       refreshStores();
     }
   }, [isOpen, studentId, exams]);
@@ -277,13 +287,13 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100">
         
         {/* Header */}
         <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
           <div className="flex items-center space-x-3 min-w-0 flex-1">
-            <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-2xs shrink-0">
+            <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-sm shrink-0">
               {studentUser?.photoURL ? (
                 <Image src={studentUser.photoURL} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full" />
               ) : (
@@ -330,7 +340,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                   </button>
                 </div>
               )}
-              <p className="text-[10px] text-slate-500 font-mono truncate">
+              <p className="text-xs text-slate-500 font-mono truncate">
                 {studentUser?.email || `আইডি: ${studentId}`}
               </p>
             </div>
@@ -357,7 +367,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
             onClick={() => setActiveTab("history")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "history"
-                ? "bg-violet-600 text-white shadow-xs"
+                ? "bg-violet-600 text-white shadow-sm"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-600"
             }`}
           >
@@ -370,7 +380,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
             onClick={() => setActiveTab("study")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "study"
-                ? "bg-indigo-600 text-white shadow-xs"
+                ? "bg-indigo-600 text-white shadow-sm"
                 : "bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/80"
             }`}
           >
@@ -383,7 +393,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
             onClick={() => setActiveTab("analytics")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "analytics"
-                ? "bg-indigo-600 text-white shadow-xs"
+                ? "bg-indigo-600 text-white shadow-sm"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-600"
             }`}
           >
@@ -396,7 +406,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
             onClick={() => setActiveTab("mistakes")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "mistakes"
-                ? "bg-rose-600 text-white shadow-xs"
+                ? "bg-rose-600 text-white shadow-sm"
                 : "bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200/80"
             }`}
           >
@@ -409,7 +419,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
             onClick={() => setActiveTab("bookmarks")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "bookmarks"
-                ? "bg-amber-600 text-white shadow-xs"
+                ? "bg-amber-600 text-white shadow-sm"
                 : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80"
             }`}
           >
@@ -427,7 +437,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                 <p className="text-xs font-bold text-rose-950">
                   🔒 এই আইডির রেকর্ড দেখতে লগইন প্রয়োজন
                 </p>
-                <p className="text-[11px] text-rose-800 mt-0.5">
+                <p className="text-sm text-rose-800 mt-0.5">
                   আপনার নিজের রেকর্ড দেখতে গুগল দিয়ে লগইন করুন — লগইনের পর আবার চেষ্টা করুন।
                 </p>
               </div>
@@ -451,12 +461,12 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           {/* Warning: ended exams not yet taken in the student's courses */}
           {endedNotTaken.length > 0 && (
             <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 flex items-start gap-2.5">
-              <AlertTriangle className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-[18px] h-[18px] text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-bold text-amber-950">
                   ⚠️ আপনার কোর্সের {toBengaliDigits(endedNotTaken.length)}টি শেষ হওয়া পরীক্ষায় অংশ নেননি
                 </p>
-                <p className="text-[11px] text-amber-800 mt-0.5">
+                <p className="text-sm text-amber-800 mt-0.5">
                   এগুলো এখনও দেওয়া যাবে — মিস করবেন না!
                 </p>
               </div>
@@ -467,7 +477,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           {activeTab === "study" && (
             <div className="space-y-4">
               {!isPaidStudent && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50 border border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50 border border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
                       <Lock className="w-5 h-5" />
@@ -476,7 +486,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       <h4 className="font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5">
                         প্রশ্নব্যাংক রিডিং ও কুইজ লক করা আছে
                       </h4>
-                      <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
+                      <p className="text-sm text-amber-800 leading-tight mt-0.5">
                         চ্যাপ্টার ও টপিকের তালিকা দেখতে পাবেন, তবে প্রশ্ন পড়তে ও কুইজ দিতে কোর্সে এনরোল করতে হবে।
                       </p>
                     </div>
@@ -487,7 +497,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       onClose();
                       window.location.href = "/#courses";
                     }}
-                    className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs cursor-pointer transition shrink-0 w-full sm:w-auto text-center"
+                    className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-sm cursor-pointer transition shrink-0 w-full sm:w-auto text-center"
                   >
                     কোর্সে এনরোল করুন
                   </button>
@@ -500,7 +510,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     <h4 className="font-bold text-xs sm:text-sm text-indigo-950 flex items-center gap-1.5">
                       <SparklesIcon className="w-4 h-4 text-amber-500" /> আনলিমিটেড বিষয় ও অধ্যায়ভিত্তিক প্রশ্নভাণ্ডার
                     </h4>
-                    <p className="text-[11px] text-indigo-700">
+                    <p className="text-sm text-indigo-700">
                       যে অংশে ট্যাপ করবেন তার ভেতরে যত সাবটপিক আছে তা বিস্তারিত দেখা যাবে।
                     </p>
                   </div>
@@ -554,7 +564,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
               <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <div>
                   <h4 className="font-bold text-emerald-950 text-sm">রুটিন ও সিলেবাস ডাউনলোড</h4>
-                  <p className="text-[11px] text-emerald-700">গুগল ড্রাইভ থেকে আপডেটেড সিলেবাস ও পরীক্ষার রুটিন পান</p>
+                  <p className="text-sm text-emerald-700">গুগল ড্রাইভ থেকে আপডেটেড সিলেবাস ও পরীক্ষার রুটিন পান</p>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                   <a
@@ -578,19 +588,19 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center">
-                  <span className="text-[10px] sm:text-xs text-slate-500 block">অংশগ্রহণকৃত এক্সাম</span>
+                  <span className="text-xs sm:text-xs text-slate-500 block">অংশগ্রহণকৃত এক্সাম</span>
                   <span className="text-base sm:text-lg font-bold text-slate-800">{toBengaliDigits(submissions.length)}</span>
                 </div>
                 <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-center">
-                  <span className="text-[10px] sm:text-xs text-emerald-600 block">গড় পারসেন্টেজ</span>
+                  <span className="text-xs sm:text-xs text-emerald-600 block">গড় পারসেন্টেজ</span>
                   <span className="text-base sm:text-lg font-bold text-emerald-700">{toBengaliDigits(avgAcc)}%</span>
                 </div>
                 <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-200 text-center">
-                  <span className="text-[10px] sm:text-xs text-indigo-600 block">সর্বোচ্চ স্কোর</span>
+                  <span className="text-xs sm:text-xs text-indigo-600 block">সর্বোচ্চ স্কোর</span>
                   <span className="text-base sm:text-lg font-bold text-indigo-700">{toBengaliDigits(bestScore)}</span>
                 </div>
                 <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 text-center">
-                  <span className="text-[10px] sm:text-xs text-amber-600 block">গড় স্কোর</span>
+                  <span className="text-xs sm:text-xs text-amber-600 block">গড় স্কোর</span>
                   <span className="text-base sm:text-lg font-bold text-amber-700">{toBengaliDigits(avgScore)}</span>
                 </div>
               </div>
@@ -600,7 +610,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                   <span className="flex items-center gap-1.5">
                     <History className="w-4 h-4 text-violet-600" /> সাম্প্রতিক পরীক্ষার পারফরম্যান্স
                   </span>
-                  <span className="text-[11px] text-slate-400 font-normal">(ক্লিক করে সমাধান ও মার্কশিট দেখুন)</span>
+                  <span className="text-sm text-slate-400 font-normal">(ক্লিক করে সমাধান ও মার্কশিট দেখুন)</span>
                 </h4>
 
                 <div className="space-y-2">
@@ -619,7 +629,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                         <button
                           key={sIdx}
                           onClick={() => onSelectSubmissionDetail(sub)}
-                          className="w-full text-left p-3.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-violet-50/60 transition flex justify-between items-center group shadow-xs cursor-pointer"
+                          className="w-full text-left p-3.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-violet-50/60 transition flex justify-between items-center group shadow-sm cursor-pointer"
                         >
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
@@ -627,12 +637,12 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                                 {toBengaliDigits(sIdx + 1)}. {sub.examTitle}
                               </h4>
                               {sub.isLiveSubmission === false && (
-                                <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                <span className="bg-amber-100 text-amber-900 text-xs font-bold px-2 py-0.5 rounded-md">
                                   অনুশীলন
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5 font-mono">সময়কাল: {sub.timeSpent}</p>
+                            <p className="text-sm text-slate-500 mt-0.5 font-mono">সময়কাল: {sub.timeSpent}</p>
                           </div>
 
                           <div className="flex items-center gap-3">
@@ -641,7 +651,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                                 স্কোর: {toBengaliDigits(sub.score)}
                               </span>
                             ) : (
-                              <span className="flex items-center gap-1 text-[11px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                              <span className="flex items-center gap-1 text-sm text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
                                 <Lock className="w-3 h-3" /> ফলাফল প্রকাশের অপেক্ষায়
                               </span>
                             )}
@@ -679,7 +689,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       <h4 className="text-base font-black text-emerald-950 truncate">
                         {analytics.strongestSubject || "সবগুলোতে সমান"}
                       </h4>
-                      <p className="text-[10px] text-emerald-700">সর্বোচ্চ সঠিক উত্তরের হার</p>
+                      <p className="text-xs text-emerald-700">সর্বোচ্চ সঠিক উত্তরের হার</p>
                     </div>
 
                     <div className="p-3.5 bg-rose-50/80 rounded-2xl border border-rose-200 space-y-1">
@@ -690,7 +700,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       <h4 className="text-base font-black text-rose-950 truncate">
                         {analytics.weakestSubject || "নেই"}
                       </h4>
-                      <p className="text-[10px] text-rose-700">ভুলের হার তুলনামূলক বেশি</p>
+                      <p className="text-xs text-rose-700">ভুলের হার তুলনামূলক বেশি</p>
                     </div>
 
                     <div className="p-3.5 bg-indigo-50/80 rounded-2xl border border-indigo-200 space-y-1">
@@ -701,14 +711,14 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       <h4 className="text-base font-black text-indigo-950">
                         {toBengaliDigits(analytics.overallAccuracy)}%
                       </h4>
-                      <p className="text-[10px] text-indigo-700">
+                      <p className="text-xs text-indigo-700">
                         মোট {toBengaliDigits(analytics.totalAttemptedQuestions)}টি প্রশ্নের বিশ্লেষণে
                       </p>
                     </div>
                   </div>
 
                   {/* Smart Prep Recommendation Box */}
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-slate-50 to-purple-50 border border-indigo-100 flex items-start gap-3 shadow-2xs">
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-slate-50 to-purple-50 border border-indigo-100 flex items-start gap-3 shadow-sm">
                     <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
                       <Lightbulb className="w-4 h-4 text-indigo-600" />
                     </div>
@@ -722,7 +732,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                   <div className="space-y-3 pt-1">
                     <h4 className="font-bold text-xs sm:text-sm text-slate-800 flex items-center justify-between">
                       <span>বিষয়ভিত্তিক দক্ষতা ও পারফরম্যান্স ছক:</span>
-                      <span className="text-[11px] text-slate-400 font-normal">অ্যাকুরেসি অনুযায়ী সাজানো</span>
+                      <span className="text-sm text-slate-400 font-normal">অ্যাকুরেসি অনুযায়ী সাজানো</span>
                     </h4>
 
                     <div className="space-y-3">
@@ -751,7 +761,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                         return (
                           <div
                             key={idx}
-                            className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs text-xs"
+                            className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-sm text-xs"
                           >
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                               <div>
@@ -759,11 +769,11 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                                   <h5 className="font-bold text-slate-900 text-xs sm:text-sm">
                                     {item.subject}
                                   </h5>
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeClass}`}>
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${badgeClass}`}>
                                     {statusText}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                <p className="text-sm text-slate-500 mt-0.5">
                                   মোট প্রশ্ন: <strong>{toBengaliDigits(item.totalQuestions)}টি</strong> • সঠিক:{" "}
                                   <strong className="text-emerald-700">{toBengaliDigits(item.correct)}টি</strong> • ভুল:{" "}
                                   <strong className="text-rose-600">{toBengaliDigits(item.incorrect)}টি</strong>
@@ -777,7 +787,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleStartSubjectPractice(item.subject)}
-                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold px-3 py-1.5 rounded-xl text-[11px] flex items-center gap-1 transition cursor-pointer shadow-2xs shrink-0"
+                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold px-3 py-1.5 rounded-xl text-sm flex items-center gap-1 transition cursor-pointer shadow-sm shrink-0"
                                 >
                                   <Play className="w-3 h-3 text-indigo-600 fill-indigo-600" />
                                   <span>অনুশীলন</span>
@@ -821,7 +831,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       <button
                         type="button"
                         onClick={handleStartMistakesQuiz}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
                       >
                         <Play className="w-3.5 h-3.5 fill-white" />
                         <span>ভুলগুলোর পরীক্ষা দিন ({toBengaliDigits(mistakes.length)})</span>
@@ -852,16 +862,16 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                   {mistakes.map((m, idx) => (
                     <div
                       key={m.id || idx}
-                      className="p-4 rounded-2xl border border-rose-200 bg-white space-y-3 shadow-2xs text-xs"
+                      className="p-4 rounded-2xl border border-rose-200 bg-white space-y-3 shadow-sm text-xs"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
                               {m.examTitle}
                             </span>
                             {m.topic && (
-                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
+                              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
                                 টপিক: {m.topic}
                               </span>
                             )}
@@ -919,7 +929,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       </div>
 
                       {m.exp && (
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 leading-relaxed">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed">
                           <strong>ব্যাখ্যা:</strong> {m.exp}
                         </div>
                       )}
@@ -947,7 +957,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                   <button
                     type="button"
                     onClick={handleStartBookmarksQuiz}
-                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer shrink-0"
                   >
                     <Play className="w-3.5 h-3.5 fill-white" />
                     <span>বুকমার্কগুলোর পরীক্ষা দিন ({toBengaliDigits(bookmarks.length)})</span>
@@ -968,12 +978,12 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                   {bookmarks.map((b, idx) => (
                     <div
                       key={b.id || idx}
-                      className="p-4 rounded-2xl border border-amber-200 bg-white space-y-3 shadow-2xs text-xs"
+                      className="p-4 rounded-2xl border border-amber-200 bg-white space-y-3 shadow-sm text-xs"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           {b.topic && (
-                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded inline-block mb-1">
+                            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded inline-block mb-1">
                               টপিক: {b.topic}
                             </span>
                           )}
@@ -985,7 +995,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleToggleBookmark(b)}
-                          className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1 shrink-0 cursor-pointer"
+                          className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-2.5 py-1 rounded-lg text-sm flex items-center gap-1 shrink-0 cursor-pointer"
                         >
                           <Bookmark className="w-3 h-3 fill-amber-500 text-amber-600" />
                           <span>মুছুন</span>
@@ -1016,7 +1026,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       </div>
 
                       {b.exp && (
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 leading-relaxed">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed">
                           <strong>ব্যাখ্যা:</strong> {b.exp}
                         </div>
                       )}
@@ -1038,7 +1048,14 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         questions={quizQuestions}
         subjectName={quizTitle}
         mode="instant"
-        onRestart={() => setIsQuizModalOpen(true)}
+        onRestart={() => {
+          // Genuine restart for mistakes/bookmarks quizzes: hand the modal a
+          // NEW array (reshuffled copy of the same set). The modal's session
+          // reset is keyed on question order + restart tick, so this new array
+          // actually starts a fresh round.
+          const shuffled = shuffleArray([...quizQuestions]);
+          setQuizQuestions(shuffled);
+        }}
       />
 
       {/* Study Hub Topic Reading Modal */}

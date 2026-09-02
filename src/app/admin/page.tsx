@@ -414,12 +414,12 @@ export default function AdminPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-              <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200/80 px-3 py-1.5 rounded-xl shadow-xs">
-                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-[11px]">
+              <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200/80 px-3 py-1.5 rounded-xl shadow-sm">
+                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm">
                   {teacherUser.email.charAt(0).toUpperCase()}
                 </div>
                 <div className="text-left leading-tight">
-                  <p className="text-[11px] sm:text-xs font-bold text-indigo-950 truncate max-w-[120px] sm:max-w-[180px]">
+                  <p className="text-sm sm:text-xs font-bold text-indigo-950 truncate max-w-[120px] sm:max-w-[180px]">
                     {teacherUser.email}
                   </p>
                 </div>
@@ -427,7 +427,7 @@ export default function AdminPage() {
 
               <button
                 onClick={handleLogout}
-                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">লগআউট</span>
               </button>
@@ -574,7 +574,7 @@ export default function AdminPage() {
                   </h3>
                   <form onSubmit={handleAddSubject} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">কোর্স নির্বাচন করুন</label>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">কোর্স নির্বাচন করুন</label>
                       <select
                         value={newSubjectCourse}
                         onChange={(e) => setNewSubjectCourse(e.target.value)}
@@ -588,7 +588,7 @@ export default function AdminPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">সাবজেক্টের নাম</label>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">সাবজেক্টের নাম</label>
                       <input
                         type="text"
                         required
@@ -666,7 +666,7 @@ export default function AdminPage() {
                                 <span className="font-bold text-slate-800">
                                   {toBengaliDigits(idx + 1)}. {sub.name}
                                 </span>
-                                <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded ml-2">
+                                <span className="text-sm text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded ml-2">
                                   {sub.course}
                                 </span>
                               </div>
@@ -730,7 +730,7 @@ export default function AdminPage() {
                 </h3>
                 <form onSubmit={handleSaveDriveLinks} className="space-y-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    <label className="block text-sm font-medium text-slate-600 mb-1">
                       পরীক্ষার রুটিন (Google Drive URL)
                     </label>
                     <input
@@ -742,7 +742,7 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    <label className="block text-sm font-medium text-slate-600 mb-1">
                       কোর্স সিলেবাস (Google Drive URL)
                     </label>
                     <input

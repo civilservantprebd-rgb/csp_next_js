@@ -51,10 +51,15 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
 
   const loadData = async () => {
     setIsLoading(true);
-    const list = await getCourseVideosAdmin();
-    setVideos(list);
-    setTableMissing(false);
-    setIsLoading(false);
+    try {
+      const list = await getCourseVideosAdmin();
+      setVideos(list);
+      setTableMissing(false);
+    } catch (err) {
+      console.error("Load videos error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -206,11 +211,11 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
       )}
 
       {/* Add / Edit Form */}
-      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3 shadow-2xs">
+      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
         <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
           {editingId ? <><Edit2 className="w-4 h-4 text-indigo-600" /> ভিডিও এডিট করুন</> : <><Plus className="w-4 h-4 text-emerald-600" /> নতুন ভিডিও যোগ করুন (প্লেলিস্টে)</>}
           {editingId && (
-            <button type="button" onClick={resetForm} className="ml-auto text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer">
+            <button type="button" onClick={resetForm} className="ml-auto text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer">
               <X className="w-3 h-3" /> বাতিল
             </button>
           )}
@@ -218,7 +223,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">কোর্স *</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">কোর্স *</label>
             <select
               value={form.course}
               onChange={(e) => setForm((f) => ({ ...f, course: e.target.value, subject: "" }))}
@@ -232,7 +237,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">সাবজেক্ট / প্লেলিস্ট *</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">সাবজেক্ট / প্লেলিস্ট *</label>
             <input
               type="text"
               list="subject-options"
@@ -249,7 +254,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
             </datalist>
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">ভিডিওর নাম *</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">ভিডিওর নাম *</label>
             <input
               type="text"
               placeholder="যেমন: চর্যাপদ — ক্লাস ০১"
@@ -260,7 +265,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center gap-1">
+            <label className="block text-sm font-medium text-slate-600 mb-1 flex items-center gap-1">
               <Link2 className="w-3 h-3" /> YouTube লিংক / ভিডিও ID *
             </label>
             <input
@@ -273,7 +278,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
             />
           </div>
           <div className="sm:col-span-3">
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">বিবরণ (ঐচ্ছিক)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">বিবরণ (ঐচ্ছিক)</label>
             <input
               type="text"
               placeholder="এই ক্লাসে যা যা শেখানো হবে..."
@@ -283,7 +288,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">প্লেলিস্টে ক্রম (ছোট = আগে)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">প্লেলিস্টে ক্রম (ছোট = আগে)</label>
             <input
               type="number"
               value={form.sortOrder}
@@ -301,7 +306,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
             {editingId ? <><Save className="w-4 h-4" /> আপডেট করুন</> : <><Plus className="w-4 h-4" /> প্লেলিস্টে যোগ করুন</>}
           </button>
           {ytPreviewId && (
-            <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
+            <span className="text-sm text-slate-500 flex items-center gap-1.5">
               <PlayCircle className="w-3.5 h-3.5 text-emerald-600" />
               প্রিভিউ: <span className="font-mono font-bold">{ytPreviewId}</span>
             </span>
@@ -353,7 +358,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
           <div key={courseNode.course} className="space-y-4">
             <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2 pt-1">
               <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-lg border border-indigo-200">📁 {courseNode.course}</span>
-              <span className="text-slate-400 text-[11px] font-semibold">
+              <span className="text-slate-400 text-sm font-semibold">
                 ({toBengaliDigits(courseNode.subjects.length)}টি প্লেলিস্ট)
               </span>
             </h4>
@@ -366,7 +371,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
                     <div className="flex items-center gap-2 min-w-0">
                       <PlayCircle className="w-4 h-4 text-sky-600 shrink-0" />
                       <span className="font-black text-slate-900 text-xs sm:text-sm truncate">{playlist.subject}</span>
-                      <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-sky-200 shrink-0">
+                      <span className="bg-sky-100 text-sky-800 text-xs font-bold px-2 py-0.5 rounded-md border border-sky-200 shrink-0">
                         {toBengaliDigits(playlist.items.length)}টি ভিডিও
                       </span>
                     </div>
@@ -377,7 +382,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
                   <div className="divide-y divide-slate-100">
                     {playlist.items.map((v, vIdx) => (
                       <div key={v.id} className="px-3.5 py-2.5 flex items-center gap-3 bg-white">
-                        <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">{toBengaliDigits(vIdx + 1)}</span>
+                        <span className="text-xs font-black text-slate-300 w-5 text-center shrink-0">{toBengaliDigits(vIdx + 1)}</span>
                         <img
                           src={`https://i.ytimg.com/vi/${v.youtubeId}/mqdefault.jpg`}
                           alt=""
@@ -385,7 +390,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
                         />
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-slate-900 text-xs truncate">{v.title}</p>
-                          <p className="text-slate-400 text-[10px] font-mono mt-0.5">{v.youtubeId}</p>
+                          <p className="text-slate-400 text-xs font-mono mt-0.5">{v.youtubeId}</p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
@@ -410,7 +415,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses,
                             href={`https://www.youtube.com/watch?v=${v.youtubeId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[10px] text-rose-600 hover:text-rose-800 font-bold px-1.5 py-1 rounded-md transition cursor-pointer"
+                            className="text-xs text-rose-600 hover:text-rose-800 font-bold px-1.5 py-1 rounded-md transition cursor-pointer"
                           >
                             YT
                           </a>

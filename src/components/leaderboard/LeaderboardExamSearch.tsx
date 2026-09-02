@@ -112,7 +112,7 @@ export const LeaderboardExamSearch: React.FC<LeaderboardExamSearchProps> = ({
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          className="w-full pl-10 pr-9 py-3 rounded-2xl border border-slate-300 text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+          className="w-full pl-10 pr-9 py-3 rounded-2xl border border-slate-300 text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
         />
         {query && (
           <button
@@ -135,7 +135,7 @@ export const LeaderboardExamSearch: React.FC<LeaderboardExamSearchProps> = ({
           <div className="max-h-80 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="p-5 text-center text-xs text-slate-400 font-semibold">
-                "{(query || "").trim()}" — কোনো পরীক্ষা পাওয়া যায়নি
+                &ldquo;{(query || "").trim()}&rdquo; — কোনো পরীক্ষা পাওয়া যায়নি
               </div>
             ) : (
               filtered.map(([k, ex]) => {
@@ -169,20 +169,20 @@ export const LeaderboardExamSearch: React.FC<LeaderboardExamSearchProps> = ({
                       <span className="block font-bold text-slate-900 text-xs sm:text-sm truncate">
                         {ex.title}
                         {isActive && (
-                          <span className="ml-2 text-[9px] font-black text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded-md align-middle">
+                          <span className="ml-2 text-xs font-black text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded-md align-middle">
                             বর্তমান
                           </span>
                         )}
                       </span>
-                      <span className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold mt-0.5 flex-wrap">
+                      <span className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold mt-0.5 flex-wrap">
                         <span className="truncate max-w-[45%]">{ex.course}</span>
                         <span>·</span>
                         <span className="truncate max-w-[30%]">{ex.subject || "সাধারণ"}</span>
-                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border ${status.cls}`}>
+                        <span className={`text-xs font-black px-1.5 py-0.5 rounded-md border ${status.cls}`}>
                           {status.label}
                         </span>
                         {ex.isFree && (
-                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <span className="text-xs font-black px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
                             ফ্রি
                           </span>
                         )}
@@ -193,7 +193,7 @@ export const LeaderboardExamSearch: React.FC<LeaderboardExamSearchProps> = ({
               })
             )}
           </div>
-          <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-500 font-semibold flex items-center justify-between">
+          <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 font-semibold flex items-center justify-between">
             <span>
               {toBengaliDigits(totalMatches)}টি পরীক্ষা
               {totalMatches > filtered.length && " — আরও ফলাফলের জন্য টাইপ করুন"}

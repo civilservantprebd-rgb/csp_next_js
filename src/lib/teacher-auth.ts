@@ -21,7 +21,6 @@ import { supabase } from "@/lib/supabase";
 function getAccessTokenFromCookies(): string | null {
   try {
     // Dynamic import keeps this module server-only even if imported by a client bundle
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { cookies } = require("next/headers") as typeof import("next/headers");
     return cookies().get("sb_access_token")?.value || null;
   } catch {
@@ -99,11 +98,22 @@ export async function isTeacherSession(): Promise<boolean> {
  * student-facing actions to a real session instead of trusting client-supplied
  * student IDs.
  */
-export async function getSessionUserFromCookies(): Promise<{ id: string; email?: string } | null> {
+export interface SessionUser {
+  id: string;
+  email?: string;
+  name?: string;
+}
+
+export async function getSessionUserFromCookies(): Promise<SessionUser | null> {
   try {
     const user = await getUserFromToken(getAccessTokenFromCookies());
     if (!user) return null;
-    return { id: user.id, email: user.email };
+    const meta = (user.user_metadata || {}) as Record<string, unknown>;
+    const name =
+      (typeof meta.full_name === "string" && meta.full_name) ||
+      (typeof meta.name === "string" && meta.name) ||
+      "";
+    return { id: user.id, email: user.email, name: name || undefined };
   } catch {
     return null;
   }

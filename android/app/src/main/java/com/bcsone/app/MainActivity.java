@@ -91,8 +91,22 @@ public class MainActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                // Load everything inside this WebView (the site handles its own auth)
-                return false;
+                // Only our own site (and its subdomains, e.g. www.) loads inside
+                // the JS-enabled WebView with our cookies. Every other URL opens
+                // in the system browser, so a malicious off-origin page can never
+                // run inside the app shell.
+                Uri uri = request.getUrl();
+                String siteHost = Uri.parse(SITE_URL).getHost();
+                String host = uri == null ? null : uri.getHost();
+                if (siteHost != null && host != null &&
+                        (host.equals(siteHost) || host.endsWith("." + siteHost))) {
+                    return false; // same origin — keep inside the WebView
+                }
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                } catch (Exception ignored) {
+                }
+                return true; // handled externally
             }
         });
 

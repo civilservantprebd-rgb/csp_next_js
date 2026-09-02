@@ -13,8 +13,18 @@ export async function submitEnrollRequest(payload: {
   trxId: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    if (!payload.uid || !payload.name || !payload.trxId) {
-      return { success: false, message: "দয়া করে সকল তথ্য সঠিকভাবে পূরণ করুন।" };
+    // SECURITY: enrollment requests grant paid-course access after teacher
+    // approval — bind the request to the verified session user instead of the
+    // client-chosen uid/email, so strangers cannot flood the teacher inbox or
+    // file requests on someone else's behalf.
+    const { getSessionUserFromCookies } = await import("@/lib/teacher-auth");
+    const sessionUser = await getSessionUserFromCookies();
+    if (!sessionUser) {
+      return { success: false, message: "এনরোলমেন্ট রিকোয়েস্ট পাঠাতে লগইন প্রয়োজন। অনুগ্রহ করে Google দিয়ে লগইন করুন।" };
+    }
+
+    if (!payload.name || !payload.trxId) {
+      return { success: false, message: "দয়া করে সকল তথ্য সঠিকভাবে পূরণ করুন।" };
     }
 
     const courseStr = Array.isArray(payload.course) ? payload.course.join(", ") : payload.course;
@@ -29,13 +39,29 @@ export async function submitEnrollRequest(payload: {
       return { success: false, message: "ইমেইল ঠিকানা সঠিক নয়।" };
     }
 
-    // Basic rate-limit/dedupe: block duplicate requests from the same uid+course
-    // within the last hour (spam protection).
+    const trx = String(payload.trxId || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{6,40}$/.test(trx)) {
+      return { success: false, message: "ট্রানজেকশন আইডি (TRX ID) সঠিক নয় — bKash/Nagad থেকে কপি করা সম্পূর্ণ নম্বরটি দিন।" };
+    }
+
+    // One pending request per TRX id — prevents reusing the same payment
+    // receipt across multiple accounts/courses.
+    const { data: trxReq } = await supabase
+      .from("enroll_requests")
+      .select("id")
+      .eq("trx_id", trx)
+      .maybeSingle();
+    if (trxReq) {
+      return { success: false, message: "এই ট্রানজেকশন আইডি দিয়ে ইতিমধ্যে একটি রিকোয়েস্ট জমা হয়েছে। শিক্ষকের অনুমোদনের অপেক্ষায় থাকুন।" };
+    }
+
+    // Basic rate-limit/dedupe: block duplicate requests from the same student
+    // +course within the last hour (spam protection).
     const oneHourAgo = new Date(getTrueDate().getTime() - 60 * 60 * 1000).toISOString();
     const { data: recentReq } = await supabase
       .from("enroll_requests")
       .select("id")
-      .eq("student_uid", String(payload.uid).trim())
+      .eq("student_uid", sessionUser.id)
       .eq("course", courseStr)
       .gte("created_at", oneHourAgo)
       .maybeSingle();
@@ -44,11 +70,11 @@ export async function submitEnrollRequest(payload: {
     }
 
     const { error } = await supabase.from("enroll_requests").insert({
-      student_uid: payload.uid,
-      email: payload.email,
+      student_uid: sessionUser.id,
+      email: String(sessionUser.email || cleanEmail || ""),
       name: payload.name.trim(),
       course: courseStr,
-      trx_id: payload.trxId.trim().toUpperCase(),
+      trx_id: trx,
       created_at: getTrueDate().toISOString()
     });
 

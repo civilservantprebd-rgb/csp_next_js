@@ -29,9 +29,14 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
 
   const performSearch = async () => {
     setIsLoading(true);
-    const res = await searchQuestionBank(queryText, selectedTopic);
-    setQuestions(res.questions || []);
-    setIsLoading(false);
+    try {
+      const res = await searchQuestionBank(queryText, selectedTopic);
+      setQuestions(res.questions || []);
+    } catch (err) {
+      console.error("Search question bank error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -54,7 +59,7 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 font-bengali">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-bengali">
       <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl space-y-4 relative border border-slate-100 flex flex-col max-h-[85vh]">
         <button
           onClick={onClose}
@@ -136,7 +141,7 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
                       {q.opts.map((opt: string, oIdx: number) => (
                         <span
                           key={oIdx}
-                          className={`px-2 py-0.5 rounded text-[10px] border ${
+                          className={`px-2 py-0.5 rounded text-xs border ${
                             oIdx === q.correct
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold"
                               : "bg-slate-50 text-slate-500 border-slate-100"
@@ -147,7 +152,7 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
                       ))}
                     </div>
                     {q.topic && (
-                      <span className="inline-block bg-amber-50 text-amber-700 border border-amber-100 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                      <span className="inline-block bg-amber-50 text-amber-700 border border-amber-100 text-xs px-2 py-0.5 rounded-full font-bold">
                         {q.topic}
                       </span>
                     )}
@@ -157,7 +162,7 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
                     {isAlreadyAdded ? (
                       <button
                         disabled
-                        className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5"
+                        className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1.5"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>সংযুক্ত</span>
@@ -166,7 +171,7 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
                       <button
                         onClick={() => handleLink(q.id)}
                         disabled={linkingIds[q.id]}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
                       >
                         {linkingIds[q.id] ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />

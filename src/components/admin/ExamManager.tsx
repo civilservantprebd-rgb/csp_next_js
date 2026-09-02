@@ -205,7 +205,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
         <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">কোর্স</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">কোর্স</label>
             <select
               value={course}
               onChange={(e) => {
@@ -225,7 +225,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">সাবজেক্ট</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">সাবজেক্ট</label>
             <select
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
@@ -241,7 +241,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">এক্সামের নাম</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">এক্সামের নাম</label>
             <input
               type="text"
               required
@@ -253,7 +253,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">সময় (মিনিট)</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">সময় (মিনিট)</label>
             <input
               type="number"
               min={1}
@@ -266,7 +266,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">পাস মার্কস</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">পাস মার্কস</label>
             <input
               type="number"
               step={0.5}
@@ -278,7 +278,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+            <label className="block text-sm font-medium text-slate-600 mb-1">
               পরীক্ষা শুরুর সময় <span className="text-slate-400 font-normal">(ঐচ্ছিক)</span>
             </label>
             <input
@@ -290,7 +290,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+            <label className="block text-sm font-medium text-slate-600 mb-1">
               পরীক্ষা সমাপ্তি বা শেষ সময় <span className="text-slate-400 font-normal">(ঐচ্ছিক)</span>
             </label>
             <input
@@ -360,21 +360,21 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-900 text-xs sm:text-sm">{ex.title}</span>
                     {isActive && (
-                      <span className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">
+                      <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded font-bold">
                         সক্রিয়
                       </span>
                     )}
                     {isPublished ? (
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                      <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" /> রেজাল্ট প্রকাশিত
                       </span>
                     ) : (
-                      <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                      <span className="text-xs bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
                         <Clock className="w-3 h-3 text-amber-600" /> রেজাল্ট অপ্রকাশিত (লুকানো)
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-sm text-slate-500">
                     কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(ex.questions?.length || 0)} |
                     সময়: {toBengaliDigits(ex.timerMinutes)} মিনিট
                   </p>
@@ -387,7 +387,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                       type="button"
                       onClick={() => handleTogglePublish(k, false)}
                       disabled={isLoading}
-                      className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                      className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
                       title="ফলাফল রিসেট করে গোপন করুন (শিক্ষার্থীদের 'মার্ক্স প্রকাশিত হয়নি' বার্তা দেখাবে)"
                     >
                       <RotateCcw className="w-3 h-3" /> রেজাল্ট রিসেট
@@ -397,7 +397,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                       type="button"
                       onClick={() => handleTogglePublish(k, true)}
                       disabled={isLoading}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
                       title="ফলাফল ও লিডারবোর্ড প্রকাশ করুন"
                     >
                       <Send className="w-3 h-3" /> রেজাল্ট রিলিজ
@@ -406,19 +406,19 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
                   <button
                     onClick={() => startEdit(k, ex)}
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
                     <Settings className="w-3 h-3" /> এডিট
                   </button>
                   <button
                     onClick={() => copyShareLink(k)}
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
                     <Copy className="w-3 h-3" /> লিংক
                   </button>
                   <button
                     onClick={() => handleDelete(k)}
-                    className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                    className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-sm font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                   >
                     <Trash2 className="w-3 h-3" /> মুছুন
                   </button>
@@ -431,7 +431,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
       {/* Question builder modal — add/edit questions right inside the exam set */}
       {editingExamKey && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 font-bengali">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 font-bengali">
           <div className="bg-white rounded-3xl max-w-5xl w-full p-5 sm:p-6 shadow-2xl space-y-4 relative border border-slate-100 max-h-[92vh] overflow-y-auto">
             <button
               type="button"
@@ -451,7 +451,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
             <form onSubmit={handleUpdate} className="space-y-4 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">কোর্স</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">কোর্স</label>
                   <select
                     value={editCourse}
                     onChange={(e) => {
@@ -480,7 +480,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">সাবজেক্ট</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">সাবজেক্ট</label>
                   <select
                     value={editSubject}
                     onChange={(e) => setEditSubject(e.target.value)}
@@ -501,7 +501,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">এক্সামের নাম</label>
+                <label className="block text-sm font-medium text-slate-600 mb-1">এক্সামের নাম</label>
                 <input
                   type="text"
                   required
@@ -513,7 +513,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">সময় (মিনিট)</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">সময় (মিনিট)</label>
                   <input
                     type="number"
                     min={1}
@@ -526,7 +526,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">পাস মার্কস</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">পাস মার্কস</label>
                   <input
                     type="number"
                     step={0.5}
@@ -540,7 +540,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">পরীক্ষা শুরুর সময়</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">পরীক্ষা শুরুর সময়</label>
                   <input
                     type="datetime-local"
                     value={editStartTime}
@@ -550,7 +550,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">পরীক্ষা সমাপ্তি বা শেষ সময়</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">পরীক্ষা সমাপ্তি বা শেষ সময়</label>
                   <input
                     type="datetime-local"
                     value={editEndTime}

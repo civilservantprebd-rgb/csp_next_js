@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { supabase } from "@/lib/supabase";
 import { CourseVideo } from "@/types/video";
@@ -138,6 +138,14 @@ export async function getCourseVideosForStudent(
     };
   } catch (err) {
     console.error("getCourseVideosForStudent error:", err);
+    const rlsDenied = /permission denied for table course_videos|42501/i.test(String((err as any)?.message || err));
+    if (rlsDenied) {
+      return {
+        allowed: false,
+        message: "ভিডিও সার্ভার কনফিগারেশন ত্রুটি — SUPABASE_SERVICE_ROLE_KEY সেট করা নেই (দেখুন .env.local.example)।",
+        videos: []
+      };
+    }
     return { allowed: false, message: "ভিডিও লোড করতে সমস্যা হয়েছে।", videos: [] };
   }
 }
