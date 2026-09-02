@@ -13,20 +13,20 @@ interface VideoPlayerModalProps {
 }
 
 export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ video, playlist, onClose, onSelect }) => {
-  // Esc চাপলে বন্ধ
+  // Esc চাপলে বন্ধ + খোলা থাকলেই স্ক্রল লক (ভিডিও বন্ধ থাকলে লক নয়!)
   useEffect(() => {
+    if (!video) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handler);
-    // মোডাল খোলা থাকলে ব্যাকগ্রাউন্ড স্ক্রল আটকান
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", handler);
       document.body.style.overflow = prevOverflow;
     };
-  }, [onClose]);
+  }, [video, onClose]);
 
   if (!video) return null;
 
