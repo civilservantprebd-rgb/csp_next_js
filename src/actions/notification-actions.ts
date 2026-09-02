@@ -12,13 +12,13 @@ export interface NotifItem {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
-const START_SOON_MS = 3 * 60 * 60 * 1000; // ৩ ঘণ্টার মধ্যে শুরু
+const START_SOON_MS = 60 * 60 * 1000; // ১ ঘণ্টার মধ্যে শুরু
 const END_SOON_MS = 45 * 60 * 1000; // ৪৫ মিনিটের মধ্যে শেষ
 
 /**
  * সাম্প্রতিক নোটিফিকেশন:
- * - শীঘ্রই শুরু হতে যাওয়া / শেষ হতে যাওয়া পরীক্ষা (সময়সূচি থেকে)
- * - গত ৭ দিনে যোগ হওয়া নতুন পরীক্ষা ও নতুন ভিডিও
+ * - শীঘ্রই শুরু হতে যাওয়া (১ ঘণ্টার মধ্যে) / শেষ হতে যাওয়া (৪৫ মিনিটের মধ্যে) পরীক্ষা
+ * - গত ১ দিনে যোগ হওয়া নতুন পরীক্ষা ও নতুন ভিডিও
  * কলার নির্দিষ্ট স্টুডেন্ট নয় — সবার জন্য একই ইভেন্ট (কোর্সের নাম মেসেজে থাকে)।
  */
 export async function getRecentNotifications(): Promise<NotifItem[]> {
@@ -52,9 +52,9 @@ export async function getRecentNotifications(): Promise<NotifItem[]> {
     const start = parseBangladeshDateTime(ex.start_time);
     const end = parseBangladeshDateTime(ex.end_time) || parseBangladeshDateTime(ex.leaderboard_end_time);
 
-    // নতুন পরীক্ষা (গত ৭ দিন) — created_at থাকলে
+    // নতুন পরীক্ষা (গত ১ দিন) — created_at থাকলে
     const created = ex.created_at ? new Date(ex.created_at).getTime() : 0;
-    if (created && now - created < 7 * DAY && now - created > -60 * 1000) {
+    if (created && now - created < DAY && now - created > -60 * 1000) {
       push({
         id: `new_exam_${ex.id}`,
         type: "new_exam",
@@ -93,7 +93,7 @@ export async function getRecentNotifications(): Promise<NotifItem[]> {
     }
   });
 
-  // ---- new videos (গত ৭ দিন)
+  // ---- new videos (গত ১ দিন)
   try {
     const { data: vids } = await supabase
       .from("course_videos")
@@ -103,7 +103,7 @@ export async function getRecentNotifications(): Promise<NotifItem[]> {
     (vids || []).forEach((v: any) => {
       const t = v.created_at ? new Date(v.created_at).getTime() : 0;
       const title = String(v.title || "").trim();
-      if (t && now - t < 7 * DAY && title) {
+      if (t && now - t < DAY && title) {
         push({
           id: `video_${v.id}`,
           type: "new_video",
