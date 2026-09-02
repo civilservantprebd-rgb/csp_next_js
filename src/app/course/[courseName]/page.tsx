@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { fetchAppConfigLite } from "@/actions/admin-actions";
-import { getCourseVideos } from "@/actions/video-actions";
+import { getCourseVideosForStudent, StudentVideoAccess } from "@/actions/video-actions";
 import { verifyStudentAccess } from "@/actions/student-actions";
 import { AppConfigData, Exam } from "@/types/exam";
-import { CourseVideo } from "@/types/video";
 import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
 import { getLocalStudentUser } from "@/lib/student-auth";
+import { getLocalIdentity, setVerifiedStudent } from "@/lib/student-identity";
 import {
   ChevronLeft,
   PlayCircle,
@@ -26,18 +26,12 @@ import {
   UserPlus,
   Loader2,
   ShieldCheck,
-  Check
+  Check,
+  ShoppingCart
 } from "lucide-react";
 
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
 const StudentAuthModal = dynamic(() => import("@/components/modals/StudentAuthModal").then((m) => m.StudentAuthModal), { ssr: false });
-
-interface AccessState {
-  allowed: boolean;
-  name?: string;
-  id?: string;
-  email?: string;
-}
 
 function decodeParam(raw: string): string {
   try {
@@ -53,14 +47,13 @@ export default function CourseStudyPage() {
   const courseName = decodeParam(String(params.courseName || ""));
 
   const [config, setConfig] = useState<AppConfigData | null>(null);
-  const [videos, setVideos] = useState<CourseVideo[]>([]);
+  const [videoResult, setVideoResult] = useState<StudentVideoAccess | null>(null);
+  const [checking, setChecking] = useState(true);
   const [selectedVideoId, setSelectedVideoId] = useState<number | null>(null);
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [examSearch, setExamSearch] = useState("");
 
-  // Enrollment/access gate state
-  const [access, setAccess] = useState<AccessState | null>(null);
-  const [accessChecked, setAccessChecked] = useState(false);
+  // Manual identity gate
   const [gateId, setGateId] = useState("");
   const [gateBusy, setGateBusy] = useState(false);
   const [gateError, setGateError] = useState("");
@@ -70,43 +63,29 @@ export default function CourseStudyPage() {
   const [pendingExam, setPendingExam] = useState<Exam | null>(null);
   const [enrollOpen, setEnrollOpen] = useState(false);
 
-  const sessionKey = `course_access_${courseName}`;
+  const hasGoogleUser = !!getLocalStudentUser();
+
+  // সার্ভার-সাইড এনরোলমেন্ট চেক — প্রতি ভিজিটে, কোনো ক্যাশ করা "allowed" নেই
+  const checkAccess = useCallback(async () => {
+    if (!courseName) return;
+    setChecking(true);
+    const access = await getCourseVideosForStudent(courseName, getLocalIdentity());
+    setVideoResult(access);
+    if (access.allowed && access.name) {
+      const id = getLocalIdentity();
+      if (id) setVerifiedStudent({ id: id.id, name: access.name, email: id.email });
+    }
+    setChecking(false);
+  }, [courseName]);
 
   useEffect(() => {
     if (!courseName) return;
     fetchAppConfigLite().then(setConfig);
-    getCourseVideos(courseName).then(setVideos);
-  }, [courseName]);
+    checkAccess();
+  }, [courseName, checkAccess]);
 
-  // Restore verified access from this browser session, else auto-verify Google users
-  useEffect(() => {
-    if (!courseName || !config) return;
-    (async () => {
-      try {
-        const cached = sessionStorage.getItem(sessionKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && parsed.allowed) {
-            setAccess(parsed);
-            setAccessChecked(true);
-            return;
-          }
-        }
-        const localUser = getLocalStudentUser();
-        if (localUser) {
-          const res = await verifyStudentAccess(localUser.uid, courseName, localUser.email);
-          if (res.allowed) {
-            const state: AccessState = { allowed: true, name: res.studentName || localUser.name, id: localUser.uid, email: localUser.email };
-            setAccess(state);
-            sessionStorage.setItem(sessionKey, JSON.stringify(state));
-          }
-        }
-      } catch {
-        // ignore — manual gate stays visible
-      }
-      setAccessChecked(true);
-    })();
-  }, [courseName, config, sessionKey]);
+  const isUnlocked = videoResult?.allowed === true;
+  const videos = videoResult?.videos || [];
 
   const selectedVideo = useMemo(
     () => videos.find((v) => v.id === selectedVideoId) || null,
@@ -127,12 +106,12 @@ export default function CourseStudyPage() {
     [videos, subjectFilter]
   );
 
-  // Auto-select the first video once unlocked
+  // আনলক হলেই প্রথম ভিডিও অটো-সিলেক্ট
   useEffect(() => {
-    if (access?.allowed && videos.length > 0 && selectedVideoId === null) {
+    if (isUnlocked && videos.length > 0 && selectedVideoId === null) {
       setSelectedVideoId(videos[0].id);
     }
-  }, [access, videos, selectedVideoId]);
+  }, [isUnlocked, videos, selectedVideoId]);
 
   const examsObj = config?.exams || {};
   const courseExams = useMemo(
@@ -152,6 +131,7 @@ export default function CourseStudyPage() {
     );
   }, [courseExams, examSearch]);
 
+  // ম্যানুয়াল (মোবাইল/আইডি) স্টুডেন্ট যাচাই — একবার সফল হলে পরিচয় মনে থাকবে
   const handleManualVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawId = gateId.trim();
@@ -164,14 +144,16 @@ export default function CourseStudyPage() {
     try {
       const res = await verifyStudentAccess(rawId, courseName);
       if (res.allowed) {
-        const state: AccessState = { allowed: true, name: res.studentName || rawId, id: res.normalizedId || rawId };
-        setAccess(state);
-        sessionStorage.setItem(sessionKey, JSON.stringify(state));
+        setVerifiedStudent({
+          id: res.normalizedId || rawId,
+          name: res.studentName || rawId
+        });
         sessionStorage.setItem(
           "current_student",
           JSON.stringify({ id: res.normalizedId || rawId, name: res.studentName || rawId })
         );
         setGateId("");
+        await checkAccess();
       } else {
         setGateError(res.message || "অ্যাক্সেস মেলেনি। এনরোলমেন্ট যাচাই করে দেখুন।");
       }
@@ -183,38 +165,68 @@ export default function CourseStudyPage() {
   const handleStartExam = async (examKey: string) => {
     const ex = examsObj[examKey];
     if (!ex) return;
-    const localUser = getLocalStudentUser();
+    const googleUser = getLocalStudentUser();
+    const identity = getLocalIdentity();
 
-    if (localUser) {
+    if (googleUser) {
       const { isExamCurrentlyLive } = await import("@/lib/bangladesh-time");
       const { checkStudentAlreadySubmitted } = await import("@/actions/exam-actions");
 
       if (isExamCurrentlyLive(ex)) {
-        const already = await checkStudentAlreadySubmitted(examKey, localUser.uid);
+        const already = await checkStudentAlreadySubmitted(examKey, googleUser.uid);
         if (already) {
-          alert("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
+          alert("আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক অ্যাকাউন্ট দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।");
           return;
         }
       }
 
       if (ex.isFree) {
-        sessionStorage.setItem("current_student", JSON.stringify({ id: localUser.uid, name: localUser.name }));
+        sessionStorage.setItem("current_student", JSON.stringify({ id: googleUser.uid, name: googleUser.name }));
         router.push(`/exam/${examKey}`);
         return;
       } else {
-        const res = await verifyStudentAccess(localUser.uid, ex.course, localUser.email);
+        const res = await verifyStudentAccess(googleUser.uid, ex.course, googleUser.email);
         if (res.allowed) {
           sessionStorage.setItem(
             "current_student",
-            JSON.stringify({ id: res.normalizedId || localUser.uid, name: res.studentName || localUser.name })
+            JSON.stringify({ id: res.normalizedId || googleUser.uid, name: res.studentName || googleUser.name })
           );
           router.push(`/exam/${examKey}`);
           return;
         }
       }
+      // পেইড কিন্তু এনরোল্ড নয় → Google লগইন মোডাল (ওখানেই এনরোল প্রম্পট)
+      setPendingExam(ex);
+      setAuthOpen(true);
+      return;
     }
 
-    // Google login / verification required
+    if (identity) {
+      // ম্যানুয়াল স্টুডেন্ট — আগে থেকে যাচাই-কৃত পরিচয়
+      if (ex.isFree) {
+        sessionStorage.setItem(
+          "current_student",
+          JSON.stringify({ id: identity.id, name: identity.name || videoResult?.name || "শিক্ষার্থী" })
+        );
+        router.push(`/exam/${examKey}`);
+        return;
+      } else {
+        const res = await verifyStudentAccess(identity.id, ex.course, identity.email);
+        if (res.allowed) {
+          sessionStorage.setItem(
+            "current_student",
+            JSON.stringify({ id: res.normalizedId || identity.id, name: res.studentName || identity.name || "শিক্ষার্থী" })
+          );
+          router.push(`/exam/${examKey}`);
+          return;
+        }
+        alert(res.message || "এই কোর্সে আপনার এনরোলমেন্ট নেই — Enroll করে শিক্ষকের অনুমোদন নিন।");
+        setEnrollOpen(true);
+        return;
+      }
+    }
+
+    // কোনো পরিচয় নেই → Google লগইন মোডাল
     setPendingExam(ex);
     setAuthOpen(true);
   };
@@ -225,7 +237,6 @@ export default function CourseStudyPage() {
     if (pendingExam) router.push(`/exam/${pendingExam.id}`);
   };
 
-  const isUnlocked = access?.allowed === true;
   const examCount = courseExams.length;
 
   if (!config) {
@@ -237,6 +248,8 @@ export default function CourseStudyPage() {
   }
 
   const courseSubjects = (config.subjects || []).filter((s) => s.course === courseName);
+  const showManualGate = !isUnlocked && !hasGoogleUser && !checking;
+  const showBuyScreen = !isUnlocked && hasGoogleUser && !checking;
 
   return (
     <>
@@ -262,8 +275,8 @@ export default function CourseStudyPage() {
                 <div>
                   <h1 className="text-xl sm:text-2xl font-black text-white leading-tight">{courseName}</h1>
                   <p className="text-xs text-indigo-200 font-semibold">
-                    {toBengaliDigits(courseSubjects.length)}টি বিষয় · {toBengaliDigits(examCount)}টি পরীক্ষা ·{" "}
-                    {toBengaliDigits(videos.length)}টি ভিডিও ক্লাস
+                    {toBengaliDigits(courseSubjects.length)}টি বিষয় · {toBengaliDigits(examCount)}টি পরীক্ষা
+                    {isUnlocked && <> · {toBengaliDigits(videos.length)}টি ভিডিও ক্লাস</>}
                   </p>
                 </div>
               </div>
@@ -303,48 +316,65 @@ export default function CourseStudyPage() {
                 </div>
               ) : (
                 <div className="aspect-video w-full flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-slate-900 to-indigo-950">
-                  {isUnlocked && videos.length === 0 ? (
+                  {checking ? (
+                    <div className="flex items-center gap-2 text-slate-300 text-sm font-bold">
+                      <Loader2 className="w-5 h-5 animate-spin text-indigo-400" /> এনরোলমেন্ট যাচাই হচ্ছে...
+                    </div>
+                  ) : isUnlocked && videos.length === 0 ? (
                     <>
                       <Video className="w-10 h-10 text-slate-500 mb-3" />
                       <p className="text-slate-300 font-bold text-sm sm:text-base">এই কোর্সে এখনো কোনো ভিডিও ক্লাস যোগ করা হয়নি</p>
                       <p className="text-slate-500 text-xs mt-1">শিক্ষক ভিডিও যোগ করলেই এখানে দেখা যাবে</p>
                     </>
+                  ) : showBuyScreen ? (
+                    <>
+                      <ShoppingCart className="w-10 h-10 text-amber-400 mb-3" />
+                      <p className="text-slate-200 font-bold text-sm sm:text-base">এই কোর্সের ভিডিও ক্লাসগুলো লক করা আছে</p>
+                      <p className="text-slate-400 text-xs mt-1 mb-4 max-w-md leading-relaxed">
+                        {videoResult?.message || "শুধুমাত্র যারা এই কোর্সটি কিনেছেন (এনরোল্ড) তারাই ভিডিও দেখতে পারবেন। কোর্স কিনলে শিক্ষকের অনুমোদনের পরপরই সব ভিডিও আনলক হয়ে যাবে।"}
+                      </p>
+                      <button
+                        onClick={() => setEnrollOpen(true)}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-6 py-3 rounded-xl text-sm transition flex items-center gap-2 cursor-pointer shadow-lg"
+                      >
+                        <ShoppingCart className="w-4 h-4" /> কোর্স কিনুন (Enroll Now)
+                      </button>
+                    </>
                   ) : (
                     <>
                       <Lock className="w-10 h-10 text-amber-400 mb-3" />
                       <p className="text-slate-200 font-bold text-sm sm:text-base">এনরোল্ড স্টুডেন্টরাই ভিডিও ক্লাস দেখতে পারবেন</p>
-                      <p className="text-slate-400 text-xs mt-1 mb-4">
-                        কোর্সে এনরোল করে শিক্ষকের অনুমোদন নিলে নিচের যাচাই বক্সে আইডি দিলেই ভিডিও আনলক হবে
+                      <p className="text-slate-400 text-xs mt-1 mb-4 max-w-sm leading-relaxed">
+                        কোর্স কিনে শিক্ষকের অনুমোদন পেলে নিচে আপনার আইডি/মোবাইল দিয়ে যাচাই করলেই ভিডিও আনলক হবে।{" "}
+                        <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-amber-300 cursor-pointer">
+                          আগে কোর্স কিনুন
+                        </button>
+                        ।
                       </p>
 
-                      {!isUnlocked && (
-                        <form onSubmit={handleManualVerify} className="w-full max-w-sm space-y-2">
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={gateId}
-                              onChange={(e) => setGateId(e.target.value)}
-                              placeholder="স্টুডেন্ট আইডি / মোবাইল / ইমেইল"
-                              className="flex-1 px-3.5 py-2.5 rounded-xl bg-white/95 text-slate-900 text-xs sm:text-sm border border-transparent focus:outline-none focus:ring-2 focus:ring-amber-400"
-                            />
-                            <button
-                              type="submit"
-                              disabled={gateBusy}
-                              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
-                            >
-                              {gateBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                              যাচাই করুন
-                            </button>
-                          </div>
-                          {gateError && <p className="text-amber-300 text-[11px] text-left">{gateError}</p>}
-                        </form>
-                      )}
-
-                      {!accessChecked && !gateError && (
-                        <p className="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
-                          <Loader2 className="w-3 h-3 animate-spin" /> এনরোলমেন্ট যাচাই হচ্ছে...
-                        </p>
-                      )}
+                      <form onSubmit={handleManualVerify} className="w-full max-w-sm space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={gateId}
+                            onChange={(e) => setGateId(e.target.value)}
+                            placeholder="স্টুডেন্ট আইডি / মোবাইল / ইমেইল"
+                            className="flex-1 px-3.5 py-2.5 rounded-xl bg-white/95 text-slate-900 text-xs sm:text-sm border border-transparent focus:outline-none focus:ring-2 focus:ring-amber-400"
+                          />
+                          <button
+                            type="submit"
+                            disabled={gateBusy}
+                            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                          >
+                            {gateBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                            যাচাই করুন
+                          </button>
+                        </div>
+                        {gateError && <p className="text-amber-300 text-[11px] text-left">{gateError}</p>}
+                        {videoResult?.message && !gateError && (
+                          <p className="text-amber-300/80 text-[11px] text-left">{videoResult.message}</p>
+                        )}
+                      </form>
                     </>
                   )}
                 </div>
@@ -365,7 +395,7 @@ export default function CourseStudyPage() {
                     <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">{selectedVideo.description}</p>
                   )}
                 </div>
-                {isUnlocked && selectedVideo && (
+                {isUnlocked && (
                   <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 text-[10px] font-black px-2 py-1 rounded-md flex items-center gap-1 shrink-0">
                     <Check className="w-3 h-3" /> আনলকড
                   </span>
@@ -444,106 +474,114 @@ export default function CourseStudyPage() {
             </section>
           </div>
 
-          {/* ============ RIGHT: subject-wise video library ============ */}
+          {/* ============ RIGHT: subject-wise video library (শুধু এনরোল্ড হলে) ============ */}
           <aside className="lg:col-span-4 lg:sticky lg:top-4 bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-2xs space-y-4">
             <div>
               <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
                 <Video className="w-5 h-5 text-rose-600" /> ভিডিও লাইব্রেরি
-                <span className="bg-rose-50 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-rose-200">
-                  {toBengaliDigits(videos.length)}টি
-                </span>
+                {isUnlocked && (
+                  <span className="bg-rose-50 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-rose-200">
+                    {toBengaliDigits(videos.length)}টি
+                  </span>
+                )}
               </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">বিষয় বেছে নিন, ভিডিওতে চাপ দিলে বড় প্যানেলে দেখা যাবে</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {isUnlocked
+                  ? "বিষয় বেছে নিন, ভিডিওতে চাপ দিলে বড় প্যানেলে দেখা যাবে"
+                  : "এনরোল্ড স্টুডেন্টদের জন্য"}
+              </p>
             </div>
 
-            {/* Subject filter chips */}
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => setSubjectFilter("ALL")}
-                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
-                  subjectFilter === "ALL" ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                }`}
-              >
-                সব
-              </button>
-              {subjectsWithVideos.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSubjectFilter(s)}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
-                    subjectFilter === s ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            {/* Video list */}
-            <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
-              {visibleVideos.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">এই বিষয়ে কোনো ভিডিও নেই</p>
-              ) : (
-                visibleVideos.map((v) => {
-                  const isActive = selectedVideoId === v.id;
-                  return (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => {
-                        if (isUnlocked) {
-                          setSelectedVideoId(v.id);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        } else {
-                          setGateError("ভিডিও দেখতে আগে এনরোলমেন্ট যাচাই করুন।");
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }
-                      }}
-                      className={`w-full text-left p-2.5 rounded-xl border transition flex items-center gap-3 cursor-pointer ${
-                        isActive
-                          ? "border-rose-400 bg-rose-50/70 shadow-sm"
-                          : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                      }`}
-                    >
-                      <img
-                        src={`https://i.ytimg.com/vi/${v.youtubeId}/mqdefault.jpg`}
-                        alt=""
-                        className="w-24 h-14 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-xs font-bold text-slate-900 leading-snug line-clamp-2">
-                          {v.title}
-                        </span>
-                        <span className="flex items-center gap-1.5 mt-1">
-                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-800 border border-sky-200">
-                            {v.subject || "সাধারণ"}
-                          </span>
-                          {!isUnlocked && <Lock className="w-3 h-3 text-slate-400" />}
-                          {isActive && <PlayCircle className="w-3.5 h-3.5 text-rose-600" />}
-                        </span>
-                      </span>
+            {!isUnlocked ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center space-y-2">
+                <Lock className="w-6 h-6 text-slate-400 mx-auto" />
+                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                  ভিডিও লাইব্রেরি লক করা আছে।
+                  <br />
+                  {hasGoogleUser ? (
+                    <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-indigo-600 cursor-pointer">
+                      কোর্স কিনুন
                     </button>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Enrollment hint */}
-            {!isUnlocked && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 space-y-2">
-                <p className="font-bold flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-amber-600" /> ভিডিও লক করা আছে
-                </p>
-                <p className="text-amber-800/90">
-                  কোর্সে এনরোল্ড স্টুডেন্টরা সব ভিডিও দেখতে পারবেন। উপরের প্লেয়ারে আইডি দিয়ে যাচাই করুন অথবা{" "}
-                  <button onClick={() => setEnrollOpen(true)} className="underline font-bold cursor-pointer">
-                    Enroll করুন
-                  </button>
-                  ।
+                  ) : (
+                    "উপরের প্লেয়ারে আইডি দিয়ে যাচাই করুন বা "
+                  )}
+                  {!hasGoogleUser && (
+                    <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-indigo-600 cursor-pointer">
+                      কোর্স কিনুন
+                    </button>
+                  )}
                 </p>
               </div>
+            ) : (
+              <>
+                {/* Subject filter chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSubjectFilter("ALL")}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                      subjectFilter === "ALL" ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                    }`}
+                  >
+                    সব
+                  </button>
+                  {subjectsWithVideos.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSubjectFilter(s)}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                        subjectFilter === s ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Video list */}
+                <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
+                  {visibleVideos.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-6">এই বিষয়ে কোনো ভিডিও নেই</p>
+                  ) : (
+                    visibleVideos.map((v) => {
+                      const isActive = selectedVideoId === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedVideoId(v.id);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className={`w-full text-left p-2.5 rounded-xl border transition flex items-center gap-3 cursor-pointer ${
+                            isActive
+                              ? "border-rose-400 bg-rose-50/70 shadow-sm"
+                              : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          <img
+                            src={`https://i.ytimg.com/vi/${v.youtubeId}/mqdefault.jpg`}
+                            alt=""
+                            className="w-24 h-14 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-xs font-bold text-slate-900 leading-snug line-clamp-2">
+                              {v.title}
+                            </span>
+                            <span className="flex items-center gap-1.5 mt-1">
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-800 border border-sky-200">
+                                {v.subject || "সাধারণ"}
+                              </span>
+                              {isActive && <PlayCircle className="w-3.5 h-3.5 text-rose-600" />}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </>
             )}
           </aside>
         </div>

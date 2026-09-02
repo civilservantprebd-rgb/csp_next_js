@@ -1,11 +1,16 @@
-"use server";
+﻿"use server";
 
 import { supabase } from "@/lib/supabase";
 import { CourseVideo } from "@/types/video";
-import { requireTeacher } from "@/lib/teacher-auth";
+import { requireTeacher, getSessionUserFromCookies, sessionOwnsStudent } from "@/lib/teacher-auth";
+import { verifyStudentAccess } from "@/actions/student-actions";
 import { extractYoutubeId } from "@/lib/youtube";
 
 const TABLE = "course_videos";
+
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
 
 function mapRow(r: any): CourseVideo {
   return {
@@ -20,27 +25,124 @@ function mapRow(r: any): CourseVideo {
   };
 }
 
-/** কোনো কোর্সের (বা সব) ভিডিও — ভিডিও লিস্ট পেজ ও ফ্রন্ট-পেজ কাউন্টের জন্য */
-export async function getCourseVideos(course?: string): Promise<CourseVideo[]> {
+/* ============================ অ্যাডমিন (টিচার-অনলি) ============================ */
+
+/** অ্যাডমিন প্যানেলের জন্য সব ভিডিও — শুধু শিক্ষক */
+export async function getCourseVideosAdmin(): Promise<CourseVideo[]> {
   try {
-    let builder = supabase
+    await requireTeacher();
+    const { data, error } = await supabase
       .from(TABLE)
       .select("*")
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
-    if (course) builder = builder.eq("course", String(course).trim());
-    const { data, error } = await builder;
     if (error) throw error;
     return (data || []).map(mapRow);
-  } catch (err: any) {
-    // টেবিল এখনো তৈরি না হলে (42P01) খালি লিস্ট — অ্যাডমিন UI-তে SQL হিন্ট দেখানো হবে
-    if (err?.code === "42P01" || /course_videos/.test(String(err?.message || err))) {
-      return [];
-    }
-    console.error("getCourseVideos error:", err);
+  } catch (err) {
+    console.error("getCourseVideosAdmin error:", err);
     return [];
   }
 }
+
+/* ============================ পাবলিক (শুধু কাউন্ট — ভিডিও ID নয়) ============================ */
+
+/** ফ্রন্ট-পেজ কোর্স কার্ডের জন্য প্রতি কোর্সে ভিডিও কাউন্ট — কোনো YouTube ID নেই */
+export async function getCourseVideoCounts(): Promise<Record<string, number>> {
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("course");
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    (data || []).forEach((r) => {
+      counts[r.course] = (counts[r.course] || 0) + 1;
+    });
+    return counts;
+  } catch (err) {
+    console.error("getCourseVideoCounts error:", err);
+    return {};
+  }
+}
+
+/* ============================ স্টুডেন্ট (সার্ভার-সাইড এনরোলমেন্ট গেট) ============================ */
+
+export interface StudentVideoAccess {
+  allowed: boolean;
+  name?: string;
+  message?: string;
+  videos: CourseVideo[];
+}
+
+/**
+ * কোর্সের ভিডিও শুধু ওই কোর্সে এনরোল্ড স্টুডেন্ট পায় — চেক সার্ভারে হয়:
+ *
+ * 1. Google/Supabase সেশন থাকলে (sb_access_token কুকি) → সেশন ইউজারকেই ধরবে;
+ *    ক্লায়েন্টের পাঠানো id বিশ্বাস করা হয় না।
+ * 2. সেশন না থাকলে ক্লায়েন্ট-পাঠানো id-ই একমাত্র পরিচয় (ম্যানুয়াল/মোবাইল স্টুডেন্ট)।
+ *    কিন্তু সেটা যদি UUID-আকৃতির হয় (অন্য কারো uid অনুমান করে পাঠানো) → sessionOwnsStudent
+ *    ব্যর্থ হওয়ায় সরাসরি নাকচ।
+ * 3. এরপর allowed_students-এ ওই কোর্স (বা ALL) আছে কিনা — verifyStudentAccess দিয়ে।
+ */
+export async function getCourseVideosForStudent(
+  course: string,
+  clientIdentity?: { id?: string; email?: string } | null
+): Promise<StudentVideoAccess> {
+  const cleanCourse = String(course || "").trim();
+  if (!cleanCourse) {
+    return { allowed: false, message: "কোর্স পাওয়া যায়নি।", videos: [] };
+  }
+
+  try {
+    // 1) প্রমাণিত সেশন (Google লগইন) — সবচেয়ে শক্তিশালী পরিচয়
+    const sessionUser = await getSessionUserFromCookies();
+
+    let identityId = sessionUser?.id || "";
+    let identityEmail = sessionUser?.email || "";
+
+    if (!sessionUser) {
+      // 2) ম্যানুয়াল স্টুডেন্ট — ক্লায়েন্ট id গ্রহণযোগ্য শুধু মোবাইল/নন-UUID হলে
+      const rawId = String(clientIdentity?.id || "").trim();
+      if (!rawId) {
+        return { allowed: false, message: "লগইন/আইডি প্রয়োজন।", videos: [] };
+      }
+      if (isUuidLike(rawId) && !(await sessionOwnsStudent(rawId))) {
+        return { allowed: false, message: "অনুমোদিত নয়।", videos: [] };
+      }
+      identityId = rawId;
+      identityEmail = String(clientIdentity?.email || "").trim();
+    }
+
+    // 3) এনরোলমেন্ট যাচাই (allowed_students-এ কোর্স/ALL আছে কিনা)
+    const check = await verifyStudentAccess(identityId, cleanCourse, identityEmail || undefined);
+    if (!check.allowed) {
+      return {
+        allowed: false,
+        message: check.message || "এই কোর্সে আপনার এনরোলমেন্ট নেই — কোর্স কিনলে ভিডিও খুলবে।",
+        videos: []
+      };
+    }
+
+    // এনরোল্ড → ভিডিও দিন
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("course", cleanCourse)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+
+    return {
+      allowed: true,
+      name: check.studentName,
+      videos: (data || []).map(mapRow)
+    };
+  } catch (err) {
+    console.error("getCourseVideosForStudent error:", err);
+    return { allowed: false, message: "ভিডিও লোড করতে সমস্যা হয়েছে।", videos: [] };
+  }
+}
+
+/* ============================ লিখন (টিচার-অনলি) ============================ */
 
 export interface CourseVideoInput {
   course: string;

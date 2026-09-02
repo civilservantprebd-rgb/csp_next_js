@@ -17,7 +17,7 @@ import { CourseVideo } from "@/types/video";
 import { toBengaliDigits } from "@/lib/utils";
 import { extractYoutubeId } from "@/lib/youtube";
 import {
-  getCourseVideos,
+  getCourseVideosAdmin,
   addCourseVideo,
   updateCourseVideo,
   deleteCourseVideo
@@ -46,12 +46,9 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
 
   const loadData = async () => {
     setIsLoading(true);
-    const list = await getCourseVideos();
+    const list = await getCourseVideosAdmin();
     setVideos(list);
     setTableMissing(false);
-    if (list.length === 0) {
-      // টেবিল নেই কিনা বোঝার চেষ্টা — add-এ গেলে এরর মেসেজই বলে দেবে
-    }
     setIsLoading(false);
   };
 

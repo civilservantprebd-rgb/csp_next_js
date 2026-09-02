@@ -15,6 +15,7 @@ import { Contact, ArrowRight, Sparkles, Phone, UserCheck, CircleAlert } from "lu
 import { useRouter } from "next/navigation";
 import { parseBengaliDigits } from "@/lib/utils";
 import { getLocalStudentUser } from "@/lib/student-auth";
+import { setVerifiedStudent } from "@/lib/student-identity";
 
 export default function PortalPage() {
   const router = useRouter();
@@ -62,12 +63,14 @@ export default function PortalPage() {
       localStorage.setItem("bcs_last_student_id", norm || clean);
     }
     setActiveStudentId(norm || clean);
+    setVerifiedStudent({ id: norm || clean });
     setIsDashOpen(true);
   };
 
   const handleUseSaved = (id: string) => {
     const norm = parseBengaliDigits(id).trim();
     setActiveStudentId(norm || id);
+    setVerifiedStudent({ id: norm || id });
     setIsDashOpen(true);
   };
 
@@ -118,7 +121,7 @@ export default function PortalPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setActiveStudentId(googleUser.uid); setIsDashOpen(true); }}
+                  onClick={() => { setActiveStudentId(googleUser.uid); setVerifiedStudent({ id: googleUser.uid, name: googleUser.name }); setIsDashOpen(true); }}
                   className="w-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
                 >
                   <span>ড্যাশবোর্ড খুলুন</span>

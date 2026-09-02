@@ -77,6 +77,9 @@ export async function logoutStudentUser(): Promise<void> {
     await supabase.auth.signOut();
     localStorage.removeItem("bcs_student_user");
     sessionStorage.removeItem("current_student");
+    // ম্যানুয়াল পরিচয়ও মুছে দিন — পরের লগইনে আবার পরিষ্কারভাবে যাচাই হবে
+    const { clearVerifiedStudent } = await import("./student-identity");
+    clearVerifiedStudent();
     window.dispatchEvent(new Event("storage"));
   } catch (err) {
     console.error("Logout error:", err);

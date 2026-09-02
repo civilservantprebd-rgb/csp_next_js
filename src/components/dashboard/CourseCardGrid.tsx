@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Exam, SubjectItem } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
-import { getCourseVideos } from "@/actions/video-actions";
+import { getCourseVideoCounts } from "@/actions/video-actions";
 
 interface CourseCardGridProps {
   courses: string[];
@@ -42,13 +42,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   const [videoCounts, setVideoCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    getCourseVideos().then((all) => {
-      const counts: Record<string, number> = {};
-      all.forEach((v) => {
-        counts[v.course] = (counts[v.course] || 0) + 1;
-      });
-      setVideoCounts(counts);
-    });
+    getCourseVideoCounts().then(setVideoCounts);
   }, []);
 
   // Pinned courses appear first
