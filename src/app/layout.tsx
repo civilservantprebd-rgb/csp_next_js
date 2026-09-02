@@ -4,6 +4,12 @@ import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.aarohon.com"),
+  // Site icon (logo) for the browser tab / address bar
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
   title: "আরোহণ - প্রিপারেশন পোর্টাল",
   description: "বিসিএস ও সরকারি চাকরির প্রস্তুতির স্মার্ট প্রিপারেশন পোর্টাল — কুইজ, মডেল টেস্ট, লিডারবোর্ড ও চ্যাপ্টারভিত্তিক পড়াশোনা এক জায়গায়।",
   openGraph: {

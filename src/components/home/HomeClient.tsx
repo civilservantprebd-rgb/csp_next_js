@@ -12,6 +12,7 @@ import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
 import { UpcomingExamGrid } from "@/components/dashboard/UpcomingExamGrid";
 import { AppConfigData, Exam } from "@/types/exam";
+import { Trophy, Contact } from "lucide-react";
 import { Submission } from "@/types/submission";
 import { syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
 import { getLocalStudentUser } from "@/lib/student-auth";
@@ -260,6 +261,37 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
       />
 
       <main className="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 md:p-6 space-y-10">
+        {/* দ্রুত প্রবেশ — লিডারবোর্ড + Student Portal (হোমের একদম উপরে) */}
+        <section className="grid grid-cols-2 gap-3 sm:gap-4 font-bengali">
+          <button
+            type="button"
+            onClick={() => router.push(`/leaderboard/${selectedExamKey || "exam_01"}`)}
+            className="flex items-center gap-3 sm:gap-4 bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 rounded-2xl p-4 sm:p-5 shadow-md hover:shadow-lg transition-all cursor-pointer text-left active:scale-[0.99]"
+          >
+            <span className="bg-white/85 rounded-2xl p-2.5 sm:p-3 shadow-sm shrink-0">
+              <Trophy className="w-6 h-6 sm:w-7 sm:h-7" />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-black text-base sm:text-lg leading-tight truncate">লিডারবোর্ড</span>
+              <span className="block text-xs sm:text-sm text-slate-800/80 font-semibold truncate">মেধা তালিকায় নিজের অবস্থান</span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenStudentPortal}
+            className="flex items-center gap-3 sm:gap-4 bg-gradient-to-br from-indigo-700 to-violet-700 text-white rounded-2xl p-4 sm:p-5 shadow-md hover:shadow-lg transition-all cursor-pointer text-left active:scale-[0.99]"
+          >
+            <span className="bg-white/15 rounded-2xl p-2.5 sm:p-3 shrink-0">
+              <Contact className="w-6 h-6 sm:w-7 sm:h-7" />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-black text-base sm:text-lg leading-tight truncate">Student Portal</span>
+              <span className="block text-xs sm:text-sm text-indigo-100 font-semibold truncate">ফলাফল, বিশ্লেষণ ও বুকমার্ক</span>
+            </span>
+          </button>
+        </section>
+
         {/* Live Exams (if any) */}
         <LiveExamGrid
           exams={examsObj}
