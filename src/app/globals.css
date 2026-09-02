@@ -15,26 +15,10 @@
 }
 
 /* Readability knob: পুরো সাইটের বেস ফন্ট-সাইজ।
-   16px = Tailwind ডিফল্ট, 20px = বড়, 22px = আরও বড়।
+   16px = Tailwind ডিফল্ট, 20px = বড় (বর্তমান), 22px = আরও বড়।
    text-xs/text-sm/text-base-এর মতো সব rem-ভিত্তিক সাইজ এর সাথে বাড়ে। */
 html {
   font-size: 20px;
-}
-
-/* মোবাইল (<=639px): শান্তিপূর্ণ পড়ার অভিজ্ঞতা — বেস ফন্ট ২০px → ১৬px।
-   সব Tailwind text-/padding/gap সাইজ rem-ভিত্তিক, তাই হেডিং ও লেখা দুটোই
-   সাথে সাথে ছোট ও আরামদায়ক হয়ে যায়; ডেস্কটপ অপরিবর্তিত থাকে। */
-@media (max-width: 639px) {
-  html {
-    font-size: 16px;
-  }
-
-  /* ছোট স্ক্রিনে আরও ভারসাম্য: বড় হেডিংগুলো একটু ঘন (tight) লাইন-হাইট */
-  h1,
-  h2,
-  h3 {
-    letter-spacing: -0.01em;
-  }
 }
 
 /* Print-to-PDF: force real A4 pages so mobile browsers don't render on a
