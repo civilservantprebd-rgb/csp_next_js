@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { EnrollmentRequest, AllowedStudent } from "@/types/student";
-import { getEnrollRequests, approveEnrollRequest } from "@/actions/enroll-actions";
+import { getEnrollRequests, approveEnrollRequest, declineEnrollRequest } from "@/actions/enroll-actions";
 import {
   getAllAllowedStudents,
   addAllowedStudentManual,
@@ -26,7 +26,8 @@ import {
   Square,
   BookOpen,
   UserCheck,
-  Sparkles
+  Sparkles,
+  Ban
 } from "lucide-react";
 import { parseBengaliDigits, toBengaliDigits } from "@/lib/utils";
 
@@ -55,10 +56,25 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
   const [editName, setEditName] = useState("");
   const [editCourses, setEditCourses] = useState<string[]>([]);
 
+  // Teacher's course selection per pending request (decided at verify time,
+  // independent of what the student originally requested)
+  const [requestCourses, setRequestCourses] = useState<Record<string, string[]>>({});
+
   const loadData = async () => {
     setIsLoading(true);
     const reqs = await getEnrollRequests();
     setRequests(reqs);
+
+    // Seed the per-request course selection with the student's requested courses
+    const seed: Record<string, string[]> = {};
+    reqs.forEach((r) => {
+      const key = r.docId || r.id;
+      seed[key] = (r.course || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    });
+    setRequestCourses(seed);
 
     const list = await getAllAllowedStudents();
     setStudents(list);
@@ -70,13 +86,46 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
   }, []);
 
   const handleApprove = async (req: EnrollmentRequest) => {
-    const rawCourses = (req.course || "ALL")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const res = await approveEnrollRequest(req.docId || "", req.id, req.name, rawCourses);
+    const key = req.docId || req.id;
+    const selected = requestCourses[key] || [];
+    // Teacher's verified course choice wins; fall back to the requested courses
+    const rawCourses =
+      selected.length > 0
+        ? selected
+        : (req.course || "ALL")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+    const res = await approveEnrollRequest(req.docId || "", req.id, req.name, rawCourses, req.email);
     alert(res.message);
     loadData();
+  };
+
+  const handleDecline = async (req: EnrollmentRequest) => {
+    if (
+      !confirm(
+        `${req.name} (${req.email || req.id})-এর এনরোলমেন্ট রিকোয়েস্টটি বাতিল (decline) করবেন?\nবাতিল করলে শিক্ষার্থী এই কোর্সে অ্যাক্সেস পাবে না।`
+      )
+    ) {
+      return;
+    }
+    const res = await declineEnrollRequest(req.docId || "", req.id, req.name);
+    alert(res.message);
+    if (res.success) loadData();
+  };
+
+  const toggleRequestCourse = (docKey: string, cName: string) => {
+    setRequestCourses((prev) => {
+      const current = prev[docKey] || [];
+      if (cName === "ALL") {
+        return { ...prev, [docKey]: current.includes("ALL") ? [] : ["ALL"] };
+      }
+      const filtered = current.filter((c) => c !== "ALL");
+      const next = filtered.includes(cName)
+        ? filtered.filter((c) => c !== cName)
+        : [...filtered, cName];
+      return { ...prev, [docKey]: next };
+    });
   };
 
   const handleAddManual = async (e: React.FormEvent) => {
@@ -239,30 +288,93 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
               কোনো অপেক্ষমান এনরোলমেন্ট রিকোয়েস্ট নেই।
             </p>
           ) : (
-            requests.map((req) => (
-              <div
-                key={req.id}
-                className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs"
-              >
-                <div>
-                  <p className="font-bold text-slate-800">
-                    {req.name} ({req.email || req.id})
-                  </p>
-                  <p className="text-slate-600 mt-0.5">
-                    <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
-                      {req.course || "সাধারণ কোর্স"}
-                    </span>{" "}
-                    | TrxID: <span className="font-mono font-bold text-amber-700">{req.trxId}</span>
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleApprove(req)}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer shadow-xs flex items-center gap-1"
+            requests.map((req) => {
+              const docKey = req.docId || req.id;
+              const selCourses = requestCourses[docKey] || [];
+              return (
+                <div
+                  key={docKey}
+                  className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col gap-3 text-xs shadow-2xs"
                 >
-                  <Check className="w-3.5 h-3.5" /> ভেরিফাই ও এনরোল করুন
-                </button>
-              </div>
-            ))
+                  {/* Request summary + actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-800">
+                        {req.name} ({req.email || req.id})
+                      </p>
+                      <p className="text-slate-600 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
+                          {req.course || "সাধারণ কোর্স"}
+                        </span>
+                        <span>|</span>
+                        <span>
+                          TrxID: <span className="font-mono font-bold text-amber-700">{req.trxId}</span>
+                        </span>
+                        {req.timestamp && (
+                          <>
+                            <span>|</span>
+                            <span className="text-slate-400">
+                              {new Date(req.timestamp).toLocaleString("bn-BD")}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleApprove(req)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer shadow-xs flex items-center gap-1"
+                      >
+                        <Check className="w-3.5 h-3.5" /> ভেরিফাই ও এনরোল করুন
+                      </button>
+                      <button
+                        onClick={() => handleDecline(req)}
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-3.5 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1"
+                      >
+                        <Ban className="w-3.5 h-3.5" /> বাতিল করুন
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Course access selection — teacher decides at verify time */}
+                  <div className="border-t border-amber-100 pt-2.5">
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1.5">
+                      ভেরিফাই করার সময় কোন কোন কোর্সে অ্যাক্সেস দেবেন (নির্বাচন করুন):
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleRequestCourse(docKey, "ALL")}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                          selCourses.includes("ALL")
+                            ? "bg-amber-500 text-slate-950 border-amber-500"
+                            : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                        }`}
+                      >
+                        সকল কোর্স (ALL)
+                      </button>
+                      {courses.map((c) => {
+                        const isSel = !selCourses.includes("ALL") && selCourses.includes(c);
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => toggleRequestCourse(docKey, c)}
+                            className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                              isSel
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

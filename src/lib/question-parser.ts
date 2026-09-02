@@ -116,7 +116,7 @@ export function parseBulkQuestionsText(
       if (!line) continue;
 
       // Check Answer line (e.g. উত্তর: খ, উত্তরঃ খ, Ans: B, Answer: (গ), উ: ঘ, সঠিক উত্তর: গ)
-      const ansMatch = line.match(/^(সঠিক\s*উত্তর|উত্তর|উত্তরঃ|উ\s*[:ঃ\.\-]|ans|answer|correct\s*ans|ans\s*[:ঃ\.\-]|answer\s*[:ঃ\.\-])[\s\-–—:ঃ\.]*([^\n\r]+)/i);
+      const ansMatch = line.match(/^(সঠিক\s*উত্তর|উত্তরঃ|উত্তর|উ\s*[:ঃ\.\-]|correct\s*answer|answer|correct\s*ans|ans|ans\s*[:ঃ\.\-]|answer\s*[:ঃ\.\-])[\s\-–—:ঃ\.]*([^\n\r]+)/i);
       if (ansMatch) {
         ansFound = true;
         const ansRaw = ansMatch[2].trim();
@@ -167,6 +167,18 @@ export function parseBulkQuestionsText(
             j = k;
           }
         }
+        continue;
+      }
+
+      // A numbered line at the START of a block is the QUESTION, not an option.
+      // Without this guard, question numbers "১."–"৪." (and ASCII digits) also
+      // match the option regex below, so the question text gets swallowed as an
+      // option and the block fails with "প্রশ্ন পাওয়া যায়নি"/option-count
+      // errors — while Bengali "৫."–"৯."/multi-digit numbers never matched the
+      // option class, which is why only the first few questions broke.
+      const qNumMatch = !qText && line.match(/^[০-৯\d]+[\.\)]\s*(.+)/);
+      if (qNumMatch) {
+        qText = qNumMatch[1].trim();
         continue;
       }
 

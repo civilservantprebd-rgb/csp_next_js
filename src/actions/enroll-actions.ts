@@ -91,6 +91,40 @@ export async function getEnrollRequests(): Promise<EnrollmentRequest[]> {
   }
 }
 
+export async function declineEnrollRequest(
+  docId: string,
+  uid: string,
+  name: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    // SECURITY: declining removes a pending enrollment request — teachers only
+    await requireTeacher();
+
+    if (!docId || !String(uid || "").trim()) {
+      return { success: false, message: "রিকোয়েস্ট তথ্য সঠিক নয়।" };
+    }
+
+    const cleanId = String(uid).trim();
+
+    // Only delete the request that belongs to this student (no cross-uid deletes)
+    const { error } = await supabase
+      .from("enroll_requests")
+      .delete()
+      .eq("id", docId)
+      .eq("student_uid", cleanId);
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      message: `${name}-এর এনরোলমেন্ট রিকোয়েস্টটি বাতিল (decline) করা হয়েছে।`
+    };
+  } catch (err) {
+    console.error("Decline enroll request error:", err);
+    return { success: false, message: "রিকোয়েস্ট বাতিল করতে সমস্যা হয়েছে।" };
+  }
+}
+
 export async function approveEnrollRequest(
   docId: string,
   uid: string,

@@ -10,6 +10,7 @@ import { SelfPracticeCard } from "@/components/dashboard/SelfPracticeCard";
 import { TopicExplorerHub } from "@/components/dashboard/TopicExplorerHub";
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
+import { UpcomingExamGrid } from "@/components/dashboard/UpcomingExamGrid";
 import { AppConfigData, Exam } from "@/types/exam";
 import { Submission } from "@/types/submission";
 import { syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
@@ -252,6 +253,12 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
         <LiveExamGrid
           exams={examsObj}
           onSelectLiveExam={handleStartExamByKey}
+          onOpenEnrollModal={handleOpenEnrollModal}
+        />
+
+        {/* Upcoming scheduled exams — live countdown until each exam starts */}
+        <UpcomingExamGrid
+          exams={examsObj}
           onOpenEnrollModal={handleOpenEnrollModal}
         />
 

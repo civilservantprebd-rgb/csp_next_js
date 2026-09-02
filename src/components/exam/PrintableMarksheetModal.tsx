@@ -70,7 +70,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-xs font-bengali print:static print:p-0 print:bg-white print:block print:inset-auto">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-xs font-bengali print:static print:p-0 print:bg-white print:block print:inset-auto print:animate-none print:backdrop-blur-none print:transform-none">
       {/* Container */}
       <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 print:m-0 print:p-0 print:border-none print:shadow-none print:max-w-none print:rounded-none print:max-h-none print:overflow-visible print:block">
         
@@ -110,10 +110,10 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
           <div
             id="printable-marksheet"
             ref={printContentRef}
-            className="bg-white p-6 sm:p-10 rounded-2xl shadow-sm border border-slate-200 max-w-3xl mx-auto space-y-6 print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none text-slate-900"
+            className="bg-white p-6 sm:p-10 rounded-2xl shadow-sm border border-slate-200 max-w-3xl mx-auto space-y-6 print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none print:rounded-none text-slate-900"
           >
             {/* Sheet Institutional Header */}
-            <div className="border-b-2 border-slate-900 pb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="border-b-2 border-slate-900 pb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:break-inside-avoid">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-base shadow-xs">
@@ -138,7 +138,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
             </div>
 
             {/* Exam & Candidate Info Table */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs print:break-inside-avoid">
               <div className="space-y-1.5">
                 <p className="text-slate-600">
                   <span className="font-semibold text-slate-900">শিক্ষার্থীর নাম:</span> {studentName}
@@ -165,8 +165,8 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
             </div>
 
             {/* Result Metrics Grid */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+            <div className="print:break-inside-avoid">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 print:break-after-avoid">
                 ফলাফল ও পারফরম্যান্স সারসংক্ষেপ:
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
@@ -195,7 +195,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
             {/* OMR Response Grid Matrix */}
             {questions && questions.length > 0 && (
               <div className="space-y-2 pt-2">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider print:break-after-avoid">
                   ওএমআর রেসপন্স ম্যাট্রিক্স (OMR Question Analysis):
                 </h4>
 
@@ -256,7 +256,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
             {/* Detailed Question Analysis — question, student answer, correct answer, explanation */}
             {questions && questions.length > 0 && (
               <div className="space-y-3 pt-2">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider print:break-after-avoid">
                   প্রশ্ন ও উত্তর বিশ্লেষণ (প্রতিটি প্রশ্নের বিস্তারিত):
                 </h4>
 
@@ -269,7 +269,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
                   return (
                     <div
                       key={qIdx}
-                      className={`p-4 rounded-xl border ${
+                      className={`p-4 rounded-xl border print:break-inside-avoid ${
                         isCorrect
                           ? "border-emerald-200 bg-emerald-50/30"
                           : isAnswered
@@ -301,7 +301,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
                               <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 bg-slate-800 text-white">
                                 {optLabels[oIdx]}
                               </span>
-                              <span className="truncate">{opt}</span>
+                              <span className="truncate print:whitespace-normal print:overflow-visible">{opt}</span>
                               {isAns && (
                                 <span className="ml-auto text-[9px] font-bold text-emerald-700 shrink-0">✓ সঠিক</span>
                               )}
@@ -356,7 +356,7 @@ export const PrintableMarksheetModal: React.FC<PrintableMarksheetModalProps> = (
             )}
 
             {/* Institutional Certification Footer */}
-            <div className="border-t border-slate-200 pt-5 text-center space-y-1 text-xs text-slate-400">
+            <div className="border-t border-slate-200 pt-5 text-center space-y-1 text-xs text-slate-400 print:break-inside-avoid">
               <p className="font-semibold text-slate-600">
                 এই মূল্যায়ন প্রতিবেদনটি আরোহণ ক্লাউড পোর্টাল দ্বারা স্বয়ংক্রিয়ভাবে প্রস্তুতকৃত।
               </p>

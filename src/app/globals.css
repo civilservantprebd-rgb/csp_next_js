@@ -2,7 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Print-to-PDF: force real A4 pages so mobile browsers don't render on a
+   squeezed device-width "page" — without this, the sm:/md: grids collapse,
+   columns cram together and the marksheet looks broken on phones. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
 @media print {
+  html,
+  body {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -23,6 +41,20 @@
     display: block !important;
     background: white !important;
     color: black !important;
+  }
+
+  /* Never slice a row / cell / card between two pages — keep blocks whole */
+  #printable-leaderboard tr,
+  #printable-marksheet .grid > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Don't leave section headings dangling at the bottom of a page */
+  #printable-marksheet h4,
+  #printable-leaderboard h4 {
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   /* Force background colors and borders in print */
