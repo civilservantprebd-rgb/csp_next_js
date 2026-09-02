@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Bookmark } from "lucide-react";
 import {
   toggleQuestionBookmark,
-  isQuestionBookmarked
+  isQuestionBookmarked,
+  syncStudentMistakeData
 } from "@/lib/mistake-bookmark-store";
+import { getLocalStudentUser } from "@/lib/student-auth";
 
 interface BookmarkButtonProps {
   studentId?: string;
@@ -29,43 +31,57 @@ export const BookmarkButton: React.FC<BookmarkButtonProps> = ({
 }) => {
   const [effectiveStudentId, setEffectiveStudentId] = useState(studentId || "");
   const [isSaved, setIsSaved] = useState(false);
+  // একবার হাইড্রেট করলেই যথেষ্ট — প্রতি storage ইভেন্টে সার্ভার কল হবে না
+  const hydratedIdRef = useRef<string>("");
 
   useEffect(() => {
-    const refresh = () => {
-      try {
-        if (studentId) {
-          setEffectiveStudentId(studentId);
-          setIsSaved(isQuestionBookmarked(studentId, question.q));
-          return;
-        }
-        const stored = sessionStorage.getItem("current_student");
-        if (stored) {
+    const computeActiveId = (): string => {
+      if (studentId) return studentId;
+      const stored = sessionStorage.getItem("current_student");
+      if (stored) {
+        try {
           const parsed = JSON.parse(stored);
-          if (parsed.id) {
-            setEffectiveStudentId(parsed.id);
-            setIsSaved(isQuestionBookmarked(parsed.id, question.q));
-            return;
-          }
+          if (parsed.id) return parsed.id;
+        } catch {
+          // corrupted — fall through
         }
-        // Fall back to a stable per-browser guest id so anonymous visitors do
-        // not all share one bookmark namespace.
-        let guestId = sessionStorage.getItem("guest_bookmark_id");
-        if (!guestId) {
-          guestId = `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-          sessionStorage.setItem("guest_bookmark_id", guestId);
-        }
-        setEffectiveStudentId(guestId);
-        setIsSaved(isQuestionBookmarked(guestId, question.q));
-      } catch (_) {
-        // storage unavailable/corrupted — treat as not bookmarked
+      }
+      // Fall back to a stable per-browser guest id so anonymous visitors do
+      // not all share one bookmark namespace.
+      let guestId = sessionStorage.getItem("guest_bookmark_id");
+      if (!guestId) {
+        guestId = `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        sessionStorage.setItem("guest_bookmark_id", guestId);
+      }
+      return guestId;
+    };
+
+    const refresh = (skipHydrate = false) => {
+      const id = computeActiveId();
+      setEffectiveStudentId(id);
+      setIsSaved(isQuestionBookmarked(id, question.q));
+
+      // Cross-device sync: Google-লগ-ইন থাকলে অন্য ডিভাইসের বুকমার্ক নামিয়ে
+      // আনুন (গেস্ট/লগ-ইন-বিহীন অবস্থায় সার্ভার কল হয় না — নীরব fail)।
+      const localUser = getLocalStudentUser();
+      if (
+        !skipHydrate &&
+        localUser &&
+        hydratedIdRef.current !== id
+      ) {
+        hydratedIdRef.current = id;
+        syncStudentMistakeData(id)
+          .then(() => setIsSaved(isQuestionBookmarked(id, question.q)))
+          .catch(() => {});
       }
     };
 
     refresh();
     // Re-check when bookmarks change elsewhere (other tabs, or the app's own
     // manually-dispatched "storage" events on login/logout).
-    window.addEventListener("storage", refresh);
-    return () => window.removeEventListener("storage", refresh);
+    const onStorage = () => refresh(true);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, [studentId, question.q]);
 
   const handleToggle = (e: React.MouseEvent) => {

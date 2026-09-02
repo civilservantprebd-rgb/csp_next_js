@@ -34,6 +34,7 @@ import {
   removeStudentMistake,
   clearAllStudentMistakes,
   toggleQuestionBookmark,
+  syncStudentMistakeData,
   MistakeQuestionItem
 } from "@/lib/mistake-bookmark-store";
 import {
@@ -109,6 +110,13 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
 
+  // हज़ारো mistake/bookmark থাকলেও DOM-এ একসাথে সব না এনে পেজ-আকারে দেখাই
+  const MISTAKE_PAGE_SIZE = 40;
+  const [visibleMistakes, setVisibleMistakes] = useState(MISTAKE_PAGE_SIZE);
+  const [visibleBookmarks, setVisibleBookmarks] = useState(MISTAKE_PAGE_SIZE);
+  const shownMistakes = mistakes.slice(0, visibleMistakes);
+  const shownBookmarks = bookmarks.slice(0, visibleBookmarks);
+
   const refreshStores = () => {
     if (studentId) {
       setMistakes(getStudentMistakes(studentId));
@@ -176,6 +184,21 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           setIsLoading(false);
         });
       refreshStores();
+      setVisibleMistakes(MISTAKE_PAGE_SIZE);
+      setVisibleBookmarks(MISTAKE_PAGE_SIZE);
+      // Cross-device sync: সার্ভার থেকে পূর্ণ mistakes/bookmarks নামিয়ে UI-তে
+      // দেখাও — localStorage-এ শুধু ফাস্ট-ক্যাশ, বাকি সব ডেটাবেজ থেকে আসে
+      // (সেশন নেই/টেবিল নেই/ত্রুটি হলে নীরব — লোকাল ডেটাই থেকে যায়)
+      syncStudentMistakeData(studentId)
+        .then((res) => {
+          if (res) {
+            setMistakes(res.mistakes);
+            setBookmarks(res.bookmarks);
+          } else {
+            refreshStores();
+          }
+        })
+        .catch(() => refreshStores());
     }
   }, [isOpen, studentId, exams]);
 
@@ -880,7 +903,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {mistakes.map((m, idx) => (
+                  {shownMistakes.map((m, idx) => (
                     <div
                       key={m.id || idx}
                       className="p-4 rounded-2xl border border-rose-200 bg-white space-y-3 shadow-sm text-xs"
@@ -956,6 +979,16 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       )}
                     </div>
                   ))}
+
+                  {shownMistakes.length < mistakes.length && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleMistakes((v) => v + MISTAKE_PAGE_SIZE)}
+                      className="w-full py-2.5 rounded-xl border border-rose-200 bg-rose-50/60 hover:bg-rose-100 text-rose-700 font-bold text-xs transition cursor-pointer"
+                    >
+                      আরও দেখুন ({toBengaliDigits(mistakes.length - shownMistakes.length)} টি বাকি)
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -996,7 +1029,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {bookmarks.map((b, idx) => (
+                  {shownBookmarks.map((b, idx) => (
                     <div
                       key={b.id || idx}
                       className="p-4 rounded-2xl border border-amber-200 bg-white space-y-3 shadow-sm text-xs"
@@ -1053,6 +1086,16 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       )}
                     </div>
                   ))}
+
+                  {shownBookmarks.length < bookmarks.length && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleBookmarks((v) => v + MISTAKE_PAGE_SIZE)}
+                      className="w-full py-2.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100 text-amber-800 font-bold text-xs transition cursor-pointer"
+                    >
+                      আরও দেখুন ({toBengaliDigits(bookmarks.length - shownBookmarks.length)} টি বাকি)
+                    </button>
+                  )}
                 </div>
               )}
             </div>
