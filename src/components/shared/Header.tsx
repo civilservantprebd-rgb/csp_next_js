@@ -43,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
     };
   }, []);
 
-  // Close the mobile drawer / notification panel with the Escape key
+  // Close the drawer / notification panel with the Escape key
   useEffect(() => {
     if (!isMenuOpen && !isNotifOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -88,10 +88,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
 
   return (
     <>
-      <header className={`bg-indigo-900/95 backdrop-blur-md text-white shadow-lg sticky top-0 z-40 border-b border-indigo-800/50 transition-transform duration-300 ${
+      {/* Light top bar, coherent with the site's white/slate design language */}
+      <header className={`bg-white/95 backdrop-blur-md text-slate-800 shadow-sm sticky top-0 z-40 border-b border-slate-200 transition-transform duration-300 ${
         isVisible ? "translate-y-0" : "-translate-y-full"
       }`}>
-        {/* App-style top bar: bell (left) · আরোহণ (center) · menu (right) */}
         <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2 flex items-center justify-between gap-2 relative">
           {/* Left: notification bell */}
           <div className="flex-1 flex justify-start relative">
@@ -100,15 +100,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               onClick={toggleBell}
               aria-label="নোটিফিকেশন"
               aria-expanded={isNotifOpen}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 border border-indigo-400/30 text-white cursor-pointer"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 cursor-pointer transition"
             >
               <Bell className="w-5 h-5" />
             </button>
 
             {/* Notification dropdown */}
             {isNotifOpen && (
-              <div className="absolute left-0 top-full mt-2 w-72 max-w-[85vw] bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 font-bengali">
-                <div className="flex items-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-900 font-bold text-sm border-b border-indigo-100">
+              <div className="absolute left-0 top-full mt-2 w-72 max-w-[85vw] bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50 font-bengali">
+                <div className="flex items-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-800 font-bold text-sm border-b border-indigo-100">
                   <Bell className="w-4 h-4" /> নোটিফিকেশন
                 </div>
                 <div className="px-4 py-6 text-center space-y-1.5">
@@ -130,10 +130,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
             }}
             className="flex items-center gap-2 cursor-pointer group min-w-0"
           >
-            <span className="bg-gradient-to-tr from-amber-400 to-indigo-500 p-1.5 rounded-lg shadow-md group-hover:scale-105 transition-transform duration-200 shrink-0">
+            <span className="bg-gradient-to-tr from-amber-400 to-indigo-500 p-1.5 rounded-xl shadow-sm group-hover:scale-105 transition-transform duration-200 shrink-0">
               <GraduationCap className="w-5 h-5 text-slate-900" />
             </span>
-            <span className="text-lg sm:text-xl font-black tracking-wide bg-gradient-to-r from-white via-indigo-100 to-indigo-200 bg-clip-text text-transparent whitespace-nowrap">
+            <span className="text-lg sm:text-xl font-black tracking-wide text-indigo-900 whitespace-nowrap">
               আরোহণ
             </span>
           </Link>
@@ -148,7 +148,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               }}
               aria-label="মেনু খুলুন"
               aria-expanded={isMenuOpen}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 border border-indigo-400/30 text-white cursor-pointer"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 cursor-pointer transition"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -156,20 +156,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
         </div>
       </header>
 
-      {/* Side panel (drawer) — opened by the ☰ button */}
+      {/* Side panel (drawer) — light theme, matches site modals */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
             onClick={closeMenu}
             aria-hidden="true"
           />
 
           {/* Panel — slides in from the right */}
-          <div className="absolute right-0 top-0 h-full w-72 max-w-[85%] bg-gradient-to-b from-indigo-950 to-indigo-900 text-white shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-indigo-800/70">
-              <span className="flex items-center gap-2 font-black text-base">
+          <div className="absolute right-0 top-0 h-full w-72 max-w-[85%] bg-white text-slate-800 shadow-2xl flex flex-col border-l border-slate-200">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+              <span className="flex items-center gap-2 font-black text-base text-indigo-900">
                 <span className="bg-gradient-to-tr from-amber-400 to-indigo-500 p-1.5 rounded-lg">
                   <GraduationCap className="w-4 h-4 text-slate-900" />
                 </span>
@@ -179,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                 type="button"
                 onClick={closeMenu}
                 aria-label="মেনু বন্ধ করুন"
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 cursor-pointer"
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -189,30 +189,30 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               <button
                 type="button"
                 onClick={goHome}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition text-sm font-semibold text-left cursor-pointer"
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-indigo-100"
               >
-                <GraduationCap className="w-5 h-5 text-indigo-300" /> হোম
+                <GraduationCap className="w-5 h-5 text-indigo-500" /> হোম
               </button>
 
               <button
                 type="button"
                 onClick={openLeaderboard}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition text-sm font-semibold text-left cursor-pointer"
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-amber-50 text-slate-700 hover:text-amber-900 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-amber-200"
               >
-                <Trophy className="w-5 h-5 text-amber-400" /> লিডারবোর্ড
+                <Trophy className="w-5 h-5 text-amber-500" /> লিডারবোর্ড
               </button>
 
               <button
                 type="button"
                 onClick={openStudentPortal}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition text-sm font-semibold text-left cursor-pointer"
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 transition text-sm font-semibold text-left cursor-pointer border border-transparent hover:border-emerald-200"
               >
-                <Contact className="w-5 h-5 text-emerald-300" /> Student Portal
+                <Contact className="w-5 h-5 text-emerald-500" /> Student Portal
               </button>
             </nav>
 
-            <div className="px-4 py-3 border-t border-indigo-800/70">
-              <p className="text-xs text-indigo-300 font-medium">
+            <div className="px-4 py-3 border-t border-slate-200">
+              <p className="text-xs text-slate-400 font-medium">
                 BCS & Job Preparation Portal
               </p>
             </div>
