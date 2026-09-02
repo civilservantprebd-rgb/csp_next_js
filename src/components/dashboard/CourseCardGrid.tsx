@@ -147,9 +147,6 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                   {p && (p.price === 0 || p.offerPrice === 0) ? (
                     <>
                       <div className="flex items-center gap-2">
-                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-md text-xs font-black">
-                          ফ্রি
-                        </span>
                         <span className="text-lg font-black text-emerald-700">সম্পূর্ণ ফ্রি</span>
                       </div>
                       <p className="text-xs text-slate-500 font-bold mt-1">কোর্সটি ফ্রি — সবাই নিতে পারবে</p>
