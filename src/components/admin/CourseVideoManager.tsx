@@ -11,9 +11,13 @@ import {
   PlayCircle,
   RotateCw,
   Link2,
-  AlertTriangle
+  AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+  ChevronRight
 } from "lucide-react";
 import { CourseVideo } from "@/types/video";
+import { SubjectItem } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
 import { extractYoutubeId } from "@/lib/youtube";
 import {
@@ -25,6 +29,7 @@ import {
 
 interface CourseVideoManagerProps {
   courses: string[];
+  subjects: SubjectItem[];
 }
 
 const EMPTY_FORM = {
@@ -36,7 +41,7 @@ const EMPTY_FORM = {
   sortOrder: "0"
 };
 
-export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses }) => {
+export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses, subjects }) => {
   const [videos, setVideos] = useState<CourseVideo[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -82,7 +87,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
     }
     const payload = {
       course: form.course,
-      subject: form.subject,
+      subject: form.subject.trim(),
       title: form.title,
       youtubeUrl: form.youtubeUrl,
       description: form.description,
@@ -109,17 +114,62 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
     if (res.success) loadData();
   };
 
+  /** প্লেলিস্টের ভেতরে ভিডিওর ক্রম বদল — শুধু sort_order অদলবদল */
+  const moveVideo = async (v: CourseVideo, dir: -1 | 1) => {
+    const group = videos
+      .filter((x) => x.course === v.course && (x.subject || "সাধারণ") === (v.subject || "সাধারণ"))
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const idx = group.findIndex((x) => x.id === v.id);
+    const target = group[idx + dir];
+    if (!target) return;
+
+    const vRes = await updateCourseVideo(v.id, {
+      course: v.course,
+      subject: v.subject,
+      title: v.title,
+      youtubeUrl: v.youtubeId,
+      description: v.description,
+      sortOrder: target.sortOrder ?? 0
+    });
+    const tRes = await updateCourseVideo(target.id, {
+      course: target.course,
+      subject: target.subject,
+      title: target.title,
+      youtubeUrl: target.youtubeId,
+      description: target.description,
+      sortOrder: v.sortOrder ?? 0
+    });
+    if (vRes.success && tRes.success) loadData();
+    else alert("ক্রম বদলাতে সমস্যা হয়েছে।");
+  };
+
   const filtered = filterCourse === "ALL" ? videos : videos.filter((v) => v.course === filterCourse);
   const availableCourses = Array.from(new Set(videos.map((v) => v.course)));
 
-  // বিষয় অনুযায়ী গ্রুপ
-  const grouped = new Map<string, CourseVideo[]>();
-  filtered.forEach((v) => {
-    const key = v.course;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(v);
-  });
+  // কোর্স → সাবজেক্ট → ভিডিও (প্লেলিস্ট)
+  const playlistTree: { course: string; subjects: { subject: string; items: CourseVideo[] }[] }[] = [];
+  {
+    const byCourse = new Map<string, Map<string, CourseVideo[]>>();
+    filtered.forEach((v) => {
+      const courseMap = byCourse.get(v.course) || new Map<string, CourseVideo[]>();
+      const subj = v.subject || "সাধারণ";
+      const arr = courseMap.get(subj) || [];
+      arr.push(v);
+      courseMap.set(subj, arr);
+      byCourse.set(v.course, courseMap);
+    });
+    byCourse.forEach((subjectMap, course) => {
+      const subjectsArr: { subject: string; items: CourseVideo[] }[] = [];
+      subjectMap.forEach((items, subject) => {
+        items.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+        subjectsArr.push({ subject, items });
+      });
+      playlistTree.push({ course, subjects: subjectsArr });
+    });
+  }
 
+  // নির্বাচিত কোর্সের সাবজেক্ট (datalist সাজেশন)
+  const courseSubjects = subjects.filter((s) => s.course === form.course).map((s) => s.name);
   const ytPreviewId = extractYoutubeId(form.youtubeUrl);
 
   return (
@@ -128,10 +178,10 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
-            <Video className="w-5 h-5 text-rose-600" /> কোর্স ভিডিও ম্যানেজার (YouTube)
+            <Video className="w-5 h-5 text-rose-600" /> কোর্স ভিডিও ম্যানেজার (সাবজেক্ট প্লেলিস্ট)
           </h3>
           <p className="text-xs text-slate-500">
-            ভিডিও YouTube-এ Unlisted করে আপলোড করুন, তারপর এখানে URL/ID দিন — এনরোল্ড স্টুডেন্টরাই দেখতে পাবে
+            ভিডিও YouTube-এ Unlisted করে আপলোড করুন, তারপর কোর্স + সাবজেক্ট প্লেলিস্টে যোগ করুন — এনরোল্ড স্টুডেন্টরাই দেখতে পাবে
           </p>
         </div>
         <button
@@ -158,7 +208,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
       {/* Add / Edit Form */}
       <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3 shadow-2xs">
         <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
-          {editingId ? <><Edit2 className="w-4 h-4 text-indigo-600" /> ভিডিও এডিট করুন</> : <><Plus className="w-4 h-4 text-emerald-600" /> নতুন ভিডিও যোগ করুন</>}
+          {editingId ? <><Edit2 className="w-4 h-4 text-indigo-600" /> ভিডিও এডিট করুন</> : <><Plus className="w-4 h-4 text-emerald-600" /> নতুন ভিডিও যোগ করুন (প্লেলিস্টে)</>}
           {editingId && (
             <button type="button" onClick={resetForm} className="ml-auto text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer">
               <X className="w-3 h-3" /> বাতিল
@@ -171,7 +221,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
             <label className="block text-[11px] font-medium text-slate-600 mb-1">কোর্স *</label>
             <select
               value={form.course}
-              onChange={(e) => setForm((f) => ({ ...f, course: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, course: e.target.value, subject: "" }))}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white cursor-pointer"
               required
             >
@@ -182,14 +232,21 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">বিষয়</label>
+            <label className="block text-[11px] font-medium text-slate-600 mb-1">সাবজেক্ট / প্লেলিস্ট *</label>
             <input
               type="text"
+              list="subject-options"
               placeholder="যেমন: বাংলা সাহিত্য"
               value={form.subject}
               onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+              required
             />
+            <datalist id="subject-options">
+              {courseSubjects.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-[11px] font-medium text-slate-600 mb-1">ভিডিওর নাম *</label>
@@ -226,7 +283,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-600 mb-1">ক্রম (ছোট = আগে)</label>
+            <label className="block text-[11px] font-medium text-slate-600 mb-1">প্লেলিস্টে ক্রম (ছোট = আগে)</label>
             <input
               type="number"
               value={form.sortOrder}
@@ -241,7 +298,7 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
             type="submit"
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm transition shadow cursor-pointer flex items-center gap-1.5"
           >
-            {editingId ? <><Save className="w-4 h-4" /> আপডেট করুন</> : <><Plus className="w-4 h-4" /> ভিডিও যোগ করুন</>}
+            {editingId ? <><Save className="w-4 h-4" /> আপডেট করুন</> : <><Plus className="w-4 h-4" /> প্লেলিস্টে যোগ করুন</>}
           </button>
           {ytPreviewId && (
             <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
@@ -281,10 +338,10 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
         })}
       </div>
 
-      {/* Grouped video list */}
+      {/* Playlist tree: course → subject → videos */}
       {isLoading ? (
         <p className="text-xs text-slate-400 text-center py-6">লোড হচ্ছে...</p>
-      ) : filtered.length === 0 ? (
+      ) : playlistTree.length === 0 ? (
         <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
           <Video className="w-8 h-8 text-slate-300 mx-auto mb-2" />
           <p className="text-xs text-slate-400 font-medium">
@@ -292,60 +349,88 @@ export const CourseVideoManager: React.FC<CourseVideoManagerProps> = ({ courses 
           </p>
         </div>
       ) : (
-        Array.from(grouped.entries()).map(([courseName, courseVideos]) => (
-          <div key={courseName} className="space-y-2">
-            <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2 pt-2">
-              <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-lg border border-indigo-200">
-                📁 {courseName}
+        playlistTree.map((courseNode) => (
+          <div key={courseNode.course} className="space-y-4">
+            <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2 pt-1">
+              <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-lg border border-indigo-200">📁 {courseNode.course}</span>
+              <span className="text-slate-400 text-[11px] font-semibold">
+                ({toBengaliDigits(courseNode.subjects.length)}টি প্লেলিস্ট)
               </span>
-              <span className="text-slate-400 text-[11px] font-semibold">({toBengaliDigits(courseVideos.length)}টি)</span>
             </h4>
-            <div className="space-y-2">
-              {courseVideos.map((v) => (
-                <div
-                  key={v.id}
-                  className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-3 text-xs sm:text-sm shadow-2xs"
-                >
-                  <img
-                    src={`https://i.ytimg.com/vi/${v.youtubeId}/mqdefault.jpg`}
-                    alt=""
-                    className="w-24 h-14 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-slate-900 truncate">{v.title}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      {v.subject && (
-                        <span className="bg-sky-50 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-sky-200">
-                          {v.subject}
-                        </span>
-                      )}
-                      <span className="text-slate-400 text-[10px] font-mono">{v.youtubeId}</span>
-                      <span className="text-slate-400 text-[10px]">ক্রম: {toBengaliDigits(v.sortOrder)}</span>
+
+            <div className="space-y-3">
+              {courseNode.subjects.map((playlist) => (
+                <div key={playlist.subject} className="bg-slate-50/70 border border-slate-200 rounded-2xl overflow-hidden">
+                  {/* Playlist header */}
+                  <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-gradient-to-r from-sky-50 to-indigo-50 border-b border-slate-200">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <PlayCircle className="w-4 h-4 text-sky-600 shrink-0" />
+                      <span className="font-black text-slate-900 text-xs sm:text-sm truncate">{playlist.subject}</span>
+                      <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-sky-200 shrink-0">
+                        {toBengaliDigits(playlist.items.length)}টি ভিডিও
+                      </span>
                     </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <a
-                      href={`https://www.youtube.com/watch?v=${v.youtubeId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-rose-600 hover:text-rose-800 font-bold px-2 py-1.5 rounded-lg transition cursor-pointer border border-rose-200 bg-rose-50 flex items-center gap-1"
-                    >
-                      <PlayCircle className="w-3.5 h-3.5" /> YouTube
-                    </a>
-                    <button
-                      onClick={() => startEdit(v)}
-                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold p-1.5 rounded-lg transition cursor-pointer border border-indigo-200"
-                      title="এডিট"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(v)}
-                      className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold p-1.5 rounded-lg transition cursor-pointer border border-rose-200"
-                      title="মুছুন"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+
+                  {/* Playlist videos */}
+                  <div className="divide-y divide-slate-100">
+                    {playlist.items.map((v, vIdx) => (
+                      <div key={v.id} className="px-3.5 py-2.5 flex items-center gap-3 bg-white">
+                        <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">{toBengaliDigits(vIdx + 1)}</span>
+                        <img
+                          src={`https://i.ytimg.com/vi/${v.youtubeId}/mqdefault.jpg`}
+                          alt=""
+                          className="w-20 h-11 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-900 text-xs truncate">{v.title}</p>
+                          <p className="text-slate-400 text-[10px] font-mono mt-0.5">{v.youtubeId}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => moveVideo(v, -1)}
+                            disabled={vIdx === 0}
+                            className="p-1 rounded-md hover:bg-slate-100 text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            title="উপরে (আগে)"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveVideo(v, 1)}
+                            disabled={vIdx === playlist.items.length - 1}
+                            className="p-1 rounded-md hover:bg-slate-100 text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            title="নিচে (পরে)"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                          <a
+                            href={`https://www.youtube.com/watch?v=${v.youtubeId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-rose-600 hover:text-rose-800 font-bold px-1.5 py-1 rounded-md transition cursor-pointer"
+                          >
+                            YT
+                          </a>
+                          <button
+                            onClick={() => startEdit(v)}
+                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold p-1.5 rounded-lg transition cursor-pointer border border-indigo-200"
+                            title="এডিট"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(v)}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold p-1.5 rounded-lg transition cursor-pointer border border-rose-200"
+                            title="মুছুন"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

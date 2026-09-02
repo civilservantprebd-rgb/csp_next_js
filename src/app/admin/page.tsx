@@ -714,7 +714,7 @@ export default function AdminPage() {
               )
             )}
 
-            {activeTab === "videos" && <CourseVideoManager courses={config.courses || []} />}
+            {activeTab === "videos" && <CourseVideoManager courses={config.courses || []} subjects={config.subjects || []} />}
 
             {activeTab === "archive" && (
               <ArchiveManager

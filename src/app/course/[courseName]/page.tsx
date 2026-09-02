@@ -5,10 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
+import { VideoPlayerModal } from "@/components/course/VideoPlayerModal";
 import { fetchAppConfigLite } from "@/actions/admin-actions";
 import { getCourseVideosForStudent, StudentVideoAccess } from "@/actions/video-actions";
 import { verifyStudentAccess } from "@/actions/student-actions";
 import { AppConfigData, Exam } from "@/types/exam";
+import { CourseVideo } from "@/types/video";
 import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
 import { getLocalStudentUser } from "@/lib/student-auth";
 import { getLocalIdentity, setVerifiedStudent } from "@/lib/student-identity";
@@ -26,8 +28,8 @@ import {
   UserPlus,
   Loader2,
   ShieldCheck,
-  Check,
-  ShoppingCart
+  ShoppingCart,
+  Layers
 } from "lucide-react";
 
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
@@ -49,9 +51,11 @@ export default function CourseStudyPage() {
   const [config, setConfig] = useState<AppConfigData | null>(null);
   const [videoResult, setVideoResult] = useState<StudentVideoAccess | null>(null);
   const [checking, setChecking] = useState(true);
-  const [selectedVideoId, setSelectedVideoId] = useState<number | null>(null);
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [examSearch, setExamSearch] = useState("");
+
+  // Modal player — ভিডিওতে ট্যাপ করলেই খোলে
+  const [playingVideo, setPlayingVideo] = useState<CourseVideo | null>(null);
 
   // Manual identity gate
   const [gateId, setGateId] = useState("");
@@ -87,31 +91,27 @@ export default function CourseStudyPage() {
   const isUnlocked = videoResult?.allowed === true;
   const videos = videoResult?.videos || [];
 
-  const selectedVideo = useMemo(
-    () => videos.find((v) => v.id === selectedVideoId) || null,
-    [videos, selectedVideoId]
-  );
-
-  const subjectsWithVideos = useMemo(() => {
-    const set = new Set<string>();
-    videos.forEach((v) => set.add(v.subject || "সাধারণ"));
-    return Array.from(set);
+  // সাবজেক্ট → প্লেলিস্ট
+  const playlists = useMemo(() => {
+    const map = new Map<string, CourseVideo[]>();
+    videos.forEach((v) => {
+      const subj = v.subject || "সাধারণ";
+      if (!map.has(subj)) map.set(subj, []);
+      map.get(subj)!.push(v);
+    });
+    return Array.from(map.entries()).map(([subject, items]) => ({ subject, items }));
   }, [videos]);
 
-  const visibleVideos = useMemo(
-    () =>
-      subjectFilter === "ALL"
-        ? videos
-        : videos.filter((v) => (v.subject || "সাধারণ") === subjectFilter),
-    [videos, subjectFilter]
-  );
+  const visiblePlaylists = subjectFilter === "ALL" ? playlists : playlists.filter((p) => p.subject === subjectFilter);
 
-  // আনলক হলেই প্রথম ভিডিও অটো-সিলেক্ট
-  useEffect(() => {
-    if (isUnlocked && videos.length > 0 && selectedVideoId === null) {
-      setSelectedVideoId(videos[0].id);
-    }
-  }, [isUnlocked, videos, selectedVideoId]);
+  const openVideo = (v: CourseVideo) => {
+    setPlayingVideo(v);
+  };
+
+  const playingPlaylist = useMemo(() => {
+    if (!playingVideo) return [];
+    return playlists.find((p) => p.subject === (playingVideo.subject || "সাধারণ"))?.items || [];
+  }, [playingVideo, playlists]);
 
   const examsObj = config?.exams || {};
   const courseExams = useMemo(
@@ -195,14 +195,12 @@ export default function CourseStudyPage() {
           return;
         }
       }
-      // পেইড কিন্তু এনরোল্ড নয় → Google লগইন মোডাল (ওখানেই এনরোল প্রম্পট)
       setPendingExam(ex);
       setAuthOpen(true);
       return;
     }
 
     if (identity) {
-      // ম্যানুয়াল স্টুডেন্ট — আগে থেকে যাচাই-কৃত পরিচয়
       if (ex.isFree) {
         sessionStorage.setItem(
           "current_student",
@@ -226,7 +224,6 @@ export default function CourseStudyPage() {
       }
     }
 
-    // কোনো পরিচয় নেই → Google লগইন মোডাল
     setPendingExam(ex);
     setAuthOpen(true);
   };
@@ -248,8 +245,6 @@ export default function CourseStudyPage() {
   }
 
   const courseSubjects = (config.subjects || []).filter((s) => s.course === courseName);
-  const showManualGate = !isUnlocked && !hasGoogleUser && !checking;
-  const showBuyScreen = !isUnlocked && hasGoogleUser && !checking;
 
   return (
     <>
@@ -276,7 +271,7 @@ export default function CourseStudyPage() {
                   <h1 className="text-xl sm:text-2xl font-black text-white leading-tight">{courseName}</h1>
                   <p className="text-xs text-indigo-200 font-semibold">
                     {toBengaliDigits(courseSubjects.length)}টি বিষয় · {toBengaliDigits(examCount)}টি পরীক্ষা
-                    {isUnlocked && <> · {toBengaliDigits(videos.length)}টি ভিডিও ক্লাস</>}
+                    {isUnlocked && <> · {toBengaliDigits(playlists.length)}টি ভিডিও প্লেলিস্ট</>}
                   </p>
                 </div>
               </div>
@@ -300,58 +295,150 @@ export default function CourseStudyPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* ============ LEFT: player + exams ============ */}
+          {/* ============ LEFT: video playlists + exams ============ */}
           <div className="lg:col-span-8 space-y-5">
-            {/* Video player panel */}
-            <div className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-xl">
-              {isUnlocked && selectedVideo ? (
-                <div className="aspect-video w-full bg-black">
-                  <iframe
-                    className="w-full h-full"
-                    src={`https://www.youtube-nocookie.com/embed/${selectedVideo.youtubeId}?rel=0&modestbranding=1&color=white`}
-                    title={selectedVideo.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
+            {/* ভিডিও ক্লাস সেকশন — বড় প্লেয়ার নেই, ট্যাপ করলেই মোডালে শুরু */}
+            <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
+                  <Video className="w-5 h-5 text-rose-600" /> ভিডিও ক্লাস
+                  {isUnlocked && (
+                    <span className="bg-rose-50 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-rose-200">
+                      {toBengaliDigits(videos.length)}টি ভিডিও
+                    </span>
+                  )}
+                </h3>
+              </div>
+
+              {checking ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-slate-400 text-xs font-bold">
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> এনরোলমেন্ট যাচাই হচ্ছে...
                 </div>
-              ) : (
-                <div className="aspect-video w-full flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-slate-900 to-indigo-950">
-                  {checking ? (
-                    <div className="flex items-center gap-2 text-slate-300 text-sm font-bold">
-                      <Loader2 className="w-5 h-5 animate-spin text-indigo-400" /> এনরোলমেন্ট যাচাই হচ্ছে...
+              ) : isUnlocked ? (
+                videos.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <Video className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400 font-medium">এই কোর্সে এখনো কোনো ভিডিও ক্লাস যোগ হয়নি</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* সাবজেক্ট ফিল্টার চিপ */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSubjectFilter("ALL")}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                          subjectFilter === "ALL" ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                        }`}
+                      >
+                        সব প্লেলিস্ট
+                      </button>
+                      {playlists.map((p) => (
+                        <button
+                          key={p.subject}
+                          type="button"
+                          onClick={() => setSubjectFilter(p.subject)}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
+                            subjectFilter === p.subject ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                          }`}
+                        >
+                          {p.subject} ({toBengaliDigits(p.items.length)})
+                        </button>
+                      ))}
                     </div>
-                  ) : isUnlocked && videos.length === 0 ? (
+
+                    {/* প্লেলিস্ট গ্রুপ */}
+                    {visiblePlaylists.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-6">এই সাবজেক্টে কোনো ভিডিও নেই</p>
+                    ) : (
+                      visiblePlaylists.map((playlist) => (
+                        <div key={playlist.subject} className="space-y-3">
+                          {/* প্লেলিস্ট হেডার */}
+                          <div className="flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                              <PlayCircle className="w-4 h-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <h4 className="font-black text-slate-900 text-sm sm:text-base truncate">{playlist.subject}</h4>
+                              <p className="text-[10px] text-slate-400 font-semibold">
+                                প্লেলিস্ট · {toBengaliDigits(playlist.items.length)}টি ক্লাস
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* ভিডিও কার্ড — ট্যাপ করলেই চলবে */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {playlist.items.map((v, vIdx) => (
+                              <button
+                                key={v.id}
+                                type="button"
+                                onClick={() => openVideo(v)}
+                                className="group text-left bg-slate-50 hover:bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-rose-400 hover:shadow-md transition cursor-pointer active:scale-[0.99]"
+                              >
+                                <div className="relative aspect-video bg-slate-900">
+                                  <img
+                                    src={`https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg`}
+                                    alt=""
+                                    className="w-full h-full object-cover opacity-90 group-hover:opacity-60 transition"
+                                  />
+                                  <span className="absolute inset-0 flex items-center justify-center">
+                                    <span className="w-12 h-12 rounded-full bg-black/60 group-hover:bg-rose-600 text-white flex items-center justify-center backdrop-blur-xs transition shadow-lg">
+                                      <PlayCircle className="w-6 h-6" />
+                                    </span>
+                                  </span>
+                                  <span className="absolute bottom-1.5 right-1.5 bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                                    {toBengaliDigits(vIdx + 1)}
+                                  </span>
+                                </div>
+                                <div className="p-2.5">
+                                  <p className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-rose-700 transition">
+                                    {v.title}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )
+              ) : (
+                /* লকড অবস্থা */
+                <div className="bg-gradient-to-br from-slate-50 to-amber-50 border border-amber-200 rounded-2xl p-5 sm:p-6 flex flex-col items-center text-center gap-3">
+                  {hasGoogleUser ? (
                     <>
-                      <Video className="w-10 h-10 text-slate-500 mb-3" />
-                      <p className="text-slate-300 font-bold text-sm sm:text-base">এই কোর্সে এখনো কোনো ভিডিও ক্লাস যোগ করা হয়নি</p>
-                      <p className="text-slate-500 text-xs mt-1">শিক্ষক ভিডিও যোগ করলেই এখানে দেখা যাবে</p>
-                    </>
-                  ) : showBuyScreen ? (
-                    <>
-                      <ShoppingCart className="w-10 h-10 text-amber-400 mb-3" />
-                      <p className="text-slate-200 font-bold text-sm sm:text-base">এই কোর্সের ভিডিও ক্লাসগুলো লক করা আছে</p>
-                      <p className="text-slate-400 text-xs mt-1 mb-4 max-w-md leading-relaxed">
-                        {videoResult?.message || "শুধুমাত্র যারা এই কোর্সটি কিনেছেন (এনরোল্ড) তারাই ভিডিও দেখতে পারবেন। কোর্স কিনলে শিক্ষকের অনুমোদনের পরপরই সব ভিডিও আনলক হয়ে যাবে।"}
-                      </p>
+                      <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center">
+                        <ShoppingCart className="w-6 h-6 text-amber-600" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-black text-slate-900 text-sm sm:text-base">এই কোর্সের ভিডিও ক্লাসগুলো লক করা আছে</p>
+                        <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                          {videoResult?.message || "শুধুমাত্র যারা এই কোর্সটি কিনেছেন (এনরোল্ড) তারাই ভিডিও দেখতে পারবেন। কোর্স কিনলে শিক্ষকের অনুমোদনের পরপরই সব প্লেলিস্ট আনলক হয়ে যাবে।"}
+                        </p>
+                      </div>
                       <button
                         onClick={() => setEnrollOpen(true)}
-                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-6 py-3 rounded-xl text-sm transition flex items-center gap-2 cursor-pointer shadow-lg"
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-6 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center gap-2 cursor-pointer shadow-md"
                       >
                         <ShoppingCart className="w-4 h-4" /> কোর্স কিনুন (Enroll Now)
                       </button>
                     </>
                   ) : (
                     <>
-                      <Lock className="w-10 h-10 text-amber-400 mb-3" />
-                      <p className="text-slate-200 font-bold text-sm sm:text-base">এনরোল্ড স্টুডেন্টরাই ভিডিও ক্লাস দেখতে পারবেন</p>
-                      <p className="text-slate-400 text-xs mt-1 mb-4 max-w-sm leading-relaxed">
-                        কোর্স কিনে শিক্ষকের অনুমোদন পেলে নিচে আপনার আইডি/মোবাইল দিয়ে যাচাই করলেই ভিডিও আনলক হবে।{" "}
-                        <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-amber-300 cursor-pointer">
-                          আগে কোর্স কিনুন
-                        </button>
-                        ।
-                      </p>
-
+                      <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center">
+                        <Lock className="w-6 h-6 text-amber-600" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-black text-slate-900 text-sm sm:text-base">এনরোল্ড স্টুডেন্টরাই ভিডিও ক্লাস দেখতে পারবেন</p>
+                        <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                          কোর্স কিনে শিক্ষকের অনুমোদন পেলে নিচে আপনার আইডি/মোবাইল দিয়ে যাচাই করলেই সব প্লেলিস্ট আনলক হবে।{" "}
+                          <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-amber-700 cursor-pointer">
+                            আগে কোর্স কিনুন
+                          </button>
+                          ।
+                        </p>
+                      </div>
                       <form onSubmit={handleManualVerify} className="w-full max-w-sm space-y-2">
                         <div className="flex gap-2">
                           <input
@@ -359,7 +446,7 @@ export default function CourseStudyPage() {
                             value={gateId}
                             onChange={(e) => setGateId(e.target.value)}
                             placeholder="স্টুডেন্ট আইডি / মোবাইল / ইমেইল"
-                            className="flex-1 px-3.5 py-2.5 rounded-xl bg-white/95 text-slate-900 text-xs sm:text-sm border border-transparent focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            className="flex-1 px-3.5 py-2.5 rounded-xl bg-white text-slate-900 text-xs sm:text-sm border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
                           />
                           <button
                             type="submit"
@@ -370,38 +457,16 @@ export default function CourseStudyPage() {
                             যাচাই করুন
                           </button>
                         </div>
-                        {gateError && <p className="text-amber-300 text-[11px] text-left">{gateError}</p>}
+                        {gateError && <p className="text-rose-600 text-[11px] text-left">{gateError}</p>}
                         {videoResult?.message && !gateError && (
-                          <p className="text-amber-300/80 text-[11px] text-left">{videoResult.message}</p>
+                          <p className="text-slate-400 text-[11px] text-left">{videoResult.message}</p>
                         )}
                       </form>
                     </>
                   )}
                 </div>
               )}
-
-              {/* Video info bar */}
-              <div className="p-4 sm:p-5 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="text-white font-black text-sm sm:text-base leading-snug line-clamp-2">
-                    {isUnlocked && selectedVideo ? selectedVideo.title : "ভিডিও ক্লাস"}
-                  </h2>
-                  {selectedVideo?.subject && (
-                    <span className="inline-block mt-1.5 bg-white/10 text-indigo-200 text-[10px] font-bold px-2 py-0.5 rounded-md border border-white/15">
-                      {selectedVideo.subject}
-                    </span>
-                  )}
-                  {selectedVideo?.description && (
-                    <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">{selectedVideo.description}</p>
-                  )}
-                </div>
-                {isUnlocked && (
-                  <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 text-[10px] font-black px-2 py-1 rounded-md flex items-center gap-1 shrink-0">
-                    <Check className="w-3 h-3" /> আনলকড
-                  </span>
-                )}
-              </div>
-            </div>
+            </section>
 
             {/* Exams section */}
             <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-2xs space-y-4">
@@ -474,21 +539,19 @@ export default function CourseStudyPage() {
             </section>
           </div>
 
-          {/* ============ RIGHT: subject-wise video library (শুধু এনরোল্ড হলে) ============ */}
+          {/* ============ RIGHT: সাবজেক্ট/প্লেলিস্ট ইন্ডেক্স ============ */}
           <aside className="lg:col-span-4 lg:sticky lg:top-4 bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-2xs space-y-4">
             <div>
               <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
-                <Video className="w-5 h-5 text-rose-600" /> ভিডিও লাইব্রেরি
+                <Layers className="w-5 h-5 text-indigo-600" /> প্লেলিস্ট ইন্ডেক্স
                 {isUnlocked && (
-                  <span className="bg-rose-50 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-rose-200">
-                    {toBengaliDigits(videos.length)}টি
+                  <span className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-indigo-200">
+                    {toBengaliDigits(playlists.length)}টি
                   </span>
                 )}
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                {isUnlocked
-                  ? "বিষয় বেছে নিন, ভিডিওতে চাপ দিলে বড় প্যানেলে দেখা যাবে"
-                  : "এনরোল্ড স্টুডেন্টদের জন্য"}
+                {isUnlocked ? "সাবজেক্ট অনুযায়ী ক্লাস — ট্যাপ করলেই ভিডিও শুরু হবে" : "এনরোল্ড স্টুডেন্টদের জন্য"}
               </p>
             </div>
 
@@ -496,98 +559,64 @@ export default function CourseStudyPage() {
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center space-y-2">
                 <Lock className="w-6 h-6 text-slate-400 mx-auto" />
                 <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                  ভিডিও লাইব্রেরি লক করা আছে।
+                  ভিডিও প্লেলিস্টগুলো লক করা আছে।
                   <br />
-                  {hasGoogleUser ? (
-                    <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-indigo-600 cursor-pointer">
-                      কোর্স কিনুন
-                    </button>
-                  ) : (
-                    "উপরের প্লেয়ারে আইডি দিয়ে যাচাই করুন বা "
-                  )}
-                  {!hasGoogleUser && (
-                    <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-indigo-600 cursor-pointer">
-                      কোর্স কিনুন
-                    </button>
-                  )}
+                  <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-indigo-600 cursor-pointer">
+                    কোর্স কিনুন
+                  </button>
+                  {!hasGoogleUser && " বা উপরে আইডি দিয়ে যাচাই করুন"}
                 </p>
               </div>
+            ) : playlists.length === 0 ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+                <p className="text-[11px] text-slate-400">কোনো প্লেলিস্ট নেই</p>
+              </div>
             ) : (
-              <>
-                {/* Subject filter chips */}
-                <div className="flex flex-wrap gap-1.5">
+              <div className="space-y-2">
+                {playlists.map((p) => (
+                  <button
+                    key={p.subject}
+                    type="button"
+                    onClick={() => setSubjectFilter(p.subject)}
+                    className={`w-full text-left p-3 rounded-xl border transition flex items-center gap-3 cursor-pointer ${
+                      subjectFilter === p.subject
+                        ? "border-indigo-500 bg-indigo-50/60 shadow-sm"
+                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white flex items-center justify-center shrink-0">
+                      <PlayCircle className="w-4 h-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-black text-slate-900 truncate">{p.subject}</span>
+                      <span className="text-[10px] text-slate-500 font-semibold">{toBengaliDigits(p.items.length)}টি ক্লাস</span>
+                    </span>
+                  </button>
+                ))}
+                {subjectFilter !== "ALL" && (
                   <button
                     type="button"
                     onClick={() => setSubjectFilter("ALL")}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
-                      subjectFilter === "ALL" ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                    }`}
+                    className="w-full text-center text-[11px] font-bold text-indigo-600 hover:text-indigo-800 py-1 cursor-pointer"
                   >
-                    সব
+                    সব প্লেলিস্ট দেখুন
                   </button>
-                  {subjectsWithVideos.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSubjectFilter(s)}
-                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer border ${
-                        subjectFilter === s ? "bg-rose-600 text-white border-rose-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Video list */}
-                <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
-                  {visibleVideos.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-6">এই বিষয়ে কোনো ভিডিও নেই</p>
-                  ) : (
-                    visibleVideos.map((v) => {
-                      const isActive = selectedVideoId === v.id;
-                      return (
-                        <button
-                          key={v.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedVideoId(v.id);
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                          }}
-                          className={`w-full text-left p-2.5 rounded-xl border transition flex items-center gap-3 cursor-pointer ${
-                            isActive
-                              ? "border-rose-400 bg-rose-50/70 shadow-sm"
-                              : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                          }`}
-                        >
-                          <img
-                            src={`https://i.ytimg.com/vi/${v.youtubeId}/mqdefault.jpg`}
-                            alt=""
-                            className="w-24 h-14 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-xs font-bold text-slate-900 leading-snug line-clamp-2">
-                              {v.title}
-                            </span>
-                            <span className="flex items-center gap-1.5 mt-1">
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-800 border border-sky-200">
-                                {v.subject || "সাধারণ"}
-                              </span>
-                              {isActive && <PlayCircle className="w-3.5 h-3.5 text-rose-600" />}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </>
+                )}
+              </div>
             )}
           </aside>
         </div>
       </main>
 
       <Footer />
+
+      {/* ভিডিও প্লেয়ার মোডাল — ট্যাপ করলেই খোলে */}
+      <VideoPlayerModal
+        video={playingVideo}
+        playlist={playingPlaylist}
+        onClose={() => setPlayingVideo(null)}
+        onSelect={(v) => setPlayingVideo(v)}
+      />
 
       {/* Exam auth modal (Google login required flow) */}
       {pendingExam && (
