@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useLayoutEffect } from "react";
+import { GraduationCap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/shared/Header";
@@ -13,6 +14,7 @@ import { UpcomingExamGrid } from "@/components/dashboard/UpcomingExamGrid";
 import { DailyNewsSection } from "@/components/dashboard/DailyNewsSection";
 import { NewNewsPopup } from "@/components/dashboard/NewNewsPopup";
 import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
+import { LandingPage } from "@/components/home/LandingPage";
 import { AppConfigData, Exam } from "@/types/exam";
 import { Submission } from "@/types/submission";
 import { syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
@@ -62,6 +64,9 @@ export default function HomeClient({
   const [selectedSubmissionForPopup, setSelectedSubmissionForPopup] = useState<Submission | null>(null);
   // True while this page is processing a Google OAuth callback (tokens in the URL)
   const [isAuthProcessing, setIsAuthProcessing] = useState(false);
+
+  // ল্যান্ডিং-গেট: "loading" → "guest" (শুধু ল্যান্ডিং পেজ) / "user" (পুরো ড্যাশবোর্ড)
+  const [gate, setGate] = useState<"loading" | "guest" | "user">("loading");
 
   useEffect(() => {
     // Redirect teacher to admin panel if logged in
@@ -246,6 +251,24 @@ export default function HomeClient({
     setIsEnrollOpen(true);
   };
 
+  // OAuth restore শেষ হলেই সিদ্ধান্ত: শিক্ষক/লগইন করা শিক্ষার্থী → ড্যাশবোর্ড,
+  // নাহলে (অতিথি) → শুধু ল্যান্ডিং পেজ (লগইন-গেট)
+  useEffect(() => {
+    if (isAuthProcessing) return; // OAuth restore চলাকালীন অপেক্ষা
+    const id = window.setTimeout(() => {
+      const isTeacherNow = !!sessionStorage.getItem("teacher_user");
+      const isStudent = !!getLocalStudentUser();
+      setGate(isTeacherNow || isStudent ? "user" : "guest");
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [isAuthProcessing, config]);
+
+  // ল্যান্ডিং পেজের "লগইন" বাটন — Google OAuth; ফিরে আসলে আবার হোম
+  const handleLandingLogin = async () => {
+    const { loginWithGoogle } = await import("@/lib/student-auth");
+    await loginWithGoogle(undefined, "/");
+  };
+
   const handleOpenStudentPortal = () => {
     // Student Portal একটি আলাদা পেজ (/portal) — popup-মডাল নয়। সেখানে
     // লগইন/ড্যাশবোর্ড পেজের ভেতরেই দেখায়।
@@ -256,6 +279,31 @@ export default function HomeClient({
     setActivePortalStudentId(id);
     setIsStudentDashOpen(true);
   };
+
+  // লগইন-গেট: অতিথি → শুধু ল্যান্ডিং পেজ (লগইন ছাড়া কনটেন্ট নয়)
+  if (gate === "guest") {
+    return (
+      <LandingPage
+        courses={coursesList}
+        subjects={subjectsList}
+        pinnedCourses={config.pinnedCourses || []}
+        onLogin={handleLandingLogin}
+      />
+    );
+  }
+
+  // সিদ্ধান্ত নেওয়ার আগে / OAuth restore চলাকালীন — হালকা লোডিং স্প্ল্যাশ
+  if (gate === "loading") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-950 text-white font-bengali flex flex-col items-center justify-center gap-4">
+        <span className="bg-gradient-to-tr from-amber-400 to-indigo-500 p-2 rounded-2xl shadow-lg shadow-black/30">
+          <GraduationCap className="w-6 h-6 text-slate-900" />
+        </span>
+        <p className="text-sm font-bold text-indigo-100">আরোহণ লোড হচ্ছে...</p>
+        <span className="w-8 h-8 rounded-full border-4 border-indigo-300/30 border-t-amber-400 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <>

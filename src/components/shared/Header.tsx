@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers, ShoppingCart, Clock, Video, Loader2 } from "lucide-react";
 import { getRecentNotifications, type NotifItem } from "@/actions/notification-actions";
+import { getLocalStudentUser } from "@/lib/student-auth";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface HeaderProps {
@@ -94,7 +95,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
   const loadNotifications = async () => {
     setNotifLoading(true);
     try {
-      const list = await getRecentNotifications();
+      // শিক্ষার্থীর পরিচয় (uid/email) দিয়ে কল — কোর্স-কনটেন্টের নোটিফিকেশন
+      // শুধু এনরোল্ড কোর্সগুলোরই আসে (সার্ভারে ফিল্টার হয়)
+      const local = getLocalStudentUser();
+      const list = await getRecentNotifications(
+        local ? { id: local.uid, email: local.email } : null
+      );
       setNotifs(list);
     } catch {
       // নেটওয়ার্ক সমস্যা হলে বেল খালি থাকে
@@ -120,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
 
   const toggleBell = () => {
     setIsNotifOpen((v) => {
-      if (!v && notifs.length === 0) loadNotifications();
+      if (!v) loadNotifications(); // প্রতি খোলায় ফ্রেশ — নতুন ভিডিও/পরীক্ষা সাথে সাথে আসে
       return !v;
     });
     setIsMenuOpen(false);
