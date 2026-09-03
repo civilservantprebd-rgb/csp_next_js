@@ -1,6 +1,7 @@
 "use client";
 
 import { CourseEditModal } from "@/components/admin/CourseEditModal";
+import { CourseDetailsModal } from "@/components/admin/CourseDetailsModal";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -44,6 +45,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  FileText,
   HelpCircle,
   BookOpen,
   Pin
@@ -86,6 +88,8 @@ export default function AdminPage() {
   const [editCourseName, setEditCourseName] = useState("");
   const [editingCourse, setEditingCourse] = useState<string | null>(null);
   const [courseDirty, setCourseDirty] = useState(false);
+  // কোর্সের বিস্তারিত (লম্বা লেখা) লেখা/এডিট করার মোডাল
+  const [detailsCourse, setDetailsCourse] = useState<string | null>(null);
 
   const openCourseEdit = (c: string) => {
     setEditingCourse(c);
@@ -581,6 +585,13 @@ export default function AdminPage() {
                                   <Edit3 className="w-3.5 h-3.5" /> এডিট
                                 </button>
                                 <button
+                                  onClick={() => setDetailsCourse(course)}
+                                  className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1 transition"
+                                  title="কোর্সের বিস্তারিত (লম্বা বিবরণ) লিখুন/এডিট করুন — শিক্ষার্থীরা কোর্স পেজে দেখবে"
+                                >
+                                  <FileText className="w-3.5 h-3.5" /> বিস্তারিত
+                                </button>
+                                <button
                                   onClick={() => handleDeleteCourse(course)}
                                   className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2 py-1 cursor-pointer flex items-center gap-1"
                                 >
@@ -610,6 +621,10 @@ export default function AdminPage() {
                   setActiveTab("exams");
                 }}
               />
+            )}
+
+            {detailsCourse && (
+              <CourseDetailsModal course={detailsCourse} onClose={() => setDetailsCourse(null)} />
             )}
 
             {activeTab === "subjects" && (

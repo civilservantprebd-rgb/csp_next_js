@@ -10,6 +10,7 @@ import { fetchAppConfigLite } from "@/actions/admin-actions";
 import { fetchCourseDetails } from "@/actions/course-actions";
 import { getCourseVideosForStudent, StudentVideoAccess } from "@/actions/video-actions";
 import { verifyStudentAccess } from "@/actions/student-actions";
+import { getCourseWhatsAppForStudent } from "@/actions/whatsapp-actions";
 import { AppConfigData, Exam } from "@/types/exam";
 import { CourseVideo } from "@/types/video";
 import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
@@ -17,6 +18,7 @@ import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { getLocalIdentity, setVerifiedStudent } from "@/lib/student-identity";
 import {
   ChevronLeft,
+  ChevronDown,
   PlayCircle,
   Lock,
   Search,
@@ -31,7 +33,8 @@ import {
   ShieldCheck,
   ShoppingCart,
   Layers,
-  LogIn
+  LogIn,
+  MessageCircle
 } from "lucide-react";
 
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
@@ -58,6 +61,10 @@ export default function CourseStudyPage() {
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [examSearch, setExamSearch] = useState("");
   const [courseDetails, setCourseDetails] = useState("");
+  // "কোর্সের বিস্তারিত" অ্যাকর্ডিয়ন — বিস্তারিত থাকলে ডিফল্ট খোলা
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  // এনরোল্ড স্টুডেন্টের জন্য কোর্সের WhatsApp গ্রুপ লিংক (খালি = দেখানো হবে না)
+  const [waLink, setWaLink] = useState("");
 
   // Modal player — ভিডিওতে ট্যাপ করলেই খোলে
   const [playingVideo, setPlayingVideo] = useState<CourseVideo | null>(null);
@@ -92,6 +99,7 @@ export default function CourseStudyPage() {
 
   useEffect(() => {
     if (!courseName) return;
+    setDetailsOpen(true);
     setLoadError("");
     fetchAppConfigLite()
       .then(setConfig)
@@ -105,6 +113,24 @@ export default function CourseStudyPage() {
       .catch(() => {});
     checkAccess();
   }, [courseName, checkAccess, loadAttempt]);
+
+  // এনরোল্ড স্টুডেন্ট পেলে কোর্সের WhatsApp গ্রুপ লিংক আনা হয় — শুধু তখনই দেখাবে
+  useEffect(() => {
+    if (!courseName || videoResult?.allowed !== true) {
+      setWaLink("");
+      return;
+    }
+    let cancelled = false;
+    getCourseWhatsAppForStudent(courseName, getLocalIdentity())
+      .then((l) => {
+        if (!cancelled) setWaLink(l);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseName, videoResult?.allowed]);
 
   const isUnlocked = videoResult?.allowed === true;
   const videos = videoResult?.videos || [];
@@ -304,19 +330,81 @@ export default function CourseStudyPage() {
           </div>
         </div>
 
-        {/* কোর্সের বিস্তারিত — শিক্ষক প্যানেল থেকে লেখা (লিখুন/এডিট/ডিলিট) */}
-        {courseDetails && (
-          <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm">
-            <h3 className="font-black text-slate-900 text-base flex items-center gap-2 mb-3">
-              <BookOpen className="w-5 h-5 text-indigo-600" /> কোর্সের বিস্তারিত
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">{courseDetails}</p>
-          </section>
-        )}
+        {/* কোর্সের বিস্তারিত — শিক্ষক প্যানেল থেকে লেখা; এখানে শিক্ষার্থীরা "কোর্সের বিস্তারিত"
+            অপশনে ট্যাপ করে পড়তে পারে (খুলে/বন্ধ করে) */}
+        <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((v) => !v)}
+            aria-expanded={detailsOpen}
+            className="w-full flex items-center justify-between gap-3 px-4 sm:px-6 py-4 hover:bg-slate-50 transition cursor-pointer"
+          >
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                <BookOpen className="w-4 h-4" />
+              </span>
+              <span className="min-w-0 text-left">
+                <h3 className="font-black text-slate-900 text-sm sm:text-base">কোর্সের বিস্তারিত</h3>
+                <span className="block text-[11px] text-slate-400 font-semibold truncate">
+                  {courseDetails ? (detailsOpen ? "বন্ধ করতে ট্যাপ করুন" : "বিস্তারিত পড়তে ট্যাপ করুন") : "এই কোর্সের বিস্তারিত শীঘ্রই যোগ হবে"}
+                </span>
+              </span>
+            </span>
+            <ChevronDown
+              className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${
+                detailsOpen && courseDetails ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          <div
+            className={`grid transition-all duration-300 ease-in-out ${
+              detailsOpen && courseDetails ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="px-4 sm:px-6 pb-5">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line border-t border-slate-100 pt-4">
+                  {courseDetails}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* ============ LEFT: exams + video playlists ============ */}
           <div className="lg:col-span-8 space-y-5">
+            {/* WhatsApp গ্রুপ — কোর্সে এনরোল্ড স্টুডেন্ট ছাড়া কেউ দেখে না; ট্যাপ করলে WhatsApp খোলে */}
+            {isUnlocked && waLink && (
+              <section className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/25 shrink-0">
+                      <MessageCircle className="w-5 h-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="font-black text-emerald-950 text-sm sm:text-base">WhatsApp কমিউনিটি</h3>
+                      <p className="text-[11px] text-emerald-800/90 font-semibold leading-snug">
+                        এই কোর্সের নিয়মিত আপডেট, নোটিশ ও আলোচনা
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={waLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm shadow-md shadow-emerald-600/25 transition cursor-pointer active:scale-[0.98] shrink-0"
+                  >
+                    <MessageCircle className="w-4 h-4" /> WhatsApp-এ জয়েন করুন
+                  </a>
+                </div>
+                <p className="text-[10px] text-emerald-700/80 font-semibold flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> শুধু এনরোল্ড স্টুডেন্টদের জন্য — ট্যাপ করলেই WhatsApp খুলবে
+                </p>
+              </section>
+            )}
+
             {/* Exams section — সবার উপরে, যাতে পরীক্ষা সহজে পাওয়া যায় */}
             <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">

@@ -99,3 +99,41 @@ export async function getWhatsAppLinksForStudent(studentId?: string, email?: str
     return [];
   }
 }
+
+/**
+ * কোর্স পেজ: একটি নির্দিষ্ট কোর্সের WhatsApp গ্রুপ লিংক — শুধু সেই কোর্সে
+ * এনরোল্ড স্টুডেন্টই পায় (allowed_students যাচাই)। লিংক নেই / এনরোল্ড
+ * নয় / শিক্ষক → খালি স্ট্রিং ফেরত।
+ */
+export async function getCourseWhatsAppForStudent(
+  course: string,
+  identity?: { id?: string; email?: string } | null
+): Promise<string> {
+  try {
+    const name = String(course || "").trim();
+    if (!name) return "";
+    const cleanId = String(identity?.id || "").trim();
+    const cleanEmail = String(identity?.email || "").trim().toLowerCase();
+    if (!cleanId && !cleanEmail) return "";
+
+    const { isTeacherSession } = await import("@/lib/teacher-auth");
+    if (await isTeacherSession()) return ""; // শিক্ষক-সেশনকে স্টুডেন্ট লিংক নয়
+
+    // ১) এই কোর্সের জন্য WhatsApp লিংক আছে?
+    const { data: row } = await supabase
+      .from("course_whatsapp")
+      .select("link")
+      .eq("course", name)
+      .maybeSingle();
+    if (row?.link) {
+      // ২) স্টুডেন্ট কি এই কোর্সে এনরোল্ড? (id/email দিয়ে allowed_students ম্যাচ)
+      const { verifyStudentAccess } = await import("@/actions/student-actions");
+      const access = await verifyStudentAccess(cleanId || cleanEmail, name, cleanEmail);
+      if (access.allowed) return String(row.link).trim();
+    }
+    return "";
+  } catch (err) {
+    console.error("getCourseWhatsAppForStudent error:", err);
+    return "";
+  }
+}
