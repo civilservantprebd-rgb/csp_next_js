@@ -33,10 +33,21 @@ function markSeen(id: string) {
  * নোটিফিকেশন-স্টাইল পপআপে পুরো সংবাদটা দেখায়। দেখার পর localStorage-এ
  * চিহ্নিত হয়ে যায় — ফলে প্রতিটি সংবাদ কেবল একবারই পপআপ হয়।
  */
-export const NewNewsPopup: React.FC = () => {
+interface NewNewsPopupProps {
+  /** সার্ভার-সাইড (হোম পেজ রেন্ডার) থেকে আনা সংবাদ — থাকলে নেটওয়ার্ক কল ছাড়াই যাচাই করে */
+  initialNews?: DailyNewsItem[];
+}
+
+export const NewNewsPopup: React.FC<NewNewsPopupProps> = ({ initialNews }) => {
   const [news, setNews] = useState<DailyNewsItem | null>(null);
 
   useEffect(() => {
+    // সার্ভার-রেন্ডার করা সংবাদ পেলে সরাসরি সেটা দিয়েই যাচাই — কোনো অতিরিক্ত ফেচ নয়
+    if (initialNews !== undefined) {
+      const firstUnseen = initialNews.find((n) => !getSeenIds().has(n.id));
+      if (firstUnseen) setNews(firstUnseen);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -55,7 +66,7 @@ export const NewNewsPopup: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialNews]);
 
   if (!news) return null;
 

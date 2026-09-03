@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     siteName: "আরোহণ",
     images: [
       {
-        url: "/og.png?v=2",
+        url: "/og.png?v=3",
         width: 1200,
         height: 630,
         alt: "আরোহণ — দক্ষতা এবং ক্যারিয়ার",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "আরোহণ — দক্ষতা এবং ক্যারিয়ার",
     description: "বিসিএস ও সরকারি চাকরির প্রস্তুতির স্মার্ট প্রিপারেশন পোর্টাল",
-    images: ["/og.png?v=2"],
+    images: ["/og.png?v=3"],
   },
 };
 

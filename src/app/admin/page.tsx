@@ -54,7 +54,18 @@ export default function AdminPage() {
   const router = useRouter();
   const [config, setConfig] = useState<AppConfigData | null>(null);
   const [isFullDataLoaded, setIsFullDataLoaded] = useState(false);
-  const [activeTab, setActiveTab] = useState<AdminTabType>("exams");
+  const [activeTab, setActiveTab] = useState<AdminTabType>(() => {
+    // "শিক্ষার্থীর ফলাফল" পেজ থেকে ফিরে এলে (…/admin?tab=students) সরাসরি ওই ট্যাব খোলে
+    if (typeof window !== "undefined") {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      const valid: AdminTabType[] = [
+        "analytics", "exams", "courses", "subjects", "students",
+        "questions", "question_bank", "videos", "archive", "drivelinks", "news", "whatsapp"
+      ];
+      if (t && (valid as string[]).includes(t)) return t as AdminTabType;
+    }
+    return "exams";
+  });
   const [selectedExamKey, setSelectedExamKey] = useState("");
   const [teacherUser, setTeacherUser] = useState<{ email: string } | null>(null);
 

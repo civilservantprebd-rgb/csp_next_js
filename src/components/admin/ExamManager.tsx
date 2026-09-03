@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Exam, SubjectItem } from "@/types/exam";
 import { createExam, updateExam, deleteExam, toggleExamResultPublish } from "@/actions/admin-actions";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
@@ -17,7 +17,9 @@ import {
   RotateCcw,
   CheckCircle2,
   Clock,
-  Award
+  Award,
+  BookOpen,
+  ChevronDown
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
@@ -50,6 +52,49 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   const [isResultPublished, setIsResultPublished] = useState(false);
   const [isFree, setIsFree] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // ---- কোর্স-ভিত্তিক তালিকা: কোন কোর্সের গ্রুপ সংকুচিত আছে ----
+  // ডিফল্টে সক্রিয় পরীক্ষার কোর্স ছাড়া বাকি সব সংকুচিত (কোর্সে ট্যাপ করলে খোলে)
+  const [collapsedCourses, setCollapsedCourses] = useState<Set<string>>(() => {
+    const active = exams[activeExamKey];
+    const expanded = active?.course ? String(active.course).trim() : "";
+    const collapsed = new Set<string>();
+    courses.forEach((c) => {
+      if (c !== expanded) collapsed.add(c);
+    });
+    Object.values(exams).forEach((ex) => {
+      const c = String(ex.course || "").trim();
+      if (c && c !== expanded) collapsed.add(c);
+    });
+    return collapsed;
+  });
+
+  const toggleCourseGroup = (courseName: string) => {
+    setCollapsedCourses((prev) => {
+      const next = new Set(prev);
+      if (next.has(courseName)) next.delete(courseName);
+      else next.add(courseName);
+      return next;
+    });
+  };
+
+  const ensureCourseVisible = (courseName: string) => {
+    const c = String(courseName || "").trim();
+    if (!c) return;
+    setCollapsedCourses((prev) => {
+      if (!prev.has(c)) return prev;
+      const next = new Set(prev);
+      next.delete(c);
+      return next;
+    });
+  };
+
+  // সক্রিয় পরীক্ষার কোর্সের গ্রুপ যেন সবসময় খোলা থাকে (প্রশ্ন-বিল্ডার থেকে নির্বাচন বদলালেও)
+  useEffect(() => {
+    const active = exams[activeExamKey];
+    if (active?.course) ensureCourseVisible(active.course);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExamKey, exams]);
 
   // Edit form states
   const [editingExamKey, setEditingExamKey] = useState<string | null>(null);
@@ -137,6 +182,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
     setIsLoading(false);
 
     if (success) {
+      ensureCourseVisible(editCourse);
       onRefresh();
       alert("এক্সাম সেট সফলভাবে আপডেট করা হয়েছে।");
     } else {
@@ -171,6 +217,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
     if (newKey) {
       setTitle("");
       setIsResultPublished(false);
+      ensureCourseVisible(course);
       onRefresh();
       alert("নতুন এক্সাম সেট সফলভাবে তৈরি করা হয়েছে।");
     }
@@ -193,6 +240,26 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
       navigator.clipboard.writeText(url);
       alert("পরীক্ষার লিংক কপি করা হয়েছে:\n" + url);
     }
+  };
+
+  // ---- কোর্স অনুযায়ী গ্রুপিং (নিচের তালিকার জন্য) ----
+  const examEntries = Object.entries(exams);
+  const knownCourses = new Set(courses);
+  const orderedCourseNames = [...courses];
+  examEntries.forEach(([, ex]) => {
+    const c = String(ex.course || "").trim();
+    if (c && !knownCourses.has(c) && !orderedCourseNames.includes(c)) orderedCourseNames.push(c);
+  });
+  const courseExamMap = new Map<string, [string, Exam][]>();
+  orderedCourseNames.forEach((c) => {
+    const list = examEntries.filter(([, ex]) => String(ex.course || "").trim() === c);
+    if (list.length > 0) courseExamMap.set(c, list);
+  });
+  const courseGroups = Array.from(courseExamMap.keys());
+  const allCoursesCollapsed =
+    courseGroups.length > 0 && courseGroups.every((c) => collapsedCourses.has(c));
+  const toggleAllCourseGroups = () => {
+    setCollapsedCourses(allCoursesCollapsed ? new Set() : new Set(courseGroups));
   };
 
   return (
@@ -341,92 +408,169 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
         </form>
       </div>
 
-      {/* List of Existing Exams */}
+      {/* List of Existing Exams — কোর্স অনুযায়ী সাজানো (কোর্স হেডারে ট্যাপ করলে ওই কোর্সের পরীক্ষাগুলো খোলে) */}
       <div>
-        <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2.5">সকল এক্সাম সেটসমূহ:</h4>
-        <div className="space-y-2.5">
-          {Object.entries(exams).map(([k, ex]) => {
-            const isActive = activeExamKey === k;
-            const isPublished = isAnswerTimeReached(ex);
-
-            return (
-              <div
-                key={k}
-                className={`p-3.5 rounded-2xl border ${
-                  isActive ? "border-indigo-500 bg-indigo-50/40" : "border-slate-200 bg-slate-50"
-                } flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3`}
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-2.5">
+          <h4 className="font-bold text-slate-800 text-xs sm:text-sm">
+            সকল এক্সাম সেটসমূহ — কোর্স অনুযায়ী
+          </h4>
+          <div className="flex items-center gap-2">
+            {courseGroups.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleAllCourseGroups}
+                className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-slate-900 text-xs sm:text-sm">{ex.title}</span>
-                    {isActive && (
-                      <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded font-bold">
-                        সক্রিয়
-                      </span>
-                    )}
-                    {isPublished ? (
-                      <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> রেজাল্ট প্রকাশিত
-                      </span>
-                    ) : (
-                      <span className="text-xs bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-600" /> রেজাল্ট অপ্রকাশিত (লুকানো)
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-500">
-                    কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(ex.questions?.length || 0)} |
-                    সময়: {toBengaliDigits(ex.timerMinutes)} মিনিট
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 w-full sm:w-auto justify-end">
-                  {/* Result Release / Reset Button */}
-                  {isPublished ? (
-                    <button
-                      type="button"
-                      onClick={() => handleTogglePublish(k, false)}
-                      disabled={isLoading}
-                      className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
-                      title="ফলাফল রিসেট করে গোপন করুন (শিক্ষার্থীদের 'মার্ক্স প্রকাশিত হয়নি' বার্তা দেখাবে)"
-                    >
-                      <RotateCcw className="w-3 h-3" /> রেজাল্ট রিসেট
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleTogglePublish(k, true)}
-                      disabled={isLoading}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
-                      title="ফলাফল ও লিডারবোর্ড প্রকাশ করুন"
-                    >
-                      <Send className="w-3 h-3" /> রেজাল্ট রিলিজ
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => startEdit(k, ex)}
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
-                  >
-                    <Settings className="w-3 h-3" /> এডিট
-                  </button>
-                  <button
-                    onClick={() => copyShareLink(k)}
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
-                  >
-                    <Copy className="w-3 h-3" /> লিংক
-                  </button>
-                  <button
-                    onClick={() => handleDelete(k)}
-                    className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-sm font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
-                  >
-                    <Trash2 className="w-3 h-3" /> মুছুন
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                {allCoursesCollapsed ? "সব খুলুন" : "সব বন্ধ করুন"}
+              </button>
+            )}
+            <span className="text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+              মোট {toBengaliDigits(examEntries.length)}টি
+            </span>
+          </div>
         </div>
+
+        {courseGroups.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            কোনো পরীক্ষা নেই — উপরের ফর্ম দিয়ে প্রথম এক্সাম সেট তৈরি করুন।
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {courseGroups.map((courseName) => {
+              const groupExams = courseExamMap.get(courseName) || [];
+              const isOpen = !collapsedCourses.has(courseName);
+              const hasActive = groupExams.some(([k]) => k === activeExamKey);
+              return (
+                <div key={courseName} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  {/* কোর্স হেডার — ট্যাপ করলে ওই কোর্সের সব পরীক্ষা দেখায় */}
+                  <button
+                    type="button"
+                    onClick={() => toggleCourseGroup(courseName)}
+                    aria-expanded={isOpen}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition cursor-pointer ${
+                      isOpen
+                        ? "bg-gradient-to-r from-indigo-900 to-indigo-800"
+                        : "bg-slate-800 hover:bg-slate-700"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shrink-0 shadow-sm">
+                        <span className="w-full h-full bg-slate-900/90 rounded-[10px] flex items-center justify-center">
+                          <BookOpen className="w-4 h-4 text-amber-300" />
+                        </span>
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-white font-black text-xs sm:text-sm truncate">
+                          {courseName}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-[10px] text-indigo-200 font-semibold">
+                          {toBengaliDigits(groupExams.length)}টি পরীক্ষা
+                          {hasActive && (
+                            <span className="bg-amber-400 text-slate-950 px-1.5 py-px rounded font-black">
+                              সক্রিয়
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className={`w-5 h-5 text-indigo-200 shrink-0 transition-transform duration-200 ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* ওই কোর্সের পরীক্ষাগুলো */}
+                  {isOpen && (
+                    <div className="p-2.5 space-y-2.5 bg-slate-50/70">
+                      {groupExams.map(([k, ex]) => {
+                        const isActive = activeExamKey === k;
+                        const isPublished = isAnswerTimeReached(ex);
+
+                        return (
+                          <div
+                            key={k}
+                            className={`p-3.5 rounded-2xl border ${
+                              isActive ? "border-indigo-500 bg-indigo-50/40" : "border-slate-200 bg-slate-50"
+                            } flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3`}
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 text-xs sm:text-sm">{ex.title}</span>
+                                {isActive && (
+                                  <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded font-bold">
+                                    সক্রিয়
+                                  </span>
+                                )}
+                                {isPublished ? (
+                                  <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> রেজাল্ট প্রকাশিত
+                                  </span>
+                                ) : (
+                                  <span className="text-xs bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                                    <Clock className="w-3 h-3 text-amber-600" /> রেজাল্ট অপ্রকাশিত (লুকানো)
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-slate-500">
+                                কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(ex.questions?.length || 0)} |
+                                সময়: {toBengaliDigits(ex.timerMinutes)} মিনিট
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5 w-full sm:w-auto justify-end">
+                              {/* Result Release / Reset Button */}
+                              {isPublished ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePublish(k, false)}
+                                  disabled={isLoading}
+                                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
+                                  title="ফলাফল রিসেট করে গোপন করুন (শিক্ষার্থীদের 'মার্ক্স প্রকাশিত হয়নি' বার্তা দেখাবে)"
+                                >
+                                  <RotateCcw className="w-3 h-3" /> রেজাল্ট রিসেট
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePublish(k, true)}
+                                  disabled={isLoading}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
+                                  title="ফলাফল ও লিডারবোর্ড প্রকাশ করুন"
+                                >
+                                  <Send className="w-3 h-3" /> রেজাল্ট রিলিজ
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => startEdit(k, ex)}
+                                className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                              >
+                                <Settings className="w-3 h-3" /> এডিট
+                              </button>
+                              <button
+                                onClick={() => copyShareLink(k)}
+                                className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                              >
+                                <Copy className="w-3 h-3" /> লিংক
+                              </button>
+                              <button
+                                onClick={() => handleDelete(k)}
+                                className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-sm font-medium px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                              >
+                                <Trash2 className="w-3 h-3" /> মুছুন
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Question builder modal — add/edit questions right inside the exam set */}

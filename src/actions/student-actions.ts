@@ -637,3 +637,137 @@ export async function getCompletedExamKeys(
     return [];
   }
 }
+
+/**
+ * শিক্ষক প্যানেল: একজন এনরোল্ড স্টুডেন্টের পূর্ণ পরীক্ষা-ইতিহাস ও ফলাফল
+ * (কত পরীক্ষা দিয়েছে, কোনটায় কী পেয়েছে)। শুধু শিক্ষকই দেখতে পারেন
+ * (requireTeacher) — শিক্ষার্থী বা অন্য কেউ নয়।
+ * উত্তর প্রকাশ হয়ে গেলে পেন্ডিং সাবমিশনের স্কোর এখানে মূল্যায়নও হয়ে যায়,
+ * ফলে টিচার ভিউতে সবসময় প্রকৃত নম্বর দেখা যায়।
+ */
+export async function getStudentExamHistoryForTeacher(rawStudentId: string): Promise<{
+  student: AllowedStudent | null;
+  submissions: Submission[];
+  examsMeta: Record<string, { passMark: number; subject: string; course: string }>;
+} | null> {
+  try {
+    await requireTeacher();
+  } catch {
+    return null; // শিক্ষক নন → কোনো ডেটা নয়
+  }
+
+  try {
+    const cleanId = String(rawStudentId || "").trim();
+    const normId = parseBengaliDigits(cleanId).trim();
+    // PostgREST filter মেটা-ক্যারেক্টার স্যানিটাইজ (ফোন/ইমেইল/uid ছাড়া কিছু নেই)
+    const sanitize = (s: string) => String(s || "").replace(/[(),;*]/g, "");
+    const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
+    if (ids.length === 0) return null;
+
+    // শিক্ষার্থীর প্রোফাইল (allowed_students)
+    const { data: studentRows } = await supabase
+      .from("allowed_students")
+      .select("*")
+      .or(ids.map((i) => `id.eq.${sanitize(i)}`).join(","))
+      .limit(1);
+    const srow = studentRows?.[0];
+    const student: AllowedStudent | null = srow
+      ? {
+          docId: srow.id,
+          id: srow.id,
+          name: srow.name || "শিক্ষার্থী",
+          email: srow.email || "",
+          courses: srow.courses || [],
+          lastLoginAt: srow.last_login_at || srow.approved_at || "",
+          photoURL: srow.photo_url || ""
+        }
+      : null;
+
+    // সব সাবমিশন — সর্বশেষ আগে
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("*")
+      .in("student_id", ids)
+      .order("submitted_at", { ascending: false });
+    if (error) throw error;
+
+    const subs: Submission[] = (data || []).map((r) => ({
+      id: r.id,
+      studentName: r.student_name,
+      studentId: r.student_id,
+      examKey: r.exam_key,
+      examTitle: r.exam_title,
+      score: Number(r.score ?? 0),
+      correct: Number(r.correct ?? 0),
+      incorrect: Number(r.incorrect ?? 0),
+      totalQuestions: Number(r.total_questions ?? 0),
+      timeSpent: r.time_spent,
+      answers: Array.isArray(r.answers)
+        ? r.answers.map((v: any) => (v === -1 || v === null ? null : Number(v)))
+        : [],
+      isPendingEvaluation: !!r.is_pending_evaluation,
+      isLiveSubmission: !!r.is_live_submission,
+      submittedAtISO: r.submitted_at
+    }));
+
+    // এক্সাম মেটা (পাস মার্ক/সাবজেক্ট/কোর্স) — এবং পেন্ডিং হলে মূল্যায়ন
+    const examsMeta: Record<string, { passMark: number; subject: string; course: string }> = {};
+    const { data: examRows } = await supabase.from("exams").select("*");
+    const examsMap: Record<string, Exam> = {};
+    (examRows || []).forEach((ex) => {
+      examsMap[ex.id] = {
+        id: ex.id,
+        course: ex.course,
+        subject: ex.subject,
+        title: ex.title,
+        timerMinutes: ex.timer_minutes,
+        isFree: ex.is_free,
+        passMark: Number(ex.pass_mark),
+        startTime: ex.start_time,
+        endTime: ex.end_time,
+        isResultPublished: ex.is_result_published,
+        leaderboardStartTime: ex.leaderboard_start_time,
+        leaderboardEndTime: ex.leaderboard_end_time
+      };
+      examsMeta[ex.id] = {
+        passMark: Number(ex.pass_mark) || 1,
+        subject: ex.subject || "",
+        course: ex.course || ""
+      };
+    });
+
+    const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+    for (const s of subs) {
+      const examObj = examsMap[s.examKey];
+      const isReleased = examObj ? isAnswerTimeReached(examObj) : true;
+      if (isReleased && (s.isPendingEvaluation || s.score === undefined)) {
+        const solutions = await getExamSolutions(s.examKey);
+        if (solutions && s.answers) {
+          let cor = 0;
+          let incor = 0;
+          s.answers.forEach((ans, idx) => {
+            const sol = solutions[idx];
+            if (ans !== null && sol) {
+              if (ans === sol.correct) cor++;
+              else incor++;
+            }
+          });
+          const sc = Math.max(0, cor - incor * 0.5);
+          await supabase
+            .from("submissions")
+            .update({ score: sc, correct: cor, incorrect: incor, is_pending_evaluation: false })
+            .eq("id", s.id);
+          s.score = sc;
+          s.correct = cor;
+          s.incorrect = incor;
+          s.isPendingEvaluation = false;
+        }
+      }
+    }
+
+    return { student, submissions: subs, examsMeta };
+  } catch (err) {
+    console.error("Teacher student history error:", err);
+    return null;
+  }
+}

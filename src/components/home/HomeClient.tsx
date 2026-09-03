@@ -18,6 +18,7 @@ import { Submission } from "@/types/submission";
 import { syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
 import { getLocalStudentUser } from "@/lib/student-auth";
 import { getVerifiedStudent } from "@/lib/student-identity";
+import type { DailyNewsItem } from "@/actions/news-actions";
 
 // Lazy-load modals: their JS (~150KB total) only downloads when actually opened
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
@@ -36,7 +37,14 @@ const hasAuthTokensInUrl = () => {
   return hash.includes("access_token") || hash.includes("error") || search.includes("code=");
 };
 
-export default function HomeClient({ config }: { config: AppConfigData }) {
+export default function HomeClient({
+  config,
+  initialDailyNews
+}: {
+  config: AppConfigData;
+  /** সার্ভার-সাইড রেন্ডার করা দৈনিক সংবাদ — ক্লায়েন্ট ফেচ ছাড়াই সাথে সাথে দেখাতে */
+  initialDailyNews?: DailyNewsItem[];
+}) {
   const router = useRouter();
   const [selectedExamKey, setSelectedExamKey] = useState(() => {
     const keys = Object.keys(config.exams || {});
@@ -259,7 +267,7 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
       <main className="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 md:p-6 space-y-10">
 
         {/* দৈনিক সংবাদ — শিক্ষক/অ্যাডমিন নয় এমন সবার জন্য */}
-        <DailyNewsSection />
+        <DailyNewsSection initialNews={initialDailyNews} />
 
         {/* Live Exams (if any) */}
         <LiveExamGrid
@@ -296,7 +304,7 @@ export default function HomeClient({ config }: { config: AppConfigData }) {
       <Footer onOpenTeacherLogin={() => setIsTeacherLoginOpen(true)} />
 
       {/* নতুন সংবাদ এলে একবার পপআপ (হোম পেজে বা হোমে ফিরে এলে) */}
-      <NewNewsPopup />
+      <NewNewsPopup initialNews={initialDailyNews} />
 
       {/* লগইন-পর এনরোল্ড কোর্সের WhatsApp গ্রুপে জয়েন প্রম্পট (একবার) */}
       <WhatsAppJoinPopup />

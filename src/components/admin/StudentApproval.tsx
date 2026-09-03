@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { EnrollmentRequest, AllowedStudent } from "@/types/student";
 import { getEnrollRequests, approveEnrollRequest, declineEnrollRequest } from "@/actions/enroll-actions";
 import {
@@ -27,7 +28,8 @@ import {
   BookOpen,
   UserCheck,
   Sparkles,
-  Ban
+  Ban,
+  BarChart3
 } from "lucide-react";
 import { formatBangladeshClock, parseBengaliDigits, toBengaliDigits } from "@/lib/utils";
 
@@ -36,6 +38,7 @@ interface StudentApprovalProps {
 }
 
 export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => {
+  const router = useRouter();
   const [requests, setRequests] = useState<EnrollmentRequest[]>([]);
   const [students, setStudents] = useState<AllowedStudent[]>([]);
   const [newId, setNewId] = useState("");
@@ -287,7 +290,8 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
           </button>
         </div>
 
-        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+        {/* অপেক্ষমান রিকোয়েস্ট — বড় ভিউ: স্ক্রিনের ৭০% পর্যন্ত, যাতে একসাথে অনেকগুলো দেখা যায় */}
+        <div className="space-y-2 max-h-[70vh] min-h-[12rem] overflow-y-auto pr-1 overscroll-contain">
           {requests.length === 0 ? (
             <p className="text-xs text-slate-400 text-center py-3 bg-white/60 rounded-xl">
               কোনো অপেক্ষমান এনরোলমেন্ট রিকোয়েস্ট নেই।
@@ -711,7 +715,15 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                             {item.name.charAt(0)}
                           </div>
                         )}
-                        <span className="text-slate-900 font-bold">{item.name}</span>
+                        {/* নামে ট্যাপ → আলাদা পেজে ওই শিক্ষার্থীর সব পরীক্ষার ফলাফল */}
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/admin/student/${encodeURIComponent(item.id)}`)}
+                          className="text-left text-slate-900 font-bold hover:text-indigo-700 hover:underline underline-offset-4 transition cursor-pointer"
+                          title="পরীক্ষার ফলাফল দেখুন"
+                        >
+                          {item.name}
+                        </button>
                         {item.email && (
                           <span className="text-slate-500 font-medium text-sm truncate">
                             ({item.email})
@@ -744,6 +756,13 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                   </div>
 
                   <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                    <button
+                      onClick={() => router.push(`/admin/student/${encodeURIComponent(item.id)}`)}
+                      className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1"
+                      title="কতগুলো পরীক্ষা দিয়েছে ও কী পেয়েছে দেখুন"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" /> ফলাফল
+                    </button>
                     <button
                       onClick={() => startEdit(item)}
                       className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border border-indigo-200"

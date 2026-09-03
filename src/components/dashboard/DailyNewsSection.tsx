@@ -148,9 +148,14 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
  * - যেকোনো একটায় ট্যাপ করলে সেটা বড় হয়ে পুরো লেখা খোলে (অ্যাকর্ডিয়ন)
  * - "তারিখ" বাটন → ক্যালেন্ডার, ওই দিনের সব সংবাদ দেখা যায়
  */
-export const DailyNewsSection: React.FC = () => {
-  const [news, setNews] = useState<DailyNewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
+interface DailyNewsSectionProps {
+  /** সার্ভার-সাইড (হোম পেজ রেন্ডার) থেকে আনা সংবাদ — থাকলে কোনো স্পিনার ছাড়াই সাথে সাথে দেখায় */
+  initialNews?: DailyNewsItem[];
+}
+
+export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews }) => {
+  const [news, setNews] = useState<DailyNewsItem[]>(initialNews || []);
+  const [loading, setLoading] = useState(initialNews === undefined);
   const [expandedId, setExpandedId] = useState<string>("");
   const [viewKey, setViewKey] = useState<string | null>(null);
   const [calOpen, setCalOpen] = useState(false);
@@ -160,6 +165,9 @@ export const DailyNewsSection: React.FC = () => {
   });
 
   useEffect(() => {
+    // সার্ভার-রেন্ডার করা সংবাদ (খালি হোক বা না হোক) পেলে ক্লায়েন্ট-সাইড ফেচের
+    // দরকার নেই — প্রথম পেইন্টেই সংবাদ হাজির থাকে (কোনো লোডিং স্পিনার নেই)।
+    if (initialNews !== undefined) return;
     let cancelled = false;
     (async () => {
       try {
@@ -176,7 +184,7 @@ export const DailyNewsSection: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialNews]);
 
   const dated = useMemo(
     () =>
