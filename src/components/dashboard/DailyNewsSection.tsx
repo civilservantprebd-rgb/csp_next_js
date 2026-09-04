@@ -10,9 +10,18 @@ import {
   ChevronRight,
   X,
   Calendar as CalendarIcon,
-  Layers
+  Layers,
+  Download,
+  ExternalLink,
+  Star
 } from "lucide-react";
-import { getDailyNews, incrementNewsRead, DailyNewsItem } from "@/actions/news-actions";
+import {
+  getDailyNews,
+  getDailyNewsDigests,
+  incrementNewsRead,
+  DailyNewsItem,
+  DailyNewsDigest
+} from "@/actions/news-actions";
 import { toBengaliDigits } from "@/lib/utils";
 
 /* ---------- বাংলাদেশ (UTC+6) তারিখ হেল্পার ---------- */
@@ -46,6 +55,13 @@ function longLabel(key: string): string {
 function shortLabel(key: string): string {
   const [y, m, d] = key.split("-").map((x) => Number(x));
   return `${toBengaliDigits(d)}/${toBengaliDigits(m)}/${toBengaliDigits(y)}`;
+}
+
+/** 'YYYY-MM-DD' (digests টেবিল) → ক্যালেন্ডার-কী 'y-m-d' */
+function keyFromDateStr(dateStr: string): string {
+  const [y, m, d] = String(dateStr || "").split("-").map((x) => Number(x));
+  if (!y || !m || !d) return "";
+  return `${y}-${m}-${d}`;
 }
 
 /* ---------- মিনি ক্যালেন্ডার ---------- */
@@ -144,9 +160,9 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
 
 /**
  * হোম পেজের "দৈনিক সংবাদ":
- * - সবগুলোই ছোট হেডিং (সর্বশেষটা উপরে, ছোট "সর্বশেষ" ব্যাজসহ)
- * - যেকোনো একটায় ট্যাপ করলে সেটা বড় হয়ে পুরো লেখা খোলে (অ্যাকর্ডিয়ন)
- * - "তারিখ" বাটন → ক্যালেন্ডার, ওই দিনের সব সংবাদ দেখা যায়
+ * - অটোমেটিক (রাত ৩টা) আসা সংবাদ: সোর্স/ক্যাটাগরি চিপ + "গুরুত্বপূর্ণ" স্টার ব্যাজ
+ * - প্রতিদিনের ডাইজেস্ট PDF/HTML ডাউনলোড চিপ (তারিখসহ)
+ * - তারিখ বাটন → ক্যালেন্ডার, ওই দিনের সব সংবাদ
  */
 interface DailyNewsSectionProps {
   /** সার্ভার-সাইড (হোম পেজ রেন্ডার) থেকে আনা সংবাদ — থাকলে কোনো স্পিনার ছাড়াই সাথে সাথে দেখায় */
@@ -155,6 +171,7 @@ interface DailyNewsSectionProps {
 
 export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews }) => {
   const [news, setNews] = useState<DailyNewsItem[]>(initialNews || []);
+  const [digests, setDigests] = useState<DailyNewsDigest[]>([]);
   const [loading, setLoading] = useState(initialNews === undefined);
   const [expandedId, setExpandedId] = useState<string>("");
   const [viewKey, setViewKey] = useState<string | null>(null);
@@ -163,6 +180,8 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
     const t = todayBD();
     return { y: t.y, m: t.m };
   });
+  const [shownCount, setShownCount] = useState(40);
+  const PAGE = 40;
 
   useEffect(() => {
     // সার্ভার-রেন্ডার করা সংবাদ (খালি হোক বা না হোক) পেলে ক্লায়েন্ট-সাইড ফেচের
@@ -171,10 +190,9 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
     let cancelled = false;
     (async () => {
       try {
-        const list = await getDailyNews();
+        const list = await getDailyNews(2500);
         if (cancelled) return;
         setNews(list || []);
-        // সব হেডিং ছোট থাকে — ট্যাপ করলেই একটা খোলে
       } catch {
         // টেবিল না থাকলে চুপচাপ খালি
       } finally {
@@ -186,6 +204,22 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
     };
   }, [initialNews]);
 
+  // প্রতিদিনের ডাইজেস্ট (PDF/HTML) — টেবিল/মাইগ্রেশন না থাকলে খালি
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await getDailyNewsDigests(45);
+        if (!cancelled) setDigests(list || []);
+      } catch {
+        // নীরবে
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const dated = useMemo(
     () =>
       (news || [])
@@ -196,11 +230,27 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
 
   const newsKeys = useMemo(() => new Set(dated.map((x) => x.bd.key)), [dated]);
 
-  // ডিফল্ট: সবগুলো; তারিখ বাছাই করলে ওই দিনের সব
+  const digestByKey = useMemo(() => {
+    const m = new Map<string, DailyNewsDigest>();
+    for (const dg of digests || []) {
+      const k = keyFromDateStr(dg.date);
+      if (k) m.set(k, dg);
+    }
+    return m;
+  }, [digests]);
+
+  const dayDigest = viewKey ? digestByKey.get(viewKey) : null;
+
+  // ডিফল্ট: সবগুলো (ডোম-বন্ধুত্বের জন্য প্রথম PAGEটি); তারিখ বাছাই করলে ওই দিনের সব
   const visible = useMemo(() => {
-    if (viewKey) return dated.filter((x) => x.bd.key === viewKey);
-    return dated;
-  }, [dated, viewKey]);
+    if (viewKey) {
+      const dayItems = dated.filter((x) => x.bd.key === viewKey);
+      return dayItems.slice(0, 250); // একদিনে বেশি হলে সুরক্ষা-ক্যাপ
+    }
+    return dated.slice(0, shownCount);
+  }, [dated, viewKey, shownCount]);
+
+  const hasMore = !viewKey && dated.length > shownCount;
 
   const selectDay = (key: string) => {
     setViewKey(key);
@@ -236,7 +286,7 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
             <Newspaper className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-black text-black text-base leading-tight">দৈনিক সংবাদ</h2>
+            <h2 className="font-black text-black text-base leading-tight">দৈনিক পত্রিকা</h2>
             <p className="text-[11px] text-slate-600 font-semibold truncate">
               {viewKey ? `${longLabel(viewKey)} — ${toBengaliDigits(visible.length)}টি` : `মোট ${toBengaliDigits(dated.length)}টি সংবাদ`}
             </p>
@@ -274,6 +324,39 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
         </div>
       </div>
 
+      {/* প্রতিদিনের PDF/HTML ডাইজেস্ট চিপ */}
+      {digests.length > 0 && (
+        <div className="mb-3 -mx-1 px-1 overflow-x-auto [scrollbar-width:thin] [scrollbar-color:rgb(203_213_225)_transparent] flex items-center gap-1.5 pb-1">
+          <span className="shrink-0 text-[10px] font-black text-slate-500 uppercase tracking-wide flex items-center gap-1">
+            <Download className="w-3 h-3" /> PDF
+          </span>
+          {digests.map((dg) => {
+            const k = keyFromDateStr(dg.date);
+            const href = dg.pdfUrl || dg.htmlUrl;
+            if (!k || !href) return null;
+            const isActive = viewKey === k;
+            return (
+              <a
+                key={dg.date}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                title={`${longLabel(k)} — দিনের ডাইজেস্ট ${dg.pdfUrl ? "PDF" : "HTML"} ডাউনলোড`}
+                className={`shrink-0 inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition cursor-pointer border ${
+                  isActive
+                    ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                    : "bg-white/70 border-white/80 text-slate-700 hover:bg-white hover:shadow-sm"
+                }`}
+              >
+                <Download className="w-3 h-3" />
+                {shortLabel(k)}
+                {dg.itemCount > 0 && <span className="opacity-60">({toBengaliDigits(dg.itemCount)})</span>}
+              </a>
+            );
+          })}
+        </div>
+      )}
+
       {/* ক্যালেন্ডার ড্রপডাউন */}
       {calOpen && (
         <div className="mb-3 rounded-2xl border border-white/80 bg-white/95 backdrop-blur-2xl shadow-xl shadow-slate-900/10 p-3">
@@ -308,7 +391,21 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
         </div>
       )}
 
-      {/* সংবাদের তালিকা — একসাথে ৩টা হেডিং দৃশ্যমান, বাকিগুলো স্ক্রল */}
+      {/* বাছাই করা দিনের পূর্ণ ডাইজেস্ট ডাউনলোড */}
+      {viewKey && dayDigest && (dayDigest.pdfUrl || dayDigest.htmlUrl) && (
+        <a
+          href={dayDigest.pdfUrl || dayDigest.htmlUrl || "#"}
+          target="_blank"
+          rel="noreferrer"
+          className="mb-3 w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 text-white hover:bg-slate-700 px-4 py-2.5 text-xs font-bold transition cursor-pointer shadow-md shadow-slate-900/20"
+        >
+          <Download className="w-4 h-4" />
+          {longLabel(viewKey)}-এর পূর্ণ ডাইজেস্ট {dayDigest.pdfUrl ? "PDF" : "HTML"} ডাউনলোড করুন
+          {dayDigest.itemCount > 0 && ` (${toBengaliDigits(dayDigest.itemCount)}টি সংবাদ)`}
+        </a>
+      )}
+
+      {/* সংবাদের তালিকা */}
       {visible.length === 0 ? (
         <div className="py-10 text-center">
           <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
@@ -328,66 +425,126 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
           )}
         </div>
       ) : (
-        <div className="max-h-[13.5rem] overflow-y-auto overscroll-contain pr-1 space-y-2 [scrollbar-width:thin] [scrollbar-color:rgb(203_213_225)_transparent]">
-          {visible.map(({ n, bd }, idx) => {
-            const isOpen = expandedId === n.id;
-            return (
-              <div
-                key={n.id}
-                className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-sm ${
-                  isOpen
-                    ? "border-slate-300 bg-white/90 backdrop-blur-xl shadow-md"
-                    : "border-white/70 bg-white/60 backdrop-blur-xl hover:bg-white/80"
-                }`}
-              >
-                {/* হেডিং বার */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    // বন্ধ → খোলা: পড়ার কাউন্ট বাড়াই (admin প্যানেলে দেখা যায়)
-                    if (!isOpen) incrementNewsRead(n.id);
-                    setExpandedId(isOpen ? "" : n.id);
-                  }}
-                  className="w-full text-left px-3.5 py-3 cursor-pointer flex items-center gap-2.5"
-                >
-                  {idx === 0 && !viewKey && (
-                    <span className="shrink-0 bg-slate-900 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                      সর্বশেষ
-                    </span>
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-bold text-xs sm:text-sm leading-snug text-black">
-                      {n.heading}
-                    </span>
-                    <span className="block text-[11px] text-slate-600 font-bold mt-0.5">
-                      {shortLabel(bd.key)}
-                    </span>
-                  </span>
-                  <ChevronDown
-                    className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
-                      isOpen ? "rotate-180 text-black" : "text-slate-500"
-                    }`}
-                  />
-                </button>
-
-                {/* খোলা বডি */}
+        <>
+          <div className="max-h-[26rem] overflow-y-auto overscroll-contain pr-1 space-y-2 [scrollbar-width:thin] [scrollbar-color:rgb(203_213_225)_transparent]">
+            {visible.map(({ n, bd }, idx) => {
+              const isOpen = expandedId === n.id;
+              return (
                 <div
-                  className={`grid transition-all duration-300 ease-in-out ${
-                    isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  key={n.id}
+                  className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-sm ${
+                    isOpen
+                      ? "border-slate-300 bg-white/90 backdrop-blur-xl shadow-md"
+                      : "border-white/70 bg-white/60 backdrop-blur-xl hover:bg-white/80"
                   }`}
                 >
-                  <div className="overflow-hidden">
-                    <div className="px-3.5 pb-4">
-                      <p className="text-xs sm:text-sm text-black leading-relaxed whitespace-pre-line border-t border-slate-900/5 pt-3">
-                        {n.body}
-                      </p>
+                  {/* হেডিং বার */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // বন্ধ → খোলা: পড়ার কাউন্ট বাড়াই (admin প্যানেলে দেখা যায়)
+                      if (!isOpen) incrementNewsRead(n.id);
+                      setExpandedId(isOpen ? "" : n.id);
+                    }}
+                    className="w-full text-left px-3.5 py-3 cursor-pointer flex items-center gap-2.5"
+                  >
+                    {idx === 0 && !viewKey && (
+                      <span className="shrink-0 bg-slate-900 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                        সর্বশেষ
+                      </span>
+                    )}
+                    {n.isHighlight && (
+                      <span
+                        className="shrink-0 bg-amber-100 text-amber-700 border border-amber-200 text-[9px] font-black px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5"
+                        title="আজকের গুরুত্বপূর্ণ সংবাদ"
+                      >
+                        <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />
+                        গুরুত্বপূর্ণ
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-bold text-xs sm:text-sm leading-snug text-black">
+                        {n.heading}
+                      </span>
+                      <span className="block text-[11px] text-slate-600 font-bold mt-0.5">
+                        {shortLabel(bd.key)}
+                      </span>
+                      {(n.category || n.source) && (
+                        <span className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {n.category && (
+                            <span className="inline-flex items-center rounded-md bg-emerald-50 border border-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5">
+                              {n.category}
+                            </span>
+                          )}
+                          {n.source && (
+                            n.sourceUrl ? (
+                              <a
+                                href={n.sourceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-[9px] font-bold px-1.5 py-0.5 hover:bg-slate-200 transition cursor-pointer"
+                                title="মূল খবরটি পত্রিকায় পড়ুন"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" />
+                                {n.source}
+                              </a>
+                            ) : (
+                              <span className="inline-flex items-center rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-[9px] font-bold px-1.5 py-0.5">
+                                {n.source}
+                              </span>
+                            )
+                          )}
+                        </span>
+                      )}
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
+                        isOpen ? "rotate-180 text-black" : "text-slate-500"
+                      }`}
+                    />
+                  </button>
+
+                  {/* খোলা বডি */}
+                  <div
+                    className={`grid transition-all duration-300 ease-in-out ${
+                      isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="px-3.5 pb-4">
+                        <p className="text-xs sm:text-sm text-black leading-relaxed whitespace-pre-line border-t border-slate-900/5 pt-3">
+                          {n.body}
+                        </p>
+                        {n.sourceUrl && isOpen && (
+                          <a
+                            href={n.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            মূল খবরটি পত্রিকায় পড়ুন
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setShownCount((c) => c + PAGE)}
+              className="mt-3 w-full rounded-2xl border border-white/80 bg-white/70 hover:bg-white text-slate-700 text-xs font-bold py-2.5 transition cursor-pointer shadow-sm"
+            >
+              আরও দেখুন ({toBengaliDigits(Math.min(PAGE, dated.length - shownCount))}টি)
+            </button>
+          )}
+        </>
       )}
     </section>
   );

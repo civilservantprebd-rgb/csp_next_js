@@ -12,6 +12,7 @@ import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
 import { UpcomingExamGrid } from "@/components/dashboard/UpcomingExamGrid";
 import { DailyNewsSection } from "@/components/dashboard/DailyNewsSection";
+import { EditorialDigestSection } from "@/components/dashboard/EditorialDigestSection";
 import { NewNewsPopup } from "@/components/dashboard/NewNewsPopup";
 import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
 import { LandingPage } from "@/components/home/LandingPage";
@@ -314,8 +315,11 @@ export default function HomeClient({
 
       <main className="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 md:p-6 space-y-10">
 
-        {/* দৈনিক সংবাদ — শিক্ষক/অ্যাডমিন নয় এমন সবার জন্য */}
-        <DailyNewsSection initialNews={initialDailyNews} />
+        {/* দৈনিক পত্রিকা (টপ নিউজ) + সাইডে "দৈনিক সম্পাদকীয়" — শিক্ষক/অ্যাডমিন নয় এমন সবার জন্য */}
+        <div className="grid items-start lg:grid-cols-[minmax(0,1fr)_auto]">
+          <DailyNewsSection initialNews={initialDailyNews} />
+          <EditorialDigestSection className="lg:w-[340px] lg:ml-6 lg:sticky lg:top-20" />
+        </div>
 
         {/* Live Exams (if any) */}
         <LiveExamGrid

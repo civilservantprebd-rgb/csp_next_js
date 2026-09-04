@@ -13,7 +13,8 @@ import {
   Archive,
   Video,
   Newspaper,
-  MessageCircle
+  MessageCircle,
+  UploadCloud
 } from "lucide-react";
 
 export type AdminTabType =
@@ -28,6 +29,7 @@ export type AdminTabType =
   | "archive"
   | "drivelinks"
   | "news"
+  | "newspapers"
   | "whatsapp";
 
 interface AdminNavProps {
@@ -46,6 +48,7 @@ export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) =>
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
     { id: "videos", label: "কোর্স ভিডিও", icon: Video },
     { id: "news", label: "দৈনিক সংবাদ", icon: Newspaper },
+    { id: "newspapers", label: "পত্রিকা আপলোড", icon: UploadCloud },
     { id: "whatsapp", label: "WhatsApp গ্রুপ", icon: MessageCircle },
     { id: "archive", label: "আর্কাইভ", icon: Archive },
     { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2 },

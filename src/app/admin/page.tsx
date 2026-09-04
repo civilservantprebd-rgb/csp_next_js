@@ -25,6 +25,7 @@ const AdminAnalyticsDashboard = dynamic(() => import("@/components/admin/AdminAn
 const ArchiveManager = dynamic(() => import("@/components/admin/ArchiveManager").then(mod => mod.ArchiveManager), { loading: LoadingFallback });
 const CourseVideoManager = dynamic(() => import("@/components/admin/CourseVideoManager").then(mod => mod.CourseVideoManager), { loading: LoadingFallback });
 const NewsManager = dynamic(() => import("@/components/admin/NewsManager").then(mod => mod.NewsManager), { loading: LoadingFallback });
+const NewspaperUploadManager = dynamic(() => import("@/components/admin/NewspaperUploadManager").then(mod => mod.NewspaperUploadManager), { loading: LoadingFallback });
 const WhatsAppGroupManager = dynamic(() => import("@/components/admin/WhatsAppGroupManager").then(mod => mod.WhatsAppGroupManager), { loading: LoadingFallback });
 import { fetchAppConfig, fetchAppConfigLite, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
 import { supabase } from "@/lib/supabase";
@@ -62,7 +63,7 @@ export default function AdminPage() {
       const t = new URLSearchParams(window.location.search).get("tab");
       const valid: AdminTabType[] = [
         "analytics", "exams", "courses", "subjects", "students",
-        "questions", "question_bank", "videos", "archive", "drivelinks", "news", "whatsapp"
+        "questions", "question_bank", "videos", "archive", "drivelinks", "news", "newspapers", "whatsapp"
       ];
       if (t && (valid as string[]).includes(t)) return t as AdminTabType;
     }
@@ -778,6 +779,8 @@ export default function AdminPage() {
             {activeTab === "videos" && <CourseVideoManager courses={config.courses || []} subjects={config.subjects || []} />}
 
             {activeTab === "news" && <NewsManager />}
+
+            {activeTab === "newspapers" && <NewspaperUploadManager />}
 
             {activeTab === "whatsapp" && <WhatsAppGroupManager courses={config.courses || []} />}
 
