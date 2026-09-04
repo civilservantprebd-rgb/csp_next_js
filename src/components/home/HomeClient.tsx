@@ -209,6 +209,17 @@ export default function HomeClient({
     setSelectedExamKey(examKey);
 
     const localUser = getLocalStudentUser();
+
+    // ফ্রি এক্সাম + লগইন থাকলে — কোনো অপেক্ষা নেই, সাথে সাথে পরীক্ষার পেজে
+    if (ex.isFree && localUser) {
+      sessionStorage.setItem(
+        "current_student",
+        JSON.stringify({ id: localUser.uid, name: localUser.name })
+      );
+      router.push(`/exam/${examKey}`);
+      return;
+    }
+
     if (localUser) {
       const { isExamCurrentlyLive } = await import("@/lib/bangladesh-time");
       const { checkAttemptBlocked } = await import("@/lib/exam-attempt-cache");

@@ -225,6 +225,12 @@ export default function CourseStudyPage() {
     const googleUser = getLocalStudentUser();
 
     if (googleUser) {
+      // ফ্রি এক্সাম: কোনো অপেক্ষা ছাড়াই সাথে সাথে পরীক্ষার পেজে
+      if (ex.isFree) {
+        sessionStorage.setItem("current_student", JSON.stringify({ id: googleUser.uid, name: googleUser.name }));
+        router.push(`/exam/${examKey}`);
+        return;
+      }
       const { isExamCurrentlyLive } = await import("@/lib/bangladesh-time");
       const { checkAttemptBlocked } = await import("@/lib/exam-attempt-cache");
 

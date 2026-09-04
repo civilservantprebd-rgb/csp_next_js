@@ -8,6 +8,7 @@ import { ExamTimer } from "@/components/exam/ExamTimer";
 import { QuestionList } from "@/components/exam/QuestionList";
 import { fetchExamWithQuestions, fetchExamForDemo } from "@/actions/admin-actions";
 import { submitExamAnswers } from "@/actions/exam-actions";
+import { getLocalStudentUser } from "@/lib/student-auth";
 import { parseBangladeshDateTime, getTrueNowMs, isExamCurrentlyLive, syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
 import { CheckCheck, Loader2, X, AlertCircle, CheckCircle2, Send, RotateCcw } from "lucide-react";
@@ -62,12 +63,19 @@ export default function ExamPage() {
       return;
     }
 
-    const rawStudent = sessionStorage.getItem("current_student");
+    let rawStudent = sessionStorage.getItem("current_student");
     if (!rawStudent) {
-      // শেয়ার করা লিংক থেকে এলেও লগইনের পর এই পরীক্ষাতেই ফিরতে ইনটেন্ট সেভ
-      try { sessionStorage.setItem("target_exam_intent", examId); } catch { /* ignore */ }
-      router.push("/");
-      return;
+      // লগইন করা শিক্ষার্থী থাকলে (localStorage) — হোমে না পাঠিয়ে সরাসরি পরীক্ষা
+      const localUser = getLocalStudentUser();
+      if (localUser && localUser.uid) {
+        rawStudent = JSON.stringify({ id: localUser.uid, name: localUser.name });
+        sessionStorage.setItem("current_student", rawStudent);
+      } else {
+        // শেয়ার করা লিংক থেকে এলেও লগইনের পর এই পরীক্ষাতেই ফিরতে ইনটেন্ট সেভ
+        try { sessionStorage.setItem("target_exam_intent", examId); } catch { /* ignore */ }
+        router.push("/");
+        return;
+      }
     }
     let parsedStudent: { id: string; name: string } | null = null;
     try {
@@ -76,9 +84,15 @@ export default function ExamPage() {
       // corrupted session data — restart the flow
     }
     if (!parsedStudent || typeof parsedStudent.id !== "string" || !parsedStudent.id) {
-      try { sessionStorage.setItem("target_exam_intent", examId); } catch { /* ignore */ }
-      router.push("/");
-      return;
+      const localUser = getLocalStudentUser();
+      if (localUser && localUser.uid) {
+        parsedStudent = { id: localUser.uid, name: localUser.name };
+        sessionStorage.setItem("current_student", JSON.stringify(parsedStudent));
+      } else {
+        try { sessionStorage.setItem("target_exam_intent", examId); } catch { /* ignore */ }
+        router.push("/");
+        return;
+      }
     }
     setStudent(parsedStudent);
 
