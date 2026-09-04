@@ -20,6 +20,12 @@ interface UpcomingExamGridProps {
 
 const BD_OFFSET_MS = 6 * 3600 * 1000;
 
+/**
+ * হোম পেজে আসন্ন (শিডিউলড) লাইভ পরীক্ষা কেবল শুরু হওয়ার ১২ ঘণ্টা আগে থেকে
+ * দেখা যায় — কাউন্টডাউনও তখনই চালু হয়। এর আগে পরীক্ষাটি হোম পেজে আসে না।
+ */
+const UPCOMING_WINDOW_MS = 12 * 3600 * 1000;
+
 /** "০২:৩০:১৫" or "২ দিন ৩ ঘণ্টা ৫ মিনিট" when longer than a day. */
 function formatCountdown(ms: number): string {
   const totalSecs = Math.max(0, Math.floor(ms / 1000));
@@ -55,10 +61,13 @@ export const UpcomingExamGrid: React.FC<UpcomingExamGridProps> = ({ exams, onOpe
     return () => clearInterval(timer);
   }, []);
 
-  // Scheduled exams whose start time hasn't arrived yet — soonest first
+  // Scheduled exams starting within the next 12 hours (started → live section; beyond 12h → hidden)
   const upcoming = Object.entries(exams)
     .map(([k, ex]) => ({ k, ex, start: ex.startTime ? parseBangladeshDateTime(ex.startTime) : null }))
-    .filter((x): x is { k: string; ex: Exam; start: Date } => !!x.start && x.start.getTime() > now)
+    .filter(
+      (x): x is { k: string; ex: Exam; start: Date } =>
+        !!x.start && x.start.getTime() > now && x.start.getTime() <= now + UPCOMING_WINDOW_MS
+    )
     .sort((a, b) => a.start.getTime() - b.start.getTime());
 
   if (upcoming.length === 0) {
@@ -78,7 +87,7 @@ export const UpcomingExamGrid: React.FC<UpcomingExamGridProps> = ({ exams, onOpe
             শীঘ্রই শুরু হবে
           </h3>
           <p className="text-xs sm:text-sm text-black font-bold">
-            কাউন্টডাউন শেষ হলেই পরীক্ষা শুরু করুন — নির্ধারিত সময়ের আগেই প্রস্তুত হয়ে নিন
+            শুরু হওয়ার ১২ ঘণ্টা আগে থেকে এখানে কাউন্টডাউন দেখা যাবে — শেষ হলেই পরীক্ষা শুরু করুন
           </p>
         </div>
 
