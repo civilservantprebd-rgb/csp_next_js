@@ -166,7 +166,25 @@ export default function HomeClient({
       if (config && intentExamId && config.exams?.[intentExamId]) {
         sessionStorage.removeItem("target_exam_intent");
         setIsAuthProcessing(false);
-        handleStartExamByKey(intentExamId);
+        // OAuth-ফেরতের পর স্টুডেন্ট-সেশন কয়েক মুহূর্তে localStorage-এ আসে —
+        // রেডি হওয়া পর্যন্ত অপেক্ষা করি, তারপরই পরীক্ষা শুরু (হোমে আটকায় না)
+        const waitForStudent = async (ms: number) => {
+          const t0 = Date.now();
+          while (Date.now() - t0 < ms) {
+            const u = getLocalStudentUser();
+            if (u) return u;
+            await new Promise((r) => setTimeout(r, 300));
+          }
+          return null;
+        };
+        const readyUser = await waitForStudent(8000);
+        if (readyUser) {
+          handleStartExamByKey(intentExamId);
+        } else {
+          // সেশন আসেনি — লগইন মোডাল দেখাই (ইনটেন্ট ধরে রাখা হয়নি, আবার ক্লিক করবেন)
+          setSelectedExamKey(intentExamId);
+          setIsStudentAuthOpen(true);
+        }
         return;
       }
 
