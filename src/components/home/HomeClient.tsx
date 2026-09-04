@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
-import { FreeExamsSpotlight } from "@/components/dashboard/FreeExamsSpotlight";
+import { FreeModelTestsBox } from "@/components/dashboard/FreeModelTestsBox";
 
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
@@ -330,8 +330,8 @@ export default function HomeClient({
           onOpenEnrollModal={handleOpenEnrollModal}
         />
 
-        {/* Free Exams Spotlight Box (Eye-catching spotlight for all free exams across all courses) */}
-        <FreeExamsSpotlight
+        {/* ফ্রি মডেল টেস্ট — একটা বক্স; ট্যাপ করলে উইন্ডোয় সব ফ্রি পরীক্ষা */}
+        <FreeModelTestsBox
           exams={examsObj}
           onStartExam={handleStartExamByKey}
           onOpenEnrollModal={handleOpenEnrollModal}
