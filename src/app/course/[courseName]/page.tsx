@@ -207,6 +207,17 @@ export default function CourseStudyPage() {
     );
   }, [courseExams, examSearch]);
 
+  // দ্রুত শুরু: ক্লিক করার আগেই /exam রাউটগুলো প্রি-লোড — নেভিগেশন দেরি কমে যায়
+  useEffect(() => {
+    const keys = courseExams.map(([k]) => k);
+    if (keys.length === 0) return;
+    const t = setTimeout(() => {
+      keys.slice(0, 25).forEach((k) => router.prefetch(`/exam/${encodeURIComponent(k)}`));
+    }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseName, examsObj]);
+
 
   const handleStartExam = async (examKey: string) => {
     const ex = examsObj[examKey];

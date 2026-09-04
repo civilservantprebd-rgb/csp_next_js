@@ -10,7 +10,7 @@ import { FreeModelTestsBox } from "@/components/dashboard/FreeModelTestsBox";
 
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
 import { LiveExamsBox } from "@/components/dashboard/LiveExamsBox";
-import { UpcomingExamGrid } from "@/components/dashboard/UpcomingExamGrid";
+import { UpcomingExamsBox } from "@/components/dashboard/UpcomingExamsBox";
 import { DailyNewsSection } from "@/components/dashboard/DailyNewsSection";
 import { NewNewsPopup } from "@/components/dashboard/NewNewsPopup";
 import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
@@ -192,6 +192,17 @@ export default function HomeClient({
   const subjectsList = config.subjects || [];
   const currentExam: Exam | undefined = examsObj[selectedExamKey];
 
+  // দ্রুত শুরু: /exam রাউটগুলো আগে থেকেই প্রি-লোড — বাটনে চাপলেই পেজ খোলে
+  useEffect(() => {
+    const keys = Object.keys(examsObj);
+    if (keys.length === 0) return;
+    const t = setTimeout(() => {
+      keys.slice(0, 25).forEach((k) => router.prefetch(`/exam/${encodeURIComponent(k)}`));
+    }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config]);
+
   const handleStartExamByKey = async (examKey: string) => {
     const ex = examsObj[examKey];
     if (!ex) return;
@@ -312,33 +323,29 @@ export default function HomeClient({
         onOpenLeaderboard={() => router.push(`/leaderboard/${selectedExamKey || "exam_01"}`)}
       />
 
-      <main className="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 md:p-6 space-y-10">
+      <main className="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 md:p-6 space-y-6">
 
-        {/* দৈনিক সংবাদ — শিক্ষক/অ্যাডমিন নয় এমন সবার জন্য */}
+        {/* দৈনিক সংবাদ — সবার উপরে (পুরো প্রস্থ; ৩টা দেখা যায়, বাকিটা ভেতরে স্ক্রল) */}
         <DailyNewsSection initialNews={initialDailyNews} />
 
-        {/* লাইভ এক্সাম — একটা বক্স; ট্যাপ করলে উইন্ডোয় চলমান সব পরীক্ষা */}
-        <LiveExamsBox
-          exams={examsObj}
-          onSelectLiveExam={handleStartExamByKey}
-          onOpenEnrollModal={handleOpenEnrollModal}
-        />
+        {/* লাইভ এক্সাম + ফ্রি মডেল টেস্ট — পাশাপাশি সমান উচ্চতা; একটা না থাকলে অন্যটি পুরো প্রস্থ */}
+        <div className="grid gap-3 items-stretch grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(340px,1fr))]">
+          <LiveExamsBox
+            exams={examsObj}
+            onSelectLiveExam={handleStartExamByKey}
+            onOpenEnrollModal={handleOpenEnrollModal}
+          />
+          <FreeModelTestsBox
+            exams={examsObj}
+            onStartExam={handleStartExamByKey}
+            onOpenEnrollModal={handleOpenEnrollModal}
+          />
+        </div>
 
-        {/* Upcoming scheduled exams — live countdown until each exam starts */}
-        <UpcomingExamGrid
-          exams={examsObj}
-          onOpenEnrollModal={handleOpenEnrollModal}
-        />
+        {/* আসন্ন লাইভ এক্সাম — ১ বক্স; ট্যাপে উইন্ডোয় লাল কাউন্টডাউন */}
+        <UpcomingExamsBox exams={examsObj} />
 
-        {/* ফ্রি মডেল টেস্ট — একটা বক্স; ট্যাপ করলে উইন্ডোয় সব ফ্রি পরীক্ষা */}
-        <FreeModelTestsBox
-          exams={examsObj}
-          onStartExam={handleStartExamByKey}
-          onOpenEnrollModal={handleOpenEnrollModal}
-        />
-
-
-        {/* Course Directory — each course opens its study page (video classes + exams) */}
+        {/* কোর্স ডিরেক্টরি — পুরো প্রস্থে (নাম যেন কাটা না যায়) */}
         <CourseCardGrid
           courses={coursesList}
           subjects={subjectsList}

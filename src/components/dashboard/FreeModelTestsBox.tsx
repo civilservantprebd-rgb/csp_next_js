@@ -51,20 +51,20 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
 
   return (
     <>
-      {/* ---------- ১) কমপ্যাক্ট বক্স (ট্যাপ → উইন্ডো) ---------- */}
+      {/* ---------- ১) কমপ্যাক্ট বক্স (হালকা সবুজ — ট্যাপ → উইন্ডো) ---------- */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-amber-100 via-amber-50 to-white border border-amber-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995]"
+        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-emerald-100 via-emerald-50 to-white border border-emerald-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995] h-full"
       >
         <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/30 shrink-0 group-hover:scale-105 transition">
+          <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/30 shrink-0 group-hover:scale-105 transition">
             <Sparkles className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-black text-black text-base sm:text-lg leading-tight">ফ্রি মডেল টেস্ট</h3>
-              <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
                 <Award className="w-3 h-3 text-emerald-600" /> সম্পূর্ণ ফ্রি
               </span>
             </div>
@@ -72,7 +72,7 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
               মোট {toBengaliDigits(freeExams.length)}টি পরীক্ষা — রেজিস্ট্রেশন/ফি ছাড়াই প্রস্তুতি যাচাই করুন
             </p>
           </div>
-          <span className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-amber-500 text-white text-xs font-black px-3 py-2 group-hover:bg-amber-600 transition shadow-sm">
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-emerald-600 text-white text-xs font-black px-3 py-2 group-hover:bg-emerald-700 transition shadow-sm">
             দেখুন <ChevronRight className="w-4 h-4" />
           </span>
         </div>
@@ -90,14 +90,14 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
 
           <div className="relative w-full sm:max-w-2xl max-h-[88vh] flex flex-col bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-300">
             {/* হেডার */}
-            <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+            <div className="bg-gradient-to-r from-emerald-600 to-green-700 text-white px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-black text-base leading-tight">ফ্রি মডেল টেস্ট</h3>
-                  <p className="text-[11px] text-amber-100 font-bold">
+                  <p className="text-[11px] text-emerald-100 font-bold">
                     মোট {toBengaliDigits(freeExams.length)}টি — যেকোনোটা বেছে পরীক্ষা শুরু করুন
                   </p>
                 </div>
@@ -136,7 +136,7 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
                     key={key}
                     type="button"
                     onClick={() => startExam(key)}
-                    className="w-full text-left bg-white rounded-2xl border border-slate-200 hover:border-amber-400 hover:shadow-sm transition p-3.5 sm:p-4 cursor-pointer group"
+                    className="w-full text-left bg-white rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-sm transition p-3.5 sm:p-4 cursor-pointer group"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
@@ -144,7 +144,7 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
                           <span className="bg-slate-200 text-black text-[11px] font-black px-2 py-0.5 rounded-lg border border-slate-300">
                             {ex.course}
                           </span>
-                          <span className="bg-emerald-100 text-emerald-900 text-[10px] font-black px-2 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
+                          <span className="bg-emerald-100 text-emerald-900 text-[10px] font-black px-2 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" /> ফ্রি
                           </span>
                           {isCompleted && (
@@ -153,7 +153,7 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
                             </span>
                           )}
                         </div>
-                        <h4 className="font-black text-black text-sm sm:text-base group-hover:text-amber-900 transition leading-snug">
+                        <h4 className="font-black text-black text-sm sm:text-base group-hover:text-emerald-800 transition leading-snug">
                           {ex.title}
                         </h4>
                         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-600 font-bold flex-wrap">
@@ -161,14 +161,14 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
                             <BookOpen className="w-3.5 h-3.5 text-black" /> {ex.subject}
                           </span>
                           <span className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-amber-500" /> {toBengaliDigits(ex.timerMinutes)} মিনিট
+                            <Clock className="w-3.5 h-3.5 text-emerald-600" /> {toBengaliDigits(ex.timerMinutes)} মিনিট
                           </span>
                           <span className="flex items-center gap-1">
                             <CircleHelp className="w-3.5 h-3.5 text-indigo-500" /> {toBengaliDigits(qCount)}টি প্রশ্ন
                           </span>
                         </div>
                       </div>
-                      <span className="shrink-0 w-9 h-9 rounded-xl bg-amber-500 group-hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm">
+                      <span className="shrink-0 w-9 h-9 rounded-xl bg-emerald-500 group-hover:bg-emerald-600 text-white flex items-center justify-center transition shadow-sm">
                         <Play className="w-4 h-4 fill-white text-white" />
                       </span>
                     </div>

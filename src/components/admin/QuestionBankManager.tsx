@@ -44,6 +44,8 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
   const [queryText, setQueryText] = useState("");
   const [filterTopic, setFilterTopic] = useState("ALL");
   const [filterSubject, setFilterSubject] = useState("ALL");
+  // সাম্প্রতিক টগল — সবচেয়ে নতুন যোগ হওয়া প্রশ্ন আগে দেখায়
+  const [recentOnly, setRecentOnly] = useState(false);
 
   const [questionText, setQuestionText] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
@@ -111,7 +113,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
     const seq = ++searchSeqRef.current;
     setIsLoading(true);
     try {
-      const res = await searchQuestionBank(debouncedQuery, filterTopic, filterSubject);
+      const res = await searchQuestionBank(debouncedQuery, filterTopic, filterSubject, recentOnly);
       // Only apply the result if it belongs to the LATEST request — a slow
       // response for an older keystroke must not overwrite a newer one.
       if (seq === searchSeqRef.current) {
@@ -134,7 +136,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
       fetchBankQuestions(queryText);
     }, 300);
     return () => clearTimeout(t);
-  }, [queryText, filterTopic, filterSubject]);
+  }, [queryText, filterTopic, filterSubject, recentOnly]);
 
   // Load the complete topic structure (from every source) into the tree picker
   const refreshTreeData = () => {
@@ -489,6 +491,11 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
           <h4 className="font-bold text-slate-800 text-xs sm:text-sm">
             প্রশ্ন ব্যাংক ভাণ্ডার ({toBengaliDigits(totalQuestions)} টি প্রশ্ন):
+            {recentOnly && (
+              <span className="ml-2 text-[10px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded-full align-middle">
+                🕒 সাম্প্রতিক — নতুন যোগ হওয়া আগে
+              </span>
+            )}
           </h4>
 
           {/* Filters Area */}
@@ -517,6 +524,20 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                 </option>
               ))}
             </select>
+
+            {/* সাম্প্রতিক টগল — নতুন যোগ হওয়া প্রশ্ন আগে */}
+            <button
+              type="button"
+              onClick={() => setRecentOnly((v) => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black transition cursor-pointer shadow-sm ${
+                recentOnly
+                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+              }`}
+              title={recentOnly ? "সাধারণ ক্রমে ফিরুন" : "সবচেয়ে নতুন যোগ হওয়া প্রশ্নগুলো আগে দেখুন"}
+            >
+              🕒 সাম্প্রতিক
+            </button>
           </div>
         </div>
 

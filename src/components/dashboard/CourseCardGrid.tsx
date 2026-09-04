@@ -78,17 +78,15 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sortedCourses.map((courseName) => {
-          const courseSubjects = subjects.filter((s) => s.course === courseName);
           const p = prices[courseName];
           const planned = p?.plannedExams !== undefined || p?.plannedVideos !== undefined;
-
           return (
             <div
               key={courseName}
               onClick={() => onOpenCourse(courseName)}
               className="group bg-white rounded-3xl border-2 border-slate-200/80 hover:border-indigo-500 shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden flex flex-col cursor-pointer active:scale-[0.99]"
             >
-              {/* Course header */}
+              {/* Course header — সব কার্ডে সমান উচ্চতা (নাম ৩ লাইন পর্যন্ত পুরো) */}
               <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white p-5">
                 <div className="flex items-center gap-3.5">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0 group-hover:scale-105 transition-transform">
@@ -98,7 +96,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-lg sm:text-xl font-black text-white leading-tight line-clamp-2">
+                      <h4 className="text-base sm:text-lg font-black text-white leading-snug break-words">
                         {courseName}
                       </h4>
                       {pinnedCourses.includes(courseName) && (
@@ -173,24 +171,6 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                     <span className="text-sm font-bold text-slate-400">কোর্সের দাম শীঘ্রই প্রকাশ হবে</span>
                   )}
                 </div>
-
-                {courseSubjects.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {courseSubjects.slice(0, 8).map((s) => (
-                      <span
-                        key={s.name}
-                        className="bg-indigo-50 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded-md border border-indigo-200"
-                      >
-                        {s.name}
-                      </span>
-                    ))}
-                    {courseSubjects.length > 8 && (
-                      <span className="text-xs text-slate-400 font-bold px-1 py-0.5">
-                        +{toBengaliDigits(courseSubjects.length - 8)}টি
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* CTA */}

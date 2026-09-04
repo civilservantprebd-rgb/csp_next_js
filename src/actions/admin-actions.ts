@@ -637,27 +637,42 @@ export async function linkQuestionToExam(examKey: string, questionId: string): P
 export async function searchQuestionBank(
   queryText: string,
   topic?: string,
-  subject?: string
+  subject?: string,
+  sortRecent: boolean = false
 ): Promise<{ questions: any[]; total: number }> {
   try {
     await requireTeacher();
-    let builder = supabase.from("question_bank").select("*", { count: "exact" });
-    if (queryText) {
-      builder = builder.ilike("q", `%${queryText}%`);
+    const build = (withOrder: boolean) => {
+      let builder = supabase.from("question_bank").select("*", { count: "exact" });
+      if (queryText) {
+        builder = builder.ilike("q", `%${queryText}%`);
+      }
+      if (topic && topic !== "ALL") {
+        // "সাধারণ" is the fallback topic — also match questions with no topic assigned
+        builder = topic === "সাধারণ"
+          ? builder.or(`topic.eq.${topic},topic.is.null`)
+          : builder.eq("topic", topic);
+      }
+      if (subject && subject !== "ALL") {
+        builder = builder.eq("subject", subject);
+      }
+      if (withOrder) {
+        builder = builder.order("created_at", { ascending: false });
+      }
+      return builder.limit(100);
+    };
+    try {
+      const { data, error, count } = await build(sortRecent);
+      if (error) throw error;
+      return { questions: data || [], total: count || 0 };
+    } catch (err) {
+      // created_at কলাম না থাকলে (পুরনো DB) — সর্ট ছাড়াই আবার চেষ্টা
+      if (sortRecent) {
+        const { data, error, count } = await build(false);
+        if (!error) return { questions: data || [], total: count || 0 };
+      }
+      throw err;
     }
-    if (topic && topic !== "ALL") {
-      // "সাধারণ" is the fallback topic — also match questions with no topic assigned
-      builder = topic === "সাধারণ"
-        ? builder.or(`topic.eq.${topic},topic.is.null`)
-        : builder.eq("topic", topic);
-    }
-    if (subject && subject !== "ALL") {
-      builder = builder.eq("subject", subject);
-    }
-
-    const { data, error, count } = await builder.limit(100);
-    if (error) throw error;
-    return { questions: data || [], total: count || 0 };
   } catch (err) {
     console.error("Search question bank error:", err);
     return { questions: [], total: 0 };
@@ -1602,6 +1617,56 @@ export async function fetchExamWithQuestions(examKey: string): Promise<Exam | nu
     ]);
   } catch (err) {
     console.error("Fetch exam with questions error:", err);
+    return null;
+  }
+}
+
+// ─── Teacher demo: exam attempt যেন সেভ না হয় — শুধু শিক্ষকের টেস্ট-অ্যাটেম্পট ───
+// (প্রিভিউ/ডেমোর জন্য প্রশ্নের সঠিক-উত্তরও ফেরত আসে; শুধু requireTeacher-গেটেড)
+export async function fetchExamForDemo(examKey: string): Promise<Exam | null> {
+  try {
+    await requireTeacher();
+
+    const { data: ex, error } = await supabase
+      .from("exams")
+      .select("*")
+      .eq("id", examKey)
+      .maybeSingle();
+    if (error || !ex) return null;
+
+    const { data: links } = await supabase
+      .from("exam_questions_link")
+      .select("order_index, question_bank(id, q, opts, correct, exp, topic)")
+      .eq("exam_id", examKey);
+
+    const sortedQs = (links || [])
+      .sort((a: any, b: any) => Number(a.order_index) - Number(b.order_index))
+      .map((l: any) => ({
+        id: l.question_bank?.id,
+        q: l.question_bank?.q || "",
+        opts: l.question_bank?.opts || [],
+        correct: Number(l.question_bank?.correct ?? 0),
+        exp: l.question_bank?.exp || "",
+        topic: l.question_bank?.topic || undefined
+      }));
+
+    return {
+      id: ex.id,
+      course: ex.course,
+      subject: ex.subject,
+      title: ex.title,
+      timerMinutes: ex.timer_minutes,
+      isFree: ex.is_free,
+      passMark: Number(ex.pass_mark ?? 0),
+      startTime: ex.start_time,
+      endTime: ex.end_time,
+      isResultPublished: ex.is_result_published,
+      leaderboardStartTime: ex.leaderboard_start_time,
+      leaderboardEndTime: ex.leaderboard_end_time,
+      questions: sortedQs
+    };
+  } catch (err) {
+    console.error("fetchExamForDemo error:", err);
     return null;
   }
 }

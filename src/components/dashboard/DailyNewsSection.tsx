@@ -328,7 +328,7 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
           )}
         </div>
       ) : (
-        <div className="max-h-[13.5rem] overflow-y-auto overscroll-contain pr-1 space-y-2 [scrollbar-width:thin] [scrollbar-color:rgb(203_213_225)_transparent]">
+        <div className="max-h-[15rem] overflow-y-auto overscroll-contain pr-1 space-y-2 [scrollbar-width:thin] [scrollbar-color:rgb(203_213_225)_transparent]">
           {visible.map(({ n, bd }, idx) => {
             const isOpen = expandedId === n.id;
             return (
@@ -350,11 +350,6 @@ export const DailyNewsSection: React.FC<DailyNewsSectionProps> = ({ initialNews 
                   }}
                   className="w-full text-left px-3.5 py-3 cursor-pointer flex items-center gap-2.5"
                 >
-                  {idx === 0 && !viewKey && (
-                    <span className="shrink-0 bg-slate-900 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                      সর্বশেষ
-                    </span>
-                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block font-bold text-xs sm:text-sm leading-snug text-black">
                       {n.heading}

@@ -10,7 +10,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onOpenTeacherLogin }) => {
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "8801577301529";
-  const facebookUrl = process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://facebook.com";
+  const facebookUrl = process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://facebook.com/aarohon.edu";
 
   return (
     <footer className="bg-slate-900 text-slate-300 mt-14 border-t border-slate-800 font-bengali">
