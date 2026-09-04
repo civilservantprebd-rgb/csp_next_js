@@ -11,7 +11,7 @@ import { submitExamAnswers } from "@/actions/exam-actions";
 import { getLocalStudentUser } from "@/lib/student-auth";
 import { parseBangladeshDateTime, getTrueNowMs, isExamCurrentlyLive, syncBangladeshNetworkTime } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
-import { CheckCheck, Loader2, X, AlertCircle, CheckCircle2, Send, RotateCcw } from "lucide-react";
+import { CheckCheck, Loader2, X, AlertCircle, CheckCircle2, Send, RotateCcw, LogIn } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
 export default function ExamPage() {
@@ -30,6 +30,8 @@ export default function ExamPage() {
   const [demoResult, setDemoResult] = useState<{ correct: number; incorrect: number; skipped: number; total: number } | null>(null);
   // প্রশ্ন লোড হলেও টাইমার চালু হয় না — "পরীক্ষা শুরু করুন" ট্যাপে চালু হয়
   const [started, setStarted] = useState(false);
+  // লগইন-ছাড়া লিংকে এলে — এই পেজেই লগইন প্রম্পট (হোমে পাঠানো হয় না)
+  const [loginPrompt, setLoginPrompt] = useState(false);
 
   useEffect(() => {
     const isDemo = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
@@ -71,9 +73,12 @@ export default function ExamPage() {
         rawStudent = JSON.stringify({ id: localUser.uid, name: localUser.name });
         sessionStorage.setItem("current_student", rawStudent);
       } else {
-        // শেয়ার করা লিংক থেকে এলেও লগইনের পর এই পরীক্ষাতেই ফিরতে ইনটেন্ট সেভ
-        try { sessionStorage.setItem("target_exam_intent", examId); } catch { /* ignore */ }
-        router.push("/");
+        // শেয়ার করা লিংক — লগইন-ছাড়া: এই পেজেই লগইন প্রম্পট (হোমে নয়)
+        try {
+          sessionStorage.setItem("target_exam_intent", examId);
+          sessionStorage.setItem("auth_redirect", `/exam/${examId}`);
+        } catch { /* ignore */ }
+        setLoginPrompt(true);
         return;
       }
     }
@@ -89,8 +94,11 @@ export default function ExamPage() {
         parsedStudent = { id: localUser.uid, name: localUser.name };
         sessionStorage.setItem("current_student", JSON.stringify(parsedStudent));
       } else {
-        try { sessionStorage.setItem("target_exam_intent", examId); } catch { /* ignore */ }
-        router.push("/");
+        try {
+          sessionStorage.setItem("target_exam_intent", examId);
+          sessionStorage.setItem("auth_redirect", `/exam/${examId}`);
+        } catch { /* ignore */ }
+        setLoginPrompt(true);
         return;
       }
     }
@@ -263,6 +271,46 @@ export default function ExamPage() {
     alert("পরীক্ষার নির্ধারিত সময় সমাপ্ত হয়েছে! আপনার উত্তরপত্র জমা দেওয়া হচ্ছে।");
     doSubmit(0);
   };
+
+  // ---- লগইন-প্রম্পটের বাটন: লগইন করলেই (OAuth-পর) এই পরীক্ষাতেই ফিরে শুরু হবে ----
+  const handleExamLogin = async () => {
+    try {
+      const { loginWithGoogle } = await import("@/lib/student-auth");
+      await loginWithGoogle(examId, `/exam/${examId}`);
+      if (getLocalStudentUser()) window.location.reload();
+    } catch {
+      /* OAuth রিডাইরেক্ট নিজে থেকেই হবে */
+    }
+  };
+
+  // ---- লগইন-ছাড়া লিংকে এলে — এই পেজেই লগইন প্রম্পট ----
+  if (loginPrompt) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-950 p-4 font-bengali">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 sm:p-8 space-y-5 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto">
+            <LogIn className="w-8 h-8" />
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-xl font-black text-slate-900">পরীক্ষা দিতে চাইলে লগইন করুন</h1>
+            <p className="text-xs text-slate-500 font-bold leading-relaxed">
+              Google দিয়ে লগইন করলেই এই পরীক্ষাটি <b>এই পেজেই শুরু হয়ে যাবে</b> — হোম পেজে যেতে হবে না।
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExamLogin}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-indigo-600/25 cursor-pointer flex items-center justify-center gap-2"
+          >
+            <LogIn className="w-4 h-4" /> Google দিয়ে লগইন করুন
+          </button>
+          <p className="text-[10px] text-slate-400 font-bold">
+            🔒 শুধু লগইন করা শিক্ষার্থীরাই প্রশ্ন দেখতে পাবে — নিরাপদ
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   if (!exam || !student) {
     return (
