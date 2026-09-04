@@ -9,7 +9,7 @@ import { Footer } from "@/components/shared/Footer";
 import { FreeModelTestsBox } from "@/components/dashboard/FreeModelTestsBox";
 
 import { CourseCardGrid } from "@/components/dashboard/CourseCardGrid";
-import { LiveExamGrid } from "@/components/dashboard/LiveExamGrid";
+import { LiveExamsBox } from "@/components/dashboard/LiveExamsBox";
 import { UpcomingExamGrid } from "@/components/dashboard/UpcomingExamGrid";
 import { DailyNewsSection } from "@/components/dashboard/DailyNewsSection";
 import { NewNewsPopup } from "@/components/dashboard/NewNewsPopup";
@@ -317,8 +317,8 @@ export default function HomeClient({
         {/* দৈনিক সংবাদ — শিক্ষক/অ্যাডমিন নয় এমন সবার জন্য */}
         <DailyNewsSection initialNews={initialDailyNews} />
 
-        {/* Live Exams (if any) */}
-        <LiveExamGrid
+        {/* লাইভ এক্সাম — একটা বক্স; ট্যাপ করলে উইন্ডোয় চলমান সব পরীক্ষা */}
+        <LiveExamsBox
           exams={examsObj}
           onSelectLiveExam={handleStartExamByKey}
           onOpenEnrollModal={handleOpenEnrollModal}
