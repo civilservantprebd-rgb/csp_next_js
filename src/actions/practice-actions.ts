@@ -139,7 +139,11 @@ export async function getPracticeQuestions(
       if (!access.allowed) return [];
     }
 
-    const requestedCount = Math.max(1, Math.min(50, Number(count) || 10));
+    // count = 0 → "সব প্রশ্ন" (unlimited)। প্রশ্নব্যাংক রিডিং-এ সব প্রশ্ন দেখানোর
+    // জন্য page.tsx ০ পাঠায়; বাকি কলাররা (কুইজ ১০/১৫/৫০) আগের মতোই সীমিত থাকে।
+    const rawCount = Number(count);
+    const unlimited = Number.isFinite(rawCount) && rawCount === 0;
+    const requestedCount = unlimited ? 0 : Math.max(1, Math.min(50, rawCount || 10));
 
     const pool: PracticeQuestion[] = [];
     const normalizedTopic = selectedTopic.trim().toLowerCase();
@@ -269,13 +273,17 @@ export async function getPracticeQuestions(
 
     const uniqueList = Array.from(uniqueMap.values());
 
-    // Fisher-Yates shuffle (same as before)
-    for (let i = uniqueList.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [uniqueList[i], uniqueList[j]] = [uniqueList[j], uniqueList[i]];
+    if (!unlimited) {
+      // Fisher-Yates shuffle (same as before) — কুইজ/সীমিত মোডে এলোমেলো
+      for (let i = uniqueList.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [uniqueList[i], uniqueList[j]] = [uniqueList[j], uniqueList[i]];
+      }
+      return uniqueList.slice(0, requestedCount);
     }
 
-    return uniqueList.slice(0, requestedCount);
+    // "সব প্রশ্ন" মোড (count=0): ডাটাবেস অর্ডারে সম্পূর্ণ তালিকা — পড়ার জন্য
+    return uniqueList;
   } catch (err) {
     console.error("Get practice questions error:", err);
     return [];

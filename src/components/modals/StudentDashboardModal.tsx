@@ -15,7 +15,6 @@ import {
   AlertOctagon,
   Trash2,
   RotateCcw,
-  BookOpen,
   CheckCircle2,
   XCircle,
   Play,
@@ -42,9 +41,6 @@ import {
   StudentAnalyticsResult
 } from "@/lib/student-analytics";
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
-import { TopicReadingModal } from "@/components/modals/TopicReadingModal";
-import { TopicTreeViewer } from "@/components/dashboard/TopicTreeViewer";
-import { buildDeepTopicTree, getQuestionsForPath, TreeNode } from "@/lib/topic-hierarchy";
 import { PracticeQuestion } from "@/lib/practice-helper";
 import { getPracticeQuestions } from "@/actions/practice-actions";
 import { getLocalStudentUser, updateLocalStudentName, logoutStudentUser, StudentUser } from "@/lib/student-auth";
@@ -57,11 +53,17 @@ import {
   Sparkles as SparklesIcon
 } from "lucide-react";
 
+type TabKey = "history" | "analytics" | "mistakes" | "bookmarks";
+
 interface StudentDashboardModalProps {
   isOpen: boolean;
   /** Popup না — আলাদা পেজে (embedded) রেন্ডার হলে true দিন: ব্যাকড্রপ/ফিক্সড
       ওভারলে ছাড়া সাধারণ কার্ড হিসেবে দেখায়, পেজ স্ক্রল স্বাভাবিক থাকে। */
   embedded?: boolean;
+  /** embedded-মোডে কার্ড আরও চওড়া হবে (পোর্টালের সেকশন-পেজে বিস্তারিত দেখাতে)। */
+  wide?: boolean;
+  /** কোন ট্যাব সিলেক্ট করে খুলবে (ডিফল্ট: history)। */
+  initialTab?: TabKey;
   studentId: string;
   exams: Record<string, Exam>;
   config?: AppConfigData;
@@ -74,31 +76,22 @@ interface StudentDashboardModalProps {
 export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   isOpen,
   embedded = false,
+  wide = false,
+  initialTab,
   studentId,
   exams,
-  config,
   routineUrl = "https://drive.google.com",
   syllabusUrl = "https://drive.google.com",
   onClose,
   onSelectSubmissionDetail,
 }) => {
-  const [activeTab, setActiveTab] = useState<"history" | "study" | "analytics" | "mistakes" | "bookmarks">("history");
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "history");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [mistakes, setMistakes] = useState<MistakeQuestionItem[]>([]);
   const [bookmarks, setBookmarks] = useState<MistakeQuestionItem[]>([]);
   const [analytics, setAnalytics] = useState<StudentAnalyticsResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPaidStudent, setIsPaidStudent] = useState(false);
   const [studentCourses, setStudentCourses] = useState<string[]>([]);
-
-  // Reading & Quiz Modal States for Study Hub
-  const [isReadingOpen, setIsReadingOpen] = useState(false);
-  const [readingQuestions, setReadingQuestions] = useState<PracticeQuestion[]>([]);
-  const [readingTitle, setReadingTitle] = useState("");
-
-  const [isTopicQuizOpen, setIsTopicQuizOpen] = useState(false);
-  const [topicQuizQuestions, setTopicQuizQuestions] = useState<PracticeQuestion[]>([]);
-  const [topicQuizTitle, setTopicQuizTitle] = useState("");
 
   // Re-quiz modal state
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
@@ -124,23 +117,6 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
     }
   };
 
-  // স্টাডি হাবের পড়া/কুইজ ফেচ: প্রথমে বর্তমান পরিচয়ে (studentId + Google email),
-  // এতে এনরোলমেন্ট না মিললে/প্রশ্ন না এলে আগে যাচাই-কৃত (ফোন/ম্যানুয়াল) পরিচয়
-  // দিয়ে রিট্রাই — ইমেইলবিহীন পুরনো ফোন-এনরোলমেন্টও যেন পড়তে পারে।
-  const fetchHubQuestions = async (fullPath: string) => {
-    const { fetchTopicQuestionsForStudent } = await import("@/actions/student-actions");
-    let res = await fetchTopicQuestionsForStudent(studentId, fullPath, studentUser?.email);
-    if (!res.success || res.questions.length === 0) {
-      const { getVerifiedStudent } = await import("@/lib/student-identity");
-      const verified = getVerifiedStudent();
-      if (verified && verified.id && verified.id !== studentId) {
-        const alt = await fetchTopicQuestionsForStudent(verified.id, fullPath, verified.email);
-        if (alt.success && alt.questions.length > 0) return alt;
-      }
-    }
-    return res;
-  };
-
   useEffect(() => {
     if (isOpen && studentId) {
       setIsLoading(true);
@@ -151,12 +127,12 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         setNewName(localUser.name);
       }
 
-      // Check paid status — a rejection must never leave the dashboard spinner on
+      // Check enrollment (কোনো কোর্স এনরোল্ড কিনা) — একটি rejection-ও যেন
+      // ড্যাশবোর্ড স্পিনারে আটকে না রাখে
       // (ফাস্ট-পাথ: প্রথমবার সার্ভার চেক → ক্যাশ; পরের বার localStorage থেকেই)
       import("@/lib/access-cache")
         .then(({ checkEnrollmentCached }) =>
           checkEnrollmentCached(studentId, localUser?.email).then((res) => {
-            setIsPaidStudent(res.allowed);
             setStudentCourses(res.courses || []);
           })
         )
@@ -333,7 +309,13 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
   return (
     <div className={embedded ? "font-bengali" : "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200"}>
-      <div className={embedded ? "bg-white rounded-3xl max-w-3xl w-full mx-auto p-4 sm:p-6 border border-slate-200 shadow-sm" : "bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100"}>
+      <div
+        className={
+          embedded
+            ? `bg-white rounded-3xl ${wide ? "max-w-5xl" : "max-w-3xl"} w-full mx-auto p-4 sm:p-6 border border-slate-200 shadow-sm`
+            : "bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100"
+        }
+      >
         
         {/* Header */}
         <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
@@ -424,19 +406,6 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
           <button
             type="button"
-            onClick={() => setActiveTab("study")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "study"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/80"
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>পড়াশোনা ও চ্যাপ্টার হাব {isPaidStudent && "⭐"}</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveTab("analytics")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "analytics"
@@ -520,89 +489,6 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
             </div>
           )}
 
-          {/* TAB: STUDY & CHAPTER HUB (PAID EXCLUSIVE CONTENT) */}
-          {activeTab === "study" && (
-            <div className="space-y-4">
-              {!isPaidStudent && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50 border border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
-                      <Lock className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5">
-                        প্রশ্নব্যাংক রিডিং ও কুইজ লক করা আছে
-                      </h4>
-                      <p className="text-sm text-amber-800 leading-tight mt-0.5">
-                        চ্যাপ্টার ও টপিকের তালিকা দেখতে পাবেন, তবে প্রশ্ন পড়তে ও কুইজ দিতে কোর্সে এনরোল করতে হবে।
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      window.location.href = "/#courses";
-                    }}
-                    className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-sm cursor-pointer transition shrink-0 w-full sm:w-auto text-center"
-                  >
-                    কোর্সে এনরোল করুন
-                  </button>
-                </div>
-              )}
-
-              {isPaidStudent && (
-                <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-xs sm:text-sm text-indigo-950 flex items-center gap-1.5">
-                      <SparklesIcon className="w-4 h-4 text-amber-500" /> আনলিমিটেড বিষয় ও অধ্যায়ভিত্তিক প্রশ্নভাণ্ডার
-                    </h4>
-                    <p className="text-sm text-indigo-700">
-                      যে অংশে ট্যাপ করবেন তার ভেতরে যত সাবটপিক আছে তা বিস্তারিত দেখা যাবে।
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <TopicTreeViewer
-                tree={buildDeepTopicTree(config)}
-                isLocked={!isPaidStudent}
-                onLockedAction={() => {
-                  alert("🔒 দুঃখিত! এই অংশের বিস্তারিত প্রশ্ন ও কুইজ শুধুমাত্র অনুমোদিত ও এনরোল করা শিক্ষার্থীদের জন্য উন্মুক্ত। কোর্সে এনরোল করুন।");
-                }}
-                onOpenReading={async (fullPath, nodeName) => {
-                  if (!isPaidStudent) {
-                    alert("🔒 এই প্রশ্নগুলো পড়তে কোর্সে এনরোল করুন।");
-                    return;
-                  }
-                  const res = await fetchHubQuestions(fullPath);
-                  if (!res.success || res.questions.length === 0) {
-                    alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
-                    return;
-                  }
-                  setReadingQuestions(res.questions);
-                  setReadingTitle(fullPath);
-                  setIsReadingOpen(true);
-                }}
-                onStartQuiz={async (fullPath, nodeName) => {
-                  if (!isPaidStudent) {
-                    alert("🔒 এই কুইজ দিতে কোর্সে এনরোল করুন।");
-                    return;
-                  }
-                  const res = await fetchHubQuestions(fullPath);
-                  if (!res.success || res.questions.length === 0) {
-                    alert(res.message || "এই অধ্যায়ে কোনো প্রশ্ন পাওয়া যায়নি।");
-                    return;
-                  }
-                  const shuffled = shuffleArray([...res.questions]);
-                  setTopicQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
-                  setTopicQuizTitle(fullPath);
-                  setIsTopicQuizOpen(true);
-                }}
-              />
-            </div>
-          )}
-          
           {/* TAB 1: EXAM HISTORY */}
           {activeTab === "history" && (
             <>
@@ -1123,33 +1009,6 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         }}
       />
 
-      {/* Study Hub Topic Reading Modal */}
-      <TopicReadingModal
-        isOpen={isReadingOpen}
-        onClose={() => setIsReadingOpen(false)}
-        questions={readingQuestions}
-        title={readingTitle}
-        onStartQuiz={() => {
-          const shuffled = shuffleArray([...readingQuestions]);
-          setTopicQuizQuestions(shuffled.slice(0, Math.min(20, shuffled.length)));
-          setTopicQuizTitle(readingTitle);
-          setIsReadingOpen(false);
-          setIsTopicQuizOpen(true);
-        }}
-      />
-
-      {/* Study Hub Topic Quiz Modal */}
-      <SelfPracticeModal
-        isOpen={isTopicQuizOpen}
-        onClose={() => setIsTopicQuizOpen(false)}
-        questions={topicQuizQuestions}
-        subjectName={topicQuizTitle}
-        mode="instant"
-        onRestart={() => {
-          const shuffled = shuffleArray([...topicQuizQuestions]);
-          setTopicQuizQuestions(shuffled);
-        }}
-      />
     </div>
   );
 };

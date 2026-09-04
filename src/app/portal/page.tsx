@@ -1,28 +1,65 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
-import { StudentDashboardModal } from "@/components/modals/StudentDashboardModal";
-import { ExamDetailPopup } from "@/components/modals/ExamDetailPopup";
-import { EnrollModal } from "@/components/modals/EnrollModal";
-import { fetchAppConfigLite } from "@/actions/admin-actions";
-import { AppConfigData } from "@/types/exam";
-import { Submission } from "@/types/submission";
-import { Contact, ArrowRight, Sparkles, CircleAlert } from "lucide-react";
+import {
+  Contact,
+  Sparkles,
+  ChevronRight,
+  History,
+  BarChart3,
+  AlertOctagon,
+  Bookmark,
+  LogIn
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
 
+/**
+ * স্টুডেন্ট পোর্টাল — ওভারভিউ পেজ। প্রতিটা সেকশন (পরীক্ষার ফলাফল, বিশ্লেষণ,
+ * ভুলের খাতা, বুকমার্ক) আলাদা পেজে খোলে (একই ট্যাবে নেভিগেশন) — সেখানে
+ * বিস্তারিত দেখানো হয়। হোম পেজের পপআপ ড্যাশবোর্ড আগের মতোই আছে।
+ */
+
+const SECTIONS = [
+  {
+    key: "results",
+    icon: History,
+    title: "পরীক্ষার ফলাফল",
+    desc: "স্কোর, মার্কশিট ও সমাধানসহ পরীক্ষার ইতিহাস — যেকোনো পরীক্ষায় ট্যাপ করে বিস্তারিত",
+    tile: "from-violet-500 to-purple-600",
+    chip: "bg-violet-100 text-violet-800 border-violet-200"
+  },
+  {
+    key: "analytics",
+    icon: BarChart3,
+    title: "শক্তি ও দুর্বলতা বিশ্লেষণ",
+    desc: "বিষয়ভিত্তিক অ্যাকুরেসি, স্মার্ট প্রস্তুতি পরামর্শ ও দুর্বল বিষয়ে অনুশীলন",
+    tile: "from-indigo-500 to-blue-600",
+    chip: "bg-indigo-100 text-indigo-800 border-indigo-200"
+  },
+  {
+    key: "mistakes",
+    icon: AlertOctagon,
+    title: "ভুল উত্তরের খাতা",
+    desc: "ভুল করা প্রশ্নগুলো স্বয়ংক্রিয়ভাবে জমা থাকে — রিভিশন, মুছুন বা আবার পরীক্ষা দিন",
+    tile: "from-rose-500 to-pink-600",
+    chip: "bg-rose-100 text-rose-800 border-rose-200"
+  },
+  {
+    key: "bookmarks",
+    icon: Bookmark,
+    title: "বুকমার্কসমূহ",
+    desc: "পছন্দের প্রশ্ন বুকমার্ক করে রাখুন — পরে রিভিশন ও অনুশীলনের জন্য",
+    tile: "from-amber-500 to-orange-600",
+    chip: "bg-amber-100 text-amber-800 border-amber-200"
+  }
+];
+
 export default function PortalPage() {
   const router = useRouter();
-  const [activeStudentId, setActiveStudentId] = useState("");
-  const [config, setConfig] = useState<AppConfigData | null>(null);
-  const [configError, setConfigError] = useState("");
-  const [configAttempt, setConfigAttempt] = useState(0);
-  const [isEnrollOpen, setIsEnrollOpen] = useState(false);
-  const [selectedSub, setSelectedSub] = useState<Submission | null>(null);
   const [googleUser, setGoogleUser] = useState<{ uid: string; name: string; photoURL?: string } | null>(null);
 
   useEffect(() => {
@@ -32,43 +69,8 @@ export default function PortalPage() {
       router.replace("/admin");
       return;
     }
-
-    fetchAppConfigLite()
-      .then(setConfig)
-      .catch(() => {
-        console.error("Portal page config fetch failed.");
-        setConfigError("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
-      });
-
-    const gUser = getLocalStudentUser();
-    if (gUser) {
-      setGoogleUser(gUser);
-      // আসল এনরোলমেন্ট-রেকর্ডের আইডি ব্যবহার করি (allowed_students-এ ফোন/uid যেটাই হোক):
-      // পরীক্ষার সাবমিশন ও বিশ্লেষণ সেই আইডিতে সেভ হয়, তাই uid-এ খুঁজলে খালি দেখাত।
-      (async () => {
-        let effId = gUser.uid;
-        try {
-          const { verifyStudentAccess } = await import("@/actions/student-actions");
-          let res = await verifyStudentAccess(gUser.uid, "ALL", gUser.email);
-          // Google uid/email-এ এনরোলমেন্ট না মিললে আগে যাচাই-কৃত
-          // (ফোন/ম্যানুয়াল) পরিচয় দিয়ে চেষ্টা — ইমেইলবিহীন ফোন-এনরোল্ডরাও
-          // পোর্টাল থেকে প্রশ্ন/পরীক্ষা পড়তে পারবে।
-          if (!res.allowed) {
-            const { getVerifiedStudent } = await import("@/lib/student-identity");
-            const verified = getVerifiedStudent();
-            if (verified && verified.id && verified.id !== gUser.uid) {
-              const alt = await verifyStudentAccess(verified.id, "ALL", verified.email);
-              if (alt.allowed) res = alt;
-            }
-          }
-          if (res.allowed && res.normalizedId) effId = res.normalizedId;
-        } catch {
-          // verify ব্যর্থ হলে uid-ই থাকবে
-        }
-        setActiveStudentId(effId);
-      })();
-    }
-  }, [router, configAttempt]);
+    setGoogleUser(getLocalStudentUser());
+  }, [router]);
 
   const handleGoogleLogin = async () => {
     try {
@@ -82,7 +84,7 @@ export default function PortalPage() {
     <>
       <Header onOpenStudentPortal={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
 
-      <main className="flex-grow max-w-4xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-5">
+      <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-5">
         {/* Top banner */}
         <div className="relative bg-gradient-to-tr from-slate-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 text-center overflow-hidden shadow-sm border border-slate-800">
           <div className="absolute -top-10 -right-10 w-36 h-36 bg-indigo-400/10 rounded-full blur-xl pointer-events-none" />
@@ -100,28 +102,14 @@ export default function PortalPage() {
           </div>
 
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">স্টুডেন্ট পোর্টাল</h2>
-          <p className="text-xs sm:text-sm text-indigo-200 mt-1 max-w-sm mx-auto leading-relaxed">
-            {googleUser ? `${googleUser.name} — আপনার পারফরম্যান্স ও পরীক্ষার ইতিহাস` : "আপনার পারফরম্যান্স ও পরীক্ষার ইতিহাস"}
+          <p className="text-xs sm:text-sm text-indigo-200 mt-1 max-w-md mx-auto leading-relaxed">
+            {googleUser
+              ? `${googleUser.name} — সেকশন বেছে নিন, বিস্তারিত আলাদা পেজে খুলবে`
+              : "আপনার পারফরম্যান্স ও পরীক্ষার ইতিহাস — সেকশন বেছে নিন"}
           </p>
         </div>
 
-        {configError && (
-          <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-3">
-            <div className="bg-rose-50 border border-rose-200/80 text-rose-700 text-xs p-3.5 rounded-2xl flex items-start gap-2.5">
-              <CircleAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-              <p className="leading-snug">{configError}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setConfigAttempt((n) => n + 1)}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl text-sm cursor-pointer transition"
-            >
-              আবার চেষ্টা করুন
-            </button>
-          </div>
-        )}
-
-        {!configError && !googleUser && (
+        {!googleUser && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-5">
             <div className="space-y-2">
               <h3 className="text-base font-black text-slate-900">Google লগইন আবশ্যক</h3>
@@ -135,15 +123,9 @@ export default function PortalPage() {
             <button
               type="button"
               onClick={handleGoogleLogin}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold py-3.5 px-8 rounded-2xl border border-slate-300 shadow-sm transition text-sm cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-8 rounded-2xl shadow-sm transition text-sm cursor-pointer"
             >
-              <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.68 1.54 14.98 1 12 1 7.35 1 3.37 3.67 1.39 7.56l3.89 3.02C6.21 7.42 8.87 5.04 12 5.04z" />
-                <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.7-4.99 3.7-8.62z" />
-                <path fill="#FBBC05" d="M5.28 14.78a7.02 7.02 0 0 1-.37-2.22c0-.77.13-1.51.37-2.22L1.39 7.32A11.96 11.96 0 0 0 0 12c0 1.72.36 3.35.99 4.83l4.29-3.05z" />
-                <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.1.74-2.51 1.18-4.23 1.18-3.13 0-5.79-2.38-6.73-5.54l-3.89 3.02C3.37 20.33 7.35 23 12 23z" />
-              </svg>
-              Google দিয়ে লগইন করুন
+              <LogIn className="w-4 h-4" /> Google দিয়ে লগইন করুন
             </button>
 
             <p className="text-xs text-slate-400">
@@ -152,18 +134,61 @@ export default function PortalPage() {
           </div>
         )}
 
-        {!configError && googleUser && (
-          <StudentDashboardModal
-            embedded
-            isOpen
-            studentId={activeStudentId}
-            exams={config?.exams || {}}
-            config={config || undefined}
-            routineUrl={config?.driveRoutineUrl}
-            syllabusUrl={config?.driveSyllabusUrl}
-            onClose={() => {}}
-            onSelectSubmissionDetail={(sub) => setSelectedSub(sub)}
-          />
+        {googleUser && (
+          <>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                  আপনার পোর্টাল
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  সেকশনে ট্যাপ করলে বিস্তারিত আলাদা পেজে খুলবে
+                </p>
+              </div>
+              <span className="text-[11px] sm:text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">
+                ৪টি সেকশন
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {SECTIONS.map((sec) => {
+                const Icon = sec.icon;
+                return (
+                  <button
+                    key={sec.key}
+                    type="button"
+                    onClick={() => router.push(`/portal/${sec.key}`)}
+                    className="w-full text-left bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all duration-200 p-4 sm:p-5 cursor-pointer group h-full active:scale-[0.995]"
+                  >
+                    <div className="flex items-start gap-3.5">
+                      <div
+                        className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${sec.tile} text-white flex items-center justify-center shadow-sm shrink-0 group-hover:scale-105 transition`}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-black text-slate-900 text-sm sm:text-base leading-tight">
+                          {sec.title}
+                        </h4>
+                        <p className="text-[11px] sm:text-xs text-slate-500 mt-1 leading-relaxed">{sec.desc}</p>
+                      </div>
+                      <span className="shrink-0 inline-flex items-center gap-0.5 rounded-lg bg-slate-100 text-slate-600 px-2 py-1 text-[10px] font-black group-hover:bg-indigo-600 group-hover:text-white transition">
+                        খুলুন <ChevronRight className="w-3 h-3" />
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3.5 sm:p-4 text-[11px] sm:text-xs font-semibold text-indigo-950 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <span>
+                প্রতিটা সেকশন আলাদা পেজে খোলে — সেখানে ট্যাব বদলে অন্য সেকশনেও যেতে পারবেন।
+                ফিরে আসতে উপরের &ldquo;Student Portal&rdquo; বা পেজের &ldquo;← Student Portal&rdquo; বাটন ব্যবহার করুন।
+              </span>
+            </div>
+          </>
         )}
       </main>
 
@@ -171,24 +196,6 @@ export default function PortalPage() {
 
       {/* লগইন-পর এনরোল্ড কোর্সের WhatsApp গ্রুপে জয়েন প্রম্পট (একবার) */}
       <WhatsAppJoinPopup />
-
-      {config && (
-        <>
-          <EnrollModal
-            isOpen={isEnrollOpen}
-            courses={config.courses || ["সাধারণ কোর্স"]}
-            onClose={() => setIsEnrollOpen(false)}
-            onSuccess={(msg) => alert(msg)}
-          />
-
-          <ExamDetailPopup
-            isOpen={!!selectedSub}
-            submission={selectedSub}
-            exam={selectedSub ? config.exams?.[selectedSub.examKey] || null : null}
-            onClose={() => setSelectedSub(null)}
-          />
-        </>
-      )}
     </>
   );
 }
