@@ -187,7 +187,7 @@ export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => 
             </div>
 
             <p className="bg-slate-50 px-4 sm:px-6 py-2.5 border-t border-slate-200 text-[10px] text-slate-500 font-bold">
-              ⏰ টাইমার শেষ হলেই পরীক্ষাটি উপরের "লাইভ এক্সাম" বক্সে চলে যাবে — সেখান থেকে সরাসরি অংশ নিতে পারবেন।
+              ⏰ টাইমার শেষ হলেই পরীক্ষাটি উপরের ‘লাইভ এক্সাম’ বক্সে চলে যাবে — সেখান থেকে সরাসরি অংশ নিতে পারবেন।
             </p>
           </div>
         </div>
