@@ -36,6 +36,39 @@ export default function ExamPage() {
   useEffect(() => {
     const isDemo = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
 
+    // ---- OAuth-কলব্যাক: লগইনের পর সরাসরি এই এক্সাম পেজেই ফেরত — সেশন কনজিউম ----
+    if (!isDemo && typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      const search = window.location.search || "";
+      const hasAuth = hash.includes("access_token") || hash.includes("error") || search.includes("code=");
+      if (hasAuth && !sessionStorage.getItem("current_student")) {
+        (async () => {
+          try {
+            // supabase লোড হলেই onAuthStateChange localStorage/cookie সেট করে
+            await import("@/lib/supabase");
+          } catch { /* ignore */ }
+          const t0 = Date.now();
+          while (Date.now() - t0 < 10000) {
+            const u = getLocalStudentUser();
+            if (u && u.uid) {
+              sessionStorage.setItem("current_student", JSON.stringify({ id: u.uid, name: u.name }));
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 250));
+          }
+          // URL থেকে OAuth টোকেন/কোড পরিষ্কার
+          try {
+            const url = new URL(window.location.href);
+            url.hash = "";
+            ["code", "state", "error", "error_description"].forEach((k) => url.searchParams.delete(k));
+            window.history.replaceState({}, "", url.toString());
+          } catch { /* ignore */ }
+          window.location.reload();
+        })();
+        return;
+      }
+    }
+
     // ---- ডেমো মোড: শিক্ষক নিজে পরীক্ষাটি টেস্ট করেন (ফলাফল সেভ হয় না) ----
     if (isDemo) {
       if (!sessionStorage.getItem("teacher_user")) {
@@ -272,14 +305,21 @@ export default function ExamPage() {
     doSubmit(0);
   };
 
-  // ---- লগইন-প্রম্পটের বাটন: লগইন করলেই (OAuth-পর) এই পরীক্ষাতেই ফিরে শুরু হবে ----
+  // ---- লগইন-প্রম্পটের বাটন: OAuth শেষে এই এক্সাম পেজেই ফেরত (হোমে নয়) ----
   const handleExamLogin = async () => {
     try {
+      sessionStorage.setItem("target_exam_intent", examId);
+      const { supabase } = await import("@/lib/supabase");
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/exam/${examId}`
+        }
+      });
+    } catch {
+      /* রিডাইরেক্ট না হলে fallback */
       const { loginWithGoogle } = await import("@/lib/student-auth");
       await loginWithGoogle(examId, `/exam/${examId}`);
-      if (getLocalStudentUser()) window.location.reload();
-    } catch {
-      /* OAuth রিডাইরেক্ট নিজে থেকেই হবে */
     }
   };
 
