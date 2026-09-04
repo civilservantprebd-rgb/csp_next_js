@@ -87,6 +87,11 @@ export default function ExamPage() {
           }
           setDemoMode(true);
           setStudent({ id: "demo-teacher", name: "ডেমো (শিক্ষক)" });
+          // ডেমোও এই পেজের ফ্লো — পুরোনো লিংক-ইনটেন্ট থাকলে মুছে দিই (হোমে ফিরে অটো-স্টার্ট যেন না হয়)
+          try {
+            sessionStorage.removeItem("target_exam_intent");
+            sessionStorage.removeItem("auth_redirect");
+          } catch { /* ignore */ }
           setExam(ex);
           setStudentAnswers(new Array(ex.questions?.length || 0).fill(null));
           // টাইমার "পরীক্ষা শুরু করুন" ট্যাপে beginExam()-এ চালু হবে
@@ -136,6 +141,13 @@ export default function ExamPage() {
       }
     }
     setStudent(parsedStudent);
+
+    // লিংক/লগইন-ফ্লোর ইনটেন্ট-কী এখন পূরণ হয়েছে — সেশন নিশ্চিত হওয়া মাত্র মুছে দিই।
+    // না মুছলে সাবমিটের পর হোমে ফিরলে HomeClient আবার পরীক্ষা অটো-স্টার্ট করত।
+    try {
+      sessionStorage.removeItem("target_exam_intent");
+      sessionStorage.removeItem("auth_redirect");
+    } catch { /* ignore */ }
 
     // Deep links skip the home page where time sync normally runs — sync here
     // too so the countdown never silently falls back to the tamperable device
