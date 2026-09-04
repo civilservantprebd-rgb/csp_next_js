@@ -26,8 +26,7 @@ export const NewsManager: React.FC = () => {
 
   const load = async () => {
     setLoading(true);
-    // অটোমেশন দিনে ~১০০টি সংবাদ যোগ করে — প্রশাসক সাম্প্রতিক ৩০০টি দেখতে পান
-    const list = await getDailyNews(300);
+    const list = await getDailyNews();
     setNews(list || []);
     setLoading(false);
   };
@@ -207,11 +206,6 @@ export const NewsManager: React.FC = () => {
                             <span className="text-[11px] text-slate-500 font-bold flex items-center gap-1">
                               <CalendarDays className="w-3 h-3" /> {n.createdAt ? formatBangladeshDate(n.createdAt) : "—"}
                             </span>
-                            {n.source && (
-                              <span className="text-[10px] font-black text-slate-600 bg-slate-200/70 border border-slate-200 px-1.5 py-0.5 rounded-full">
-                                ⚙ {n.source}
-                              </span>
-                            )}
                             <span className="text-[10px] font-black text-black bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full flex items-center gap-1 ml-auto">
                               <Eye className="w-3 h-3" /> {toBengaliDigits(n.readCount ?? 0)} বার পড়া
                             </span>

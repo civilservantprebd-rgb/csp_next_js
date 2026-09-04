@@ -11,7 +11,6 @@ export default async function HomePage() {
   // Data is fetched server-side (Supabase runs in Node, not in the browser bundle)
   // দৈনিক সংবাদও সার্ভারেই (কনফিগের সাথে সমান্তরালে) আনা হয় — ফলে ক্লায়েন্টে
   // আর কোনো লোডিং স্পিনার/অতিরিক্ত রাউন্ডট্রিপ ছাড়াই সংবাদ প্রথম পেইন্টেই দেখা যায়।
-  // (২৫০০ = অটোমেটিক ~১০০টি/দিন × ~৩ সপ্তাহের আর্কাইভ ক্যালেন্ডারে দেখাতে)
-  const [config, dailyNews] = await Promise.all([fetchAppConfigLite(), getDailyNews(2500)]);
+  const [config, dailyNews] = await Promise.all([fetchAppConfigLite(), getDailyNews()]);
   return <HomeClient config={config} initialDailyNews={dailyNews || []} />;
 }
