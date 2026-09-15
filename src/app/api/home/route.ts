@@ -16,6 +16,10 @@ function examToDto(exam: Exam, nowMs: number, isLive: boolean) {
   return {
     examId: exam.id,
     title: exam.title,
+    // additive (v1 অপরিবর্তিত): নেটিভ অ্যাপ ফ্রি মডেল টেস্ট/পরীক্ষাগুলো কোর্স
+    // অনুযায়ী সাজাতে পারে — আগে কোর্সের তথ্যই ছিল না।
+    course: exam.course || "",
+    subject: exam.subject || "",
     startTimeMs: Number.isFinite(start) ? start : nowMs,
     endTimeMs: Number.isFinite(end) ? end : nowMs + durationSeconds * 1000,
     durationSeconds,
