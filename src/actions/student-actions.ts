@@ -7,7 +7,9 @@ import { Exam, QuestionSolution } from "@/types/exam";
 import { parseBengaliDigits } from "@/lib/utils";
 import { getExamSolutions } from "@/actions/exam-actions";
 import { getTrueDate } from "@/lib/bangladesh-time";
-import { requireTeacher, sessionOwnsStudent } from "@/lib/teacher-auth";
+import { requireTeacher, sessionOwnsStudent, isTeacherSession, getSessionUserFromCookies } from "@/lib/teacher-auth";
+import { loadAnswerLockState, isQuestionLocked } from "@/lib/answer-lock";
+import { resolveStudyIdentity } from "@/lib/student-session";
 
 export async function verifyStudentAccess(
   rawStudentId: string,
@@ -259,7 +261,10 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
 
     for (const s of subs) {
       const examObj = examsMap[s.examKey];
-      const isReleased = examObj ? isAnswerTimeReached(examObj) : true;
+      // SECURITY (fail-closed): an unknown exam row must NOT be read as
+      // "already released" -- that evaluated pending rows against a key the
+      // student was not yet entitled to see.
+      const isReleased = examObj ? isAnswerTimeReached(examObj) : false;
 
       if (isReleased && (s.isPendingEvaluation || s.score === undefined)) {
         let solutionsPromise = solutionsCache.get(s.examKey);
@@ -401,7 +406,8 @@ export async function getStudentPortalData(
   const jobs: Promise<unknown>[] = [];
   for (const s of subs) {
     const ex = exams[s.examKey];
-    const released = ex ? isAnswerTimeReached(ex) : true;
+    // SECURITY (fail-closed): see the note on the sibling loop above.
+    const released = ex ? isAnswerTimeReached(ex) : false;
     if (!released || !(s.isPendingEvaluation || s.score === undefined)) continue;
 
     let p = solutionsCache.get(s.examKey);
@@ -503,20 +509,88 @@ export async function getStudentExamMeta(rawStudentId: string): Promise<Record<s
   }
 }
 
+/**
+ * স্টুডেন্টের প্রদর্শন-নাম বদল — রোস্টার (`allowed_students`) এবং তার **আগের সব
+ * সাবমিশনের** `student_name`, দুটোতেই একসাথে।
+ *
+ * কেন দরকার: `submissions.student_name` সাবমিটের সময় কপি (snapshot) হয়ে যায়,
+ * তাই শুধু রোস্টার নাম বদলালে লিডারবোর্ড / ফলাফল / পুরোনো রেকর্ডে পুরোনো নামই
+ * থেকে যেত। এটাই ছিল "পোর্টালে নাম বদলালেও লিডারবোর্ডে পুরোনো নাম" সমস্যার কারণ।
+ *
+ * @returns অন্তত একটি রোস্টার-রো সত্যিই আপডেট হলে true (নীরব ব্যর্থতা এড়াতে
+ *          `count` চেক করা হয় — নাহলে ভুল id-এ `.update()` কোনো এরর ছাড়াই
+ *          ০ রো বদলে "সফল" দেখাত)।
+ */
+async function applyStudentName(ids: string[], name: string): Promise<boolean> {
+  const uniqueIds = Array.from(
+    new Set(ids.map((i) => String(i || "").trim()).filter(Boolean))
+  );
+  const cleanName = String(name || "").trim();
+  if (uniqueIds.length === 0 || !cleanName) return false;
+
+  // ১) রোস্টারে নাম
+  let rosterCount = 0;
+  try {
+    const { error, count } = await supabase
+      .from("allowed_students")
+      .update({ name: cleanName }, { count: "exact" })
+      .in("id", uniqueIds);
+    if (error) throw error;
+    rosterCount = count ?? 0;
+  } catch (err) {
+    console.error("applyStudentName roster update error:", err);
+    return false;
+  }
+
+  // ২) পুরোনো সাবমিশনের snapshot — লিডারবোর্ড এখান থেকেই পড়ে
+  try {
+    const { error: subError } = await supabase
+      .from("submissions")
+      .update({ student_name: cleanName })
+      .in("student_id", uniqueIds);
+    if (subError) {
+      // কলাম/অনুমতি সমস্যা হলে রোস্টার-আপডেট তবু রক্ষা করি (নতুন সাবমিশন ঠিক হবে)
+      console.error("applyStudentName submissions update error:", subError);
+    }
+  } catch (err) {
+    console.error("applyStudentName submissions update failed:", err);
+  }
+
+  return rosterCount > 0;
+}
+
 export async function updateStudentName(uid: string, newName: string): Promise<boolean> {
   try {
-    const cleanId = uid.trim();
+    const cleanId = String(uid || "").trim();
+    const cleanName = String(newName || "").trim();
+    if (!cleanId || !cleanName) return false;
 
     // SECURITY: only the logged-in student may rename their own record
     if (!(await sessionOwnsStudent(cleanId))) return false;
 
-    const { error } = await supabase
-      .from("allowed_students")
-      .update({ name: newName })
-      .eq("id", cleanId);
+    // একটা স্টুডেন্টের একাধিক রো থাকতে পারে (ফোন-আইডি রো + Google-uid রো), আর
+    // Google ইউজারের আসল রো-টা প্রায়ই ফোন-আইডিতে keyed হয় ও email দিয়ে মেলে।
+    // আগে শুধু `.eq("id", uid)` আপডেট হতো — ওই ছাত্রদের জন্য কিছুই মিলত না, তবু
+    // ফাংশন true ফেরাত (অদৃশ্য ব্যর্থতা)। এখন সেশনের সব পরিচয় একসাথে আনি।
+    const ids = new Set<string>([cleanId]);
+    try {
+      const sessionUser = await getSessionUserFromCookies();
+      const email = String(sessionUser?.email || "").trim().toLowerCase();
+      if (email) {
+        const { data } = await supabase
+          .from("allowed_students")
+          .select("id")
+          .eq("email", email);
+        (data || []).forEach((r: { id?: string }) => {
+          const rowId = String(r?.id || "").trim();
+          if (rowId) ids.add(rowId);
+        });
+      }
+    } catch {
+      // email lookup ব্যর্থ হলে কেবল দেওয়া id-তেই চেষ্টা করি
+    }
 
-    if (error) throw error;
-    return true;
+    return await applyStudentName(Array.from(ids), cleanName);
   } catch (err) {
     console.error("Update student name error:", err);
     return false;
@@ -536,7 +610,14 @@ export async function syncStudentLogin(payload: {
     // SECURITY: only the logged-in session user may sync their own profile
     if (!(await sessionOwnsStudent(cleanId))) return { success: false };
 
-    const cleanEmail = payload.email.trim().toLowerCase();
+    // SECURITY: use the VERIFIED session email, never the client-supplied one.
+    // `allowed_students.email` is the identity anchor that sessionOwnsStudent
+    // (teacher-auth.ts) and verifyStudentAccess both match on, so a caller who
+    // controls it could repoint their own row at an arbitrary address.
+    const { getSessionUserFromCookies } = await import("@/lib/teacher-auth");
+    const sessionUser = await getSessionUserFromCookies();
+    const cleanEmail = String(sessionUser?.email || payload.email || "").trim().toLowerCase();
+    const sessionEmail = String(sessionUser?.email || "").trim().toLowerCase();
 
     // গুরুত্বপূর্ণ: `.or(id,email).maybeSingle()` ব্যবহার করা যাবে না — একই
     // শিক্ষার্থীর একাধিক রো মিলে গেলে (যেমন ফোন-আইডি রো + Google uid রো) কুয়েরি
@@ -573,7 +654,7 @@ export async function syncStudentLogin(payload: {
       const { error: createErr } = await supabase.from("allowed_students").insert({
         id: cleanId,
         name: payload.name.trim() || "শিক্ষার্থী",
-        email: payload.email.trim() || "",
+        email: sessionEmail || "",
         courses: [],
         approved_at: now,
         last_login_at: now,
@@ -584,7 +665,7 @@ export async function syncStudentLogin(payload: {
       const { error: createErr2 } = await supabase.from("allowed_students").insert({
         id: cleanId,
         name: payload.name.trim() || "শিক্ষার্থী",
-        email: payload.email.trim() || "",
+        email: sessionEmail || "",
         courses: []
       });
       if (!createErr2) return { success: true };
@@ -598,7 +679,7 @@ export async function syncStudentLogin(payload: {
     const { error } = await supabase.from("allowed_students").upsert({
       id: existing.id,
       name: payload.name.trim() || existing?.name || "শিক্ষার্থী",
-      email: payload.email.trim() || existing?.email || "",
+      email: sessionEmail || existing?.email || "",
       courses: existingCourses,
       last_login_at: now,
       photo_url: payload.photoURL || ""
@@ -609,7 +690,7 @@ export async function syncStudentLogin(payload: {
       const { error: fallbackErr } = await supabase.from("allowed_students").upsert({
         id: existing.id,
         name: payload.name.trim() || existing?.name || "শিক্ষার্থী",
-        email: payload.email.trim() || existing?.email || "",
+        email: sessionEmail || existing?.email || "",
         courses: existingCourses
       });
       if (fallbackErr) throw fallbackErr;
@@ -724,15 +805,21 @@ export async function updateAllowedStudent(
     await requireTeacher();
 
     const cleanId = id.trim();
+    const cleanName = name.trim();
     const { error } = await supabase
       .from("allowed_students")
       .update({
-        name: name.trim(),
+        name: cleanName,
         courses: courses
       })
       .eq("id", cleanId);
 
     if (error) throw error;
+
+    // শিক্ষক এখান থেকেও নাম বদলাতে পারেন — লিডারবোর্ডের snapshot-ও হালনাগাদ করি,
+    // নাহলে পুরোনো সাবমিশনে পুরোনো নামই থেকে যাবে।
+    if (cleanName) await applyStudentName([cleanId], cleanName);
+
     return { success: true, message: "শিক্ষার্থীর কোর্স ও তথ্য সফলভাবে আপডেট করা হয়েছে।" };
   } catch (err) {
     console.error("Update allowed student error:", err);
@@ -763,11 +850,23 @@ export async function fetchTopicQuestionsForStudent(
   targetPath: string,
   email?: string
 ): Promise<{ success: boolean; questions: any[]; message?: string }> {
-  const cleanId = String(studentId || "").trim();
+  // SECURITY: identity must come from the verified session, never from the
+  // client-supplied studentId/email. This action returns `correct` + `exp`, so
+  // "the id you typed is enrolled" is not an acceptable proof of identity --
+  // previously anyone who knew one enrolled student's number could read the
+  // whole paid bank, answers included, with no login at all.
+  // With no session, a narrow fallback requires id AND email to match the same
+  // roster row (lib/student-session.ts).
+  const isTeacher = await isTeacherSession();
+  const identity = isTeacher ? null : await resolveStudyIdentity(studentId, email);
 
   // 1. Verify enrollment on server (any course is enough)
-  const access = await verifyStudentAccess(cleanId, "ALL", email);
-  if (!access.allowed) {
+  let accessAllowed = false;
+  if (identity) {
+    const access = await verifyStudentAccess(identity.id, "ALL", identity.email);
+    accessAllowed = access.allowed;
+  }
+  if (!isTeacher && !accessAllowed) {
     return {
       success: false,
       questions: [],
@@ -781,25 +880,18 @@ export async function fetchTopicQuestionsForStudent(
     // SECURITY: only expose correct/exp for questions the student is allowed to
     // see — never for answer-locked scheduled exams (before release). যেকোনো
     // একটি কোর্সে এনরোল্ড থাকলেই সব কোর্সের প্রশ্ন পড়া যায় (কোর্স-স্কোপ নয়)।
-    const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
-    const { data: allExams } = await supabase
-      .from("exams")
-      .select("id, course, subject, start_time, end_time, leaderboard_end_time, is_result_published");
+    // SECURITY: question-level answer lock (lib/answer-lock.ts). The old gate
+    // keyed on the exam alone, so a question recycled from an already-released
+    // exam leaked its correct/exp while a NEW live exam was using it.
+    // failClosed (lock data unreadable) withholds unknown exam-linked content.
+    const lock = isTeacher ? null : await loadAnswerLockState();
+    const isLocked = (
+      questionId: string | null | undefined,
+      examKey: string | null | undefined,
+      text: string | null | undefined
+    ): boolean => !!lock && isQuestionLocked(lock, { questionId, examKey, text });
 
-    const lockedExamIds = new Set<string>();
-    const accessibleExamIds = new Set<string>();
-    (allExams || []).forEach((ex: any) => {
-      const examObj = {
-        id: ex.id,
-        startTime: ex.start_time,
-        endTime: ex.end_time,
-        leaderboardEndTime: ex.leaderboard_end_time,
-        isResultPublished: ex.is_result_published === true
-      } as Exam;
-      const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
-      if (isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
-      accessibleExamIds.add(ex.id);
-    });
+    const { data: allExams } = await supabase.from("exams").select("id, subject");
 
     const { getTopicSegments } = await import("@/lib/topic-hierarchy");
 
@@ -819,10 +911,9 @@ export async function fetchTopicQuestionsForStudent(
       .order("created_at", { ascending: false });
 
     (dbTopicQs || []).forEach((tq, idx) => {
-      if (tq.exam_key) {
-        if (lockedExamIds.has(tq.exam_key)) return;
-        if (!accessibleExamIds.has(tq.exam_key)) return;
-      }
+      // The mirror row id is a topic_questions id, not a question_bank id, so
+      // match on exam key + normalized question text here.
+      if (isLocked(null, tq.exam_key, tq.q)) return;
       if (isMatch(tq.topic, tq.original_subject) && tq.q && Array.isArray(tq.opts) && tq.opts.length >= 2) {
         pool.push({
           id: tq.id || `tq_${idx}`,
@@ -845,8 +936,9 @@ export async function fetchTopicQuestionsForStudent(
       if (!qData || !qData.q) continue;
 
       const examId = link.exam_id;
-      if (lockedExamIds.has(examId)) continue;
-      if (!accessibleExamIds.has(examId)) continue;
+      // SECURITY: question-level lock -- this exam may already be released while
+      // the same question sits inside a currently-live exam.
+      if (isLocked(qData.id, examId, qData.q)) continue;
 
       const ex = (allExams || []).find((e: any) => e.id === examId);
       const examSubject = ex?.subject || "পড়াশোনা";
@@ -1027,7 +1119,8 @@ export async function getStudentExamHistoryForTeacher(rawStudentId: string): Pro
     const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
     for (const s of subs) {
       const examObj = examsMap[s.examKey];
-      const isReleased = examObj ? isAnswerTimeReached(examObj) : true;
+      // SECURITY (fail-closed): see the note on the sibling loops above.
+      const isReleased = examObj ? isAnswerTimeReached(examObj) : false;
       if (isReleased && (s.isPendingEvaluation || s.score === undefined)) {
         const solutions = await getExamSolutions(s.examKey);
         if (solutions && s.answers) {

@@ -2,15 +2,12 @@
 
 import { supabase } from "@/lib/supabase";
 import { CourseVideo } from "@/types/video";
-import { requireTeacher, getSessionUserFromCookies, sessionOwnsStudent } from "@/lib/teacher-auth";
+import { requireTeacher } from "@/lib/teacher-auth";
+import { resolveStudyIdentity } from "@/lib/student-session";
 import { verifyStudentAccess } from "@/actions/student-actions";
 import { extractYoutubeId } from "@/lib/youtube";
 
 const TABLE = "course_videos";
-
-function isUuidLike(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-}
 
 function mapRow(r: any): CourseVideo {
   return {
@@ -94,23 +91,19 @@ export async function getCourseVideosForStudent(
 
   try {
     // 1) প্রমাণিত সেশন (Google লগইন) — সবচেয়ে শক্তিশালী পরিচয়
-    const sessionUser = await getSessionUserFromCookies();
+    // SECURITY: identity comes from the verified session. With no session, the
+    // manual path now requires BOTH id and email to match the same roster row
+    // (lib/student-session.ts). The previous `isUuidLike` guard never fired for
+    // phone-keyed manual students -- and student ids ARE phone numbers -- so a
+    // single known enrolled number unlocked a paid course's videos with no login.
+    const identity = await resolveStudyIdentity(clientIdentity?.id, clientIdentity?.email);
 
-    let identityId = sessionUser?.id || "";
-    let identityEmail = sessionUser?.email || "";
-
-    if (!sessionUser) {
-      // 2) ম্যানুয়াল স্টুডেন্ট — ক্লায়েন্ট id গ্রহণযোগ্য শুধু মোবাইল/নন-UUID হলে
-      const rawId = String(clientIdentity?.id || "").trim();
-      if (!rawId) {
-        return { allowed: false, message: "লগইন/আইডি প্রয়োজন।", videos: [] };
-      }
-      if (isUuidLike(rawId) && !(await sessionOwnsStudent(rawId))) {
-        return { allowed: false, message: "অনুমোদিত নয়।", videos: [] };
-      }
-      identityId = rawId;
-      identityEmail = String(clientIdentity?.email || "").trim();
+    if (!identity) {
+      return { allowed: false, message: "লগইন/আইডি প্রয়োজন।", videos: [] };
     }
+
+    const identityId = identity.id;
+    const identityEmail = identity.email || "";
 
     // 3) এনরোলমেন্ট যাচাই (allowed_students-এ কোর্স/ALL আছে কিনা)
     const check = await verifyStudentAccess(identityId, cleanCourse, identityEmail || undefined);

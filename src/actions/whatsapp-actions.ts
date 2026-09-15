@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { requireTeacher } from "@/lib/teacher-auth";
+import { resolveStudyIdentity } from "@/lib/student-session";
 
 export interface CourseWhatsAppLink {
   course: string;
@@ -68,14 +69,18 @@ export async function saveWhatsAppLink(
  */
 export async function getWhatsAppLinksForStudent(studentId?: string, email?: string): Promise<CourseWhatsAppLink[]> {
   try {
-    const cleanId = String(studentId || "").trim();
-    if (!cleanId) return [];
-
     const { isTeacherSession } = await import("@/lib/teacher-auth");
     if (await isTeacherSession()) return []; // শিক্ষককে স্টুডেন্ট প্রম্পট নয়
 
+    // SECURITY: an invite link is a credential -- it must never be handed out on
+    // the strength of a client-supplied id. Identity comes from the verified
+    // session, or (with no session) from an id AND email that match the same
+    // roster row (lib/student-session.ts).
+    const identity = await resolveStudyIdentity(studentId, email);
+    if (!identity) return [];
+
     const { verifyStudentAccess } = await import("@/actions/student-actions");
-    const access = await verifyStudentAccess(cleanId, "ALL", email);
+    const access = await verifyStudentAccess(identity.id, "ALL", identity.email);
     if (!access.allowed) return [];
 
     const courses = (access.courses || [])
@@ -112,12 +117,13 @@ export async function getCourseWhatsAppForStudent(
   try {
     const name = String(course || "").trim();
     if (!name) return "";
-    const cleanId = String(identity?.id || "").trim();
-    const cleanEmail = String(identity?.email || "").trim().toLowerCase();
-    if (!cleanId && !cleanEmail) return "";
 
     const { isTeacherSession } = await import("@/lib/teacher-auth");
     if (await isTeacherSession()) return ""; // শিক্ষক-সেশনকে স্টুডেন্ট লিংক নয়
+
+    // SECURITY: resolved identity only -- never the raw client-supplied object.
+    const resolved = await resolveStudyIdentity(identity?.id, identity?.email);
+    if (!resolved) return "";
 
     // ১) এই কোর্সের জন্য WhatsApp লিংক আছে?
     const { data: row } = await supabase
@@ -126,9 +132,9 @@ export async function getCourseWhatsAppForStudent(
       .eq("course", name)
       .maybeSingle();
     if (row?.link) {
-      // ২) স্টুডেন্ট কি এই কোর্সে এনরোল্ড? (id/email দিয়ে allowed_students ম্যাচ)
+      // ২) স্টুডেন্ট কি এই কোর্সে এনরোল্ড? (resolved পরিচয় দিয়ে allowed_students ম্যাচ)
       const { verifyStudentAccess } = await import("@/actions/student-actions");
-      const access = await verifyStudentAccess(cleanId || cleanEmail, name, cleanEmail);
+      const access = await verifyStudentAccess(resolved.id, name, resolved.email);
       if (access.allowed) return String(row.link).trim();
     }
     return "";

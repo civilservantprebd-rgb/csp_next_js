@@ -158,15 +158,34 @@ export function isAnswerTimeReached(exam: Exam): boolean {
   //     শেষ-সময়ের (endTime/leaderboardEndTime) পরে আরও exam-দৈর্ঘ্য (মিনিট) অপেক্ষা
   //     করতে হয় — LIVE_GRACE-এর বদলে। শিক্ষক আগেই publish করলে (শর্ত-১) সঙ্গে সঙ্গে।
   const now = getTrueDate();
+  // SECURITY: `timerMinutes` must be the real value. If a caller builds a
+  // partial Exam object and omits it, the `|| 10` default below wins and a
+  // 60-minute exam would unlock its answer key after only 10 minutes. Every
+  // call site must supply it -- see lib/answer-lock.ts (rowToExam).
   const examDurationMs = Math.max(1, (exam.timerMinutes || 10)) * 60 * 1000;
-  if (exam.endTime) {
-    const endTime = parseBangladeshDateTime(exam.endTime);
-    if (endTime && now.getTime() >= endTime.getTime() + examDurationMs) return true;
-  } else if (exam.leaderboardEndTime) {
-    const endTime = parseBangladeshDateTime(exam.leaderboardEndTime);
-    if (endTime && now.getTime() >= endTime.getTime() + examDurationMs) return true;
+
+  const endTime = exam.endTime
+    ? parseBangladeshDateTime(exam.endTime)
+    : exam.leaderboardEndTime
+      ? parseBangladeshDateTime(exam.leaderboardEndTime)
+      : null;
+
+  if (endTime) {
+    return now.getTime() >= endTime.getTime() + examDurationMs;
   }
 
+  // SECURITY (fail-closed): a start-time-only exam used to return false here, so
+  // `isScheduled` was false as well and the answer gate was skipped entirely --
+  // the key was public from the moment the exam was created, even though it
+  // still accepted scored submissions. Hold the key until the exam's own
+  // duration has elapsed from its start.
+  if (exam.startTime) {
+    const startTime = parseBangladeshDateTime(exam.startTime);
+    if (startTime) return now.getTime() >= startTime.getTime() + examDurationMs;
+  }
+
+  // No window boundaries at all: always-open practice exam -- answers are
+  // public by design.
   return false;
 }
 

@@ -5,6 +5,7 @@ import { Exam, QuestionSolution } from "@/types/exam";
 import { Submission, LeaderboardItem } from "@/types/submission";
 import { parseBangladeshDateTime, getTrueDate, LIVE_GRACE_MS } from "@/lib/bangladesh-time";
 import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
+import { loadAnswerLockState, isQuestionLocked } from "@/lib/answer-lock";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {  try {
     // SECURITY: never leak the answer key to non-teachers until the exam's answer
@@ -14,21 +15,38 @@ export async function getExamSolutions(examKey: string): Promise<QuestionSolutio
     // their answers are public by design.
     const { isTeacherSession } = await import("@/lib/teacher-auth");
     if (!(await isTeacherSession())) {
-      const { data: examData } = await supabase
+      const { data: examData, error: examError } = await supabase
         .from("exams")
-        .select("start_time, end_time, leaderboard_end_time, is_result_published")
+        .select("start_time, end_time, leaderboard_start_time, leaderboard_end_time, is_result_published, timer_minutes")
         .eq("id", examKey)
         .maybeSingle();
+
+      // SECURITY (fail-closed): a failed read must never open the gate.
+      if (examError) return null;
+
+      // examData === null (row deleted) deliberately keeps the archived-question
+      // behaviour: the exam no longer exists, so its mirrored questions must stay
+      // readable for practice/reading.
       if (examData) {
         const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
         const exam = {
           startTime: examData.start_time,
           endTime: examData.end_time,
+          leaderboardStartTime: examData.leaderboard_start_time,
           leaderboardEndTime: examData.leaderboard_end_time,
-          isResultPublished: examData.is_result_published === true
+          isResultPublished: examData.is_result_published === true,
+          // SECURITY: MUST be supplied. Omitting timerMinutes made the release
+          // delay fall back to 10 minutes, so a 60-minute live exam leaked its
+          // answer key 50 minutes early.
+          timerMinutes: Number(examData.timer_minutes ?? 0) || undefined
         } as Exam;
-        const isScheduled = !!(exam.startTime && (exam.endTime || exam.leaderboardEndTime));
-        if (isScheduled && !isAnswerTimeReached(exam)) return null;
+
+        // SECURITY: any window boundary (start OR end) makes this a scheduled
+        // exam. The old `startTime && (endTime || leaderboardEndTime)` test
+        // skipped the gate entirely for end-only and start-only exams, leaving
+        // the key public from creation.
+        const hasWindow = !!(exam.startTime || exam.endTime || exam.leaderboardEndTime);
+        if (hasWindow && !isAnswerTimeReached(exam)) return null;
       }
     }
 
@@ -330,6 +348,18 @@ export async function submitExamAnswers(payload: {
       // verified session uid instead (not forgeable from the client).
       recordStudentId = sessionUser.id;
       if (sessionUser.name) recordStudentName = sessionUser.name;
+
+      // নাম: রোস্টারের নাম (allowed_students.name) আগে, Google প্রোফাইলের নাম পরে।
+      // পোর্টালে নাম বদলালে সেটা এখানেই লেখা হয় — নাহলে ফ্রি পরীক্ষার
+      // লিডারবোর্ডে Google-এর পুরোনো নামই দেখাত, পোর্টালের নাম কখনোই আসত না।
+      try {
+        const { verifyStudentAccess } = await import("@/actions/student-actions");
+        const access = await verifyStudentAccess(sessionUser.id, "ALL", sessionUser.email);
+        const rosterName = String(access.studentName || "").trim();
+        if (access.allowed && rosterName) recordStudentName = rosterName;
+      } catch {
+        // রোস্টার না মিললে Google নামই থাকল
+      }
     }
 
     // Validate + sanitize answers (never trust the client's shape blindly)
@@ -360,7 +390,12 @@ export async function submitExamAnswers(payload: {
     // — জমা কখন হয়েছে তা দিয়ে নয়। ফলে শেষ-বাউন্ডারিতে শুরু করলেও নাম লিডারবোর্ডে ওঠে,
     // কিন্তু শেষের পরে শুরু করলে (start-রেকর্ড live-বাইরে) ওঠে না। (start-টেবিল migration-নির্ভর)
     let liveByStart = false;
-    if (startTime && endTime) {
+    // SECURITY: this server-recorded start is also the authoritative source for
+    // elapsed time (the leaderboard tie-breaker). It was previously read only to
+    // decide live eligibility, while time_spent came from the client -- so a
+    // caller could declare `timeRemaining = duration` and win every tie.
+    let startedAtMs: number | null = null;
+    if (startTime || endTime) {
       try {
         const { data: startRow } = await supabase
           .from("exam_attempt_starts")
@@ -370,7 +405,12 @@ export async function submitExamAnswers(payload: {
           .maybeSingle();
         if (startRow?.started_at) {
           const s = parseBangladeshDateTime(startRow.started_at);
-          liveByStart = !!s && s.getTime() >= startTime.getTime() && s.getTime() <= endTime.getTime();
+          if (s) {
+            startedAtMs = s.getTime();
+            if (startTime && endTime) {
+              liveByStart = s.getTime() >= startTime.getTime() && s.getTime() <= endTime.getTime();
+            }
+          }
         }
       } catch {
         // টেবিল/মাইগ্রেশন না থাকলে নীরবে fallback-এ নামি
@@ -405,8 +445,14 @@ export async function submitExamAnswers(payload: {
     // from the client: clamp it to [0, duration] so a forged timeRemaining
     // cannot produce a negative/absurd timeSpent for leaderboard tiebreaks.
     const durationSecs = Math.max(1, (exam?.timerMinutes ?? payload.examTimerMinutes) * 60);
-    const rawSpent = durationSecs - Number(payload.timeRemaining || 0);
-    const timeSpentSecs = Math.max(0, Math.min(durationSecs, rawSpent));
+    // SECURITY: prefer the server-recorded start; the clamped client report is
+    // only a fallback (migration pending / always-open practice exam). time_spent
+    // is the leaderboard tie-breaker, so a caller must not be able to declare
+    // `timeRemaining = duration` and claim "0 মি. ০ সে." to win every tie.
+    const rawSpent = startedAtMs !== null
+      ? (now.getTime() - startedAtMs) / 1000
+      : durationSecs - Number(payload.timeRemaining || 0);
+    const timeSpentSecs = Math.max(0, Math.min(Math.floor(durationSecs), Math.floor(rawSpent)));
     const mins = Math.floor(timeSpentSecs / 60);
     const secs = timeSpentSecs % 60;
     const timeFormatted = `${mins} মি. ${secs} সে.`;
@@ -417,6 +463,10 @@ export async function submitExamAnswers(payload: {
 
     // Always fetch solutions and compute score (stored in DB or returned when published)
     const solutions = await getExamSolutions(payload.examKey);
+    // True whenever the answer key is still withheld, so this submission cannot
+    // be scored yet -- including a non-live (late) attempt. Stored as pending so
+    // it is scored automatically at release instead of being frozen at 0.
+    const needsEvaluation = solutions === null;
     if (solutions) {
       answers.forEach((ans, idx) => {
         const sol = solutions[idx];
@@ -441,7 +491,11 @@ export async function submitExamAnswers(payload: {
         total_questions: totalQuestions,
         time_spent: timeFormatted,
         answers: answers.map((v) => (v === null ? -1 : v)),
-        is_pending_evaluation: isLive,
+        // CORRECTNESS: a late (non-live) submission used to be written with
+        // score 0 and is_pending_evaluation = false -- nothing ever re-evaluated
+        // it, so the student saw 0/0 permanently. Any row we could not score
+        // stays pending and is filled in once the key is released.
+        is_pending_evaluation: needsEvaluation,
         is_live_submission: isLiveSubmission,
         submitted_at: getTrueDate().toISOString()
       })
@@ -536,9 +590,33 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
     const { getSessionUserFromCookies } = await import("@/lib/teacher-auth");
     const sessionUser = await getSessionUserFromCookies();
 
+    // নাম: `submissions.student_name` হলো সাবমিটের সময়কার snapshot, তাই নাম
+    // বদলালে লিডারবোর্ডে পুরোনোটাই থেকে যেত। রোস্টার (`allowed_students.name`)
+    // হলো আসল সূত্র — আগে যারা নাম বদলেছেন তাঁদের পুরোনো সারিগুলোও এতে ঠিক
+    // দেখাবে, আলাদা করে আবার সেভ করার দরকার নেই।
+    const rosterNames = new Map<string, string>();
+    try {
+      const studentIds = Array.from(
+        new Set((subData || []).map((r) => String(r?.student_id || "").trim()).filter(Boolean))
+      );
+      if (studentIds.length > 0) {
+        const { data: rosterRows } = await supabase
+          .from("allowed_students")
+          .select("id, name")
+          .in("id", studentIds);
+        (rosterRows || []).forEach((r: { id?: string; name?: string }) => {
+          const rowId = String(r?.id || "").trim();
+          const rowName = String(r?.name || "").trim();
+          if (rowId && rowName) rosterNames.set(rowId, rowName);
+        });
+      }
+    } catch {
+      // রোস্টার না পড়া গেলে snapshot-ই থাকল (আগের আচরণ)
+    }
+
     const subs: Submission[] = (subData || []).map((row) => ({
       id: row.id,
-      studentName: row.student_name,
+      studentName: rosterNames.get(String(row.student_id || "").trim()) || row.student_name,
       studentId:
         sessionUser && sessionUser.id && sessionUser.id === row.student_id
           ? row.student_id
@@ -715,7 +793,7 @@ export async function getMySubmissionResult(
     if (row.is_pending_evaluation) {
       const { data: exRow } = await supabase
         .from("exams")
-        .select("start_time, end_time, leaderboard_end_time, is_result_published")
+        .select("start_time, end_time, leaderboard_start_time, leaderboard_end_time, is_result_published, timer_minutes")
         .eq("id", examKey)
         .maybeSingle();
       if (exRow) {
@@ -723,8 +801,12 @@ export async function getMySubmissionResult(
         const releaseExam = {
           startTime: exRow.start_time,
           endTime: exRow.end_time,
+          leaderboardStartTime: exRow.leaderboard_start_time,
           leaderboardEndTime: exRow.leaderboard_end_time,
-          isResultPublished: exRow.is_result_published === true
+          isResultPublished: exRow.is_result_published === true,
+          // SECURITY: required -- without it the release delay defaulted to 10
+          // minutes (see lib/bangladesh-time.ts isAnswerTimeReached).
+          timerMinutes: Number(exRow.timer_minutes ?? 0) || undefined
         } as Exam;
         if (isAnswerTimeReached(releaseExam)) {
           const solutions = await getExamSolutions(examKey);
@@ -783,6 +865,15 @@ export async function getQuestionLiveStats(
     const cleanQ = String(qText || "").trim();
     if (!cleanQ) return zero;
 
+    // SECURITY: this action compares submitted answers against the TRUE key
+    // (below), so during a live window it is a bit-by-bit answer-key oracle --
+    // one throwaway account answering option 0 everywhere, plus one stats query
+    // per question, recovers "is option 0 correct?" without the key ever being
+    // returned. Restrict it to released exams for non-teachers.
+    const { isTeacherSession } = await import("@/lib/teacher-auth");
+    const isTeacher = await isTeacherSession();
+    const lock = isTeacher ? null : await loadAnswerLockState();
+
     // Find this question in the bank (exact text match)
     const { data: qRows } = await supabase
       .from("question_bank")
@@ -801,7 +892,19 @@ export async function getQuestionLiveStats(
       .in("question_id", qRows.map((r) => r.id));
     if (!links || links.length === 0) return zero;
 
-    const examIds = Array.from(new Set(links.map((l) => l.exam_id)));
+    if (lock && isQuestionLocked(lock, { questionId: qRows[0]?.id, text: cleanQ })) {
+      return zero;
+    }
+
+    const examIds = Array.from(
+      new Set(
+        links
+          .filter((l) => !lock || !isQuestionLocked(lock, { examKey: l.exam_id }))
+          .map((l) => l.exam_id)
+      )
+    );
+    if (examIds.length === 0) return zero;
+
     let correct = 0;
     let wrong = 0;
     let skipped = 0;

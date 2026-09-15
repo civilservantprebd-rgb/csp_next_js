@@ -669,9 +669,16 @@ export async function searchQuestionBank(
       }
       if (topic && topic !== "ALL") {
         // "সাধারণ" is the fallback topic — also match questions with no topic assigned
-        builder = topic === "সাধারণ"
-          ? builder.or(`topic.eq.${topic},topic.is.null`)
-          : builder.eq("topic", topic);
+        // SECURITY: never interpolate raw caller input into PostgREST filter
+        // grammar (.or()). Strip metacharacters the same way verifyStudentAccess
+        // does (student-actions.ts), so a crafted topic cannot inject extra
+        // filter conditions.
+        const safeTopic = String(topic).replace(/[(),;*]/g, "");
+        if (safeTopic) {
+          builder = safeTopic === "সাধারণ"
+            ? builder.or(`topic.eq.${safeTopic},topic.is.null`)
+            : builder.eq("topic", safeTopic);
+        }
       }
       if (subject && subject !== "ALL") {
         builder = builder.eq("subject", subject);
@@ -1598,6 +1605,21 @@ export async function fetchExamWithQuestions(examKey: string): Promise<Exam | nu
       const { verifyStudentAccess } = await import("@/actions/student-actions");
       const access = await verifyStudentAccess(sessionUser.id, ex.course || "", sessionUser.email);
       if (!access.allowed) return null;
+    }
+
+    // SECURITY: the exam hall must not hand out the paper before the exam opens.
+    // That stop used to live only in the client (`exam/[examId]/page.tsx` checked
+    // the start time *after* this action had already resolved), so simply opening
+    // /exam/<upcomingExamId> -- or replaying this action id -- returned the whole
+    // paper with its options before the window began. Teachers keep access so
+    // they can preview their own papers.
+    if (ex.start_time) {
+      const { parseBangladeshDateTime, getTrueDate } = await import("@/lib/bangladesh-time");
+      const examStart = parseBangladeshDateTime(ex.start_time);
+      if (examStart && getTrueDate().getTime() < examStart.getTime()) {
+        const { isTeacherSession } = await import("@/lib/teacher-auth");
+        if (!(await isTeacherSession())) return null;
+      }
     }
 
     const { data: links } = await supabase

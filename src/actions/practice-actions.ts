@@ -2,7 +2,8 @@
 
 import { supabase } from "@/lib/supabase";
 import type { PracticeQuestion, TopicOption } from "@/lib/practice-helper";
-import type { Exam } from "@/types/exam";
+import { loadAnswerLockState, isQuestionLocked } from "@/lib/answer-lock";
+import { resolveStudyIdentity } from "@/lib/student-session";
 
 /**
  * Server-side Self-Practice data.
@@ -11,6 +12,17 @@ import type { Exam } from "@/types/exam";
  * exam's questions to the client just to build the practice pool. Now the
  * questions are fetched from the database only when a practice session
  * actually starts — the home page stays light.
+ *
+ * SECURITY (এই ফাইলে দুটি বড় সংশোধন):
+ *  ১. পরিচয় এখন **সেশনের** উপর নির্ভর করে, ক্লায়েন্টের পাঠানো id/email-এর উপর নয়
+ *     (lib/student-session.ts)। আগে যে কেউ একজন এনরোল্ড ছাত্রের ফোন নম্বর জানলেই
+ *     লগইন ছাড়া পুরো পেইড প্রশ্নব্যাংক উত্তর সহ বের করে নিতে পারত।
+ *  ২. উত্তর-লক এখন **প্রশ্নের পরিচয়** ধরে, পরীক্ষার key ধরে নয়
+ *     (lib/answer-lock.ts)। আগে ব্যাংক থেকে লিংক করা (recycled) প্রশ্নের উত্তর
+ *     লাইভ পরীক্ষা চলাকালীন পুরো সময় ফাঁস হতো।
+ *
+ * নিয়ম অপরিবর্তিত: **যেকোনো একটি কোর্সে এনরোল্ড থাকলেই** সব কোর্সের প্রশ্নব্যাংক
+ * ও প্র্যাকটিস অ্যাক্সেসযোগ্য — কোর্স-স্কোপ ফিল্টার নেই।
  */
 
 // টপিক-তালিকার ছোট মেমো-ক্যাশ (প্রতি সার্ভার instance-এ; ৯০ সেকেন্ড)
@@ -18,9 +30,9 @@ const PRACTICE_TOPICS_TTL_MS = 90 * 1000;
 const practiceTopicsCache = new Map<string, { at: number; data: TopicOption[] }>();
 
 // প্র্যাকটিস-পুলের ছোট মেমো-ক্যাশ: একই টপিকে ("আবার শুরু" বা পুনরায় ঢুকলে)
-// ডাটাবেস আবার স্ক্যান না করে সাথে সাথে প্রশ্ন দেয়। কী-তে স্টুডেন্ট আইডি/ইমেইল
-// থাকে, তাই একজনের ক্যাশ কখনো অন্যের কাছে যায় না — আর এনরোলমেন্ট যাচাই
-// ক্যাশের **আগেই** হয়, ফলে অননুমোদিত কেউ ক্যাশ থেকে কিছু পায় না।
+// ডাটাবেস আবার স্ক্যান না করে সাথে সাথে প্রশ্ন দেয়। কী-তে **resolved** স্টুডেন্ট
+// পরিচয় থাকে (ক্লায়েন্টের দেওয়া নয়), তাই একজনের ক্যাশ কখনো অন্যের কাছে যায় না —
+// আর এনরোলমেন্ট যাচাই ক্যাশের **আগেই** হয়।
 const PRACTICE_POOL_TTL_MS = 60 * 1000;
 const PRACTICE_POOL_CACHE_MAX = 300;
 const practicePoolCache = new Map<string, { at: number; data: PracticeQuestion[] }>();
@@ -38,72 +50,52 @@ function finalizePool(list: PracticeQuestion[], unlimited: boolean, requestedCou
 }
 
 export async function getPracticeTopics(studentId?: string, email?: string): Promise<TopicOption[]> {
-  // PERF: টপিক-তালিকা/কাউন্ট প্রতি ভিজিটে পুরো topic_questions + links স্ক্যান
-  // করত। ছোট TTL cache (instance-স্তর) রাখলে পরপর খোলায় সাথে সাথে আসে।
-  const cacheKey = `${String(studentId || "").trim()}|${String(email || "").trim().toLowerCase()}`;
-  const cached = practiceTopicsCache.get(cacheKey);
-  if (cached && Date.now() - cached.at < PRACTICE_TOPICS_TTL_MS) {
-    return cached.data;
-  }
-
   try {
     const { isTeacherSession } = await import("@/lib/teacher-auth");
     const norm = (s: string) => String(s || "").trim().toLowerCase();
-    const cleanId = String(studentId || "").trim();
 
-    // PERF: আগে এই ৬টি ধাপ একটার পর একটা চলত — মাপা গেছে মোট ~১.৫ সেকেন্ড
-    // শুধু রাউন্ড-ট্রিপেই যেত (auth.getUser ~২১০ms + ৫টি DB কোয়েরি সিরিয়াল)।
-    // সবগুলো স্বাধীন, তাই একসাথে ছুড়ে দিই; শেষে আগের মতোই একই নিয়মে ফিল্টার
-    // করি — ফলাফল হুবহু অপরিবর্তিত, শুধু অপেক্ষা sum → max হয়ে যায়।
-    const accessPromise = cleanId
-      ? import("@/actions/student-actions").then((m) => m.verifyStudentAccess(cleanId, "ALL", email))
-      : Promise.resolve(null);
+    // PERF: টপিক-তালিকা/কাউন্ট প্রতি ভিজিটে পুরো topic_questions + links স্ক্যান
+    // করত। ছোট TTL cache (instance-স্তর) রাখলে পরপর খোলায় সাথে সাথে আসে।
 
-    const [isTeacher, access, settingsRes, topicQuestionsRes, linksRes, examsRes] = await Promise.all([
-      isTeacherSession(),
-      accessPromise,
-      supabase.from("app_settings").select("topics").eq("id", "main").maybeSingle(),
-      supabase.from("topic_questions").select("topic, q, exam_key").limit(5000),
-      supabase.from("exam_questions_link").select("exam_id, question_bank(topic, q)").limit(5000),
-      supabase
-        .from("exams")
-        .select("id, course, start_time, end_time, leaderboard_end_time, is_result_published")
-    ]);
+    // SECURITY: ক্লায়েন্টের পাঠানো id/email কোনো পরিচয় নয়। যাচাইকৃত সেশন আগে;
+    // সেশন না থাকলে م্যানুয়াল fallback-এ id **ও** email দুটোই একই রোস্টার-সারিতে
+    // মিলতে হবে (lib/student-session.ts)।
+    const isTeacher = await isTeacherSession();
+    const identity = isTeacher ? null : await resolveStudyIdentity(studentId, email);
 
-    // স্টুডেন্ট হলে: কোন কোন পরীক্ষা দেখতে পারে (কোর্স) আর কোনগুলো লক করা —
-    // কাউন্ট যেন fetch-এর সাথে মিলে যায় (অন্যথায় "১০টা দেখায়, খুললে খালি")।
-    let accessibleExamIds: Set<string> | null = null;
-    const lockedExamIds = new Set<string>();
-
-    if (!isTeacher && cleanId) {
-      if (!access || !access.allowed) return [];
-
-      // নিয়ম: যেকোনো একটি কোর্সে এনরোল্ড থাকলেই সব কোর্সের প্রশ্নব্যাংক/
-      // প্র্যাকটিস অ্যাক্সেসযোগ্য — কোর্স-স্কোপ ফিল্টার আর নেই। শুধু যেসব
-      // নির্ধারিত (লাইভ) পরীক্ষার উত্তর এখনো প্রকাশিত নয় সেগুলো লক থাকে
-      // (কাউন্ট fetch-এর সাথে মিলে যায় — "১০টা দেখায়, খুললে খালি" নয়)।
-      const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
-      accessibleExamIds = new Set<string>();
-      (examsRes.data || []).forEach((ex: any) => {
-        const examObj = {
-          startTime: ex.start_time,
-          endTime: ex.end_time,
-          leaderboardEndTime: ex.leaderboard_end_time,
-          isResultPublished: ex.is_result_published === true
-        } as Exam;
-        const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
-        if (isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
-        accessibleExamIds!.add(ex.id);
-      });
+    if (!isTeacher) {
+      if (!identity) return [];
+      const { verifyStudentAccess } = await import("@/actions/student-actions");
+      const access = await verifyStudentAccess(identity.id, "ALL", identity.email);
+      if (!access.allowed) return [];
     }
 
-    // শিক্ষক / exam_key-বিহীন (স্থায়ী মিরর) → সব; স্টুডেন্ট → সব (কোর্স-নির্বিশেষে) কিন্তু লক-বিহীন।
-    // মনে রাখো: যে exam আর নেই (ডিলিট করা) তার মিরর করা প্রশ্নগুলো আর্কাইভ — সেগুলো
-    // কখনো লক করা যায় না, নাহলে সেই টপিকগুলো শিক্ষার্থীর কাছে চিরতরে হারিয়ে যায়।
-    const canSee = (examKey: string | null | undefined): boolean => {
-      if (isTeacher || !examKey) return true;
-      if (!accessibleExamIds || !accessibleExamIds.has(examKey)) return true; // অজানা/ডিলিট exam
-      return !lockedExamIds.has(examKey);
+    // PERF: ক্যাশ-কী resolved পরিচয় দিয়ে — ক্লায়েন্টের ইনপুট দিয়ে নয়, যাতে একজন
+    // দর্শক অন্য কারও এন্ট্রি তৈরি বা পড়তে না পারে।
+    const cacheKey = isTeacher ? "teacher" : `${identity!.id}|${norm(identity!.email || "")}`;
+    const cached = practiceTopicsCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < PRACTICE_TOPICS_TTL_MS) {
+      return cached.data;
+    }
+
+    // PERF: তিনটি স্বাধীন কোয়েরি একসাথে (আগে সিরিয়াল ছিল)।
+    const [settingsRes, topicQuestionsRes, linksRes] = await Promise.all([
+      supabase.from("app_settings").select("topics").eq("id", "main").maybeSingle(),
+      supabase.from("topic_questions").select("topic, q, exam_key").limit(5000),
+      supabase.from("exam_questions_link").select("exam_id, question_bank(id, topic, q)").limit(5000)
+    ]);
+
+    // SECURITY: প্রশ্ন-পর্যায়ের উত্তর-লক (lib/answer-lock.ts)। আগের exam-key-ভিত্তিক
+    // লকের চেয়ে শক্তিশালী — যে প্রশ্ন লাইভ পরীক্ষায় ব্যবহৃত হচ্ছে, সেটি অন্য কোনো
+    // রিলিজ-হয়ে-যাওয়া পরীক্ষাতেও থাকলেও এখন আর দেখানো হয় না।
+    const lock = isTeacher ? null : await loadAnswerLockState();
+
+    // শিক্ষক → সব। স্টুডেন্ট → সব (কোর্স-নির্বিশেষে) কিন্তু লাইভ-লকড প্রশ্ন বাদ।
+    // যে exam আর নেই (ডিলিট করা) তার মিরর করা প্রশ্নগুলো আর্কাইভ — সেগুলো লক হয় না,
+    // নাহলে সেই টপিকগুলো শিক্ষার্থীর কাছে চিরতরে হারিয়ে যায়।
+    const canSee = (text: string | null | undefined, examKey: string | null | undefined): boolean => {
+      if (!lock) return true;
+      return !isQuestionLocked(lock, { examKey, text });
     };
 
     const topicCountMap = new Map<string, number>();
@@ -124,7 +116,7 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
       const t = String(tq.topic || "").trim();
       mirroredKeys.add(`${norm(tq.q)}___${norm(t)}`);
       if (t && !topicCountMap.has(t)) topicCountMap.set(t, 0);
-      if (t && canSee(tq.exam_key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+      if (t && canSee(tq.q, tq.exam_key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
     });
 
     // 3. Count exam-linked questions (excluding already-mirrored), visible only
@@ -136,7 +128,7 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
       const t = String(link.question_bank?.topic || "").trim();
       if (t && q) {
         if (!topicCountMap.has(t)) topicCountMap.set(t, 0);
-        if (canSee(link.exam_id)) {
+        if (canSee(q, link.exam_id)) {
           const key = `${norm(q)}___${norm(t)}`;
           if (!mirroredKeys.has(key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
         }
@@ -170,20 +162,23 @@ export async function getPracticeQuestions(
     // SECURITY: self-practice requires an enrolled student (ANY course) —
     // UNLESS the caller is a verified teacher (admins may browse the whole
     // bank, including not-yet-released exams — they are the content owners).
-    const cleanId = String(studentId || "").trim();
-
-    // PERF: auth.getUser (নেটওয়ার্ক, ~২১০ms) আর এনরোলমেন্ট-যাচাই (DB) একসাথে
-    // — আগে সিরিয়াল ছিল। শিক্ষক হলে যাচাইয়ের ফলাফল কেবল অবহেলা করা হয়।
+    //
+    // পরিচয় কখনো ক্লায়েন্ট থেকে নেওয়া হয় না: verified session আগে, আর সেশন
+    // না থাকলে id+email দুটোই একই রোস্টার-সারিতে মিলতে হবে। আগে যে কেউ একজন
+    // এনরোল্ড ছাত্রের ফোন নম্বর জানলেই লগইন ছাড়া পুরো পেইড ব্যাংক (উত্তর ও
+    // ব্যাখ্যা সহ, count=0 মানে "সব") বের করে নিতে পারত।
     const { isTeacherSession } = await import("@/lib/teacher-auth");
-    const [isTeacher, accessRes] = await Promise.all([
-      isTeacherSession(),
-      cleanId
-        ? import("@/actions/student-actions").then((m) => m.verifyStudentAccess(cleanId, "ALL", email))
-        : Promise.resolve(null)
-    ]);
+    const isTeacher = await isTeacherSession();
+    const identity = isTeacher ? null : await resolveStudyIdentity(studentId, email);
 
+    let ownerId = "";
     if (!isTeacher) {
-      if (!cleanId || !accessRes || !accessRes.allowed) return [];
+      if (!identity) return [];
+      const { verifyStudentAccess } = await import("@/actions/student-actions");
+      const accessRes = await verifyStudentAccess(identity.id, "ALL", identity.email);
+      if (!accessRes.allowed) return [];
+      // রোস্টারের canonical আইডি — submission/notebook এটাই ব্যবহার করে।
+      ownerId = accessRes.normalizedId || identity.id;
     }
 
     // count = 0 → "সব প্রশ্ন" (unlimited)। প্রশ্নব্যাংক রিডিং-এ সব প্রশ্ন দেখানোর
@@ -202,7 +197,8 @@ export async function getPracticeQuestions(
 
     // PERF: একই টপিক+সংখ্যায় আবার শুরু করলে ডাটাবেস না ছুঁয়ে সাথে সাথে দিই
     // (এনরোলমেন্ট যাচাই উপরে হয়েই গেছে — ক্যাশে শুধু অনুমোদিতদের পুল থাকে)।
-    const poolCacheKey = `${cleanId}|${String(email || "").trim().toLowerCase()}|${isTeacher ? "t" : "s"}|${selectedTopic.trim()}|${unlimited ? "all" : requestedCount}`;
+    // SECURITY: কী-তে resolved পরিচয়, ক্লায়েন্টের পাঠানো আইডি নয়।
+    const poolCacheKey = `${isTeacher ? "t" : "s"}|${ownerId}|${String(identity?.email || "").trim().toLowerCase()}|${selectedTopic.trim()}|${unlimited ? "all" : requestedCount}`;
     const cachedPool = practicePoolCache.get(poolCacheKey);
     if (cachedPool && Date.now() - cachedPool.at < PRACTICE_POOL_TTL_MS) {
       return finalizePool(cachedPool.data, unlimited, requestedCount);
@@ -236,15 +232,10 @@ export async function getPracticeQuestions(
       tqQuery = tqQuery.ilike("topic", topicLikePattern);
     }
 
-    // Build exam access/lock info: any enrolled student (ANY course) may
-    // practice every course's questions; only answer-locked scheduled exams
-    // (results not yet published) are excluded.
-    // PERF: exams + topic_questions + links — তিনটি স্বাধীন কোয়েরি একসাথে।
-    // আগে সিরিয়ালে ~৬৫০ms শুধু অপেক্ষায় যেত (এই দুই টেবিলের পেলোডই ভারী)।
+    // PERF: exams (subject lookup) + topic_questions + links — তিনটি স্বাধীন কোয়েরি
+    // একসাথে। আগে সিরিয়ালে ~৬৫০ms শুধু অপেক্ষায় যেত।
     const [examsRes, tqRes, linksRes] = await Promise.all([
-      supabase
-        .from("exams")
-        .select("id, course, subject, title, start_time, end_time, leaderboard_end_time, is_result_published"),
+      supabase.from("exams").select("id, subject"),
       tqQuery,
       supabase
         .from("exam_questions_link")
@@ -252,35 +243,22 @@ export async function getPracticeQuestions(
         .limit(3000)
     ]);
 
-    const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
     const allExams = examsRes.data;
 
-    const lockedExamIds = new Set<string>();
-    const accessibleExamIds = new Set<string>();
-    (allExams || []).forEach((ex: any) => {
-      const examObj = {
-        id: ex.id,
-        startTime: ex.start_time,
-        endTime: ex.end_time,
-        leaderboardEndTime: ex.leaderboard_end_time,
-        isResultPublished: ex.is_result_published === true
-      } as Exam;
-      const isScheduled = !!(ex.start_time && (ex.end_time || ex.leaderboard_end_time));
-      if (!isTeacher && isScheduled && !isAnswerTimeReached(examObj)) lockedExamIds.add(ex.id);
-      // এনরোল্ড (যেকোনো একটি কোর্স) হলে সব কোর্সের প্রশ্নই অ্যাক্সেসযোগ্য
-      accessibleExamIds.add(ex.id);
-    });
+    // SECURITY: প্রশ্ন-পর্যায়ের উত্তর-লক (lib/answer-lock.ts)। লকড পরীক্ষাগুলোর
+    // প্রতিটি প্রশ্নের id ও নরমালাইজড টেক্সট সংগ্রহ করা হয় — তাই যে প্রশ্ন
+    // ব্যাংক থেকে লিংক করে নতুন লাইভ পরীক্ষায় দেওয়া হয়েছে, সেটি আগের রিলিজ-হয়ে-
+    // যাওয়া পরীক্ষার সূত্রেও আর বেরোবে না। (failClosed হলে অজানা exam-linked
+    // প্রশ্নও বাদ পড়ে — উত্তর ফাঁসের চেয়ে কনটেন্ট আটকে থাকা ভালো।)
+    const lock = isTeacher ? null : await loadAnswerLockState();
 
     // 1. Persistent Topic Questions repository — উপরের Promise.all-এ আনা হয়েছে
     const topicQuestions = tqRes.data;
 
     (topicQuestions || []).forEach((tq: any, idx: number) => {
       const matchTopic = isAll || isTopicMatch(tq.topic);
-      if (tq.exam_key) {
-        // লক কেবল তখনই যখন exam এখনও আছে ও উত্তর রিলিজ হয়নি। যে exam ডিলিট হয়েছে
-        // তার প্রশ্ন আর্কাইভ — চিরতরে ব্লক করা যাবে না।
-        if (lockedExamIds.has(tq.exam_key)) return;
-      }
+      // মিরর রো-এর নিজের id `question_bank`-এর id নয়, তাই শুধু exam_key ও টেক্সট দিয়ে মেলাই।
+      if (lock && isQuestionLocked(lock, { examKey: tq.exam_key, text: tq.q })) return;
       if (matchTopic && tq.q && tq.opts && tq.opts.length >= 2) {
         pool.push({
           id: tq.id || `tq_${idx}`,
@@ -308,9 +286,6 @@ export async function getPracticeQuestions(
     });
 
     for (const ex of allExams || []) {
-      if (lockedExamIds.has(ex.id)) continue;
-      if (!accessibleExamIds.has(ex.id)) continue;
-
       const examQuestions = (byExam[ex.id] || [])
         .sort((a: any, b: any) => Number(a.order_index) - Number(b.order_index))
         .map((l: any) => l.question_bank)
@@ -326,6 +301,9 @@ export async function getPracticeQuestions(
 
       matchingIndices.forEach((qIdx) => {
         const qItem = examQuestions[qIdx];
+        // SECURITY: প্রশ্ন-পর্যায়ের লক — এই exam রিলিজ হলেও প্রশ্নটি অন্য কোনো
+        // লাইভ পরীক্ষায় থাকলে বাদ।
+        if (lock && isQuestionLocked(lock, { questionId: qItem.id, examKey: ex.id, text: qItem.q })) return;
         pool.push({
           id: `ex_${ex.id}_${qIdx}`,
           q: qItem.q,

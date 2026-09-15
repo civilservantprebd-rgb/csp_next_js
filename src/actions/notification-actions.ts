@@ -30,27 +30,39 @@ export async function getRecentNotifications(
   const items: NotifItem[] = [];
   const push = (t: NotifItem) => items.push(t);
 
-  // কলকারী স্টুডেন্টের এনরোল্ড কোর্সসমূহ (allowed_students) — ভিডিও/পেইড পরীক্ষার
-  // নোটিফিকেশন কেবল এনরোল্ডদের কাছেই পৌঁছাতে
-  let allowedCourses: string[] | null = null; // null = যাচাই করা যায়নি (অতিথি/শিক্ষক)
-  const cleanId = String(identity?.id || "").trim();
-  const cleanEmail = String(identity?.email || "").trim().toLowerCase();
-  if (cleanId || cleanEmail) {
-    try {
-      const { verifyStudentAccess } = await import("@/actions/student-actions");
-      const access = await verifyStudentAccess(cleanId || cleanEmail, "ALL", cleanEmail);
-      allowedCourses = access.allowed
-        ? (access.courses || []).map((c: string) => String(c || "").trim()).filter(Boolean)
-        : [];
-    } catch {
-      allowedCourses = [];
+  // SECURITY: identity comes from the verified session (or the narrow manual
+  // fallback), never from the client-supplied object. Previously a guest left
+  // `allowedCourses === null`, and scopeOk() read that null as "could not verify
+  // -- show everything", so paid course exam and video titles leaked to anonymous
+  // callers.
+  const { resolveStudyIdentity } = await import("@/lib/student-session");
+  const { isTeacherSession } = await import("@/lib/teacher-auth");
+  const isTeacher = await isTeacherSession();
+
+  // null / [] => not a verified enrolled student -> paid content stays hidden
+  let allowedCourses: string[] | null = null;
+  if (isTeacher) {
+    allowedCourses = ["ALL"]; // teachers see everything
+  } else {
+    const resolved = await resolveStudyIdentity(identity?.id, identity?.email);
+    if (resolved) {
+      try {
+        const { verifyStudentAccess } = await import("@/actions/student-actions");
+        const access = await verifyStudentAccess(resolved.id, "ALL", resolved.email);
+        allowedCourses = access.allowed
+          ? (access.courses || []).map((c: string) => String(c || "").trim()).filter(Boolean)
+          : [];
+      } catch {
+        allowedCourses = [];
+      }
     }
   }
   const scopeOk = (course: string, isFree = false): boolean => {
     const c = String(course || "").trim();
     if (!c) return true; // কোর্সবিহীন ইভেন্ট — সবার জন্য
     if (isFree) return true; // ফ্রি পরীক্ষা — সবার জন্য
-    if (allowedCourses === null) return true; // যাচাই করা যায়নি — পুরোনো আচরণ
+    // SECURITY (fail-closed): guest / unverifiable -> hide paid-course content.
+    if (!allowedCourses) return false;
     if (allowedCourses.includes("ALL")) return true; // "সকল কোর্স"-এ এনরোল্ড
     return allowedCourses.includes(c);
   };

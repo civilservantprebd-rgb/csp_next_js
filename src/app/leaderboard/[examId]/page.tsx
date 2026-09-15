@@ -75,7 +75,7 @@ export default function StandaloneLeaderboardPage() {
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-900">মেধা তালিকা দেখুন</h2>
               <p className="text-xs text-slate-500 font-semibold">
-                যেকোনো কোর্সের যেকোনো পরীক্ষা খুঁজে নিন — নাম, কোর্স বা বিষয় দিয়ে
+                আগে কোর্স বেছে নিন, তারপর পরীক্ষার নাম দিয়ে খুঁজুন — বিষয় দিয়েও খোঁজা যায়
               </p>
             </div>
             <LeaderboardExamSearch

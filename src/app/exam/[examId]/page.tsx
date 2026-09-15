@@ -208,7 +208,23 @@ export default function ExamPage() {
           if (!sess.session) {
             alert("পরীক্ষা দেওয়ার জন্য Google লগইন প্রয়োজন। অনুগ্রহ করে হোম পেজ থেকে লগইন করুন।");
           } else {
-            alert("এই পরীক্ষাটিতে অংশগ্রহণের অনুমতি নেই (এনরোলমেন্ট যাচাই করা যায়নি)।");
+            // SECURITY: the server withholds the paper until the exam opens, so
+            // null now also means "not started yet". Distinguish that from a
+            // genuine permission failure using the public exam meta.
+            let notStarted = false;
+            try {
+              const { fetchExamMeta } = await import("@/actions/admin-actions");
+              const meta = await fetchExamMeta(examId);
+              const start = meta?.startTime ? parseBangladeshDateTime(meta.startTime) : null;
+              notStarted = !!start && getTrueNowMs() < start.getTime();
+            } catch {
+              // meta unavailable — fall through to the permission message
+            }
+            alert(
+              notStarted
+                ? "এই পরীক্ষাটি এখনো শুরু হয়নি। নির্ধারিত সময়ে আবার চেষ্টা করুন।"
+                : "এই পরীক্ষাটিতে অংশগ্রহণের অনুমতি নেই (এনরোলমেন্ট যাচাই করা যায়নি)।"
+            );
           }
         } catch {
           alert("পরীক্ষা পাওয়া যায়নি।");

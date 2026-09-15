@@ -51,16 +51,27 @@ async function resolveSessionOwner(): Promise<{ uid: string; email?: string } | 
   }
 }
 
-/** যে id-গুলোতে এই স্টুডেন্টের পুরোনো রেকর্ড থাকতে পারে (uid/নরমালাইজড/email-মিলানো)। */
+/** যে id-গুলোতে এই স্টুডেন্টের পুরোনো রেকর্ড থাকতে পারে (uid/email-মিলানো)। */
 async function candidateIds(
   rawStudentId: string,
   session: { uid: string; email?: string }
 ): Promise<string[]> {
   const ids = new Set<string>();
-  const clean = String(rawStudentId || "").trim();
-  if (clean) ids.add(clean);
-  const norm = parseBengaliDigits(clean).trim();
-  if (norm) ids.add(norm);
+
+  // SECURITY: the caller-supplied id must NEVER authorize itself.
+  //
+  // This function used to do `if (clean) ids.add(clean)` -- putting an arbitrary
+  // client-supplied student id straight into the "authorized" set -- while every
+  // query is scoped `.in("student_id", ids)`. Any logged-in student could
+  // therefore pass a classmate's id and read their notebook (wrong answers with
+  // correct/exp), overwrite it, delete single items, or wipe it entirely via
+  // clearStudentMistakes / clearStudentReads.
+  //
+  // The supplied id is now only used for logging-free context; membership comes
+  // exclusively from the verified session: its uid plus the roster id whose
+  // email matches the session email.
+  void rawStudentId;
+
   if (session.uid) ids.add(session.uid);
   if (session.email) {
     try {
