@@ -12,6 +12,28 @@ let lastFetchTime = 0;
 let inflightFetch: Promise<AppConfigData> | null = null;
 const CACHE_TTL_MS = 60000; // 60 seconds cache (questions change only via admin edits, which invalidate the cache)
 
+/**
+ * Supabase/PostgREST এরর → পড়ার মতো এক লাইন।
+ *
+ * কেন দরকার: এই ফাইলের প্রায় প্রতিটি write-action `catch`-এ শুধু
+ * `console.error` করে `false` ফেরে, তাই UI-তে সবসময় একই "সমস্যা হয়েছে"
+ * দেখায় — ডুপ্লিকেট-কী, NOT NULL, FK-ভঙ্গ বা অনুমতি-ত্রুটি আলাদা করা যায় না,
+ * আর কারণটা কেবল সার্ভার-টার্মিনালে থাকে। এরর-বস্তু থেকে কোড/বার্তা তুলে
+ * UI-তে পাঠালে ব্যবহারকারীই সাথে সাথে কারণ জানতে পারেন।
+ */
+function describeError(err: unknown): string {
+  if (!err) return "অজানা সমস্যা";
+  if (typeof err === "string") return err;
+  const e = err as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown };
+  const parts = [
+    e.code ? `[${String(e.code)}]` : "",
+    e.message ? String(e.message) : "",
+    e.details ? String(e.details) : "",
+    e.hint ? String(e.hint) : "",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" | ") : String(err);
+}
+
 const DEFAULT_DATA: AppConfigData = {
   courses: ["সাধারণ কোর্স", "বিসিএস প্রিলি"],
   subjects: [
@@ -623,9 +645,40 @@ export async function addQuestionToExam(
   }
 }
 
-export async function linkQuestionToExam(examKey: string, questionId: string): Promise<boolean> {
+export interface LinkQuestionResult {
+  ok: boolean;
+  /** ইতিমধ্যে ওই পরীক্ষায় যুক্ত ছিল — ত্রুটি নয়। */
+  alreadyLinked?: boolean;
+  /** ব্যর্থ হলে আসল কারণ। */
+  error?: string;
+}
+
+export async function linkQuestionToExam(
+  examKey: string,
+  questionId: string
+): Promise<LinkQuestionResult> {
   try {
     await requireTeacher();
+    if (!examKey || !questionId) {
+      return { ok: false, error: "পরীক্ষা বা প্রশ্নের আইডি পাওয়া যায়নি।" };
+    }
+
+    // ── কেন আগে থেকেই যুক্ত কি না দেখি ──
+    // `exam_questions_link`-এর PRIMARY KEY = (exam_id, question_id), তাই একই প্রশ্ন
+    // আবার insert করলে 23505 ডুপ্লিকেট-কী ত্রুটি আসে। কিন্তু মডাল ডুপ্লিকেট লুকায়
+    // প্রশ্নের **টেক্সট** মিলিয়ে (QuestionBankSearchModal-এর isTextAdded), আইডি দিয়ে
+    // নয় — তাই টেক্সটের সামান্য পার্থক্য বা বাসি তালিকায় বোতামটা দেখা যায়, আর
+    // চাপলেই ক্লিক ব্যর্থ হয়। এখন "আগেই যুক্ত" মানে সফল, ত্রুটি নয়।
+    const { data: existing, error: existsError } = await supabase
+      .from("exam_questions_link")
+      .select("question_id")
+      .eq("exam_id", examKey)
+      .eq("question_id", questionId)
+      .maybeSingle();
+
+    if (existsError) throw existsError;
+    if (existing) return { ok: true, alreadyLinked: true };
+
     const { data: currentLinks, error: fetchError } = await supabase
       .from("exam_questions_link")
       .select("order_index")
@@ -644,13 +697,19 @@ export async function linkQuestionToExam(examKey: string, questionId: string): P
         order_index: nextIndex
       });
 
-    if (linkError) throw linkError;
+    if (linkError) {
+      // একই মুহূর্তে অন্য কেউ যুক্ত করে ফেললে ডুপ্লিকেট-কী আসতে পারে — সেটাও সফলই
+      if ((linkError as { code?: string }).code === "23505") {
+        return { ok: true, alreadyLinked: true };
+      }
+      throw linkError;
+    }
 
     invalidateConfigCache();
-    return true;
+    return { ok: true };
   } catch (err) {
     console.error("Link question error:", err);
-    return false;
+    return { ok: false, error: describeError(err) };
   }
 }
 
@@ -1220,7 +1279,7 @@ export async function addBulkQuestionsToExam(
   examKey: string,
   newQuestions: QuestionItem[],
   newSolutions: QuestionSolution[]
-): Promise<{ success: boolean; count: number }> {
+): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     await requireTeacher();
     if (!newQuestions.length) return { success: false, count: 0 };
@@ -1325,7 +1384,7 @@ export async function addBulkQuestionsToExam(
     return { success: true, count: filteredQuestions.length };
   } catch (err) {
     console.error("Add bulk questions error:", err);
-    return { success: false, count: 0 };
+    return { success: false, count: 0, error: describeError(err) };
   }
 }
 
@@ -1537,7 +1596,7 @@ export async function addBulkQuestionsToBank(
   newSolutions: QuestionSolution[],
   fallbackTopic?: string,
   fallbackSubtopic?: string
-): Promise<{ success: boolean; count: number }> {
+): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     await requireTeacher();
     if (!newQuestions.length) return { success: false, count: 0 };
@@ -1563,7 +1622,7 @@ export async function addBulkQuestionsToBank(
     return { success: true, count: newQuestions.length };
   } catch (err) {
     console.error("Add bulk questions to bank error:", err);
-    return { success: false, count: 0 };
+    return { success: false, count: 0, error: describeError(err) };
   }
 }
 

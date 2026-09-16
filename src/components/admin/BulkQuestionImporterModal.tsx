@@ -124,6 +124,12 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
       setRawText("");
       onSuccess();
       onClose();
+    } else if (res.error) {
+      // আসল কারণটা দেখাই — action এখন ডেটাবেজের এরর-বার্তাও ফেরায়। আগে শুধু
+      // "সমস্যা হয়েছে" দেখাত, তাই কারণ জানার একমাত্র উপায় ছিল সার্ভার-টার্মিনাল।
+      alert(`প্রশ্নগুলো যুক্ত করা যায়নি।
+
+কারণ: ${res.error}`);
     } else {
       alert("প্রশ্নগুলো যুক্ত করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     }

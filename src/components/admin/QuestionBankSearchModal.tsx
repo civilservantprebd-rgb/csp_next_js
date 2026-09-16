@@ -116,14 +116,19 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
 
   const handleLink = async (q: any) => {
     setLinkingIds((prev) => ({ ...prev, [q.id]: true }));
-    const success = await linkQuestionToExam(examKey, q.id);
+    const res = await linkQuestionToExam(examKey, q.id);
     setLinkingIds((prev) => ({ ...prev, [q.id]: false }));
-    if (success) {
+    if (res.ok) {
       setAddedList((prev) => {
         if (prev.some((x) => x.id === q.id)) return prev;
         return [...prev, { id: q.id, q: q.q, topic: q.topic }];
       });
       onSuccess();
+    } else if (res.error) {
+      // আসল কারণ দেখাই — action এখন ডেটাবেজের এররটাও ফেরায়।
+      alert(`প্রশ্নটি যুক্ত করা যায়নি।
+
+কারণ: ${res.error}`);
     } else {
       alert("প্রশ্নটি যুক্ত করতে সমস্যা হয়েছে।");
     }
