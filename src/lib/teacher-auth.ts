@@ -19,6 +19,20 @@ import { supabase } from "@/lib/supabase";
  */
 
 function getAccessTokenFromCookies(): string | null {
+  // ── স্তর ১: native অ্যাপের Bearer টোকেন ──
+  // Flutter/Android অ্যাপ কুকি পাঠায় না, `Authorization: Bearer …` পাঠায়।
+  // API route handler টোকেনটা যাচাই করে AsyncLocalStorage-এ রেখে ভেতরের
+  // action চালায় (src/lib/request-context.ts) — তাই ওই রিকোয়েস্টের জন্য
+  // এখানেই টোকেনটা পাওয়া যায়, আর ১০৪টি action-এর একটাও বদলাতে হয় না।
+  try {
+    const { getRequestAccessToken } = require("@/lib/request-context") as typeof import("@/lib/request-context");
+    const fromBearer = getRequestAccessToken();
+    if (fromBearer) return fromBearer;
+  } catch {
+    // context মডিউল লোড না হলে কুকিতে নামি
+  }
+
+  // ── স্তর ২: ওয়েব অ্যাপের কুকি ──
   try {
     // Dynamic import keeps this module server-only even if imported by a client bundle
     const { cookies } = require("next/headers") as typeof import("next/headers");
@@ -118,10 +132,10 @@ export async function isTeacherSession(): Promise<boolean> {
 
 /**
  * Returns the verified Supabase session user for the current request (from the
- * sb_access_token cookie), or null. Unlike getTeacherUser this does NOT require
- * teacher privileges — it only proves "someone is logged in". Used to bind
- * student-facing actions to a real session instead of trusting client-supplied
- * student IDs.
+ * sb_access_token cookie, or the native app's Bearer token), or null. Unlike
+ * getTeacherUser this does NOT require teacher privileges — it only proves
+ * "someone is logged in". Used to bind student-facing actions to a real
+ * session instead of trusting client-supplied student IDs.
  */
 export interface SessionUser {
   id: string;

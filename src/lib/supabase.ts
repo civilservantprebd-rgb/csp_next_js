@@ -24,6 +24,20 @@ export const supabase = createClient(
   {
     auth: {
       persistSession: typeof window !== "undefined"
+    },
+    // ── Next.js-এর Data Cache বন্ধ ──
+    // ⚠️ এটি একটা আসল বাগের সমাধান, সাজসজ্জা নয়। Next.js সার্ভারে `fetch`-কে
+    // প্যাচ করে GET রেসপন্স ক্যাশ করে, আর supabase-js ভেতরে `fetch`-ই ব্যবহার করে।
+    // ফলে **লেখার পরে পড়া পুরোনো ডেটা ফিরিয়ে দিত**: ২০২৬-০৯-১৬ রাতে
+    // `/api/reads`-এ প্রশ্ন "পড়া হয়েছে" চিহ্নিত করা হচ্ছিল (insert সফল, সার্ভার
+    // ১টি সারি ফেরাত), কিন্তু পরের GET তবু আগের তালিকাই দেখাত — ব্যবহারকারীর কাছে
+    // "চিহ্ন বসছে না" মনে হত। ওয়েব অ্যাপে ধরা পড়েনি, কারণ ওখানে `read-store.ts`
+    // localStorage-এ আলাদা কপি রাখে; API পথে (অ্যাপ) সেটা নেই।
+    // `cache: "no-store"` = প্রতিটি ক্যোয়ারি সত্যিই ডেটাবেজে যায়। ব্যবহারকারী-ভিত্তিক
+    // ডেটায় ক্যাশ কোনো লাভই দিত না — কেবল ভুল দেখাত।
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: "no-store" })
     }
   }
 );
