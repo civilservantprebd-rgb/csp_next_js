@@ -1,5 +1,5 @@
 import { apiOk, resolveStudentProfile, withApi } from "@/lib/api-auth";
-import { fetchAppConfigLite } from "@/actions/admin-actions";
+import { fetchAppConfigMeta } from "@/actions/admin-actions";
 import { getCoursePrices } from "@/actions/course-actions";
 import { getCourseVideoCounts } from "@/actions/video-actions";
 
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
  */
 export const GET = withApi("optional", async (ctx) => {
   const [config, prices, videoCounts] = await Promise.all([
-    fetchAppConfigLite(),
+    fetchAppConfigMeta(),
     getCoursePrices(),
     getCourseVideoCounts(),
   ]);

@@ -72,6 +72,8 @@ function invalidateConfigCache() {
   lastFetchTime = 0;
   cachedConfigLite = null;
   lastFetchTimeLite = 0;
+  cachedConfigMeta = null;
+  lastFetchTimeMeta = 0;
   // কনফিগ বদলানোর প্রতিটি জায়গা থেকেই পাবলিক পেজ (হোম/কোর্স) নতুন করে রেন্ডার
   // হয় — যাতে এডমিন এডিটের পর লাইভ/সময় পরিবর্তন দেপ্লয়ড সাইটেও সাথে সাথে ফুটে।
   revalidatePublicPages();
@@ -127,6 +129,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
             .select("exam_id, order_index, question_bank(id, q, opts, topic)")
             .order("exam_id", { ascending: true })
             .order("order_index", { ascending: true })
+            .order("question_id", { ascending: true })
             .range(from, to)
         ),
         fetchAllRows<any>((from, to) =>
@@ -134,6 +137,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
             .from("topic_questions")
             .select("*")
             .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
             .range(from, to)
         )
       ]);
@@ -291,6 +295,7 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
             .from("exam_questions_link")
             .select("exam_id, question_bank(topic)")
             .order("exam_id", { ascending: true })
+            .order("question_id", { ascending: true })
             .range(from, to)
         ),
         fetchAllRows<any>((from, to) =>
@@ -298,6 +303,7 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
             .from("topic_questions")
             .select("topic, original_subject")
             .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
             .range(from, to)
         ),
       ]);
@@ -401,6 +407,109 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
   })();
 
   return inflightFetchLite;
+}
+
+// ─── Meta Config (no question rows at all — for the dashboard & native API) ──
+
+let cachedConfigMeta: AppConfigData | null = null;
+let lastFetchTimeMeta = 0;
+let inflightFetchMeta: Promise<AppConfigData> | null = null;
+
+/**
+ * সবচেয়ে হালকা কনফিগ — **প্রশ্নের একটিও সারি টানে না**।
+ *
+ * ── কেন দরকার ──
+ * `/api/home` (ফ্লাটার ড্যাশবোর্ড) ও `/api/courses` আসলে দরকার শুধু কোর্স-তালিকা,
+ * বিষয়, ও পরীক্ষার **মেটাডেটা** — প্রশ্নের টেক্সট/অপশন/উত্তর নয়। কিন্তু ওরা
+ * `fetchAppConfigLite` ডাকত, যা প্রতি প্রশ্নে একটি সারি আনে (`question_bank(topic)`
+ * জয়েন + `topic_questions`)। ফলে হোম/কোর্স খোলার প্রতিবারই পুরো করপাসের সমান
+ * সারি-সংখ্যা নামত: ১,০০০ প্রশ্নে ~৪১৬ KB, ১৫,০০০-এ ~৬ MB — অথচ দরকারি ডেটা
+ * কয়েক KB।
+ *
+ * মোবাইলে এটাই সবচেয়ে ব্যয়বহুল ছিল, কারণ হোম স্ক্রিন প্রতিবার খোলা হয়।
+ * `questions: []` ও `topicQuestions: []` পাঠানো হয় — এই দুটো ফিল্ডের কোনো
+ * ভোক্তাই ওই দুই রুটে নেই (যাচাই করা)।
+ *
+ * ⚠️ কোনো পেজ যেখানে টপিক-ট্রি বা প্রশ্ন-সংখ্যা দেখায়, সেখানে এটা ব্যবহার করবেন না —
+ * ওখানে `fetchAppConfigLite` (বা পূর্ণ `fetchAppConfig`) লাগবে।
+ */
+export async function fetchAppConfigMeta(): Promise<AppConfigData> {
+  const now = Date.now();
+  if (cachedConfigMeta && now - lastFetchTimeMeta < CACHE_TTL_MS) {
+    return cachedConfigMeta;
+  }
+  if (inflightFetchMeta) return inflightFetchMeta;
+
+  inflightFetchMeta = (async () => {
+    try {
+      const timeout = new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error("Meta fetch timeout")), 4000)
+      );
+      const [settingsRes, subjectsRes, examsRes] = await Promise.race([
+        Promise.all([
+          supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
+          supabase.from("subjects").select("name, course"),
+          supabase.from("exams").select("*"),
+        ]),
+        timeout.then(() => { throw new Error("Meta fetch timeout"); })
+      ]);
+
+      const settings = settingsRes?.data || {};
+      const courses = settings.courses || DEFAULT_DATA.courses;
+      const topics = settings.topics || DEFAULT_DATA.topics;
+      const teacherPass = ""; // never expose the teacher pass to clients
+      const driveRoutineUrl = settings.drive_routine_url || DEFAULT_DATA.driveRoutineUrl;
+      const driveSyllabusUrl = settings.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl;
+
+      const subjects = (subjectsRes?.data || []).map((s) => ({ name: s.name, course: s.course }));
+
+      const exams: Record<string, Exam> = {};
+      (examsRes?.data || []).forEach((ex) => {
+        exams[ex.id] = {
+          id: ex.id,
+          course: ex.course,
+          subject: ex.subject,
+          title: ex.title,
+          timerMinutes: ex.timer_minutes,
+          isFree: ex.is_free,
+          passMark: Number(ex.pass_mark),
+          startTime: ex.start_time,
+          endTime: ex.end_time,
+          isResultPublished: ex.is_result_published,
+          leaderboardStartTime: ex.leaderboard_start_time,
+          leaderboardEndTime: ex.leaderboard_end_time,
+          questions: []
+        };
+      });
+
+      const data: AppConfigData = {
+        courses,
+        subjects,
+        topics,
+        topicQuestions: [],
+        exams,
+        teacherPass,
+        driveRoutineUrl,
+        driveSyllabusUrl,
+        pinnedCourses: settings.pinned_courses || DEFAULT_DATA.pinnedCourses
+      };
+
+      cachedConfigMeta = data;
+      lastFetchTimeMeta = Date.now();
+      return data;
+    } catch (err) {
+      console.warn("Meta fetch failed:", err);
+    } finally {
+      inflightFetchMeta = null;
+    }
+
+    if (cachedConfigMeta) return cachedConfigMeta;
+    cachedConfigMeta = DEFAULT_DATA;
+    lastFetchTimeMeta = Date.now();
+    return DEFAULT_DATA;
+  })();
+
+  return inflightFetchMeta;
 }
 
 export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boolean> {

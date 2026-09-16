@@ -1,5 +1,5 @@
 import { apiOk, profileToDto, resolveStudentProfile, withApi } from "@/lib/api-auth";
-import { fetchAppConfigLite } from "@/actions/admin-actions";
+import { fetchAppConfigMeta } from "@/actions/admin-actions";
 import { getDailyNews } from "@/actions/news-actions";
 import { getCompletedExamKeys } from "@/actions/student-actions";
 import { examToDto } from "@/lib/exam-api";
@@ -32,7 +32,10 @@ export const GET = withApi("optional", async (ctx) => {
 
   // স্বাধীন সব কোয়েরি একসাথে — ক্রমিক অপেক্ষা নেই
   const [config, news, profile, completedKeys] = await Promise.all([
-    fetchAppConfigLite(),
+    // প্রশ্ন-বিহীন হালকা কনফিগ: ড্যাশবোর্ডের শুধু পরীক্ষার মেটাডেটা দরকার,
+    // প্রতি প্রশ্নে একটি করে সারি (ও তার জয়েন) নয়। মোবাইলে হোম স্ক্রিন
+    // প্রতিবার খোলা হয়, তাই এখানেই সবচেয়ে বড় লাভ।
+    fetchAppConfigMeta(),
     getDailyNews(),
     ctx.identity ? resolveStudentProfile(ctx.identity) : Promise.resolve(null),
     ctx.identity

@@ -905,11 +905,33 @@ export async function fetchTopicQuestionsForStudent(
 
     const pool: any[] = [];
 
+    // ── সার্ভার-সাইড কোর্স ফিল্টার (coarse) ──
+    // আগে **সব** topic_questions ও **সব** exam_questions_link নামিয়ে JS-এ
+    // টপিক মেলানো হত — ১,০০০ প্রশ্নে ~২.৭ MB, ১৫,০০০-এ ~৩০ MB, প্রতি বার।
+    // এখন SQL-এই ছেঁকে আনি, আর নিচের `isMatch` নির্ভুলতা আগের মতোই নিশ্চিত করে।
+    //
+    // ⚠️ প্যাটার্ন হিসেবে টপিকের **প্রথম অংশ** নেওয়া হয়, পুরো পাথ নয়: সংরক্ষিত
+    // মানে বিভাজক `>` না হয়ে `›`/`|` থাকতে পারে, তখন পুরো পাথের ilike মিলত না
+    // আর বৈধ প্রশ্ন হারিয়ে যেত। প্রথম অংশ বিভাজকের ধরন-নিরপেক্ষ।
+    // যাচাই করা হয়েছে: এই ফিল্টার `isMatch`-এর **superset** (কখনো কম নয়),
+    // তাই JS-মিলানোর ফলাফল অপরিবর্তিত থাকে।
+    const isAllTopics = !cleanTarget || cleanTarget === "all";
+    const coarseSegment = isAllTopics
+      ? ""
+      : (cleanTarget.split(/\s*[>›/|]\s*/)[0] || "").trim();
+    const coarsePattern = coarseSegment ? `%${coarseSegment}%` : "";
+
     // Query 1: Fetch from topic_questions table in database
-    const { data: dbTopicQs } = await supabase
-      .from("topic_questions")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const dbTopicQs = await fetchAllRows<any>((from, to) => {
+      let pageQuery = supabase
+        .from("topic_questions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to);
+      if (coarsePattern) pageQuery = pageQuery.ilike("topic", coarsePattern);
+      return pageQuery;
+    });
 
     (dbTopicQs || []).forEach((tq, idx) => {
       // The mirror row id is a topic_questions id, not a question_bank id, so
@@ -931,13 +953,18 @@ export async function fetchTopicQuestionsForStudent(
     // Query 2: Fetch from exams & question_bank links — released, accessible exams only
     // ⚠️ পৃষ্ঠা-পৃষ্ঠা: PostgREST এক অনুরোধে ১০০০ সারির বেশি দেয় না, আর বাকিগুলো
     // নীরবে বাদ পড়ে — টেবিল বড় হওয়ার পর প্রশ্নব্যাংক/প্র্যাকটিস থেকে প্রশ্ন হারাত।
-    const dbLinks = await fetchAllRows<any>((from, to) =>
-      supabase
+    // `!inner` + embedded ilike: টপিক-ফিল্টারটা SQL-এই বসে, তাই শুধু প্রাসঙ্গিক
+    // লিংকই নামে। (question_bank-এ টপিক-খালি সারি নেই — মেপে যাচাই করা।)
+    const dbLinks = await fetchAllRows<any>((from, to) => {
+      let pageQuery = supabase
         .from("exam_questions_link")
-        .select("exam_id, question_bank(*)")
+        .select("exam_id, question_bank!inner(*)")
         .order("exam_id", { ascending: true })
-        .range(from, to)
-    );
+        .order("question_id", { ascending: true })
+        .range(from, to);
+      if (coarsePattern) pageQuery = pageQuery.filter("question_bank.topic", "ilike", coarsePattern);
+      return pageQuery;
+    });
 
     for (const link of (dbLinks || [])) {
       const rawQ = link.question_bank;

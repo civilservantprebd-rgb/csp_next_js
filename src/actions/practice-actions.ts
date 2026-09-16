@@ -90,6 +90,7 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
           .from("topic_questions")
           .select("topic, q, exam_key")
           .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
           .range(from, to)
       ),
       fetchAllRows<any>((from, to) =>
@@ -97,6 +98,7 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
           .from("exam_questions_link")
           .select("exam_id, question_bank(id, topic, q)")
           .order("exam_id", { ascending: true })
+          .order("question_id", { ascending: true })
           .range(from, to)
       )
     ]);
@@ -252,6 +254,7 @@ export async function getPracticeQuestions(
         .from("topic_questions")
         .select("id, topic, q, opts, correct, exp, original_subject, exam_key")
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(from, to);
       if (topicLikePattern) pageQuery = pageQuery.ilike("topic", topicLikePattern);
       return pageQuery;
@@ -267,6 +270,7 @@ export async function getPracticeQuestions(
           .from("exam_questions_link")
           .select("exam_id, order_index, question_bank!inner(id, q, opts, topic, correct, exp)")
           .order("exam_id", { ascending: true })
+          .order("question_id", { ascending: true })
           .range(from, to)
       )
     ]);
