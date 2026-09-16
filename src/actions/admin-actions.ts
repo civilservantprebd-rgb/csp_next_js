@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { requireTeacher, getTeacherUser } from "@/lib/teacher-auth";
 import { AppConfigData, Exam, QuestionItem, QuestionSolution, TopicQuestion, ArchivedQuestion } from "@/types/exam";
 import { getExamSolutions } from "@/actions/exam-actions";
@@ -116,8 +117,25 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
         supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
         supabase.from("subjects").select("name, course"),
         supabase.from("exams").select("*"),
-        supabase.from("exam_questions_link").select("exam_id, order_index, question_bank(id, q, opts, topic)"),
-        supabase.from("topic_questions").select("*").order("created_at", { ascending: true })
+        // ⚠️ পৃষ্ঠা-পৃষ্ঠা করে আনি — PostgREST এক অনুরোধে **১০০০ সারির বেশি দেয় না**
+        // (`max-rows`), আর সীমার বাইরের সারি নীরবে বাদ পড়ে; কোনো এরর আসে না।
+        // এই দুই টেবিল ১০০০ ছাড়িয়ে যাওয়ার পর থেকে নতুন যোগ করা প্রশ্ন আর অ্যাডমিন
+        // প্যানেলে দেখাই যেত না (মাপা গেছে: পরীক্ষার ১৭টি লিংকের মধ্যে ১টি দেখাত)।
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from("exam_questions_link")
+            .select("exam_id, order_index, question_bank(id, q, opts, topic)")
+            .order("exam_id", { ascending: true })
+            .order("order_index", { ascending: true })
+            .range(from, to)
+        ),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from("topic_questions")
+            .select("*")
+            .order("created_at", { ascending: true })
+            .range(from, to)
+        )
       ]);
 
       const results = await Promise.race([
@@ -126,7 +144,11 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
       ]);
 
       if (results) {
-        const [settingsRes, subjectsRes, examsRes, linksRes, topicQuestionsRes] = results;
+        const [settingsRes, subjectsRes, examsRes, linksRows, topicQuestionsRows] = results;
+        // নিচের ব্যবহারগুলো (`linksRes?.data`, `topicQuestionsRes?.data`) অপরিবর্তিত
+        // রাখতে পুরোনো আকারেই মুড়ে দিই — কম ঝুঁকি, ছোট diff।
+        const linksRes = { data: linksRows };
+        const topicQuestionsRes = { data: topicQuestionsRows };
 
         const settings = settingsRes?.data || {};
         const courses = settings.courses || DEFAULT_DATA.courses;
@@ -262,17 +284,34 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
         supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
         supabase.from("subjects").select("name, course"),
         supabase.from("exams").select("*"),
-        supabase.from("exam_questions_link").select("exam_id, question_bank(topic)"),
-        supabase.from("topic_questions").select("topic, original_subject"),
+        // ⚠️ এখানেও পৃষ্ঠা-পৃষ্ঠা — PostgREST-এর ১০০০-সারির সীমা ছাড়ালে নতুন
+        // প্রশ্ন/টপিক অ্যাডমিন প্যানেলের গণনা ও টপিক-ট্রিতে ধরা পড়ে না।
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from("exam_questions_link")
+            .select("exam_id, question_bank(topic)")
+            .order("exam_id", { ascending: true })
+            .range(from, to)
+        ),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from("topic_questions")
+            .select("topic, original_subject")
+            .order("created_at", { ascending: true })
+            .range(from, to)
+        ),
       ]);
       const timeoutPromiseLite = new Promise<null>((_, reject) =>
         setTimeout(() => reject(new Error("Lite fetch timeout")), 4000)
       );
       // Fail fast instead of hanging the page when Supabase is slow/unreachable
-      const [settingsRes, subjectsRes, examsRes, linksRes, topicsRes] = await Promise.race([
+      const [settingsRes, subjectsRes, examsRes, linksRowsLite, topicsRowsLite] = await Promise.race([
         fetchPromiseLite,
         timeoutPromiseLite.then(() => { throw new Error("Lite fetch timeout"); })
       ]);
+      // নিচের ব্যবহারগুলো অপরিবর্তিত রাখতে পুরোনো আকারে মুড়ে দিই
+      const linksRes = { data: linksRowsLite };
+      const topicsRes = { data: topicsRowsLite };
 
       const settings = settingsRes?.data || {};
       const courses = settings.courses || DEFAULT_DATA.courses;

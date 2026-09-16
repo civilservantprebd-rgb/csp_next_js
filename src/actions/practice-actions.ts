@@ -1,6 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/fetch-all";
 import type { PracticeQuestion, TopicOption } from "@/lib/practice-helper";
 import { loadAnswerLockState, isQuestionLocked } from "@/lib/answer-lock";
 import { resolveStudyIdentity } from "@/lib/student-session";
@@ -79,11 +80,30 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
     }
 
     // PERF: তিনটি স্বাধীন কোয়েরি একসাথে (আগে সিরিয়াল ছিল)।
-    const [settingsRes, topicQuestionsRes, linksRes] = await Promise.all([
+    // ⚠️ `.limit(5000)` কাজ করে না — PostgREST সার্ভার-সাইডে **১০০০ সারিতে** কেটে
+    // দেয়, আর বাকিগুলো নীরবে বাদ পড়ে। টেবিল বড় হওয়ার পর টপিক-তালিকা ও প্রশ্ন-
+    // সংখ্যা কম দেখাত। তাই এখন পৃষ্ঠা-পৃষ্ঠা (`fetchAllRows`)।
+    const [settingsRes, topicQuestionsRows, linksRows] = await Promise.all([
       supabase.from("app_settings").select("topics").eq("id", "main").maybeSingle(),
-      supabase.from("topic_questions").select("topic, q, exam_key").limit(5000),
-      supabase.from("exam_questions_link").select("exam_id, question_bank(id, topic, q)").limit(5000)
+      fetchAllRows<any>((from, to) =>
+        supabase
+          .from("topic_questions")
+          .select("topic, q, exam_key")
+          .order("created_at", { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllRows<any>((from, to) =>
+        supabase
+          .from("exam_questions_link")
+          .select("exam_id, question_bank(id, topic, q)")
+          .order("exam_id", { ascending: true })
+          .range(from, to)
+      )
     ]);
+    // নিচের ব্যবহারগুলো (`topicQuestionsRes.data`, `linksRes.data`) অপরিবর্তিত রাখতে
+    // পুরোনো আকারেই মুড়ে দিই।
+    const topicQuestionsRes = { data: topicQuestionsRows };
+    const linksRes = { data: linksRows };
 
     // SECURITY: প্রশ্ন-পর্যায়ের উত্তর-লক (lib/answer-lock.ts)। আগের exam-key-ভিত্তিক
     // লকের চেয়ে শক্তিশালী — যে প্রশ্ন লাইভ পরীক্ষায় ব্যবহৃত হচ্ছে, সেটি অন্য কোনো
@@ -224,24 +244,35 @@ export async function getPracticeQuestions(
     //    PERF: নির্দিষ্ট টপিক বাছলে সার্ভার-সাইডেই coarse filter (ilike) — পুরো
     //    টেবিল নামিয়ে JS-এ ফিল্টার করা বন্ধ। পরে isTopicMatch দিয়ে নির্ভুল করা হয়।
     const topicLikePattern = isAll ? "" : `%${selectedTopic.trim()}%`;
-    let tqQuery = supabase
-      .from("topic_questions")
-      .select("id, topic, q, opts, correct, exp, original_subject, exam_key")
-      .limit(2000);
-    if (topicLikePattern) {
-      tqQuery = tqQuery.ilike("topic", topicLikePattern);
-    }
+    // ⚠️ `.limit(2000)`/`.limit(3000)` নয় — PostgREST ১০০০-এ কাটে, তাই বড় টপিকে
+    // প্র্যাকটিস-পুল থেকে প্রশ্ন নীরবে হারিয়ে যেত ("টেবিল ছোট (৫০০ লিংক)" ধারণাটা
+    // আর সত্য নয়)। এখন পৃষ্ঠা-পৃষ্ঠা করে আনি।
+    const buildTopicQuestionsPage = (from: number, to: number) => {
+      let pageQuery = supabase
+        .from("topic_questions")
+        .select("id, topic, q, opts, correct, exp, original_subject, exam_key")
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      if (topicLikePattern) pageQuery = pageQuery.ilike("topic", topicLikePattern);
+      return pageQuery;
+    };
 
     // PERF: exams (subject lookup) + topic_questions + links — তিনটি স্বাধীন কোয়েরি
     // একসাথে। আগে সিরিয়ালে ~৬৫০ms শুধু অপেক্ষায় যেত।
-    const [examsRes, tqRes, linksRes] = await Promise.all([
+    const [examsRes, topicQuestionRows, linkRows] = await Promise.all([
       supabase.from("exams").select("id, subject"),
-      tqQuery,
-      supabase
-        .from("exam_questions_link")
-        .select("exam_id, order_index, question_bank!inner(id, q, opts, topic, correct, exp)")
-        .limit(3000)
+      fetchAllRows<any>(buildTopicQuestionsPage),
+      fetchAllRows<any>((from, to) =>
+        supabase
+          .from("exam_questions_link")
+          .select("exam_id, order_index, question_bank!inner(id, q, opts, topic, correct, exp)")
+          .order("exam_id", { ascending: true })
+          .range(from, to)
+      )
     ]);
+    // নিচের ব্যবহারগুলো অপরিবর্তিত রাখতে পুরোনো আকারে মুড়ে দিই
+    const tqRes = { data: topicQuestionRows };
+    const linksRes = { data: linkRows };
 
     const allExams = examsRes.data;
 

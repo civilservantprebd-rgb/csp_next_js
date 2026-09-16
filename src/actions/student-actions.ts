@@ -1,6 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { AllowedStudent } from "@/types/student";
 import { Submission } from "@/types/submission";
 import { Exam, QuestionSolution } from "@/types/exam";
@@ -928,7 +929,15 @@ export async function fetchTopicQuestionsForStudent(
     });
 
     // Query 2: Fetch from exams & question_bank links — released, accessible exams only
-    const { data: dbLinks } = await supabase.from("exam_questions_link").select("exam_id, question_bank(*)");
+    // ⚠️ পৃষ্ঠা-পৃষ্ঠা: PostgREST এক অনুরোধে ১০০০ সারির বেশি দেয় না, আর বাকিগুলো
+    // নীরবে বাদ পড়ে — টেবিল বড় হওয়ার পর প্রশ্নব্যাংক/প্র্যাকটিস থেকে প্রশ্ন হারাত।
+    const dbLinks = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from("exam_questions_link")
+        .select("exam_id, question_bank(*)")
+        .order("exam_id", { ascending: true })
+        .range(from, to)
+    );
 
     for (const link of (dbLinks || [])) {
       const rawQ = link.question_bank;
