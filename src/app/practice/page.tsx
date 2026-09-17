@@ -22,7 +22,7 @@ export default function PracticePage() {
     <>
       <Header />
 
-      <main className="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-5">
+      <main className="flex-grow w-full p-3 sm:p-5 md:p-6 font-bengali space-y-5">
         {/* Page header */}
         <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-800">
           <div className="flex items-center gap-3">

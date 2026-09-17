@@ -57,7 +57,11 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
   const [selectedCount, setSelectedCount] = useState(10);
   const [practiceMode, setPracticeMode] = useState<"instant" | "exam">("instant");
   const [isStarting, setIsStarting] = useState(false);
+  // গ্রুপ-ট্যাপের স্ক্রল effect আবার চালানোর জন্য (একই গ্রুপে বারবার ট্যাপ)
+  const [scrollTick, setScrollTick] = useState(0);
   const detailRef = useRef<HTMLDivElement | null>(null);
+  // "প্রশ্নের সংখ্যা / মোড / প্র্যাকটিস শুরু করুন" সেকশন — টপিক বাছলেই এখানে নিয়ে আসি
+  const configRef = useRef<HTMLDivElement | null>(null);
   // টপিক-লোড করার সময় যেই পরিচয়ে অ্যাক্সেস মিলেছে — সেটাই পরে প্রি-ফেচে ব্যবহার করি
   const identityRef = useRef<{ id: string; email: string }>({ id: "", email: "" });
 
@@ -153,17 +157,54 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
 
   const selectNode = (fullPath: string) => {
     setSelectedTopic(fullPath);
+    // এক ট্যাপেই ফ্লো শেষ: টপিক বাছলেই নিচের "প্রশ্নের সংখ্যা / মোড / শুরু করুন"
+    // সেকশনে চলে যাই — ব্যবহারকারীকে হাতে স্ক্রল করতে হয় না।
+    scrollToConfig();
   };
+
+  /** পরের ফ্রেমে (DOM হালনাগাদের পরে) কোনো সেকশনে smooth স্ক্রল */
+  const scrollToRef = (ref: React.RefObject<HTMLElement | null>) => {
+    if (typeof window === "undefined") return;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }))
+    );
+  };
+
+  const scrollToConfig = () => scrollToRef(configRef);
 
   const openGroup = (node: HubNode) => {
     setActiveGroupPath(node.fullPath);
     setSelectedTopic(node.fullPath); // পুরো গ্রুপ ডিফল্ট টার্গেট
-    detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // একই গ্রুপে আবার ট্যাপ করলেও যেন আবার নিচে নামে (নিচের effect-এর নির্ভরতা
+    // বদলানোর জন্য টিক বাড়াই — path একই থাকলে effect আর চলত না)।
+    setScrollTick((t) => t + 1);
+    // গ্রুপে সাব-টপিক নেই → বাছাই শেষ, সোজা কনফিগ সেকশনে যাই।
+    // সাব-টপিক থাকলে নিচের সেকশনটা রেন্ডার হওয়ার পরে effect থেকে স্ক্রল হবে
+    // (এখানে সাথে সাথে ডাকলে DOM তখনো তৈরি হয়নি — এটাই আগের "দুই ট্যাপ" বাগ)।
+    if (!node.children || node.children.length === 0) scrollToConfig();
   };
 
   const backToGroups = () => {
     setActiveGroupPath(null);
   };
+
+  /**
+   * গ্রুপে ট্যাপ করার পর সাব-টপিক সেকশনে স্মুথ স্ক্রল।
+   *
+   * ⚠️ কেন effect-এ: ওই সেকশনটা `activeGroupPath` সেট হওয়ার **পরে** রেন্ডার হয়।
+   * আগে `openGroup`-এর ভেতরে সাথে সাথে `scrollIntoView` ডাকা হত — তখন DOM-এ
+   * সেকশনটাই ছিল না, তাই প্রথম ট্যাপে কিছুই হত না আর ব্যবহারকারীকে হাতে স্ক্রল
+   * করে আবার ট্যাপ করতে হত ("দুই ট্যাপ" সমস্যা)।
+   */
+  useEffect(() => {
+    if (!activeGroupPath) return;
+    const node = activeGroupPath;
+    const t = setTimeout(() => {
+      if (node) scrollToRef(detailRef);
+    }, 80);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupPath, scrollTick]);
 
   const toggleExpand = (fullPath: string) => {
     setExpandedPaths((prev) => ({ ...prev, [fullPath]: !prev[fullPath] }));
@@ -421,7 +462,7 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
                   টপিক-গ্রুপ বেছে নিন
                 </h2>
                 <p className="text-[11px] sm:text-xs text-slate-500 font-medium">
-                  গ্রুপে ট্যাপ করুন — তারপর সাব-টপিক বেছে বা পুরো গ্রুপে প্র্যাকটিস শুরু করুন
+                  টপিক-গ্রুপে একবার ট্যাপ করুন — নিচে সাব-টপিক, তারপর প্রশ্নের সংখ্যা ও মোড বেছে সোজা শুরু করুন
                 </p>
               </div>
             </div>
@@ -432,6 +473,8 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
               onClick={() => {
                 setSelectedTopic(ALL_LABEL);
                 setActiveGroupPath(null);
+                // সব টপিক বাছাই হয়ে গেছে — এক ট্যাপেই কনফিগ সেকশনে
+                scrollToConfig();
               }}
               className={`w-full text-left rounded-3xl border-2 p-4 sm:p-5 transition cursor-pointer mb-4 ${
                 selectedTopic === ALL_LABEL
@@ -603,7 +646,7 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
             </section>
           )}
           {/* ===== নির্বাচন + কনফিগ বার (সব ভিউতে) ===== */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4">
+          <div ref={configRef} className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4 scroll-mt-20">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="min-w-0 flex items-center gap-2 text-xs sm:text-sm">
                 <span className="text-slate-500 font-semibold shrink-0">🎯 নির্বাচিত:</span>

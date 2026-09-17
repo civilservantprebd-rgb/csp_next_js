@@ -553,11 +553,12 @@ export interface AdminBootstrap {
  * আগে এই সংখ্যাটা বের করতে ওই পরীক্ষার **সব প্রশ্ন (q + opts)** ক্লায়েন্টে নামত;
  * মেটাডেটা-প্রথম লোডিংয়ে সেটা চলে না।
  *
- * দুটি পথ, ফলাফল হুবহু এক:
- *  ১. `admin_exam_question_counts()` RPC — ডেটাবেজেই GROUP BY
- *     (supabase/migrations/2032_admin_aggregate_counts.sql চালানো থাকলে)।
- *  ২. ফলব্যাক: প্রতি পরীক্ষায় একটি HEAD count — পেলোড প্রায় শূন্য, ছোট ব্যাচে
- *     সমান্তরাল। কোনো প্রশ্ন-সারি ডাউনলোড হয় না।
+ * পদ্ধতি: প্রতি পরীক্ষায় একটি HEAD count (`count: exact, head: true`) — কোনো
+ * প্রশ্ন-সারি ডাউনলোড হয় না, শুধু সংখ্যা আসে (মাপা: ১৯ পরীক্ষায় ~১১৫ ms, ~০.৪ KB),
+ * আর PostgREST-এর ১০০০-সারির সীমাও এড়ায়। ছোট ব্যাচে সমান্তরালে চলে।
+ *
+ * (আগে একটি ঐচ্ছিক ডেটাবেজ-ফাংশনও (RPC) চেষ্টা করা হত; সেটি Supabase-এ আলাদা করে
+ * চালাতে হত বলে সরিয়ে দেওয়া হয়েছে — এখন কোনো বাড়তি ধাপ নেই।)
  */
 export async function getExamQuestionCounts(forceRefresh = false): Promise<Record<string, number>> {
   await requireTeacher();
@@ -571,17 +572,6 @@ export async function getExamQuestionCounts(forceRefresh = false): Promise<Recor
   const work = (async () => {
     const counts: Record<string, number> = {};
     try {
-      const { data, error } = await supabase.rpc("admin_exam_question_counts");
-      if (!error && Array.isArray(data)) {
-        data.forEach((row: { exam_id?: unknown; question_count?: unknown }) => {
-          const key = String(row?.exam_id ?? "");
-          if (key) counts[key] = Number(row?.question_count ?? 0);
-        });
-        return counts;
-      }
-
-      // ফলব্যাক — মাইগ্রেশন চালানো না থাকলে (PostgREST-এর ১০০০-সারির সীমাও এড়ায়,
-      // কারণ কোনো সারিই আনা হয় না, শুধু count হেডার)
       const { data: exams } = await supabase.from("exams").select("id");
       const ids = (exams || []).map((e: { id: unknown }) => String(e.id)).filter(Boolean);
       const BATCH = 25;
@@ -619,9 +609,11 @@ export async function getExamQuestionCounts(forceRefresh = false): Promise<Recor
  * না" — আর আগে সেটা দেখতে হলে `getAllSubmissions()` ডাকতে হত, যা **সব**
  * সাবমিশন (উত্তর-অ্যারে সহ, প্রতি রো কয়েক KB) টেনে আনে।
  *
- * দুটি পথ (ফলাফল হুবহু এক):
- *  ১. `admin_exam_submission_counts()` RPC — ডেটাবেজেই GROUP BY (migration 2032)
- *  ২. ফলব্যাক: প্রতি পরীক্ষায় একটি HEAD count — কোনো সাবমিশন-সারি ডাউনলোড হয় না
+ * পদ্ধতি: প্রতি পরীক্ষায় একটি HEAD count (`count: exact, head: true`) — কোনো
+ * সাবমিশন-সারি ডাউনলোড হয় না, শুধু সংখ্যা আসে।
+ *
+ * (আগে একটি ঐচ্ছিক ডেটাবেজ-ফাংশনও (RPC) চেষ্টা করা হত; Supabase-এ আলাদা করে চালাতে
+ * হত বলে সরিয়ে দেওয়া হয়েছে — এখন কোনো বাড়তি ধাপ নেই।)
  *
  * SECURITY: `requireTeacher` — এটা শুধু শিক্ষকের সংখ্যা। শিক্ষার্থীর নিজের সংখ্যা
  * `student-actions.ts → getCompletedExamKeys()` থেকে আসে (সেশন-মালিকানা যাচাই করে)।
@@ -638,16 +630,6 @@ export async function getExamSubmissionCounts(forceRefresh = false): Promise<Rec
   const work = (async () => {
     const counts: Record<string, number> = {};
     try {
-      const { data, error } = await supabase.rpc("admin_exam_submission_counts");
-      if (!error && Array.isArray(data)) {
-        data.forEach((row: { exam_key?: unknown; submission_count?: unknown }) => {
-          const key = String(row?.exam_key ?? "");
-          if (key) counts[key] = Number(row?.submission_count ?? 0);
-        });
-        return counts;
-      }
-
-      // ফলব্যাক — প্রতি পরীক্ষায় একটি HEAD count (কোনো সারি নামে না)
       const { data: exams } = await supabase.from("exams").select("id");
       const ids = (exams || []).map((e: { id: unknown }) => String(e.id)).filter(Boolean);
       const BATCH = 25;
@@ -2464,35 +2446,21 @@ export async function getTopicTreeData(): Promise<{ topics: string[] }> {
       if (tt) set.add(tt);
     });
 
-    // ২. প্রশ্ন থেকে টপিক-পাথ — ডেটাবেজেই DISTINCT (migration 2032 চালানো থাকলে)।
-    //    আগে এই ফাংশন topic_questions + question_bank-এর **প্রতিটি সারি** এনে
-    //    JS-এ আলাদা করত, আর PostgREST-এর ১০০০-সারির সীমায় টপিক নীরবে হারাতও।
-    let fromAggregate = false;
-    const { data: rpcRows, error: rpcError } = await supabase.rpc("admin_topic_paths");
-    if (!rpcError && Array.isArray(rpcRows)) {
-      fromAggregate = true;
-      rpcRows.forEach((r: { topic?: unknown }) => {
-        const tt = normalizeTopicPath(String(r?.topic ?? ""));
-        if (tt) set.add(tt);
-      });
-    }
-
-    // ৩. ফলব্যাক: শুধু `topic` কলাম (পুরো সারি নয়), পৃষ্ঠা পৃষ্ঠা — যাতে ১০০০
-    //    সারির পরের টপিকও বাদ না পড়ে।
-    if (!fromAggregate) {
-      const [tqRows, qbRows] = await Promise.all([
-        fetchAllRows<{ topic: string | null }>((from, to) =>
-          supabase.from("topic_questions").select("topic").order("id", { ascending: true }).range(from, to)
-        ),
-        fetchAllRows<{ topic: string | null }>((from, to) =>
-          supabase.from("question_bank").select("topic").order("id", { ascending: true }).range(from, to)
-        )
-      ]);
-      [...tqRows, ...qbRows].forEach((r) => {
-        const tt = normalizeTopicPath(String(r?.topic ?? ""));
-        if (tt) set.add(tt);
-      });
-    }
+    // ২. প্রশ্ন থেকে টপিক-পাথ — শুধু `topic` কলাম (পুরো সারি নয়), পৃষ্ঠা পৃষ্ঠা,
+    //    যাতে PostgREST-এর ১০০০-সারির সীমায় কোনো টপিক নীরবে বাদ না পড়ে।
+    //    (আগে এই ফাংশন প্রতি সারি এনে JS-এ আলাদা করত — তখন সীমার পরের টপিক হারাত।)
+    const [tqRows, qbRows] = await Promise.all([
+      fetchAllRows<{ topic: string | null }>((from, to) =>
+        supabase.from("topic_questions").select("topic").order("id", { ascending: true }).range(from, to)
+      ),
+      fetchAllRows<{ topic: string | null }>((from, to) =>
+        supabase.from("question_bank").select("topic").order("id", { ascending: true }).range(from, to)
+      )
+    ]);
+    [...tqRows, ...qbRows].forEach((r) => {
+      const tt = normalizeTopicPath(String(r?.topic ?? ""));
+      if (tt) set.add(tt);
+    });
 
     const topics = Array.from(set).sort((a, b) => a.localeCompare(b, "bn"));
     cachedTopicPaths = { at: Date.now(), data: topics };
