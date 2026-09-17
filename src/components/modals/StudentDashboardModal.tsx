@@ -20,11 +20,12 @@ import {
   Play,
   Edit3,
   Save,
-  LogOut
+  LogOut,
+  ListChecks
 } from "lucide-react";
 import { getStudentSubmissions, updateStudentName } from "@/actions/student-actions";
 import { Submission } from "@/types/submission";
-import { toBengaliDigits, shuffleArray } from "@/lib/utils";
+import { toBengaliDigits, shuffleArray, compareExamsByStartTime, formatBangladeshDate } from "@/lib/utils";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
 import {
@@ -336,6 +337,26 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
     return isAnswerTimeReached(ex);
   });
 
+  /**
+   * "কোন পরীক্ষা দিয়েছি, কোনটা দিইনি" — এক নজরে পুরো তালিকা।
+   *
+   * তালিকায় থাকে: (ক) স্টুডেন্টের কোর্সের সব পরীক্ষা, (খ) অন্য কোনো কোর্সের
+   * পরীক্ষা দিয়ে থাকলে সেটাও — নাহলে ইতিহাসে থাকা একটি পরীক্ষা তালিকায় না এসে
+   * "দেওয়া হয়েছে" সংখ্যাটা ভুল দেখাত। ক্রম: নতুন আগে (শুরুর সময় অনুযায়ী উল্টো)।
+   */
+  const myCourseExams = Object.entries(exams).filter(([, ex]) =>
+    studentCourses.length === 0 ||
+    studentCourses.some((c) => {
+      const sc = String(c || "").trim().toLowerCase();
+      return sc === "all" || sc === "সকল কোর্স" || sc === String(ex.course || "").trim().toLowerCase();
+    })
+  );
+  const mineIds = new Set(myCourseExams.map(([id]) => id));
+  const alsoTaken = Object.entries(exams).filter(([id]) => submittedKeys.has(id) && !mineIds.has(id));
+  const examStatusList = [...myCourseExams, ...alsoTaken].sort((a, b) => compareExamsByStartTime(b[1], a[1]));
+  const takenCount = examStatusList.filter(([id]) => submittedKeys.has(id)).length;
+  const notTakenCount = examStatusList.length - takenCount;
+
   return (
     <div className={embedded ? "font-bengali" : "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200"}>
       <div
@@ -510,13 +531,22 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           {endedNotTaken.length > 0 && (
             <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 flex items-start gap-2.5">
               <AlertTriangle className="w-[18px] h-[18px] text-amber-600 shrink-0 mt-0.5" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-amber-950">
                   ⚠️ আপনার কোর্সের {toBengaliDigits(endedNotTaken.length)}টি শেষ হওয়া পরীক্ষায় অংশ নেননি
                 </p>
                 <p className="text-sm text-amber-800 mt-0.5">
                   এগুলো এখনও দেওয়া যাবে — মিস করবেন না!
                 </p>
+                {activeTab !== "history" && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("history")}
+                    className="mt-2 text-[11px] font-black text-amber-900 bg-white border border-amber-300 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                  >
+                    কোনটা দেননি — তালিকা দেখুন →
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -628,6 +658,69 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* কোনটা দিয়েছেন, কোনটা দেননি — কোর্সের সব পরীক্ষা এক নজরে */}
+              {examStatusList.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-4 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
+                      <ListChecks className="w-4 h-4 text-indigo-600" /> কোনটা দিয়েছেন, কোনটা দেননি
+                    </h4>
+                    <span className="text-[11px] font-black text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+                      ✅ {toBengaliDigits(takenCount)}টি দিয়েছেন · ◻️ {toBengaliDigits(notTakenCount)}টি বাকি
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                    {examStatusList.map(([examKey, ex]) => {
+                      const taken = submittedKeys.has(examKey);
+                      const sub = taken ? submissions.find((s) => s.examKey === examKey) : undefined;
+                      const canShowResult = ex ? isAnswerTimeReached(ex) : true;
+                      return (
+                        <div
+                          key={examKey}
+                          className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${
+                            taken ? "bg-emerald-50/70 border-emerald-200" : "bg-slate-50 border-slate-200"
+                          }`}
+                        >
+                          <span className="text-sm shrink-0">{taken ? "✅" : "◻️"}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-xs sm:text-sm font-bold truncate ${taken ? "text-emerald-950" : "text-slate-700"}`}>
+                              {ex.title}
+                            </p>
+                            <p className="text-[11px] text-slate-500 truncate">
+                              {ex.subject}
+                              {ex.startTime ? ` · ${formatBangladeshDate(ex.startTime)}` : ""}
+                            </p>
+                          </div>
+                          {taken ? (
+                            sub && canShowResult ? (
+                              <button
+                                type="button"
+                                onClick={() => onSelectSubmissionDetail(sub)}
+                                className="text-[11px] font-black text-emerald-700 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer hover:bg-emerald-50 transition"
+                              >
+                                স্কোর {toBengaliDigits(sub.score)}
+                              </button>
+                            ) : (
+                              <span className="text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0">
+                                দেওয়া হয়েছে
+                              </span>
+                            )
+                          ) : (
+                            <a
+                              href={`/exam/${encodeURIComponent(examKey)}`}
+                              className="text-[11px] font-black text-white bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1.5 rounded-lg shrink-0 transition"
+                            >
+                              পরীক্ষা দিন
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
