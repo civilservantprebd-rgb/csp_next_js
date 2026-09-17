@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   FileText,
@@ -85,7 +86,14 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
     return parseBulkQuestionsText(rawText, selectedTopic, selectedSubtopic);
   }, [rawText, selectedTopic, selectedSubtopic]);
 
-  if (!isOpen) return null;
+  /**
+   * পোর্টালের জন্য "মাউন্ট হয়েছে কি না" — সার্ভার-রেন্ডারে `document` নেই,
+   * তাই প্রথম রেন্ডারে কিছুই করা যায় না (হাইড্রেশন মিসম্যাচও এড়ানো হয়)।
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!isOpen || !mounted) return null;
 
   const handlePasteSample = () => {
     setRawText(SAMPLE_TEXT);
@@ -135,9 +143,20 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+  /**
+   * ⚠️ `createPortal` কেন জরুরি: এই মোডালটি "প্রশ্ন যোগ/এডিট" ট্যাব থেকে খুললে
+   * সেটি আবার এক্সাম-এডিট মোডালের ভেতরে বসে। প্যারেন্ট মোডালে `backdrop-blur`
+   * থাকায় CSS নিয়ম অনুযায়ী `position: fixed` আর viewport-এর সাপেক্ষে থাকে না —
+   * মাঝখানের `overflow-y-auto` কনটেইনার মোডালটিকে কেটে ফেলে, ফলে পূর্ণ স্ক্রিন
+   * হওয়ার বদলে ছোট/আটকে থাকা দেখাত। পোর্টাল সরাসরি `<body>`-তে বসায়, তাই এখন
+   * যেখান থেকেই খোলা হোক — পুরো স্ক্রিনই জুড়ে বসে।
+   *
+   * `admin-shell` ক্লাসটা এখানে আবার বসানো: পোর্টাল DOM-এ `.admin-shell`-এর
+   * বাইরে চলে যায়, আর ডার্ক থিম ওই স্কোপেই কাজ করে — নাহলে মোডালটা সাদা হয়ে যেত।
+   */
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 bg-black/60 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
+      <div className="bg-white rounded-none w-full h-full max-w-none flex flex-col shadow-2xl border-0 overflow-hidden">
         {/* Header */}
         <div className="p-5 sm:p-6 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
@@ -162,10 +181,10 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
           </button>
         </div>
 
-        {/* Modal Body: Split Grid */}
-        <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-y-auto flex-grow">
+        {/* Modal Body: Split Grid — বামে পেস্ট + টপিক, ডানে লাইভ প্রিভিউ */}
+        <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-grow min-h-0">
           {/* Left Column: Text Input & Controls (7 Cols) */}
-          <div className="lg:col-span-7 flex flex-col space-y-4">
+          <div className="lg:col-span-7 flex flex-col gap-3 min-h-0">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-xs font-semibold text-slate-700">
                 এখানে প্রশ্ন, অপশন ও উত্তর পেস্ট করুন:
@@ -190,7 +209,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
               </div>
             </div>
 
-            <div className="relative flex-grow min-h-[260px] sm:min-h-[300px]">
+            <div className="relative flex-grow min-h-[200px] sm:min-h-[220px]">
               <textarea
                 value={rawText}
                 onChange={(e) => setRawText(e.target.value)}
@@ -201,11 +220,14 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
 ঘ) অপশন ৪
 উত্তর: খ
 ব্যাখ্যা: ব্যাখ্যা লিখুন (ঐচ্ছিক)`}
-                className="w-full h-full min-h-[260px] sm:min-h-[300px] p-4 rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-xs sm:text-sm font-mono leading-relaxed resize-none shadow-sm"
+                className="w-full h-full min-h-[200px] sm:min-h-[220px] p-4 rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 text-xs sm:text-sm font-mono leading-relaxed resize-none shadow-sm"
               />
             </div>
 
-            {/* Optional Topic Assignment — full hierarchy tree */}
+            {/* টপিক ও সাব-টপিক — বাম কলামেই, পেস্ট-বক্সের নিচে।
+                কোনো বাক্স নেই, ভেতরের স্ক্রলও নেই — যত টপিক আছে সব একসাথে
+                দেখা যায় (দরকার হলে পুরো মোডাল স্ক্রল হয়)। সাব-টপিক আগের মতোই
+                বন্ধ থাকে, ট্যাপ করলে খোলে। */}
             <div>
               <TopicTreeSelector
                 selectedTopicPath={selectedTopic}
@@ -235,7 +257,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
             </div>
 
             {/* Preview List */}
-            <div className="overflow-y-auto space-y-3 pr-1 max-h-[340px] flex-grow">
+            <div className="overflow-y-auto space-y-3 pr-1 flex-1 min-h-[200px]">
               {parsedResult.blocks.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 space-y-2">
                   <HelpCircle className="w-8 h-8 mx-auto text-slate-300" />
@@ -347,6 +369,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

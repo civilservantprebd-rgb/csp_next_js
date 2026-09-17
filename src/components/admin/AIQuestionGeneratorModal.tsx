@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   X,
@@ -64,7 +65,12 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
     if (defaultSubtopic) setSubtopic(defaultSubtopic);
   }, [defaultTopic, defaultSubtopic]);
 
-  if (!isOpen) return null;
+  // পোর্টাল: প্যারেন্ট মোডালের ভেতরে (প্রশ্ন যোগ/এডিট → এক্সাম এডিট) খুললেও যেন
+  // সত্যিকারের পূর্ণ স্ক্রিন হয় — বিস্তারিত ব্যাখ্যা BulkQuestionImporterModal-এ।
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!isOpen || !mounted) return null;
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,9 +138,9 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
     setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 bg-slate-950/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
+      <div className="bg-white rounded-none w-full h-full max-w-none flex flex-col shadow-2xl border-0 overflow-hidden">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
@@ -310,7 +316,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
               </div>
 
               {/* Questions List */}
-              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
                 {generatedResult.questions.map((q, idx) => {
                   const sol = generatedResult.solutions[idx] || { correct: 0, exp: "" };
                   const optLabels = ["ক", "খ", "গ", "ঘ"];
@@ -384,6 +390,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -705,8 +705,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
       {/* Preview modal — এক্সাম রেডি করার পর শিক্ষক প্রশ্ন/বিন্যাস যাচাই করেন */}
       {previewKey && exams[previewKey] && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 font-bengali">
-          <div className="bg-white rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-100 max-h-[92vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 font-bengali">
+          <div className="bg-white rounded-none w-full h-full max-w-none shadow-2xl border-0 flex flex-col overflow-hidden">
             {/* হেডার */}
             <div className="px-5 sm:px-6 py-4 bg-gradient-to-r from-sky-600 to-indigo-700 text-white flex items-center justify-between gap-3 shrink-0">
               <div className="min-w-0">
@@ -810,8 +810,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
       {/* Question builder modal — add/edit questions right inside the exam set */}
       {editingExamKey && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 font-bengali">
-          <div className="bg-white rounded-3xl max-w-5xl w-full p-5 sm:p-6 shadow-2xl space-y-4 relative border border-slate-100 max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 font-bengali">
+          <div className="bg-white rounded-none w-full h-full max-w-none p-4 sm:p-6 shadow-2xl space-y-4 relative border-0 overflow-y-auto">
             <button
               type="button"
               onClick={() => setEditingExamKey(null)}

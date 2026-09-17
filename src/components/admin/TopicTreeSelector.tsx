@@ -29,6 +29,13 @@ interface TopicTreeSelectorProps {
   className?: string;
   label?: string;
   helperText?: string;
+  /**
+   * `true` হলে টপিক-ট্রি-বক্সটি বাবার উচ্চতা ভরে বড় হয় (`flex-1`) — মোডাল
+   * ফুল-স্ক্রিন হলে তখন অনেক টপিক একসাথে দেখা যায়, খুঁজতে আলাদা স্ক্রল লাগে না।
+   * ডিফল্ট (`false`) = আগের মতো ছোট বক্স (`max-h-56`)।
+   * সাব-টপিক আগের মতোই বন্ধ থাকে — ট্যাপ করলে খোলে (আচরণ অপরিবর্তিত)।
+   */
+  fill?: boolean;
 }
 
 export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
@@ -40,7 +47,8 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
   onRenameNode,
   className = "",
   label = "টপিক ও সাব-টপিক নির্বাচন",
-  helperText = "যেকোনো টপিক/সাব-টপিক সিলেক্ট করুন অথবা নতুন যুক্ত করুন"
+  helperText = "যেকোনো টপিক/সাব-টপিক সিলেক্ট করুন অথবা নতুন যুক্ত করুন",
+  fill = false,
 }) => {
   // Modal / Inline Add Node State
   const [addingParentPath, setAddingParentPath] = useState<string | null>(null); // null means root topic
@@ -292,7 +300,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
   };
 
   return (
-    <div className={`space-y-2 font-bengali ${className}`}>
+    <div className={`font-bengali ${fill ? "flex h-full min-h-0 flex-col gap-2" : "space-y-2"} ${className}`}>
       {/* Header & Selected Topic Display */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
         <div>
@@ -381,8 +389,19 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
         )}
       </div>
 
-      {/* Topic Hierarchy Tree Container */}
-      <div className="max-h-56 overflow-y-auto p-2 bg-slate-50/50 rounded-2xl border border-slate-200/90 space-y-1">
+      {/* Topic Hierarchy Tree Container
+          ডিফল্ট (এখন সব জায়গায় এটাই): **কোনো বাক্স নেই, উচ্চতার সীমাও নেই** —
+          ট্রি যত বড় তত বড় হয়, তাই যত টপিক আছে সব একসাথে দেখা যায় (স্ক্রল হয়
+          পুরো পেজে/মোডালে, আলাদা ছোট বাক্সে নয়)।
+          `fill` অপশনটা রাখা আছে (ভবিষ্যতে দরকার হলে): তখন প্যানেলের বাকি জায়গা
+          ভরে আর ভেতরেই স্ক্রল করে। */}
+      <div
+        className={
+          fill
+            ? "overflow-y-auto flex-1 min-h-[200px] space-y-1 pr-1 -mr-1"
+            : "space-y-1"
+        }
+      >
         {tree.length === 0 ? (
           <div className="text-center py-6 text-slate-400 space-y-1">
             <Layers className="w-6 h-6 mx-auto text-slate-300" />

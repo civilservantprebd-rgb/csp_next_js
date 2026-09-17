@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Exam, QuestionItem, QuestionSolution, SubjectItem } from "@/types/exam";
 import {
   addQuestionToBank,
@@ -49,7 +49,10 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [queryText, setQueryText] = useState("");
+  // টপিক ফিল্টার এখন দুই ধাপে: রুট টপিক → সাব-টপিক (আগে একটাই ড্রপডাউনে পুরো
+  // পাথ থাকত, তাই "বাংলা"-র সব প্রশ্ন দেখতে প্রতিটি সাব-টপিক আলাদা করে বাছতে হত)।
   const [filterTopic, setFilterTopic] = useState("ALL");
+  const [filterSubtopic, setFilterSubtopic] = useState("ALL");
   const [filterSubject, setFilterSubject] = useState("ALL");
   // সাম্প্রতিক টগল — সবচেয়ে নতুন যোগ হওয়া প্রশ্ন আগে দেখায়
   const [recentOnly, setRecentOnly] = useState(false);
@@ -71,8 +74,16 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [moveTopic, setMoveTopic] = useState("");
+  // সাব-টপিক এখন ড্রপডাউন থেকে (আগে ফ্রি-টেক্সট ইনপুট ছিল, তাই আগের টপিকের
+  // ভুল বানান/ভিন্ন পাথ সহজেই ঢুকে পড়ত)। তবু নতুন সাব-টপিক বসানোর সুযোগ রাখা
+  // হয়েছে — ড্রপডাউনে "নতুন সাব-টপিক লিখুন" বাছলে টেক্সট ইনপুট খোলে।
   const [moveSubtopic, setMoveSubtopic] = useState("");
+  const [moveSubtopicNew, setMoveSubtopicNew] = useState("");
   const [isMoving, setIsMoving] = useState(false);
+
+  /** মুভ করার সময় সত্যিই যে সাব-টপিক বসবে (নতুন লিখলে সেটাই) */
+  const effectiveMoveSubtopic = moveSubtopic === "__new__" ? moveSubtopicNew : moveSubtopic;
+
   const [allTopics, setAllTopics] = useState<string[]>([]);
 
   const toggleSelect = (id: string) => {
@@ -98,15 +109,30 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
       alert("কোনো প্রশ্ন সিলেক্ট করা হয়নি।");
       return;
     }
+    if (moveSubtopic === "__new__" && !moveSubtopicNew.trim()) {
+      alert("নতুন সাব-টপিকের নাম লিখুন, অথবা ড্রপডাউন থেকে একটি সাব-টপিক বাছুন।");
+      return;
+    }
+
+    const subToApply = effectiveMoveSubtopic.trim();
+    if (
+      !confirm(
+        `নির্বাচিত ${toBengaliDigits(selectedIds.length)}টি প্রশ্ন ` +
+          `"${subToApply ? `${moveTopic} > ${subToApply}` : moveTopic}" টপিকে সরানো হবে। ঠিক আছে?`
+      )
+    )
+      return;
 
     setIsMoving(true);
     const { bulkMoveQuestionsToTopic } = await import("@/actions/admin-actions");
-    const ok = await bulkMoveQuestionsToTopic(selectedIds, moveTopic, moveSubtopic);
+    const ok = await bulkMoveQuestionsToTopic(selectedIds, moveTopic, subToApply);
     setIsMoving(false);
 
     if (ok) {
       alert(`সফলভাবে ${toBengaliDigits(selectedIds.length)}টি প্রশ্নের টপিক পরিবর্তন করা হয়েছে!`);
       setSelectedIds([]);
+      setMoveSubtopic("");
+      setMoveSubtopicNew("");
       fetchBankQuestions();
       onRefresh();
     } else {
@@ -116,6 +142,9 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
 
   const searchSeqRef = useRef(0);
 
+  /** সার্ভারে যে টপিক পাঠানো হবে: সাব-টপিক বাছা থাকলে সেটাই, নাহলে রুট টপিক */
+  const effectiveTopic = filterSubtopic !== "ALL" ? filterSubtopic : filterTopic;
+
   const fetchBankQuestions = async (debouncedQuery = queryText, pageArg = page) => {
     const seq = ++searchSeqRef.current;
     setIsLoading(true);
@@ -123,7 +152,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
       // সার্ভার-সাইড সার্চ + ফিল্টার + পেজিনেশন — কেবল ওই পেজের সারি আসে
       const res = await searchQuestionBank(
         debouncedQuery,
-        filterTopic,
+        effectiveTopic,
         filterSubject,
         recentOnly,
         pageArg,
@@ -169,7 +198,8 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
       fetchBankQuestions(queryText, 1);
     }, 300);
     return () => clearTimeout(t);
-  }, [queryText, filterTopic, filterSubject, recentOnly]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryText, filterTopic, filterSubtopic, filterSubject, recentOnly]);
 
   // Load the complete topic structure (from every source) into the tree picker
   const refreshTreeData = () => {
@@ -186,6 +216,70 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
   }, []);
 
   const mergedTopics = Array.from(new Set([...topics, ...allTopics]));
+
+  /**
+   * টপিক-হায়ারার্কি (রুট → সাব-টপিক) — ক্যাসকেড ফিল্টারের জন্য।
+   *
+   * প্রতিটি রেজিস্টার্ড টপিক-পাথ ("বাংলা > প্রাচীন যুগ > চর্যাপদ") ভেঙে
+   * প্রথম অংশ = রুট টপিক, প্রথম দুই অংশ = সাব-টপিক। গভীর পাথ (৩ স্তরের) তার
+   * ২-স্তরের প্যারেন্টের নিচেই দেখানো হয় — আর সার্ভার-ফিল্টার উপ-টপিকসহ ম্যাচ
+   * করে, তাই প্যারেন্ট বাছলেই ভেতরের সব প্রশ্ন চলে আসে।
+   */
+  const { topicRoots, subtopicsByRoot } = useMemo(() => {
+    const roots = new Set<string>();
+    const subMap = new Map<string, Set<string>>();
+
+    mergedTopics.forEach((raw) => {
+      const segs = String(raw || "")
+        .split(/\s*[>›/|]\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (segs.length === 0) return;
+      const root = segs[0];
+      roots.add(root);
+      if (segs.length >= 2) {
+        const sub = `${segs[0]} > ${segs[1]}`;
+        if (!subMap.has(root)) subMap.set(root, new Set());
+        subMap.get(root)!.add(sub);
+      }
+    });
+
+    const sortedRoots = Array.from(roots).sort((a, b) => a.localeCompare(b, "bn"));
+    return { topicRoots: sortedRoots, subtopicsByRoot: subMap };
+  }, [mergedTopics]);
+
+  /** বাছা রুট টপিকের সাব-টপিক তালিকা (কিছু না থাকলে খালি) */
+  const subtopicOptions = useMemo(() => {
+    if (filterTopic === "ALL" || filterTopic === "সাধারণ") return [];
+    const set = subtopicsByRoot.get(filterTopic);
+    return set ? Array.from(set).sort((a, b) => a.localeCompare(b, "bn")) : [];
+  }, [filterTopic, subtopicsByRoot]);
+
+  /**
+   * প্রশ্ন **মুভ** করার সময় ব্যবহারের জন্য: রুট টপিক → তার সব নিচের স্তরের
+   * sub-path ("পরিবেশ", "পরিবেশ > চুক্তি", …)। সার্ভার-অ্যাকশন টপিক আর
+   * সাব-টপিক জুড়ে দেয় (`root > sub`), তাই গভীর স্তরও এভাবেই ঠিকঠাক বসে।
+   */
+  const descendantsByRoot = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    mergedTopics.forEach((raw) => {
+      const segs = String(raw || "")
+        .split(/\s*[>›/|]\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (segs.length < 2) return;
+      const root = segs[0];
+      if (!map.has(root)) map.set(root, new Set());
+      map.get(root)!.add(segs.slice(1).join(" > "));
+    });
+    return map;
+  }, [mergedTopics]);
+
+  /** মুভ-ড্রপডাউনে দেখানো সাব-টপিক (বাছা নতুন টপিক অনুযায়ী) */
+  const moveSubtopicOptions = useMemo(() => {
+    const set = descendantsByRoot.get(moveTopic);
+    return set ? Array.from(set).sort((a, b) => a.localeCompare(b, "bn")) : [];
+  }, [moveTopic, descendantsByRoot]);
 
   const handleQuickAddTopic = async () => {
     const val = newTopicInput.trim();
@@ -481,8 +575,8 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
           </div>
         </div>
 
-        {/* Hierarchical Topic Selector */}
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+        {/* Hierarchical Topic Selector — কোনো বাক্স নেই; সব টপিক একসাথে দেখা যায় */}
+        <div>
           <TopicTreeSelector
             selectedTopicPath={selectedTopic}
             onSelectTopicPath={(path) => setSelectedTopic(path)}
@@ -544,16 +638,48 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
               />
             </div>
 
+            {/* টপিক → সাব-টপিক: আলাদা দুটি ড্রপডাউন (ক্যাসকেড)।
+                রুট টপিক বাছলেই তার সব উপ-টপিকের প্রশ্ন আসে; নির্দিষ্ট সাব-টপিক
+                বাছলে কেবল সেটির (ও তার ভেতরের) প্রশ্ন। */}
             <select
               value={filterTopic}
-              onChange={(e) => setFilterTopic(e.target.value)}
-              className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 font-medium"
+              onChange={(e) => {
+                setFilterTopic(e.target.value);
+                setFilterSubtopic("ALL");
+              }}
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 font-medium max-w-[190px]"
+              title="মূল টপিক বাছুন"
             >
               <option value="ALL">সকল টপিক</option>
               <option value="সাধারণ">সাধারণ (টপিকছাড়া)</option>
-              {mergedTopics.map((t) => (
+              {topicRoots.map((t) => (
                 <option key={t} value={t}>
-                  {t}
+                  📂 {t}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filterSubtopic}
+              onChange={(e) => setFilterSubtopic(e.target.value)}
+              disabled={subtopicOptions.length === 0}
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 font-medium max-w-[230px] disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                subtopicOptions.length === 0
+                  ? "সাব-টপিক নেই — আগে একটি মূল টপিক বাছুন"
+                  : "নির্দিষ্ট সাব-টপিক বাছুন"
+              }
+            >
+              <option value="ALL">
+                {filterTopic === "ALL"
+                  ? "সাব-টপিক (আগে টপিক বাছুন)"
+                  : subtopicOptions.length === 0
+                    ? "সাব-টপিক নেই"
+                    : "সব সাব-টপিক"}
+              </option>
+              {subtopicOptions.map((s) => (
+                <option key={s} value={s}>
+                  ↳ {s.split(" > ").slice(1).join(" > ")}
                 </option>
               ))}
             </select>
@@ -581,26 +707,71 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
               ✓ {toBengaliDigits(selectedIds.length)}টি প্রশ্ন নির্বাচিত
             </span>
             <div className="flex items-center gap-2 flex-wrap">
+              {/* নতুন টপিক → তারপর সাব-টপিক: আলাদা দুটি ড্রপডাউন (আগে একটাই
+                  ফুল-পাথ লিস্ট + একটা ফ্রি-টেক্সট বক্স ছিল, তাই ভুল পাথ সহজেই
+                  ঢুকে পড়ত)। সাব-টপিক খালি রাখলে প্রশ্ন শুধু মূল টপিকে যাবে। */}
               <select
                 value={moveTopic}
-                onChange={(e) => setMoveTopic(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-slate-800"
+                onChange={(e) => {
+                  const nextTopic = e.target.value;
+                  // টপিক বদলালে সাব-টপিক রিসেট — নইলে আগের টপিকের সাব-টপিক
+                  // নতুন টপিকের সাথে জোড়া লেগে ভুল পাথ তৈরি করত
+                  setMoveTopic(nextTopic);
+                  setMoveSubtopic("");
+                  setMoveSubtopicNew("");
+                }}
+                className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-slate-800 max-w-[200px]"
+                title="প্রশ্নগুলো যে টপিকে যাবে"
               >
                 <option value="">নতুন টপিক নির্বাচন করুন</option>
-                {mergedTopics.map((t) => (
+                <option value="সাধারণ">সাধারণ (টপিকছাড়া)</option>
+                {topicRoots.map((t) => (
                   <option key={t} value={t}>
-                    {t}
+                    📂 {t}
                   </option>
                 ))}
               </select>
 
-              <input
-                type="text"
-                placeholder="সাবটপিক (ঐচ্ছিক)"
+              <select
                 value={moveSubtopic}
-                onChange={(e) => setMoveSubtopic(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs w-36"
-              />
+                onChange={(e) => {
+                  setMoveSubtopic(e.target.value);
+                  if (e.target.value !== "__new__") setMoveSubtopicNew("");
+                }}
+                disabled={!moveTopic || moveTopic === "সাধারণ"}
+                className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-slate-800 max-w-[230px] disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  !moveTopic || moveTopic === "সাধারণ"
+                    ? "সাব-টপিকের জন্য আগে একটি মূল টপিক বাছুন"
+                    : "সাব-টপিক (খালি রাখলে শুধু মূল টপিকে যাবে)"
+                }
+              >
+                <option value="">— সাব-টপিক ছাড়া —</option>
+                {moveSubtopicOptions.map((s) => (
+                  <option key={s} value={s}>
+                    ↳ {s}
+                  </option>
+                ))}
+                <option value="__new__">✏️ নতুন সাব-টপিক লিখুন…</option>
+              </select>
+
+              {moveSubtopic === "__new__" && (
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="নতুন সাব-টপিকের নাম"
+                  value={moveSubtopicNew}
+                  onChange={(e) => setMoveSubtopicNew(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs w-44"
+                />
+              )}
+
+              {/* কোথায় যাবে — এক নজরে, ভুল টপিক যেন চোখে পড়ে */}
+              {moveTopic && (
+                <span className="text-[11px] font-bold text-indigo-800 bg-white border border-indigo-200 px-2.5 py-1 rounded-xl max-w-[260px] truncate">
+                  → {effectiveMoveSubtopic.trim() ? `${moveTopic} > ${effectiveMoveSubtopic.trim()}` : moveTopic}
+                </span>
+              )}
 
               <button
                 type="button"

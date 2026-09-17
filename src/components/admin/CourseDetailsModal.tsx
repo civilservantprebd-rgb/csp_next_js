@@ -50,8 +50,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({ course, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl w-full max-w-xl flex flex-col shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-black/60 backdrop-blur-sm font-bengali animate-in fade-in duration-200">
+      <div className="bg-white rounded-none w-full h-full max-w-none flex flex-col shadow-2xl border-0 overflow-hidden">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { X, Search, Plus, Check, Loader2, BookOpen, Layers } from "lucide-react";
 import { searchQuestionBank, linkQuestionToExam, getTopicTreeData } from "@/actions/admin-actions";
 import { toBengaliDigits } from "@/lib/utils";
@@ -112,7 +113,12 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, subjectFilter, topicFilter]);
 
-  if (!isOpen) return null;
+  // পোর্টাল: প্যারেন্ট মোডালের ভেতরে (প্রশ্ন যোগ/এডিট → এক্সাম এডিট) খুললেও যেন
+  // সত্যিকারের পূর্ণ স্ক্রিন হয় — বিস্তারিত ব্যাখ্যা BulkQuestionImporterModal-এ।
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!isOpen || !mounted) return null;
 
   const handleLink = async (q: any) => {
     setLinkingIds((prev) => ({ ...prev, [q.id]: true }));
@@ -146,10 +152,9 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
   const selectCls =
     "w-full appearance-none pl-3 pr-9 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 cursor-pointer";
 
-  return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="min-h-full flex items-start sm:items-center justify-center p-3 sm:p-6">
-        <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl border border-slate-200 flex flex-col my-auto overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-0">
+      <div className="bg-white rounded-none w-full h-full max-w-none shadow-2xl border-0 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-200 bg-slate-50">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -306,7 +311,7 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
                   এখনো কোনো প্রশ্ন যুক্ত হয়নি। বাঁ পাশ থেকে প্রশ্নে &ldquo;যুক্ত করুন&rdquo; চাপুন।
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1">
                   {addedList.map((a) => (
                     <div key={a.id} className="p-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 flex items-start gap-2">
                       <span className="mt-0.5 shrink-0"><Plus className="w-3.5 h-3.5 text-emerald-600" /></span>
@@ -347,8 +352,8 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

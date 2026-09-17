@@ -123,8 +123,8 @@ export const LiveExamReport: React.FC = () => {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 font-bengali">
-          <div className="bg-white rounded-3xl w-full max-w-lg max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-0 font-bengali">
+          <div className="bg-white rounded-none w-full h-full max-w-none flex flex-col shadow-2xl border-0 overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 bg-gradient-to-r from-indigo-900 to-slate-900 text-white shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">

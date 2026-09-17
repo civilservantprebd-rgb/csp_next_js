@@ -378,8 +378,8 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
           </div>
         </div>
 
-        {/* Topic Tree Selector */}
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+        {/* Topic Tree Selector — কোনো বাক্স নেই; সব টপিক একসাথে দেখা যায় */}
+        <div>
           <TopicTreeSelector
             selectedTopicPath={selectedTopic}
             onSelectTopicPath={(path) => setSelectedTopic(path)}
@@ -445,7 +445,10 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
           )}
         </div>
 
-        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+        {/* বিদ্যমান প্রশ্নের তালিকা — আগে `max-h-80` (≈৩২০px) ছিল, তাই অর্ধেক
+            প্রশ্ন ঢাকা পড়ত। এখন স্ক্রিন-উচ্চতার ৭০% — সব প্রশ্ন একসাথে (স্ক্রল
+            করে) দেখা যায়, তালিকা নিজেই স্ক্রল হয় header/বাটন জায়গায় থাকে। */}
+        <div className="space-y-2 overflow-y-auto pr-1 max-h-[70vh]">
           {!exam.questions || exam.questions.length === 0 ? (
             <p className="text-xs text-slate-400 text-center py-4">এই এক্সামে কোনো প্রশ্ন নেই।</p>
           ) : (

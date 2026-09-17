@@ -1093,15 +1093,21 @@ export async function searchQuestionBank(
       }
       if (topic && topic !== "ALL") {
         // "সাধারণ" is the fallback topic — also match questions with no topic assigned
-        // SECURITY: never interpolate raw caller input into PostgREST filter
-        // grammar (.or()). Strip metacharacters the same way verifyStudentAccess
-        // does (student-actions.ts), so a crafted topic cannot inject extra
+        //
+        // ⚠️ SECURITY: never interpolate raw caller input into PostgREST filter
+        // grammar (.or()/.like()). Strip the grammar metacharacters (comma, parens,
+        // ;, *, and the LIKE wildcards) so a crafted topic cannot inject extra
         // filter conditions.
-        const safeTopic = String(topic).replace(/[(),;*]/g, "");
+        //
+        // 🎯 উপ-টপিকসহ ম্যাচ: "বাংলা" বাছলে শুধু হুবহু "বাংলা" নয়, তার সব উপ-টপিকও
+        // ("বাংলা > প্রাচীন যুগ > চর্যাপদ") আসবে — অ্যাডমিনে টপিক বেছে প্রশ্ন
+        // খোঁজার সময় এটাই স্বাভাবিক প্রত্যাশা। প্যাটার্ন: `topic = 'বাংলা'` অথবা
+        // `topic LIKE 'বাংলা > %'` (টপিক-পাথের বিভাজক সর্বদা " > ", তাই নিরাপদ)।
+        const safeTopic = String(topic).replace(/[(),;*\\%_]/g, "").trim();
         if (safeTopic) {
           builder = safeTopic === "সাধারণ"
             ? builder.or(`topic.eq.${safeTopic},topic.is.null`)
-            : builder.eq("topic", safeTopic);
+            : builder.or(`topic.eq.${safeTopic},topic.like.${safeTopic} > %`);
         }
       }
       if (subject && subject !== "ALL") {

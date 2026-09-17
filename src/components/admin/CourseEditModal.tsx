@@ -176,9 +176,8 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
     "w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500";
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
-      <div className="min-h-full flex items-center justify-center p-3 sm:p-5">
-        <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-200 flex flex-col my-auto overflow-hidden">
+    <div className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-0">
+      <div className="bg-white rounded-none w-full h-full max-w-none shadow-2xl border-0 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-slate-200 bg-slate-50">
             <h3 className="font-black text-slate-900 text-sm sm:text-base truncate flex items-center gap-2">
@@ -194,7 +193,7 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
             </button>
           </div>
 
-          <div className="p-4 sm:p-5 space-y-4 overflow-y-auto">
+          <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
             {msg && (
               <p
                 className={`text-xs font-bold p-2.5 rounded-xl ${
@@ -378,7 +377,6 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
     </div>
   );
 };

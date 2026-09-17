@@ -6,10 +6,7 @@ import { AdminLogin } from "@/components/admin/AdminLogin";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Header } from "@/components/shared/Header";
-import { Footer } from "@/components/shared/Footer";
 import { AdminNav, AdminTabType } from "@/components/admin/AdminNav";
-import { LiveExamReport } from "@/components/admin/LiveExamReport";
 import dynamic from "next/dynamic";
 
 const LoadingFallback = () => (
@@ -494,12 +491,18 @@ export default function AdminPage() {
 
   return (
     <>
-      <Header />
+      {/* ⚠️ এখানে আর সাইটের `<Header />` নেই — শিক্ষক প্যানেলে ওটা অপ্রয়োজনীয় ছিল:
+          নোটিফিকেশন-বার (বেল), "আরোহণ" লোগো আর ডান-দিকের সাইড মেনু (drawer)।
+          প্যানেলের নিজের হেডার কার্ডেই শিক্ষকের পরিচয় + লাইভ রিপোর্ট + লগআউট আছে। */}
 
-      <main className="flex-grow max-w-5xl w-full mx-auto p-4 sm:p-6 font-bengali space-y-6">
-        <div className="bg-white rounded-3xl p-4 sm:p-8 shadow-md border border-slate-200 space-y-5">
+      {/* ── ফুল-স্ক্রিন লেআউট ──
+          আগে সবকিছু max-w-5xl কার্ডের ভেতরে ছিল (বড় স্ক্রিনে দুই পাশে বড় ফাঁকা
+          জায়গা)। এখন: উপরে হেডার, তার নিচে দুই কলাম — বাম দিকে খাড়া মেনু
+          (sticky), ডান দিকে সেই সেকশনের কনটেন্ট, পুরো প্রস্থ জুড়ে। */}
+      <main className="flex-grow w-full p-3 sm:p-5 lg:p-6 font-bengali">
+        <div className="w-full space-y-4 lg:space-y-5">
           {/* Header Panel Top */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-slate-100 gap-3">
+          <div className="bg-white rounded-3xl px-4 py-3.5 sm:px-6 sm:py-4 shadow-md border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 className="text-base sm:text-xl font-bold text-slate-900 flex items-center gap-2">
                 <Users className="w-5 h-5 text-indigo-600" /> শিক্ষক প্যানেল
@@ -519,8 +522,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <LiveExamReport />
-
               <button
                 onClick={handleLogout}
                 className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
@@ -530,12 +531,23 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Tab Navigation */}
-          <AdminNav activeTab={activeTab} onTabChange={setActiveTab} />
+          {/* দুই কলাম: বামে মেনু, डানে কনটেন্ট */}
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start">
+            {/* বাম sidebar — ডেস্কটপে sticky, মোবাইলে উপরের হরাইজন্টাল স্ট্রিপ */}
+            <aside className="w-full lg:w-60 xl:w-64 shrink-0 bg-white rounded-3xl border border-slate-200 shadow-md p-3 lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:overflow-y-auto">
+              <p className="hidden lg:block px-2 pb-2 pt-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                মেনু
+              </p>
+              <AdminNav activeTab={activeTab} onTabChange={setActiveTab} />
+            </aside>
 
-          {/* Tab Content */}
-          <div className="pt-2">
-            {activeTab === "exams" && (
+            {/* ডান পাশ — নির্বাচিত সেকশনের সবকিছু।
+                ⚠️ এখানে আর কোনো কার্ড/বাক্স নেই: আগে পুরো কনটেন্ট একটা সাদা
+                গোল-কোণা বর্ডার-ওয়ালা বাক্সের ভেতরে বসত ("বাক্সে আটকে থাকা"
+                মনে হত)। এখন কনটেন্ট সরাসরি ডার্ক পেজের উপর, পুরো প্রস্থ ও
+                উচ্চতা জুড়ে — প্রতিটি সেকশনের নিজের কার্ড/হেডিং আগের মতোই আছে। */}
+            <section className="w-full min-w-0 flex-1">
+              {activeTab === "exams" && (
               <ExamManager
                 exams={config.exams || {}}
                 questionCounts={examQuestionCounts}
@@ -857,7 +869,7 @@ export default function AdminPage() {
             )}
 
             {activeTab === "drivelinks" && (
-              <div className="max-w-md bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
+              <div className="w-full max-w-3xl bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
                 <h3 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
                   <Link2 className="w-4 h-4 text-emerald-600" /> গুগল ড্রাইভ লিংক সেটিংস (রুটিন ও সিলেবাস)
                 </h3>
@@ -897,6 +909,7 @@ export default function AdminPage() {
             )}
 
 
+            </section>
           </div>
         </div>
       </main>
@@ -910,8 +923,6 @@ export default function AdminPage() {
           onSuccess={refreshAdminData}
         />
       )}
-
-      <Footer />
     </>
   );
 }
