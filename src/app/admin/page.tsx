@@ -59,6 +59,8 @@ export default function AdminPage() {
   const [config, setConfig] = useState<AppConfigData | null>(null);
   // প্রতি পরীক্ষায় প্রশ্নসংখ্যা — সার্ভারে গোনা (প্রশ্নের টেক্সট ছাড়া)
   const [examQuestionCounts, setExamQuestionCounts] = useState<Record<string, number>>({});
+  // প্রতি পরীক্ষায় কতজন দিয়েছে — কোন পরীক্ষা "দেওয়া হয়েছে" সেই ব্যাজের জন্য
+  const [examSubmissionCounts, setExamSubmissionCounts] = useState<Record<string, number>>({});
   // সেকশন-ভিত্তিক প্রশ্নের ক্যাশ: যে পরীক্ষার ভিউ খোলা হয় কেবল তার প্রশ্ন আসে
   const [examQuestions, setExamQuestions] = useState<Record<string, QuestionItem[]>>({});
   const [loadingExamKey, setLoadingExamKey] = useState<string | null>(null);
@@ -158,6 +160,7 @@ export default function AdminPage() {
     const boot = await fetchAdminBootstrap({ forceRefresh: !initialLoad });
     applyConfigToState(boot.config);
     setExamQuestionCounts(boot.examQuestionCounts || {});
+    setExamSubmissionCounts(boot.examSubmissionCounts || {});
   };
 
   /**
@@ -536,6 +539,7 @@ export default function AdminPage() {
               <ExamManager
                 exams={config.exams || {}}
                 questionCounts={examQuestionCounts}
+                submissionCounts={examSubmissionCounts}
                 courses={config.courses || []}
                 subjects={config.subjects || []}
                 topics={config.topics || []}

@@ -21,6 +21,11 @@ let cachedExamCounts: { at: number; data: Record<string, number> } | null = null
 let inflightExamCounts: Promise<Record<string, number>> | null = null;
 const EXAM_COUNTS_TTL_MS = 60 * 1000;
 
+// কোন পরীক্ষা কতজন দিয়েছে — সাবমিশন ঘন ঘন বদলায়, তাই কম TTL (৩০s)
+let cachedSubmissionCounts: { at: number; data: Record<string, number> } | null = null;
+let inflightSubmissionCounts: Promise<Record<string, number>> | null = null;
+const SUBMISSION_COUNTS_TTL_MS = 30 * 1000;
+
 let cachedTopicPaths: { at: number; data: string[] } | null = null;
 const TOPIC_PATHS_TTL_MS = 90 * 1000;
 
@@ -90,6 +95,8 @@ function invalidateConfigCache() {
   cachedExamCounts = null;
   inflightExamCounts = null;
   cachedTopicPaths = null;
+  cachedSubmissionCounts = null;
+  inflightSubmissionCounts = null;
   // কনফিগ বদলানোর প্রতিটি জায়গা থেকেই পাবলিক পেজ (হোম/কোর্স) নতুন করে রেন্ডার
   // হয় — যাতে এডমিন এডিটের পর লাইভ/সময় পরিবর্তন দেপ্লয়ড সাইটেও সাথে সাথে ফুটে।
   revalidatePublicPages();
@@ -535,6 +542,8 @@ export interface AdminBootstrap {
   config: AppConfigData;
   /** প্রতি পরীক্ষায় প্রশ্নসংখ্যা — সার্ভারে গোনা, প্রশ্নের টেক্সট ছাড়া */
   examQuestionCounts: Record<string, number>;
+  /** প্রতি পরীক্ষায় সাবমিশনসংখ্যা — কোন পরীক্ষা কতজন দিয়েছে (প্রশ্ন/উত্তর ছাড়া) */
+  examSubmissionCounts: Record<string, number>;
 }
 
 /**
@@ -604,6 +613,72 @@ export async function getExamQuestionCounts(forceRefresh = false): Promise<Recor
 }
 
 /**
+ * কোন পরীক্ষা কতজন দিয়েছে — `Record<examKey, সাবমিশন-সংখ্যা>`।
+ *
+ * কেন দরকার: শিক্ষক প্যানেলের তালিকায় দেখা দরকার "এই পরীক্ষাটা দেওয়া হয়েছে কি
+ * না" — আর আগে সেটা দেখতে হলে `getAllSubmissions()` ডাকতে হত, যা **সব**
+ * সাবমিশন (উত্তর-অ্যারে সহ, প্রতি রো কয়েক KB) টেনে আনে।
+ *
+ * দুটি পথ (ফলাফল হুবহু এক):
+ *  ১. `admin_exam_submission_counts()` RPC — ডেটাবেজেই GROUP BY (migration 2032)
+ *  ২. ফলব্যাক: প্রতি পরীক্ষায় একটি HEAD count — কোনো সাবমিশন-সারি ডাউনলোড হয় না
+ *
+ * SECURITY: `requireTeacher` — এটা শুধু শিক্ষকের সংখ্যা। শিক্ষার্থীর নিজের সংখ্যা
+ * `student-actions.ts → getCompletedExamKeys()` থেকে আসে (সেশন-মালিকানা যাচাই করে)।
+ */
+export async function getExamSubmissionCounts(forceRefresh = false): Promise<Record<string, number>> {
+  await requireTeacher();
+
+  const now = Date.now();
+  if (!forceRefresh && cachedSubmissionCounts && now - cachedSubmissionCounts.at < SUBMISSION_COUNTS_TTL_MS) {
+    return cachedSubmissionCounts.data;
+  }
+  if (inflightSubmissionCounts) return inflightSubmissionCounts;
+
+  const work = (async () => {
+    const counts: Record<string, number> = {};
+    try {
+      const { data, error } = await supabase.rpc("admin_exam_submission_counts");
+      if (!error && Array.isArray(data)) {
+        data.forEach((row: { exam_key?: unknown; submission_count?: unknown }) => {
+          const key = String(row?.exam_key ?? "");
+          if (key) counts[key] = Number(row?.submission_count ?? 0);
+        });
+        return counts;
+      }
+
+      // ফলব্যাক — প্রতি পরীক্ষায় একটি HEAD count (কোনো সারি নামে না)
+      const { data: exams } = await supabase.from("exams").select("id");
+      const ids = (exams || []).map((e: { id: unknown }) => String(e.id)).filter(Boolean);
+      const BATCH = 25;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const batch = ids.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map((id) =>
+            supabase.from("submissions").select("*", { count: "exact", head: true }).eq("exam_key", id)
+          )
+        );
+        results.forEach((r, idx) => {
+          counts[batch[idx]] = Number(r.count || 0);
+        });
+      }
+    } catch (err) {
+      console.error("Exam submission counts error:", err);
+    }
+    return counts;
+  })();
+
+  inflightSubmissionCounts = work;
+  try {
+    const data = await work;
+    cachedSubmissionCounts = { at: Date.now(), data };
+    return data;
+  } finally {
+    if (inflightSubmissionCounts === work) inflightSubmissionCounts = null;
+  }
+}
+
+/**
  * অ্যাডমিন প্যানেলের প্রথম লোড — **শুধু মেটাডেটা**।
  *
  * আগে `fetchAppConfig(true)` ডাকা হত: প্রতিটি পরীক্ষার সব প্রশ্ন + পুরো
@@ -621,12 +696,13 @@ export async function fetchAdminBootstrap(options?: { forceRefresh?: boolean }):
 
   // `fetchAppConfigMeta`-র নিজের ৬০ সেকেন্ডের ক্যাশ আছে, আর প্রতিটি write-action
   // `invalidateConfigCache()` ডাকে — তাই সেভের পরের লোডে টাটকা মেটাডেটাই আসে।
-  const [config, examQuestionCounts] = await Promise.all([
+  const [config, examQuestionCounts, examSubmissionCounts] = await Promise.all([
     fetchAppConfigMeta(),
-    getExamQuestionCounts(force)
+    getExamQuestionCounts(force),
+    getExamSubmissionCounts(force)
   ]);
 
-  return { config, examQuestionCounts };
+  return { config, examQuestionCounts, examSubmissionCounts };
 }
 
 export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boolean> {

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Exam, QuestionItem, SubjectItem } from "@/types/exam";
 import { createExam, updateExam, deleteExam, toggleExamResultPublish, fetchExamForDemo } from "@/actions/admin-actions";
-import { isAnswerTimeReached } from "@/lib/bangladesh-time";
+import { isAnswerTimeReached, getTrueDate, parseBangladeshDateTime } from "@/lib/bangladesh-time";
 import { QuestionBuilder } from "./QuestionBuilder";
 import {
   Plus,
@@ -33,6 +33,8 @@ interface ExamManagerProps {
   exams: Record<string, Exam>;
   /** প্রতি পরীক্ষায় প্রশ্নসংখ্যা — সার্ভার-সাইড aggregate (প্রশ্নের সারি ছাড়াই) */
   questionCounts?: Record<string, number>;
+  /** প্রতি পরীক্ষায় সাবমিশনসংখ্যা — কে দিয়েছে/দেয়নি সেই ব্যাজের জন্য */
+  submissionCounts?: Record<string, number>;
   courses: string[];
   subjects: SubjectItem[];
   topics?: string[];
@@ -44,6 +46,7 @@ interface ExamManagerProps {
 export const ExamManager: React.FC<ExamManagerProps> = ({
   exams,
   questionCounts = {},
+  submissionCounts = {},
   courses,
   subjects,
   topics = [],
@@ -172,6 +175,38 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   /** তালিকায় দেখানোর সংখ্যা: সার্ভার aggregate → লোড করা প্রশ্ন → পুরনো ফিল্ড */
   const questionCountOf = (key: string, ex?: Exam): number =>
     questionCounts[key] ?? loadedQuestions[key]?.length ?? ex?.questions?.length ?? 0;
+
+  /** পরীক্ষার শুরুর সময় পার হয়েছে কি না (বাংলাদেশ সময় ধরে) */
+  const hasStarted = (ex?: Exam): boolean => {
+    if (!ex?.startTime) return false;
+    const t = parseBangladeshDateTime(String(ex.startTime));
+    return !!t && t.getTime() <= getTrueDate().getTime();
+  };
+
+  /**
+   * "এই পরীক্ষা দেওয়া হয়েছে কি না" — এক নজরে বোঝার ব্যাজ।
+   *   • কেউ দিয়েছে  → সবুজ-নীল ব্যাজ + কতটি সাবমিশন
+   *   • শুরুর সময় পার হয়ে গেছে কিন্তু কেউ দেয়নি → ধূসর ব্যাজ
+   *   • এখনো শুরু হয়নি → কোনো ব্যাজ নয় (ভবিষ্যতের পরীক্ষায় "কেউ দেয়নি" অর্থহীন)
+   */
+  const renderTakenBadge = (key: string, ex: Exam) => {
+    const subs = submissionCounts[key] || 0;
+    if (subs > 0) {
+      return (
+        <span className="text-xs bg-teal-100 text-teal-900 border border-teal-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+          <CheckCircle2 className="w-3 h-3 text-teal-700" /> পরীক্ষা হয়েছে — {toBengaliDigits(subs)}টি সাবমিশন
+        </span>
+      );
+    }
+    if (hasStarted(ex)) {
+      return (
+        <span className="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+          <Clock className="w-3 h-3 text-slate-400" /> কেউ এখনো দেয়নি
+        </span>
+      );
+    }
+    return null;
+  };
 
   // প্রিভিউ খুললে কেবল ওই পরীক্ষার প্রশ্ন আনি
   useEffect(() => {
@@ -575,6 +610,8 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                                     <Clock className="w-3 h-3 text-amber-600" /> রেজাল্ট অপ্রকাশিত (লুকানো)
                                   </span>
                                 )}
+                                {/* দেওয়া হয়েছে কি না — এক নজরে */}
+                                {renderTakenBadge(k, ex)}
                               </div>
                               <p className="text-sm text-slate-500">
                                 কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(questionCountOf(k, ex))} |

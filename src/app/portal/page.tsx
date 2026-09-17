@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getLocalStudentUser, loginWithGoogle, logoutStudentUser, updateLocalStudentName } from "@/lib/student-auth";
-import { updateStudentName } from "@/actions/student-actions";
+import { updateStudentName, getCompletedExamKeys } from "@/actions/student-actions";
+import { toBengaliDigits } from "@/lib/utils";
 import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
 
 /**
@@ -64,11 +65,13 @@ const SECTIONS = [
 
 export default function PortalPage() {
   const router = useRouter();
-  const [googleUser, setGoogleUser] = useState<{ uid: string; name: string; photoURL?: string } | null>(null);
+  const [googleUser, setGoogleUser] = useState<{ uid: string; name: string; email?: string; photoURL?: string } | null>(null);
   // নাম-পরিবর্তন — এখন পোর্টালে ঢুকতেই (overview পেজে) দেখা যায়
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState("");
   const [savingName, setSavingName] = useState(false);
+  // কতগুলো পরীক্ষা দিয়েছেন — পোর্টালের ওভারভিউতেই দেখা যায়
+  const [examsTaken, setExamsTaken] = useState<number | null>(null);
 
   useEffect(() => {
     const isTeacherLoggedIn = sessionStorage.getItem("teacher_user");
@@ -81,6 +84,30 @@ export default function PortalPage() {
     setGoogleUser(u);
     if (u) setNewName(u.name);
   }, [router]);
+
+  /**
+   * কতগুলো পরীক্ষা দিয়েছেন — `getCompletedExamKeys` **আলাদা আলাদা** পরীক্ষার
+   * সংখ্যা দেয় (একই পরীক্ষা দুইবার দিলে দুইবার গোনা হয় না)। নিরাপত্তা অপরিবর্তিত:
+   * অ্যাকশনটি যাচাই করে যে সেশনটি সত্যিই এই স্টুডেন্টের (sessionOwnsStudent)।
+   */
+  useEffect(() => {
+    if (!googleUser) {
+      setExamsTaken(null);
+      return;
+    }
+    let alive = true;
+    getCompletedExamKeys(googleUser.uid, googleUser.email)
+      .then((keys) => {
+        if (alive) setExamsTaken((keys || []).length);
+      })
+      .catch(() => {
+        if (alive) setExamsTaken(0);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleUser?.uid, googleUser?.email]);
 
   const handleSaveName = async () => {
     if (!newName.trim() || !googleUser) return;
@@ -245,6 +272,37 @@ export default function PortalPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* কতগুলো পরীক্ষা দিয়েছেন — ওভারভিউতেই এক নজরে */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center shrink-0">
+                  <History className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-slate-500">অংশগ্রহণকৃত এক্সাম</p>
+                  <p className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                    {examsTaken === null
+                      ? "লোড হচ্ছে..."
+                      : `মোট ${toBengaliDigits(examsTaken)}টি পরীক্ষা দেওয়া হয়েছে`}
+                  </p>
+                  {examsTaken === 0 && (
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                      এখনো কোনো পরীক্ষা দেননি — নিচের সেকশন থেকে শুরু করুন
+                    </p>
+                  )}
+                </div>
+              </div>
+              {examsTaken !== null && examsTaken > 0 && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/portal/results")}
+                  className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-1.5 rounded-full transition cursor-pointer"
+                >
+                  ফলাফল দেখুন <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-3 flex-wrap">

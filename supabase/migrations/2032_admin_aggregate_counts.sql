@@ -8,9 +8,10 @@
 -- নামাত — পরিমাপ করা গেছে: ~২ MB, ~১.৭ সেকেন্ড, প্রতিবার প্যানেল খুললে ও প্রতিবার
 -- কিছু সেভ করার পরে।
 --
--- এই দুটি ফাংশন সেই ডেটা ডেটাবেজেই গুছিয়ে দেয় — ফেরত আসে কয়েকশ বাইট:
---   • admin_exam_question_counts() → প্রতি পরীক্ষায় কতটি প্রশ্ন (GROUP BY)
---   • admin_topic_paths()          → টপিক-পাথের তালিকা (DISTINCT)
+-- এই তিনটি ফাংশন সেই ডেটা ডেটাবেজেই গুছিয়ে দেয় — ফেরত আসে কয়েকশ বাইট:
+--   • admin_exam_question_counts()   → প্রতি পরীক্ষায় কতটি প্রশ্ন (GROUP BY)
+--   • admin_topic_paths()            → টপিক-পাথের তালিকা (DISTINCT)
+--   • admin_exam_submission_counts() → কোন পরীক্ষা কতজন দিয়েছে (GROUP BY)
 --
 -- নিরাপত্তা:
 --   • security invoker (ডিফল্ট) — ফাংশনের ভেতরে RLS/table-grant ঠিক আগের মতোই খাটে,
@@ -23,6 +24,7 @@
 -- যাচাই:
 --   select * from public.admin_exam_question_counts() limit 5;
 --   select count(*) from public.admin_topic_paths();
+--   select * from public.admin_exam_submission_counts() limit 5;
 -- ============================================================
 
 create or replace function public.admin_exam_question_counts()
@@ -54,8 +56,25 @@ as $$
     and btrim(t.topic) <> ''
 $$;
 
+-- কোন পরীক্ষা কতজন দিয়েছে (কোনটায় এখনো কেউ বসেনি সেটাও বোঝা যায়)।
+-- শিক্ষক প্যানেলের তালিকায় প্রতিটি পরীক্ষার পাশে এই সংখ্যাটাই ব্যাজ হিসেবে বসে।
+create or replace function public.admin_exam_submission_counts()
+returns table(exam_key text, submission_count bigint)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select s.exam_key::text as exam_key, count(*)::bigint as submission_count
+  from public.submissions s
+  where s.exam_key is not null
+  group by s.exam_key
+$$;
+
 -- শুধু সার্ভার (service_role) ডাকতে পারবে — পাবলিক key দিয়ে কেউ গুনতে পারবে না
 revoke all on function public.admin_exam_question_counts() from anon, authenticated;
 revoke all on function public.admin_topic_paths() from anon, authenticated;
+revoke all on function public.admin_exam_submission_counts() from anon, authenticated;
 grant execute on function public.admin_exam_question_counts() to service_role;
 grant execute on function public.admin_topic_paths() to service_role;
+grant execute on function public.admin_exam_submission_counts() to service_role;
