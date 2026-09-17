@@ -978,14 +978,38 @@ export async function linkQuestionToExam(
   }
 }
 
+/**
+ * প্রশ্নব্যাংকের তালিকা — সার্ভার-সাইড সার্চ/ফিল্টার **এবং** পেজিনেশন।
+ *
+ * ⚠️ কেন পেজিনেশন বাধ্যতামূলক: `question_bank`-এ হাজার হাজার সারি হতে পারে।
+ * আগে ফাংশনটি `.limit(100)` দিয়ে কেবল প্রথম ১০০টি ফেরাত — ব্যবহারকারী জানতেনই না
+ * যে আরও ৯০০+ প্রশ্ন আছে, আর "সব সিলেক্ট করে মুছুন" ধারণাটাই ভুল ছিল। এখন:
+ *   • `count: "exact"` — মোট কতটি মিলল সেটাও আসে (তালিকা স্ক্রল না করেই জানা যায়)
+ *   • `.range(from, to)` — কেবল ওই পেজের সারিগুলোই ডাউনলোড হয়
+ *   • ক্রম সবসময় নির্দিষ্ট (`id` tiebreaker সহ) — নাহলে পেজ বদলালে কোনো সারি
+ *     দুইবার আসত বা একবারও আসত না (Postgres সমান মানের সারি যেকোনো ক্রমে দিতে পারে)
+ *
+ * ফিল্টার এখনো SQL-এই বসে (`ilike` সার্চ, `eq` টপিক/সাবজেক্ট) — পুরো টেবিল
+ * কখনো ক্লায়েন্টে নামে না। PostgREST filter grammar-এ ব্যবহারকারীর ইনপুট কখনো
+ * সরাসরি বসে না (metacharacter পরিষ্কার করা হয়)।
+ */
 export async function searchQuestionBank(
   queryText: string,
   topic?: string,
   subject?: string,
-  sortRecent: boolean = false
-): Promise<{ questions: any[]; total: number }> {
+  sortRecent: boolean = false,
+  page: number = 1,
+  pageSize: number = 100
+): Promise<{ questions: any[]; total: number; page: number; pageSize: number; totalPages: number }> {
   try {
     await requireTeacher();
+
+    const safePage = Number.isFinite(Number(page)) && Number(page) > 0 ? Math.floor(Number(page)) : 1;
+    const requestedSize = Number.isFinite(Number(pageSize)) && Number(pageSize) > 0 ? Math.floor(Number(pageSize)) : 100;
+    const safeSize = Math.min(100, Math.max(1, requestedSize));
+    const from = (safePage - 1) * safeSize;
+    const to = from + safeSize - 1;
+
     const build = (withOrder: boolean) => {
       let builder = supabase.from("question_bank").select("*", { count: "exact" });
       if (queryText) {
@@ -1007,26 +1031,47 @@ export async function searchQuestionBank(
       if (subject && subject !== "ALL") {
         builder = builder.eq("subject", subject);
       }
-      if (withOrder) {
-        builder = builder.order("created_at", { ascending: false });
-      }
-      return builder.limit(100);
+      // id tiebreaker always: একই created_at-এর সারি থাকলে পেজিনেশন স্থির থাকে।
+      // (আগে order ছাড়াই limit ছিল — পেজ বদলালে সারি হারাত/দুইবার আসত।)
+      builder = withOrder
+        ? builder.order("created_at", { ascending: false }).order("id", { ascending: true })
+        : builder.order("id", { ascending: true });
+      return builder.range(from, to);
     };
+
+    let data: any[] | null = null;
+    let count: number | null = null;
     try {
-      const { data, error, count } = await build(sortRecent);
-      if (error) throw error;
-      return { questions: data || [], total: count || 0 };
+      const res = await build(sortRecent);
+      if (res.error) throw res.error;
+      data = res.data;
+      count = res.count;
     } catch (err) {
       // created_at কলাম না থাকলে (পুরনো DB) — সর্ট ছাড়াই আবার চেষ্টা
       if (sortRecent) {
-        const { data, error, count } = await build(false);
-        if (!error) return { questions: data || [], total: count || 0 };
+        const res = await build(false);
+        if (!res.error) {
+          data = res.data;
+          count = res.count;
+        } else {
+          throw err;
+        }
+      } else {
+        throw err;
       }
-      throw err;
     }
+
+    const total = Number(count || 0);
+    return {
+      questions: data || [],
+      total,
+      page: safePage,
+      pageSize: safeSize,
+      totalPages: Math.max(1, Math.ceil(total / safeSize))
+    };
   } catch (err) {
     console.error("Search question bank error:", err);
-    return { questions: [], total: 0 };
+    return { questions: [], total: 0, page: 1, pageSize: 100, totalPages: 1 };
   }
 }
 

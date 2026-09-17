@@ -28,6 +28,9 @@ import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
 import { AIQuestionGeneratorModal } from "./AIQuestionGeneratorModal";
 import { TopicTreeSelector } from "./TopicTreeSelector";
 
+/** প্রশ্নব্যাংকের এক পেজে কতটি প্রশ্ন — ছোট পেজ = কম ডাউনলোড, দ্রুত রেন্ডার */
+const BANK_PAGE_SIZE = 25;
+
 interface QuestionBankManagerProps {
   topics: string[];
   subjects: SubjectItem[];
@@ -41,6 +44,10 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
 }) => {
   const [questions, setQuestions] = useState<any[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(0);
+  // পেজিনেশন — এক পেজে কেবল এতগুলো সারি ডাউনলোড হয় (আগে সার্ভার ১০০-এ কেটে
+  // দিত, ব্যবহারকারী জানতেনই না আরও প্রশ্ন আছে)
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [queryText, setQueryText] = useState("");
   const [filterTopic, setFilterTopic] = useState("ALL");
   const [filterSubject, setFilterSubject] = useState("ALL");
@@ -109,16 +116,32 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
 
   const searchSeqRef = useRef(0);
 
-  const fetchBankQuestions = async (debouncedQuery = queryText) => {
+  const fetchBankQuestions = async (debouncedQuery = queryText, pageArg = page) => {
     const seq = ++searchSeqRef.current;
     setIsLoading(true);
     try {
-      const res = await searchQuestionBank(debouncedQuery, filterTopic, filterSubject, recentOnly);
+      // সার্ভার-সাইড সার্চ + ফিল্টার + পেজিনেশন — কেবল ওই পেজের সারি আসে
+      const res = await searchQuestionBank(
+        debouncedQuery,
+        filterTopic,
+        filterSubject,
+        recentOnly,
+        pageArg,
+        BANK_PAGE_SIZE
+      );
       // Only apply the result if it belongs to the LATEST request — a slow
       // response for an older keystroke must not overwrite a newer one.
       if (seq === searchSeqRef.current) {
-        setQuestions(res.questions || []);
+        const list = res.questions || [];
+        // শেষ পেজের সব প্রশ্ন মুছে ফেললে আগের পেজে ফিরি (নাহলে খালি পেজ আটকে থাকত)
+        if (list.length === 0 && pageArg > 1 && res.total > 0) {
+          void fetchBankQuestions(debouncedQuery, Math.min(pageArg - 1, res.totalPages || 1));
+          return;
+        }
+        setQuestions(list);
         setTotalQuestions(res.total || 0);
+        setTotalPages(res.totalPages || 1);
+        setPage(pageArg);
       }
     } catch (err) {
       // No inline error state exists in this component (other flows alert), so
@@ -130,10 +153,20 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
     }
   };
 
-  // Debounce the search so every keystroke doesn't fire a full ilike scan
+  /** পেজ বদলানো — সিলেকশন মুছে যায়, যাতে এক পেজের "সব সিলেক্ট" অন্য পেজে গিয়ে ভুল না করে */
+  const goToPage = (target: number) => {
+    const next = Math.min(Math.max(1, target), Math.max(1, totalPages));
+    if (next === page) return;
+    setSelectedIds([]);
+    void fetchBankQuestions(queryText, next);
+  };
+
+  // Debounce the search so every keystroke doesn't fire a full ilike scan.
+  // সার্চ/ফিল্টার বদলালে সবসময় প্রথম পেজে ফিরে যাই।
   useEffect(() => {
     const t = setTimeout(() => {
-      fetchBankQuestions(queryText);
+      setPage(1);
+      fetchBankQuestions(queryText, 1);
     }, 300);
     return () => clearTimeout(t);
   }, [queryText, filterTopic, filterSubject, recentOnly]);
@@ -704,6 +737,57 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
             ))
           )}
         </div>
+
+        {/* পেজিনেশন — সার্ভার-সাইড, তাই ১০ হাজার প্রশ্নেও পেজ বদলানো 순식간 */}
+        {questions.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+            <p className="text-xs text-slate-500 font-medium">
+              {toBengaliDigits((page - 1) * BANK_PAGE_SIZE + 1)}–
+              {toBengaliDigits(Math.min(page * BANK_PAGE_SIZE, totalQuestions))} দেখানো হচ্ছে,
+              মোট {toBengaliDigits(totalQuestions)}টি
+            </p>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => goToPage(1)}
+                  disabled={page <= 1 || isLoading}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  প্রথম
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1 || isLoading}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  ← পূর্ববর্তী
+                </button>
+                <span className="px-2 text-xs font-black text-slate-700">
+                  পৃষ্ঠা {toBengaliDigits(page)} / {toBengaliDigits(totalPages)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= totalPages || isLoading}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  পরবর্তী →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPage(totalPages)}
+                  disabled={page >= totalPages || isLoading}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  শেষ
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
