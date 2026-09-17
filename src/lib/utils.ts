@@ -71,6 +71,27 @@ export function formatBangladeshDate(value: string | Date | null | undefined): s
   return `${toBengaliDigits(bd.getUTCDate())}/${toBengaliDigits(bd.getUTCMonth() + 1)}/${toBengaliDigits(bd.getUTCFullYear())}`;
 }
 
+/**
+ * পরীক্ষার **শুরুর সময়** অনুযায়ী ক্রম (আগে → পরে)।
+ *
+ * কেন দরকার: `exams` টেবিল থেকে কোনো `ORDER BY` ছাড়া সারি আনা হয়, আর Postgres
+ * ক্রমের কোনো নিশ্চয়তা দেয় না — তাই অ্যাডমিনের "কোর্স অনুযায়ী" তালিকায় একই
+ * কোর্সের পরীক্ষাগুলো এলোমেলো দেখাত (যেমন "১৩তম বিসিএস" "১২তম"-এর আগে)।
+ *
+ * নিয়ম: শুরুর সময় আগে → পরে; সময় না-থাকা (সবসময়-খোলা) পরীক্ষা সবার শেষে;
+ * একই সময়ে দুটি হলে নাম (বাংলা) অনুযায়ী — যাতে ক্রমটি সবসময় স্থির থাকে।
+ */
+export function compareExamsByStartTime(a: Exam, b: Exam): number {
+  const ta = a.startTime ? parseBangladeshDateTime(String(a.startTime))?.getTime() ?? null : null;
+  const tb = b.startTime ? parseBangladeshDateTime(String(b.startTime))?.getTime() ?? null : null;
+  if (ta !== tb) {
+    if (ta === null) return 1;
+    if (tb === null) return -1;
+    return ta - tb;
+  }
+  return String(a.title || "").localeCompare(String(b.title || ""), "bn");
+}
+
 export function parseTimeSpentToSeconds(timeSpent: string | number | null | undefined): number {
   if (timeSpent === undefined || timeSpent === null || timeSpent === "") return Infinity;
   if (typeof timeSpent === "number") return isNaN(timeSpent) ? Infinity : timeSpent;

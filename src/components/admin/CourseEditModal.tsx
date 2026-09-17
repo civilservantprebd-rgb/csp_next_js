@@ -22,7 +22,7 @@ import {
 } from "@/actions/video-actions";
 import type { CourseVideo } from "@/types/video";
 import type { Exam, SubjectItem } from "@/types/exam";
-import { toBengaliDigits } from "@/lib/utils";
+import { toBengaliDigits, compareExamsByStartTime } from "@/lib/utils";
 
 interface CourseEditModalProps {
   course: string;
@@ -67,7 +67,10 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const courseSubjects = (subjects || []).filter((s) => s.course === course).map((s) => s.name);
-  const courseExams = Object.values(exams || {}).filter((ex) => ex.course === course);
+  // পরীক্ষার শুরুর সময় অনুযায়ী সাজানো — DB order ছাড়া আসে, তাই আগে এলোমেলো দেখাত
+  const courseExams = Object.values(exams || {})
+    .filter((ex) => ex.course === course)
+    .sort(compareExamsByStartTime);
 
   useEffect(() => {
     getCoursePrices().then((prices) => {

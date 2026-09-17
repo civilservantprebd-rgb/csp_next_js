@@ -24,7 +24,7 @@ import {
   FlaskConical,
   Loader2
 } from "lucide-react";
-import { toBengaliDigits } from "@/lib/utils";
+import { toBengaliDigits, compareExamsByStartTime, formatBangladeshDate, formatBangladeshClock } from "@/lib/utils";
 
 /** প্রিভিউ/এডিটে দরকারি আকার: প্রশ্ন + (শিক্ষক-গেটেড) সঠিক উত্তর ও ব্যাখ্যা */
 type LoadedQuestion = QuestionItem & { correct?: number; exp?: string };
@@ -305,7 +305,9 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   };
 
   // ---- কোর্স অনুযায়ী গ্রুপিং (নিচের তালিকার জন্য) ----
-  const examEntries = Object.entries(exams);
+  // ক্রম: পরীক্ষার শুরুর সময় আগে → পরে। DB কোনো ORDER BY ছাড়া সারি দেয়, তাই
+  // আগে একই কোর্সের ভেতরে পরীক্ষাগুলো এলোমেলো দেখাত।
+  const examEntries = Object.entries(exams).sort((a, b) => compareExamsByStartTime(a[1], b[1]));
   const knownCourses = new Set(courses);
   const orderedCourseNames = [...courses];
   examEntries.forEach(([, ex]) => {
@@ -578,6 +580,17 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                                 কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(questionCountOf(k, ex))} |
                                 সময়: {toBengaliDigits(ex.timerMinutes)} মিনিট
                               </p>
+                              {/* শুরুর সময় — তালিকা এখন এই সময় অনুযায়ী সাজানো, তাই
+                                  কোন পরীক্ষা কখন শুরু হবে সেটা দেখা দরকার */}
+                              {ex.startTime && (
+                                <p className="text-sm text-slate-500 flex items-center gap-1.5 flex-wrap">
+                                  <Clock className="w-3 h-3 text-slate-400" />
+                                  <span>
+                                    শুরু: {formatBangladeshDate(ex.startTime)} — {formatBangladeshClock(ex.startTime)}
+                                  </span>
+                                  {ex.endTime && <span className="text-slate-400">| শেষ: {formatBangladeshClock(ex.endTime)}</span>}
+                                </p>
+                              )}
                             </div>
 
                             <div className="flex flex-wrap gap-1.5 w-full sm:w-auto justify-end">

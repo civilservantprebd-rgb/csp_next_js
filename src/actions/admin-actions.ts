@@ -134,7 +134,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
       const fetchPromise = Promise.all([
         supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
         supabase.from("subjects").select("name, course"),
-        supabase.from("exams").select("*"),
+        supabase.from("exams").select("*").order("start_time", { ascending: true }),
         // ⚠️ পৃষ্ঠা-পৃষ্ঠা করে আনি — PostgREST এক অনুরোধে **১০০০ সারির বেশি দেয় না**
         // (`max-rows`), আর সীমার বাইরের সারি নীরবে বাদ পড়ে; কোনো এরর আসে না।
         // এই দুই টেবিল ১০০০ ছাড়িয়ে যাওয়ার পর থেকে নতুন যোগ করা প্রশ্ন আর অ্যাডমিন
@@ -303,7 +303,7 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
       const fetchPromiseLite = Promise.all([
         supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
         supabase.from("subjects").select("name, course"),
-        supabase.from("exams").select("*"),
+        supabase.from("exams").select("*").order("start_time", { ascending: true }),
         // ⚠️ এখানেও পৃষ্ঠা-পৃষ্ঠা — PostgREST-এর ১০০০-সারির সীমা ছাড়ালে নতুন
         // প্রশ্ন/টপিক অ্যাডমিন প্যানেলের গণনা ও টপিক-ট্রিতে ধরা পড়ে না।
         fetchAllRows<any>((from, to) =>
@@ -465,7 +465,7 @@ export async function fetchAppConfigMeta(): Promise<AppConfigData> {
         Promise.all([
           supabase.from("app_settings").select("*").eq("id", "main").maybeSingle(),
           supabase.from("subjects").select("name, course"),
-          supabase.from("exams").select("*"),
+          supabase.from("exams").select("*").order("start_time", { ascending: true }),
         ]),
         timeout.then(() => { throw new Error("Meta fetch timeout"); })
       ]);
@@ -2122,7 +2122,12 @@ export async function fetchExamMeta(examKey: string): Promise<Exam | null> {
 /** সব পরীক্ষার হালকা তালিকা (প্রশ্ন ছাড়া) — লিডারবোর্ড সার্চ/ড্রপডাউনের জন্য। */
 export async function fetchExamMetaList(): Promise<Record<string, Exam>> {
   try {
-    const { data, error } = await supabase.from("exams").select(EXAM_META_COLS);
+    // শুরুর সময় অনুযায়ী (আগে → পরে) — ORDER BY ছাড়া Postgres যেকোনো ক্রমে সারি
+    // দিতে পারে, তাই তালিকা এলোমেলো দেখাত।
+    const { data, error } = await supabase
+      .from("exams")
+      .select(EXAM_META_COLS)
+      .order("start_time", { ascending: true });
     if (error) return {};
     const map: Record<string, Exam> = {};
     (data || []).forEach((ex) => {
