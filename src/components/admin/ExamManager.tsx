@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Exam, SubjectItem } from "@/types/exam";
-import { createExam, updateExam, deleteExam, toggleExamResultPublish } from "@/actions/admin-actions";
+import { Exam, QuestionItem, SubjectItem } from "@/types/exam";
+import { createExam, updateExam, deleteExam, toggleExamResultPublish, fetchExamForDemo } from "@/actions/admin-actions";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { QuestionBuilder } from "./QuestionBuilder";
 import {
@@ -21,12 +21,18 @@ import {
   BookOpen,
   ChevronDown,
   Eye,
-  FlaskConical
+  FlaskConical,
+  Loader2
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 
+/** প্রিভিউ/এডিটে দরকারি আকার: প্রশ্ন + (শিক্ষক-গেটেড) সঠিক উত্তর ও ব্যাখ্যা */
+type LoadedQuestion = QuestionItem & { correct?: number; exp?: string };
+
 interface ExamManagerProps {
   exams: Record<string, Exam>;
+  /** প্রতি পরীক্ষায় প্রশ্নসংখ্যা — সার্ভার-সাইড aggregate (প্রশ্নের সারি ছাড়াই) */
+  questionCounts?: Record<string, number>;
   courses: string[];
   subjects: SubjectItem[];
   topics?: string[];
@@ -37,6 +43,7 @@ interface ExamManagerProps {
 
 export const ExamManager: React.FC<ExamManagerProps> = ({
   exams,
+  questionCounts = {},
   courses,
   subjects,
   topics = [],
@@ -54,6 +61,12 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
   const [isResultPublished, setIsResultPublished] = useState(false);
   const [isFree, setIsFree] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // ---- সেকশন-ভিত্তিক লোডিং: যে পরীক্ষার ভিউ/এডিট/প্রিভিউ খোলা হয় কেবল তার প্রশ্ন ----
+  // (আগে প্যানেলের প্রথম লোডেই প্রতিটি পরীক্ষার সব প্রশ্ন ক্লায়েন্টে নামত)
+  const [loadedQuestions, setLoadedQuestions] = useState<Record<string, LoadedQuestion[]>>({});
+  const [loadingQuestionsKey, setLoadingQuestionsKey] = useState<string | null>(null);
+
 
   // ---- প্রিভিউ মোডাল (এক্সাম রেডি করার পর শিক্ষক নিজে দেখেন) ----
   const [previewKey, setPreviewKey] = useState<string | null>(null);
@@ -134,6 +147,50 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
     if (!v) return "";
     if (v.includes("Z") || v.includes("+") || /-\d{2}:\d{2}$/.test(v)) return v;
     return v.length === 16 ? `${v}:00+06:00` : `${v}+06:00`;
+  };
+
+  /**
+   * একটা পরীক্ষার প্রশ্ন (ও উত্তর-কী) — কেবল দরকারের সময় আনা হয়।
+   * `fetchExamForDemo` শিক্ষক-গেটেড (`requireTeacher`) এবং এক কুয়েরিতেই প্রশ্ন +
+   * সঠিক উত্তর + ব্যাখ্যা দেয় — তাই আলাদা করে উত্তর আনার দরকার নেই।
+   */
+  const ensureExamQuestions = async (key: string, force = false) => {
+    if (!key) return;
+    if (!force && loadedQuestions[key]) return;
+    setLoadingQuestionsKey(key);
+    try {
+      const ex = await fetchExamForDemo(key);
+      setLoadedQuestions((prev) => ({ ...prev, [key]: (ex?.questions || []) as LoadedQuestion[] }));
+    } catch {
+      // ব্যর্থ হলেও খালি তালিকা ক্যাশে রাখি — স্পিনার অনন্তকাল ঘুরতে থাকবে না
+      setLoadedQuestions((prev) => ({ ...prev, [key]: [] }));
+    } finally {
+      setLoadingQuestionsKey((prev) => (prev === key ? null : prev));
+    }
+  };
+
+  /** তালিকায় দেখানোর সংখ্যা: সার্ভার aggregate → লোড করা প্রশ্ন → পুরনো ফিল্ড */
+  const questionCountOf = (key: string, ex?: Exam): number =>
+    questionCounts[key] ?? loadedQuestions[key]?.length ?? ex?.questions?.length ?? 0;
+
+  // প্রিভিউ খুললে কেবল ওই পরীক্ষার প্রশ্ন আনি
+  useEffect(() => {
+    if (previewKey) void ensureExamQuestions(previewKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewKey]);
+
+  // এডিট মোডাল খুললে ওই পরীক্ষার প্রশ্ন আনি (ভেতরে QuestionBuilder বসে)
+  useEffect(() => {
+    if (editingExamKey) void ensureExamQuestions(editingExamKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingExamKey]);
+
+  /** প্রশ্ন যোগ/এডিট/মুছার পরে: ওই পরীক্ষার প্রশ্ন + প্যানেলের সংখ্যা নতুন করে আনি */
+  const handleExamQuestionsChanged = async () => {
+    const key = editingExamKey;
+    if (key) await ensureExamQuestions(key, true);
+    if (previewKey) await ensureExamQuestions(previewKey, true);
+    onRefresh();
   };
 
   const startEdit = (key: string, ex: Exam) => {
@@ -518,7 +575,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                                 )}
                               </div>
                               <p className="text-sm text-slate-500">
-                                কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(ex.questions?.length || 0)} |
+                                কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(questionCountOf(k, ex))} |
                                 সময়: {toBengaliDigits(ex.timerMinutes)} মিনিট
                               </p>
                             </div>
@@ -607,7 +664,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                   👁️ প্রিভিউ — {exams[previewKey].title}
                 </h3>
                 <p className="text-[11px] text-sky-100 font-bold mt-0.5">
-                  {exams[previewKey].course} | {exams[previewKey].subject} | {toBengaliDigits(exams[previewKey].questions?.length || 0)} প্রশ্ন |
+                  {exams[previewKey].course} | {exams[previewKey].subject} | {toBengaliDigits(questionCountOf(previewKey, exams[previewKey]))} প্রশ্ন |
                   সময়: {toBengaliDigits(exams[previewKey].timerMinutes)} মিনিট
                   {exams[previewKey].isFree ? " | ফ্রি" : ""}
                   {exams[previewKey].passMark ? ` | পাস: ${toBengaliDigits(exams[previewKey].passMark)}` : ""}
@@ -625,7 +682,12 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
             {/* প্রশ্ন তালিকা */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-slate-50">
-              {(exams[previewKey].questions || []).map((q, qi) => (
+              {!loadedQuestions[previewKey] && (
+                <div className="flex items-center justify-center p-10 text-slate-500 gap-2 font-bengali">
+                  <Loader2 className="w-5 h-5 animate-spin" /> প্রশ্ন লোড হচ্ছে...
+                </div>
+              )}
+              {(loadedQuestions[previewKey] || []).map((q, qi) => (
                 <div key={qi} className="bg-white rounded-2xl border border-slate-200 p-4">
                   <h4 className="font-black text-slate-900 text-sm sm:text-base leading-snug">
                     <span className="text-sky-600 mr-1.5">{toBengaliDigits(qi + 1)}.</span>
@@ -633,7 +695,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                   </h4>
                   <div className="mt-2.5 space-y-1.5">
                     {(q.opts || []).map((opt, oi) => {
-                      const qCorrect = Number((q as { correct?: number }).correct ?? 0);
+                      const qCorrect = Number(q.correct ?? 0);
                       const isCorrect = oi === qCorrect;
                       return (
                         <div
@@ -661,9 +723,9 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                       );
                     })}
                   </div>
-                  {(q as { exp?: string }).exp ? (
-                    <p className="mt-2 text-xs text-slate-600 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 leading-relaxed">
-                      <b className="text-indigo-800">ব্যাখ্যা:</b> {(q as { exp?: string }).exp}
+                  {q.exp ? (
+                    <p className="mt-2 text-xs text-slate-600 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap">
+                      <b className="text-indigo-800">ব্যাখ্যা:</b> {q.exp}
                     </p>
                   ) : null}
                 </div>
@@ -863,11 +925,12 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                 <Edit3 className="w-4 h-4 text-indigo-600" />
                 প্রশ্ন যোগ/এডিট — {editTitle || exams[editingExamKey]?.title || "এই পরীক্ষায়"}
               </h4>
-              {exams[editingExamKey] && (
+              {loadedQuestions[editingExamKey] ? (
                 <QuestionBuilder
                   activeExamKey={editingExamKey}
                   exam={{
                     ...exams[editingExamKey],
+                    questions: loadedQuestions[editingExamKey] || [],
                     course: editCourse || exams[editingExamKey].course,
                     subject: editSubject || exams[editingExamKey].subject,
                     title: editTitle || exams[editingExamKey].title,
@@ -883,9 +946,14 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                     }
                   }}
                   topics={topics}
-                  onRefresh={onRefresh}
+                  onRefresh={handleExamQuestionsChanged}
                 />
-              )}
+                ) : (
+                  <div className="flex items-center justify-center p-6 text-slate-500 gap-2 font-bengali text-xs">
+                    <Loader2 className="w-4 h-4 animate-spin" /> এই পরীক্ষার প্রশ্ন লোড হচ্ছে...
+                  </div>
+                )
+              }
             </div>
 
             {/* সংরক্ষণ / বাতিল — একদম নিচে (form attribute-এর কারণে এখান থেকেও কাজ করে) */}

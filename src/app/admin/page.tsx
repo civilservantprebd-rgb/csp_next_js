@@ -28,7 +28,7 @@ const ArchiveManager = dynamic(() => import("@/components/admin/ArchiveManager")
 const CourseVideoManager = dynamic(() => import("@/components/admin/CourseVideoManager").then(mod => mod.CourseVideoManager), { loading: LoadingFallback });
 const NewsManager = dynamic(() => import("@/components/admin/NewsManager").then(mod => mod.NewsManager), { loading: LoadingFallback });
 const WhatsAppGroupManager = dynamic(() => import("@/components/admin/WhatsAppGroupManager").then(mod => mod.WhatsAppGroupManager), { loading: LoadingFallback });
-import { fetchAppConfig, fetchAppConfigLite, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
+import { fetchAdminBootstrap, fetchExamForDemo, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
 import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
 import {
@@ -57,7 +57,11 @@ import { toBengaliDigits } from "@/lib/utils";
 export default function AdminPage() {
   const router = useRouter();
   const [config, setConfig] = useState<AppConfigData | null>(null);
-  const [isFullDataLoaded, setIsFullDataLoaded] = useState(false);
+  // প্রতি পরীক্ষায় প্রশ্নসংখ্যা — সার্ভারে গোনা (প্রশ্নের টেক্সট ছাড়া)
+  const [examQuestionCounts, setExamQuestionCounts] = useState<Record<string, number>>({});
+  // সেকশন-ভিত্তিক প্রশ্নের ক্যাশ: যে পরীক্ষার ভিউ খোলা হয় কেবল তার প্রশ্ন আসে
+  const [examQuestions, setExamQuestions] = useState<Record<string, QuestionItem[]>>({});
+  const [loadingExamKey, setLoadingExamKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabType>(() => {
     // "শিক্ষার্থীর ফলাফল" পেজ থেকে ফিরে এলে (…/admin?tab=students) সরাসরি ওই ট্যাব খোলে
     if (typeof window !== "undefined") {
@@ -129,6 +133,12 @@ export default function AdminPage() {
     }
   };
 
+  /**
+   * মেটাডেটা + সংখ্যা আনা (প্রশ্নের কোনো সারি নয়)।
+   *
+   * `initialLoad` ছাড়া প্রতিটি কল = কিছু সেভ/মুছে ফেলার পরের রিফ্রেশ, তাই তখন
+   * সংখ্যাগুলো জোর করে নতুন করে গোনা হয় (`forceRefresh`)।
+   */
   const loadData = async (initialLoad = false) => {
     // SECURITY: verify server-side (sessionStorage alone can be forged via DevTools)
     const { verifyTeacherSession } = await import("@/actions/admin-actions");
@@ -143,23 +153,58 @@ export default function AdminPage() {
     setTeacherUser({ email: verified.email });
     setAuthState("panel");
 
-    if (initialLoad) {
-      // Phase 1: Lite load — shows exam list instantly (no heavy JOIN)
-      const liteData = await fetchAppConfigLite();
-      applyConfigToState(liteData);
-      setIsFullDataLoaded(false);
-    }
+    // এক লোডে: কোর্স/সাবজেক্ট/টপিক/পরীক্ষার মেটাডেটা + প্রতি পরীক্ষার প্রশ্নসংখ্যা।
+    // আগে এখানে `fetchAppConfig(true)` ডাকা হত — পুরো করপাস (উত্তর+ব্যাখ্যা সহ)।
+    const boot = await fetchAdminBootstrap({ forceRefresh: !initialLoad });
+    applyConfigToState(boot.config);
+    setExamQuestionCounts(boot.examQuestionCounts || {});
+  };
 
-    // Phase 2 (or only phase for refresh): Full data with all questions
-    const data = await fetchAppConfig(true);
-    applyConfigToState(data);
-    setIsFullDataLoaded(true);
+  /**
+   * একটা নির্দিষ্ট পরীক্ষার প্রশ্ন আনা — শুধু দরকার হলেই (ভিউ/এডিট/প্রিভিউ খোলার সময়)।
+   * `force` দিলে ক্যাশ ফেলে নতুন করে আনে (প্রশ্ন যোগ/এডিট/মুছার পরে)।
+   *
+   * `fetchExamForDemo` ব্যবহার করা হয় (শিক্ষক-গেটেড `requireTeacher`): এটিই
+   * শিক্ষকের সঠিক পথ — `fetchExamWithQuestions` ছাত্র-এনরোলমেন্টও দাবি করে,
+   * তাই শিক্ষক এনরোল্ড না থাকলে প্রশ্ন খালি আসত।
+   */
+  const loadExamQuestions = async (examKey: string, force = false) => {
+    if (!examKey) return;
+    if (!force && examQuestions[examKey]) return;
+    setLoadingExamKey(examKey);
+    try {
+      const ex = await fetchExamForDemo(examKey);
+      // খালি অ্যারে-ও ক্যাশে রাখি — নাহলে "লোড হয়েছে কিন্তু ০টি প্রশ্ন" প্রতিবার আবার কুয়েরি করত
+      setExamQuestions((prev) => ({ ...prev, [examKey]: ex?.questions || [] }));
+    } catch {
+      // ব্যর্থ হলেও খালি তালিকা ক্যাশে রাখি — স্পিনার অনন্তকাল ঘুরতে থাকবে না
+      setExamQuestions((prev) => ({ ...prev, [examKey]: [] }));
+    } finally {
+      setLoadingExamKey((prev) => (prev === examKey ? null : prev));
+    }
+  };
+
+  /** সব রিফ্রেশ (কোর্স/সাবজেক্ট/পরীক্ষা/প্রশ্ন সেভের পরে): মেটাডেটা + সক্রিয় সেকশনের প্রশ্ন */
+  const refreshAdminData = async () => {
+    await loadData(false);
+    setExamQuestions({});
+    if (activeTab === "questions" && selectedExamKey) {
+      await loadExamQuestions(selectedExamKey, true);
+    }
   };
 
   useEffect(() => {
     loadData(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // "প্রশ্ন যোগ/এডিট" ট্যাব খোলা হলে (বা পরীক্ষা বদলালে) কেবল ওই পরীক্ষার প্রশ্ন আনি
+  useEffect(() => {
+    if (activeTab === "questions" && selectedExamKey) {
+      void loadExamQuestions(selectedExamKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedExamKey]);
 
   // লগইন ল্যান্ডিং — শিক্ষক নন বা সেশন নেই
   if (authState === "login") {
@@ -198,7 +243,7 @@ export default function AdminPage() {
     const nextCourses = [...config.courses, val];
     await saveAppConfig({ courses: nextCourses });
     setNewCourseName("");
-    loadData();
+    refreshAdminData();
   };
 
   const handleDeleteCourse = async (courseName: string) => {
@@ -215,7 +260,7 @@ export default function AdminPage() {
     if (confirm(`আপনি কি '${courseName}' কোর্সটি মুছে ফেলতে চান?${orphanWarning}`)) {
       const nextCourses = config.courses.filter((c) => c !== courseName);
       await saveAppConfig({ courses: nextCourses });
-      loadData();
+      refreshAdminData();
     }
   };
 
@@ -251,7 +296,7 @@ export default function AdminPage() {
     }
 
     setEditingCourseIdx(null);
-    loadData();
+    refreshAdminData();
     alert("কোর্স সফলভাবে আপডেট করা হয়েছে।");
   };
 
@@ -269,7 +314,7 @@ export default function AdminPage() {
     const nextSubjects = [...config.subjects, { name: val, course: newSubjectCourse }];
     await saveAppConfig({ subjects: nextSubjects });
     setNewSubjectName("");
-    loadData();
+    refreshAdminData();
   };
 
   const handleDeleteSubject = async (idx: number) => {
@@ -281,7 +326,7 @@ export default function AdminPage() {
       const nextSubjects = [...config.subjects];
       nextSubjects.splice(idx, 1);
       await saveAppConfig({ subjects: nextSubjects });
-      loadData();
+      refreshAdminData();
     }
   };
 
@@ -303,7 +348,7 @@ export default function AdminPage() {
 
     await saveAppConfig({ subjects: nextSubjects });
     setEditingSubjectIdx(null);
-    loadData();
+    refreshAdminData();
     alert("সাবজেক্ট সফলভাবে আপডেট করা হয়েছে।");
   };
 
@@ -322,7 +367,7 @@ export default function AdminPage() {
     const nextTopics = [...currentTopics, val];
     await saveAppConfig({ topics: nextTopics });
     setNewTopicName("");
-    loadData();
+    refreshAdminData();
   };
 
   const handleDeleteTopic = async (idx: number) => {
@@ -331,7 +376,7 @@ export default function AdminPage() {
       const nextTopics = [...(config.topics || [])];
       nextTopics.splice(idx, 1);
       await saveAppConfig({ topics: nextTopics });
-      loadData();
+      refreshAdminData();
     }
   };
 
@@ -386,7 +431,7 @@ export default function AdminPage() {
   const handleDeleteTopicQuestion = async (id: string) => {
     if (confirm("আপনি কি এই প্রশ্নটি টপিক ভাণ্ডার থেকে মুছে ফেলতে চান?")) {
       await deleteTopicQuestion(id);
-      loadData();
+      refreshAdminData();
     }
   };
 
@@ -418,7 +463,7 @@ export default function AdminPage() {
       await saveAppConfig({ topics: nextTopics });
     }
     setEditingTopicIdx(null);
-    loadData();
+    refreshAdminData();
     alert("টপিক সফলভাবে আপডেট করা হয়েছে।");
   };
 
@@ -439,7 +484,7 @@ export default function AdminPage() {
       ? current.filter((c) => c !== courseName)
       : [...current, courseName];
     await saveAppConfig({ pinnedCourses: next });
-    loadData();
+    refreshAdminData();
   };
 
 
@@ -490,6 +535,7 @@ export default function AdminPage() {
             {activeTab === "exams" && (
               <ExamManager
                 exams={config.exams || {}}
+                questionCounts={examQuestionCounts}
                 courses={config.courses || []}
                 subjects={config.subjects || []}
                 topics={config.topics || []}
@@ -498,7 +544,7 @@ export default function AdminPage() {
                   setSelectedExamKey(k);
                   setActiveTab("questions");
                 }}
-                onRefresh={loadData}
+                onRefresh={refreshAdminData}
               />
             )}
 
@@ -506,7 +552,7 @@ export default function AdminPage() {
               <QuestionBankManager
                 topics={config.topics || []}
                 subjects={config.subjects || []}
-                onRefresh={loadData}
+                onRefresh={refreshAdminData}
               />
             )}
 
@@ -626,6 +672,7 @@ export default function AdminPage() {
               <CourseEditModal
                 course={editingCourse}
                 exams={config.exams || {}}
+                questionCounts={examQuestionCounts}
                 subjects={config.subjects || []}
                 onClose={closeCourseEdit}
                 onChanged={markCourseDirty}
@@ -773,14 +820,17 @@ export default function AdminPage() {
             {activeTab === "students" && <StudentApproval courses={config.courses || []} />}
 
             {activeTab === "questions" && config.exams?.[selectedExamKey] && (
-              isFullDataLoaded ? (
+              examQuestions[selectedExamKey] ? (
                 <QuestionBuilder
                   activeExamKey={selectedExamKey}
-                  exam={config.exams[selectedExamKey]}
+                  exam={{
+                    ...config.exams[selectedExamKey],
+                    questions: examQuestions[selectedExamKey] || []
+                  }}
                   allExams={config.exams || {}}
                   onSelectExamKey={(k) => setSelectedExamKey(k)}
                   topics={config.topics || []}
-                  onRefresh={loadData}
+                  onRefresh={refreshAdminData}
                 />
               ) : (
                 <div className="flex items-center justify-center p-10 text-slate-500 gap-2 font-bengali">
@@ -798,7 +848,7 @@ export default function AdminPage() {
             {activeTab === "archive" && (
               <ArchiveManager
                 exams={config.exams || {}}
-                onRefresh={loadData}
+                onRefresh={refreshAdminData}
               />
             )}
 
@@ -853,7 +903,7 @@ export default function AdminPage() {
           targetTopic={bulkTopicName}
           topics={config?.topics || []}
           onClose={() => setBulkTopicName(null)}
-          onSuccess={loadData}
+          onSuccess={refreshAdminData}
         />
       )}
 

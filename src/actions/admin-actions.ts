@@ -13,6 +13,17 @@ let lastFetchTime = 0;
 let inflightFetch: Promise<AppConfigData> | null = null;
 const CACHE_TTL_MS = 60000; // 60 seconds cache (questions change only via admin edits, which invalidate the cache)
 
+// ─── অ্যাডমিন প্যানেল: মেটাডেটা-প্রথম লোডিং ────────────────────────────────
+// আগে প্যানেল খোলার সাথে সাথে পুরো প্রশ্ন-করপাস (topic_questions + প্রতিটি
+// exam-এর প্রশ্ন) নামত, আর প্রতিটি সেভের পরেই আবার নামত। এখন শুধু মেটাডেটা +
+// সার্ভারে গোনা সংখ্যা আসে; প্রকৃত প্রশ্ন আসে কেবল যে সেকশন খোলা হয় তার।
+let cachedExamCounts: { at: number; data: Record<string, number> } | null = null;
+let inflightExamCounts: Promise<Record<string, number>> | null = null;
+const EXAM_COUNTS_TTL_MS = 60 * 1000;
+
+let cachedTopicPaths: { at: number; data: string[] } | null = null;
+const TOPIC_PATHS_TTL_MS = 90 * 1000;
+
 /**
  * Supabase/PostgREST এরর → পড়ার মতো এক লাইন।
  *
@@ -74,6 +85,11 @@ function invalidateConfigCache() {
   lastFetchTimeLite = 0;
   cachedConfigMeta = null;
   lastFetchTimeMeta = 0;
+  // প্রশ্নসংখ্যা ও টপিক-তালিকার মেমো-ক্যাশও একসাথে বাতিল — নাহলে প্রশ্ন যোগ/মুছলে
+  // প্যানেল পুরনো সংখ্যা দেখাত।
+  cachedExamCounts = null;
+  inflightExamCounts = null;
+  cachedTopicPaths = null;
   // কনফিগ বদলানোর প্রতিটি জায়গা থেকেই পাবলিক পেজ (হোম/কোর্স) নতুন করে রেন্ডার
   // হয় — যাতে এডমিন এডিটের পর লাইভ/সময় পরিবর্তন দেপ্লয়ড সাইটেও সাথে সাথে ফুটে।
   revalidatePublicPages();
@@ -510,6 +526,107 @@ export async function fetchAppConfigMeta(): Promise<AppConfigData> {
   })();
 
   return inflightFetchMeta;
+}
+
+// ─── Admin bootstrap: মেটাডেটা + সার্ভার-সাইড সংখ্যা (প্রশ্নের একটিও সারি নয়) ──
+
+export interface AdminBootstrap {
+  /** কোর্স, সাবজেক্ট, টপিক, পরীক্ষার মেটাডেটা — `questions: []`, `topicQuestions: []` */
+  config: AppConfigData;
+  /** প্রতি পরীক্ষায় প্রশ্নসংখ্যা — সার্ভারে গোনা, প্রশ্নের টেক্সট ছাড়া */
+  examQuestionCounts: Record<string, number>;
+}
+
+/**
+ * প্রতি পরীক্ষায় প্রশ্নসংখ্যা — প্রশ্নের টেক্সট না এনে।
+ *
+ * কেন দরকার: অ্যাডমিন তালিকায় প্রতিটি পরীক্ষার পাশে "প্রশ্ন: ৪২" দেখানো হয়।
+ * আগে এই সংখ্যাটা বের করতে ওই পরীক্ষার **সব প্রশ্ন (q + opts)** ক্লায়েন্টে নামত;
+ * মেটাডেটা-প্রথম লোডিংয়ে সেটা চলে না।
+ *
+ * দুটি পথ, ফলাফল হুবহু এক:
+ *  ১. `admin_exam_question_counts()` RPC — ডেটাবেজেই GROUP BY
+ *     (supabase/migrations/2032_admin_aggregate_counts.sql চালানো থাকলে)।
+ *  ২. ফলব্যাক: প্রতি পরীক্ষায় একটি HEAD count — পেলোড প্রায় শূন্য, ছোট ব্যাচে
+ *     সমান্তরাল। কোনো প্রশ্ন-সারি ডাউনলোড হয় না।
+ */
+export async function getExamQuestionCounts(forceRefresh = false): Promise<Record<string, number>> {
+  await requireTeacher();
+
+  const now = Date.now();
+  if (!forceRefresh && cachedExamCounts && now - cachedExamCounts.at < EXAM_COUNTS_TTL_MS) {
+    return cachedExamCounts.data;
+  }
+  if (inflightExamCounts) return inflightExamCounts;
+
+  const work = (async () => {
+    const counts: Record<string, number> = {};
+    try {
+      const { data, error } = await supabase.rpc("admin_exam_question_counts");
+      if (!error && Array.isArray(data)) {
+        data.forEach((row: { exam_id?: unknown; question_count?: unknown }) => {
+          const key = String(row?.exam_id ?? "");
+          if (key) counts[key] = Number(row?.question_count ?? 0);
+        });
+        return counts;
+      }
+
+      // ফলব্যাক — মাইগ্রেশন চালানো না থাকলে (PostgREST-এর ১০০০-সারির সীমাও এড়ায়,
+      // কারণ কোনো সারিই আনা হয় না, শুধু count হেডার)
+      const { data: exams } = await supabase.from("exams").select("id");
+      const ids = (exams || []).map((e: { id: unknown }) => String(e.id)).filter(Boolean);
+      const BATCH = 25;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const batch = ids.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map((id) =>
+            supabase.from("exam_questions_link").select("*", { count: "exact", head: true }).eq("exam_id", id)
+          )
+        );
+        results.forEach((r, idx) => {
+          counts[batch[idx]] = Number(r.count || 0);
+        });
+      }
+    } catch (err) {
+      console.error("Exam question counts error:", err);
+    }
+    return counts;
+  })();
+
+  inflightExamCounts = work;
+  try {
+    const data = await work;
+    cachedExamCounts = { at: Date.now(), data };
+    return data;
+  } finally {
+    if (inflightExamCounts === work) inflightExamCounts = null;
+  }
+}
+
+/**
+ * অ্যাডমিন প্যানেলের প্রথম লোড — **শুধু মেটাডেটা**।
+ *
+ * আগে `fetchAppConfig(true)` ডাকা হত: প্রতিটি পরীক্ষার সব প্রশ্ন + পুরো
+ * topic_questions (উত্তর ও ব্যাখ্যাসহ) — পরিমাপ: ~২ MB, ~১.৭ সেকেন্ড, আর
+ * প্রতিটি কোর্স/সাবজেক্ট/টপিক/পরীক্ষা সেভ করার পরেই আবার। এখন যা আসে: কোর্স,
+ * সাবজেক্ট, টপিক, পরীক্ষার মেটাডেটা আর প্রতি পরীক্ষার প্রশ্নসংখ্যা (~৫০ KB)।
+ *
+ * প্রকৃত প্রশ্ন আসে কেবল যে সেকশন খোলা হয় তার:
+ *   • পরীক্ষার প্রশ্ন → `fetchExamWithQuestions(examKey)` ভিউ খোলার সময়
+ *   • প্রশ্নব্যাংক     → `searchQuestionBank(...)` ফিল্টার/সার্চ অনুযায়ী
+ */
+export async function fetchAdminBootstrap(options?: { forceRefresh?: boolean }): Promise<AdminBootstrap> {
+  await requireTeacher();
+  const force = options?.forceRefresh === true;
+
+  // `fetchAppConfigMeta`-র নিজের ৬০ সেকেন্ডের ক্যাশ আছে, আর প্রতিটি write-action
+  // `invalidateConfigCache()` ডাকে — তাই সেভের পরের লোডে টাটকা মেটাডেটাই আসে।
+  const [config, examQuestionCounts] = await Promise.all([
+    fetchAppConfigMeta(),
+    getExamQuestionCounts(force)
+  ]);
+
+  return { config, examQuestionCounts };
 }
 
 export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boolean> {
@@ -2196,8 +2313,15 @@ export async function renameTopicNode(
 export async function getTopicTreeData(): Promise<{ topics: string[] }> {
   try {
     await requireTeacher();
+
+    const now = Date.now();
+    if (cachedTopicPaths && now - cachedTopicPaths.at < TOPIC_PATHS_TTL_MS) {
+      return { topics: cachedTopicPaths.data };
+    }
+
     const set = new Set<string>();
 
+    // ১. রেজিস্টার্ড টপিক-তালিকা (app_settings) — সবসময় পাওয়া যায়
     const { data: settings } = await supabase
       .from("app_settings")
       .select("topics")
@@ -2208,19 +2332,39 @@ export async function getTopicTreeData(): Promise<{ topics: string[] }> {
       if (tt) set.add(tt);
     });
 
-    const { data: tq } = await supabase.from("topic_questions").select("topic");
-    (tq || []).forEach((r: any) => {
-      const tt = normalizeTopicPath(r.topic);
-      if (tt) set.add(tt);
-    });
+    // ২. প্রশ্ন থেকে টপিক-পাথ — ডেটাবেজেই DISTINCT (migration 2032 চালানো থাকলে)।
+    //    আগে এই ফাংশন topic_questions + question_bank-এর **প্রতিটি সারি** এনে
+    //    JS-এ আলাদা করত, আর PostgREST-এর ১০০০-সারির সীমায় টপিক নীরবে হারাতও।
+    let fromAggregate = false;
+    const { data: rpcRows, error: rpcError } = await supabase.rpc("admin_topic_paths");
+    if (!rpcError && Array.isArray(rpcRows)) {
+      fromAggregate = true;
+      rpcRows.forEach((r: { topic?: unknown }) => {
+        const tt = normalizeTopicPath(String(r?.topic ?? ""));
+        if (tt) set.add(tt);
+      });
+    }
 
-    const { data: qb } = await supabase.from("question_bank").select("topic");
-    (qb || []).forEach((r: any) => {
-      const tt = normalizeTopicPath(r.topic);
-      if (tt) set.add(tt);
-    });
+    // ৩. ফলব্যাক: শুধু `topic` কলাম (পুরো সারি নয়), পৃষ্ঠা পৃষ্ঠা — যাতে ১০০০
+    //    সারির পরের টপিকও বাদ না পড়ে।
+    if (!fromAggregate) {
+      const [tqRows, qbRows] = await Promise.all([
+        fetchAllRows<{ topic: string | null }>((from, to) =>
+          supabase.from("topic_questions").select("topic").order("id", { ascending: true }).range(from, to)
+        ),
+        fetchAllRows<{ topic: string | null }>((from, to) =>
+          supabase.from("question_bank").select("topic").order("id", { ascending: true }).range(from, to)
+        )
+      ]);
+      [...tqRows, ...qbRows].forEach((r) => {
+        const tt = normalizeTopicPath(String(r?.topic ?? ""));
+        if (tt) set.add(tt);
+      });
+    }
 
-    return { topics: Array.from(set).sort((a, b) => a.localeCompare(b, "bn")) };
+    const topics = Array.from(set).sort((a, b) => a.localeCompare(b, "bn"));
+    cachedTopicPaths = { at: Date.now(), data: topics };
+    return { topics };
   } catch (err) {
     console.error("Get topic tree data error:", err);
     return { topics: [] };

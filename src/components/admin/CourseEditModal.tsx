@@ -27,6 +27,8 @@ import { toBengaliDigits } from "@/lib/utils";
 interface CourseEditModalProps {
   course: string;
   exams: Record<string, Exam>;
+  /** প্রতি পরীক্ষায় প্রশ্নসংখ্যা — সার্ভার-সাইড aggregate (প্রশ্নের সারি ছাড়াই) */
+  questionCounts?: Record<string, number>;
   subjects: SubjectItem[];
   onClose: () => void;
   onChanged: () => void;
@@ -36,6 +38,7 @@ interface CourseEditModalProps {
 export const CourseEditModal: React.FC<CourseEditModalProps> = ({
   course,
   exams,
+  questionCounts = {},
   subjects,
   onClose,
   onChanged,
@@ -343,7 +346,7 @@ export const CourseEditModal: React.FC<CourseEditModalProps> = ({
                     <div key={ex.id} className="flex items-center justify-between gap-2 p-2 rounded-xl border border-slate-200 bg-slate-50">
                       <p className="text-xs font-bold text-slate-800 truncate">{ex.title}</p>
                       <span className="text-[11px] font-bold text-slate-500 shrink-0">
-                        {toBengaliDigits(ex.questions?.length || 0)}টি প্রশ্ন
+                        {toBengaliDigits(questionCounts[ex.id] ?? ex.questions?.length ?? 0)}টি প্রশ্ন
                       </span>
                     </div>
                   ))}
