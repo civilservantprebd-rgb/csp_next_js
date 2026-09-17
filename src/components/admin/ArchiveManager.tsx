@@ -361,7 +361,7 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
                 </div>
 
                 {item.exp && (
-                  <p className="text-xs text-indigo-800 bg-indigo-50/70 p-2 rounded-xl border border-indigo-100">
+                  <p className="text-xs text-indigo-800 bg-indigo-50/70 p-2 rounded-xl border border-indigo-100 whitespace-pre-wrap">
                     💡 <strong>ব্যাখ্যা:</strong> {item.exp}
                   </p>
                 )}

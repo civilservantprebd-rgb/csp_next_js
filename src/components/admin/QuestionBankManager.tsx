@@ -696,7 +696,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                 </div>
 
                 {q.exp && (
-                  <p className="text-xs text-slate-500 bg-white p-2 rounded-lg border border-slate-100 leading-relaxed">
+                  <p className="text-xs text-slate-500 bg-white p-2 rounded-lg border border-slate-100 leading-relaxed whitespace-pre-wrap">
                     <strong>ব্যাখ্যা:</strong> {q.exp}
                   </p>
                 )}

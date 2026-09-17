@@ -252,7 +252,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-bold text-slate-900 leading-snug">
+                      <span className="font-bold text-slate-900 leading-snug whitespace-pre-wrap">
                         {toBengaliDigits(idx + 1)}. {b.q || "প্রশ্নবিহীন"}
                       </span>
                       {b.isValid ? (
@@ -291,7 +291,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
                     </div>
 
                     {b.exp && (
-                      <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 leading-relaxed">
+                      <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 leading-relaxed whitespace-pre-wrap">
                         <strong>ব্যাখ্যা:</strong> {b.exp}
                       </p>
                     )}

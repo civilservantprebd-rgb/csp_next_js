@@ -12,11 +12,40 @@ export interface ParsedQuestionBlock {
   error?: string;
 }
 
+/** উত্তর লাইন: "উত্তর: ক", "Ans: B", "সঠিক উত্তর: (গ)" ইত্যাদি */
+const ANSWER_LINE_RE =
+  /^(সঠিক\s*উত্তর|উত্তরঃ|উত্তর|উ\s*[:ঃ\.\-]|correct\s*answer|answer|correct\s*ans|ans|ans\s*[:ঃ\.\-]|answer\s*[:ঃ\.\-])[\s\-–—:ঃ\.]*([^\n\r]+)/i;
+
+/**
+ * ব্যাখ্যা লাইন: "ব্যাখ্যা: ...", "Exp: ..." ইত্যাদি।
+ * `explanation` আগে রাখা হয়েছে যাতে "exp" শর্টকাট "explanation"-এর অংশ
+ * কেটে না ফেলে; আর কনটেন্ট অংশটি শূন্যও হতে পারে — অর্থাৎ শুধু "ব্যাখ্যা:"
+ * লিখে পরের লাইনগুলোতে ব্যাখ্যা লেখা হলে সেটাও ধরা পড়বে।
+ */
+const EXPLANATION_LINE_RE =
+  /^(explanation|ব্যাখ্যা|note|নোট|exp)(?=[\s\-–—:ঃ.]|$)[\s\-–—:ঃ.]*([^\n\r]*)/i;
+
+/** প্রশ্নের শুরু: "১.", "1)", "প্রশ্ন ১:", "Q1:" */
+const QUESTION_START_RE = /^([০-৯\d]+[\.\)]|প্রশ্ন\s*[০-৯\d]*\s*[:\.]|Q\s*[০-৯\d]*\s*[:\.])/i;
+
+/** প্রশ্নের নম্বর কাটার জন্য (লাইনের শুরুতে ইনডেন্টেশনসহ) */
+const QUESTION_MARKER_RE =
+  /^[ \t]*(?:[০-৯\d]+[\.\)]|প্রশ্ন\s*[০-৯\d]*\s*[:\.]|Q\s*[০-৯\d]*\s*[:\.])[ \t]*/i;
+
+/** শুধু বিভাজক রেখা (---, ===, ***) — এসব কোনো অপশনের অংশ নয় */
+const SEPARATOR_LINE_RE = /^[ \t]*[-–—_=*~#.।|:•]+[ \t]*$/;
+
 /**
  * Smart Question Parser
  * Supports Bengali & English numbered questions, options (ক/খ/গ/ঘ or a/b/c/d or 1/2/3/4),
  * answers (উত্তরঃ/উত্তর:/Ans:/Answer:) and explanations (ব্যাখ্যা:/Exp:/Explanation:),
  * and automatic hierarchy/topic/subtopic detection from markdown headers or 'টপিক:' tags.
+ *
+ * ফরম্যাটিং নীতি: প্রশ্ন, অপশন আর ব্যাখ্যার ভেতরের লেখা হুবহু সংরক্ষণ করা হয় —
+ * লাইন ব্রেক, ফাঁকা লাইন, ইনডেন্টেশন ও স্পেসিং সবই ব্যবহারকারী যেভাবে লিখেছেন
+ * সেভাবেই থাকে। শুধু কাঠামোর মার্কারগুলো (প্রশ্নের নম্বর, "ক)", "উত্তর:",
+ * "ব্যাখ্যা:") বাদ যায়। (আগে প্রতিটি লাইন trim হয়ে ব্যাখ্যা এক লাইনে জোড়া
+ * লাগত — তাতেই ফরম্যাটিং নষ্ট হত।)
  */
 export function parseBulkQuestionsText(
   rawText: string,
@@ -61,17 +90,18 @@ export function parseBulkQuestionsText(
     };
   };
 
-  const isQuestionStart = (line: string) => {
-    const trimmed = line.trim();
-    // e.g. "১.", "1.", "প্রশ্ন ১:", "Q1.", "১)", "1)"
-    return /^([০-৯\d]+[\.\)]|প্রশ্ন\s*[০-৯\d]*\s*[:\.]|Q\s*[০-৯\d]*\s*[:\.])/i.test(trimmed);
-  };
+  const isQuestionStart = (line: string) => QUESTION_START_RE.test(line.trim());
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    if (!trimmed) continue;
+    if (!trimmed) {
+      // ফাঁকা লাইন হারিয়ে ফেলা যাবে না — প্রশ্ন ও ব্যাখ্যার প্যারাগ্রাফ
+      // আলাদা করার জন্য এগুলো পরে দরকার হয়।
+      if (currentBlockLines.length > 0) currentBlockLines.push(line);
+      continue;
+    }
 
     // Check if line is a topic/chapter header
     if (isTopicHeader(trimmed)) {
@@ -103,69 +133,97 @@ export function parseBulkQuestionsText(
 
   for (const blockData of rawBlocks) {
     const blockLines = blockData.lines;
-    let qText = "";
+    const qLines: string[] = [];
+    const expLines: string[] = [];
     const opts: string[] = [];
     let correctIdx = 0;
-    let exp = "";
     let ansFound = false;
-    let inlineTopic = blockData.currentSectionTopic || "";
-    let inlineSubtopic = blockData.currentSectionSubtopic || "";
+    let expStarted = false;
+    const inlineTopic = blockData.currentSectionTopic || "";
+    const inlineSubtopic = blockData.currentSectionSubtopic || "";
+
+    /** প্রশ্নের লাইন যোগ করা — প্রথম লাইন থেকে শুধু নম্বর মার্কারটা বাদ যায়, বাকিটা অপরিবর্তিত */
+    const pushQuestionLine = (raw: string) => {
+      if (qLines.length === 0) {
+        const marker = raw.match(QUESTION_MARKER_RE);
+        qLines.push(marker ? raw.slice(marker[0].length) : raw.trimStart());
+      } else {
+        qLines.push(raw);
+      }
+    };
+
+    /**
+     * উত্তর লাইন শনাক্ত করা। "উত্তর দেওয়ার আগে…" জাতীয় বাক্য উত্তর লাইন নয়,
+     * তাই অপশন-লেবেল না মিললে matched:true কিন্তু idx:null ফেরে — তখন লাইনটি
+     * প্রশ্নের টেক্সট হিসেবে ধরা হয় (আগের আচরণ অপরিবর্তিত)।
+     */
+    const probeAnswer = (text: string): { matched: boolean; idx: number | null } => {
+      const m = text.match(ANSWER_LINE_RE);
+      if (!m) return { matched: false, idx: null };
+      const cleanAns = m[2].trim().replace(/^[\(\[\{\s]+|[\)\]\}\s\.\-]+$/g, "").trim().toLowerCase();
+      const normVal = parseBengaliDigits(cleanAns);
+      const looksLikeOption =
+        /^[কখগঘabcdABCD১-৪1-4]/.test(cleanAns) ||
+        opts.some((o) => o.toLowerCase().trim() === cleanAns);
+      if (!looksLikeOption) return { matched: true, idx: null };
+
+      if (cleanAns.startsWith("ক") || cleanAns.startsWith("a") || normVal === "1" || normVal === "0") return { matched: true, idx: 0 };
+      if (cleanAns.startsWith("খ") || cleanAns.startsWith("b") || normVal === "2") return { matched: true, idx: 1 };
+      if (cleanAns.startsWith("গ") || cleanAns.startsWith("c") || normVal === "3") return { matched: true, idx: 2 };
+      if (cleanAns.startsWith("ঘ") || cleanAns.startsWith("d") || normVal === "4") return { matched: true, idx: 3 };
+
+      // If the answer is the full option text, check against opts
+      const matchedOptIdx = opts.findIndex((o) => o.toLowerCase().trim() === cleanAns);
+      return { matched: true, idx: matchedOptIdx !== -1 ? matchedOptIdx : 0 };
+    };
 
     for (let j = 0; j < blockLines.length; j++) {
-      const line = blockLines[j].trim();
-      if (!line) continue;
+      const rawLine = blockLines[j];
+      const line = rawLine.trim();
 
-      // Check Answer line (e.g. উত্তর: খ, উত্তরঃ খ, Ans: B, Answer: (গ), উ: ঘ, সঠিক উত্তর: গ)
-      const ansMatch = line.match(/^(সঠিক\s*উত্তর|উত্তরঃ|উত্তর|উ\s*[:ঃ\.\-]|correct\s*answer|answer|correct\s*ans|ans|ans\s*[:ঃ\.\-]|answer\s*[:ঃ\.\-])[\s\-–—:ঃ\.]*([^\n\r]+)/i);
-      if (ansMatch) {
-        ansFound = true;
-        const ansRaw = ansMatch[2].trim();
-        // Remove brackets or punctuation e.g. "(খ)" -> "খ", "[B]" -> "B", "খ." -> "খ"
-        const cleanAns = ansRaw.replace(/^[\(\[\{\s]+|[\)\]\}\s\.\-]+$/g, "").trim().toLowerCase();
-        const normVal = parseBengaliDigits(cleanAns);
-
-        // A line that merely STARTS with "উত্তর" (e.g. "উত্তর দেওয়ার আগে…") is
-        // not an answer line unless the value looks like an option label.
-        const looksLikeOption =
-          /^[কখগঘabcdABCD১-৪1-4]/.test(cleanAns) ||
-          opts.some((o) => o.toLowerCase().trim() === cleanAns);
-
-        if (!looksLikeOption) {
-          // Not an answer line — fall through and treat it as question text
-          ansFound = false;
-          if (!qText) {
-            qText = line.replace(/^([০-৯\d]+[\.\)]|প্রশ্ন\s*[০-৯\d]*\s*[:\.]|Q\s*[০-৯\d]*\s*[:\.])\s*/i, "").trim();
-          } else if (opts.length === 0) {
-            qText += " " + line;
-          }
-          continue;
-        }
-
-        if (cleanAns.startsWith("ক") || cleanAns.startsWith("a") || normVal === "1" || normVal === "0") correctIdx = 0;
-        else if (cleanAns.startsWith("খ") || cleanAns.startsWith("b") || normVal === "2") correctIdx = 1;
-        else if (cleanAns.startsWith("গ") || cleanAns.startsWith("c") || normVal === "3") correctIdx = 2;
-        else if (cleanAns.startsWith("ঘ") || cleanAns.startsWith("d") || normVal === "4") correctIdx = 3;
-        else {
-          // If the answer is the full option text, check against opts
-          const matchedOptIdx = opts.findIndex((o) => o.toLowerCase().trim() === cleanAns);
-          if (matchedOptIdx !== -1) {
-            correctIdx = matchedOptIdx;
-          }
+      if (!line) {
+        // প্রশ্নের স্টেমের ভেতরের ফাঁকা লাইন রাখা হয় (প্যারাগ্রাফ ব্রেক),
+        // অপশন শুরু হওয়ার পরের ফাঁকা লাইন বাদ যায়।
+        if (qLines.length > 0 && opts.length === 0 && !ansFound && !expStarted) {
+          qLines.push("");
         }
         continue;
       }
 
-      // Check Explanation line
-      const expMatch = line.match(/^(ব্যাখ্যা|ব্যাখ্যা\s*:|exp|explanation|ব্যাখ্যা\s*ঃ|note|নোট)[\s\-–—:]*([^\n\r]+)/i);
+      // ---- উত্তর লাইন ----
+      const ansProbe = probeAnswer(line);
+      if (ansProbe.matched) {
+        if (ansProbe.idx !== null) {
+          ansFound = true;
+          correctIdx = ansProbe.idx;
+        } else {
+          // "উত্তর:" দিয়ে শুরু হলেও মানে অপশন-লেবেল নেই — প্রশ্নের টেক্সট
+          pushQuestionLine(rawLine);
+        }
+        continue;
+      }
+
+      // ---- ব্যাখ্যা লাইন (মাল্টি-লাইন, হুবহু) ----
+      const expMatch = line.match(EXPLANATION_LINE_RE);
       if (expMatch) {
-        exp = expMatch[2].trim();
-        // capture subsequent lines as explanation if any
+        expStarted = true;
+        // মার্কারের পরে ব্যবহারকারী যা লিখেছেন ঠিক তা-ই নেওয়া হয়।
+        const leadingWs = rawLine.length - rawLine.trimStart().length;
+        const contentStart = leadingWs + expMatch[0].length - expMatch[2].length;
+        expLines.push(rawLine.slice(contentStart));
+
+        // পরের লাইনগুলোও ব্যাখ্যার অংশ — লাইন ব্রেক, ফাঁকা লাইন ও
+        // ইনডেন্টেশন অপরিবর্তিত রেখে যোগ করা হয়।
         for (let k = j + 1; k < blockLines.length; k++) {
-          const nextL = blockLines[k].trim();
-          if (!isQuestionStart(nextL)) {
-            exp += " " + nextL;
-            j = k;
+          const nextRaw = blockLines[k];
+          const nextTrimmed = nextRaw.trim();
+          if (nextTrimmed) {
+            if (isQuestionStart(nextTrimmed) || isTopicHeader(nextTrimmed)) break;
+            // ব্যাখ্যার পরে লেখা সঠিক উত্তর লাইনও আলাদা করে ধরা পড়ে
+            if (probeAnswer(nextTrimmed).idx !== null) break;
           }
+          expLines.push(nextRaw);
+          j = k;
         }
         continue;
       }
@@ -176,10 +234,12 @@ export function parseBulkQuestionsText(
       // option and the block fails with "প্রশ্ন পাওয়া যায়নি"/option-count
       // errors — while Bengali "৫."–"৯."/multi-digit numbers never matched the
       // option class, which is why only the first few questions broke.
-      const qNumMatch = !qText && line.match(/^[০-৯\d]+[\.\)]\s*(.+)/);
-      if (qNumMatch) {
-        qText = qNumMatch[1].trim();
-        continue;
+      if (qLines.length === 0) {
+        const qNumMatch = line.match(/^([০-৯\d]+[\.\)]|প্রশ্ন\s*[০-৯\d]*\s*[:\.]|Q\s*[০-৯\d]*\s*[:\.])\s*(.+)$/i);
+        if (qNumMatch) {
+          pushQuestionLine(rawLine);
+          continue;
+        }
       }
 
       // Check Option line (e.g. "ক) ...", "ক. ...", "(ক) ...", "A) ...", "a.", "1) ...")
@@ -201,18 +261,19 @@ export function parseBulkQuestionsText(
         continue;
       }
 
-      const singleOptMatch = line.match(/^(\([কখগঘabcdABCD১-৪\d]\)|[কখগঘabcdABCD১-৪\d][\)\.\-–—])\s*(.+)/);
+      const singleOptMatch = line.match(/^(\([কখগঘabcdABCD১-৪\d]\)|[কখগঘabcdABCD১-৪\d][\)\.\-–—])[ \t]*([\s\S]+)$/);
       if (singleOptMatch) {
-        opts.push(singleOptMatch[2].trim());
+        opts.push(singleOptMatch[2]);
         continue;
       }
 
       // Otherwise, it's part of the question text
-      if (!qText) {
-        // Strip leading number if present (e.g. "১. ", "1) ", "Q1: ")
-        qText = line.replace(/^([০-৯\d]+[\.\)]|প্রশ্ন\s*[০-৯\d]*\s*[:\.]|Q\s*[০-৯\d]*\s*[:\.])\s*/i, "").trim();
-      } else if (opts.length === 0) {
-        qText += " " + line;
+      if (opts.length === 0) {
+        pushQuestionLine(rawLine);
+      } else if (!SEPARATOR_LINE_RE.test(rawLine)) {
+        // অপশনের পরে আসা সাধারণ টেক্সট = শেষ অপশনের পরের লাইন (লম্বা অপশন
+        // ভেঙে গেলে এভাবে আসে)। আগে এগুলো নীরবে হারিয়ে যেত।
+        opts[opts.length - 1] = `${opts[opts.length - 1]}\n${line}`;
       }
     }
 
@@ -224,6 +285,13 @@ export function parseBulkQuestionsText(
     while (opts.length < 4) {
       opts.push(`অপশন ${opts.length + 1}`);
     }
+
+    // ব্যাখ্যার শুরু/শেষের অতিরিক্ত ফাঁকা লাইন বাদ (ভেতরেরগুলো অক্ষত থাকে)
+    while (expLines.length > 0 && !expLines[0].trim()) expLines.shift();
+    while (expLines.length > 0 && !expLines[expLines.length - 1].trim()) expLines.pop();
+
+    const qText = qLines.join("\n").trim();
+    const exp = expLines.join("\n");
 
     const hasTooMany = realOptCount > 4;
     const isValid = qText.length > 0 && opts.length >= 4 && realOptCount >= 2 && !hasTooMany && ansFound;

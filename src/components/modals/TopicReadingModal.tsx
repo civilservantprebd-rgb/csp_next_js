@@ -276,7 +276,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                         <span className="font-bold text-amber-900 flex items-center gap-1 text-sm">
                           <Sparkles className="w-3 h-3 text-amber-600" /> সঠিক উত্তর ও ব্যাখ্যা:
                         </span>
-                        <p className="text-slate-800">{q.exp}</p>
+                        <p className="text-slate-800 whitespace-pre-wrap">{q.exp}</p>
                       </div>
                     )}
 
@@ -344,7 +344,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                   </div>
 
                   {revealedAnswers[currentCardIdx] && filteredQuestions[currentCardIdx].exp && (
-                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-slate-800 leading-relaxed animate-in fade-in">
+                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-slate-800 leading-relaxed animate-in fade-in whitespace-pre-wrap">
                       <strong className="text-amber-900 block mb-1">ব্যাখ্যা:</strong>
                       {filteredQuestions[currentCardIdx].exp}
                     </div>

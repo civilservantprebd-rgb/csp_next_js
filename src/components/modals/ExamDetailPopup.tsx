@@ -277,7 +277,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
 
                     {/* Explanation */}
                     {sol.exp && (
-                      <div className="mt-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                      <div className="mt-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                         <strong className="text-amber-900 block mb-0.5">ব্যাখ্যা:</strong>
                         {sol.exp}
                       </div>

@@ -80,7 +80,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
             </div>
 
             {sol.exp && (
-              <div className="text-lg sm:text-xl text-slate-600 bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 leading-relaxed">
+              <div className="text-lg sm:text-xl text-slate-600 bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 leading-relaxed whitespace-pre-wrap">
                 <strong className="text-indigo-800 block mb-1">ব্যাখ্যা:</strong> {sol.exp}
               </div>
             )}

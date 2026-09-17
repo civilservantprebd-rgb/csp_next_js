@@ -591,7 +591,7 @@ export default function QuestionBankPage() {
             </div>
 
             {isOpen && q.exp && (
-              <div className="mt-2 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-slate-700 leading-relaxed flex gap-2">
+              <div className="mt-2 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-slate-700 leading-relaxed flex gap-2 whitespace-pre-wrap">
                 <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <span>
                   <strong className="text-amber-900">ব্যাখ্যা:</strong> {q.exp}

@@ -327,7 +327,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
             </span>
           </div>
           {currentQ.exp && (
-            <p className="text-[11px] text-slate-700 leading-relaxed pt-0.5">
+            <p className="text-[11px] text-slate-700 leading-relaxed pt-0.5 whitespace-pre-wrap">
               <strong>ব্যাখ্যা:</strong> {currentQ.exp}
             </p>
           )}
@@ -450,7 +450,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                     })}
                   </div>
                   {q.exp && (
-                    <div className="p-3 bg-white/80 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed">
+                    <div className="p-3 bg-white/80 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
                       <strong>ব্যাখ্যা:</strong> {q.exp}
                     </div>
                   )}

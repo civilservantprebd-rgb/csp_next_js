@@ -894,7 +894,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       </div>
 
                       {m.exp && (
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
                           <strong>ব্যাখ্যা:</strong> {m.exp}
                         </div>
                       )}
@@ -1001,7 +1001,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       </div>
 
                       {b.exp && (
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
                           <strong>ব্যাখ্যা:</strong> {b.exp}
                         </div>
                       )}

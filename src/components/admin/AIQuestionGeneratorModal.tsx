@@ -348,7 +348,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
                       </div>
 
                       {sol.exp && (
-                        <div className="mt-1 p-2 rounded-xl bg-amber-50/70 border border-amber-200/60 text-amber-900 text-sm leading-relaxed">
+                        <div className="mt-1 p-2 rounded-xl bg-amber-50/70 border border-amber-200/60 text-amber-900 text-sm leading-relaxed whitespace-pre-wrap">
                           <strong className="text-amber-950">💡 ব্যাখ্যা:</strong> {sol.exp}
                         </div>
                       )}
