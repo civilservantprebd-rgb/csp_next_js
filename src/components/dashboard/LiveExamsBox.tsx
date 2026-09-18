@@ -183,10 +183,10 @@ export const LiveExamsBox: React.FC<LiveExamsBoxProps> = ({
                             </span>
                           )}
                         </div>
-                        <h4 className="font-black text-black text-sm sm:text-base group-hover:text-red-800 transition leading-snug flex items-center gap-2">
-                          {ex.title}
+                        <h4 className="font-black text-black text-sm sm:text-base group-hover:text-red-800 transition leading-snug flex flex-wrap items-center gap-2">
+                          <span>{ex.title}</span>
                           {isCompleted && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300 shrink-0">
                               <CheckCircle2 className="w-3 h-3 text-emerald-600" /> সম্পন্ন
                             </span>
                           )}

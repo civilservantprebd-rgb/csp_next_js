@@ -625,6 +625,10 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       }
       : undefined;
 
+    if (!exam) {
+      return [];
+    }
+
     // Only SCHEDULED exams have an official leaderboard, and only after the
     // answer-release time. Late "practice" submissions and always-open exams
     // are never ranked on any leaderboard.

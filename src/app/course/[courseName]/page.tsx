@@ -394,8 +394,8 @@ export default function CourseStudyPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" /> লাইভ
               </span>
             )}
-            <h4 className={`font-black text-sm truncate flex items-center gap-2 ${live ? "text-rose-900" : "text-slate-900"}`}>
-              {ex.title}
+            <h4 className={`font-black text-sm flex flex-wrap items-center gap-2 ${live ? "text-rose-900" : "text-slate-900"}`}>
+              <span>{ex.title}</span>
               {completedExams.has(eKey) && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300 shrink-0">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" /> সম্পন্ন
