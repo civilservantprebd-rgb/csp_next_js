@@ -171,10 +171,10 @@ export const SelfPracticeExamArena: React.FC<SelfPracticeExamArenaProps> = ({
                          })}
                        </div>
                        
-                       {q.explanation && (
+                       {q.exp && (
                          <div className="mt-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 text-indigo-900 text-sm leading-relaxed">
                            <strong className="block mb-1 text-[11px] uppercase tracking-wider text-indigo-500">ব্যাখ্যা</strong>
-                           {q.explanation}
+                           {q.exp}
                          </div>
                        )}
                      </div>

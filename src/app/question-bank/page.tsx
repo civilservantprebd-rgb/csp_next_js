@@ -682,12 +682,37 @@ export default function QuestionBankPage() {
     return nodes.map((node) => {
       const hasChildren = node.children.length > 0;
       const isExpanded = expandedPaths[node.fullPath] ?? false;
-      const nodeName = node.name.trim();
-      const accent = nodeName.charAt(0);
       return (
         <div key={node.fullPath}>
-          <div className="flex items-stretch gap-1.5 p-1.5 sm:p-2 rounded-2xl border transition bg-white border-slate-200 hover:border-indigo-400 hover:shadow-sm">
-            {/* শুধু নেস্টেড টপিকের expand/colapse (পড়ার জন্য নয়) */}
+          <div className={`flex items-center gap-0 rounded-2xl border transition overflow-hidden ${
+            hasChildren
+              ? "bg-slate-50 border-slate-200 hover:border-slate-300"
+              : "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm"
+          }`}>
+            {/* পড়ুন বাটন (পুরো রো) */}
+            <button
+              type="button"
+              onClick={() => openTopic(node.fullPath, node.fullPath)}
+              className="flex-1 min-w-0 px-4 py-3 flex items-center gap-3 text-left cursor-pointer group"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block font-bold text-slate-900 text-sm leading-snug group-hover:text-indigo-700 transition">
+                  {node.name}
+                </span>
+                {hasChildren && (
+                  <span className="block text-[11px] text-slate-400 font-medium mt-0.5">
+                    {toBengaliDigits(node.children.length)}টি সাব-টপিক
+                  </span>
+                )}
+              </span>
+              {node.count > 0 && (
+                <span className="shrink-0 text-[11px] font-black text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                  {toBengaliDigits(node.count)}
+                </span>
+              )}
+            </button>
+
+            {/* expand/collapse ডিভাইডার + বাটন (শুধু নেস্টেড) */}
             {hasChildren && (
               <button
                 type="button"
@@ -695,55 +720,22 @@ export default function QuestionBankPage() {
                   e.stopPropagation();
                   toggleExpand(node.fullPath);
                 }}
-                className="shrink-0 w-9 sm:w-10 self-stretch rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
-                aria-label="সাব-টপিক খুলুন/বন্ধ করুন"
-                title={isExpanded ? "সাব-টপিক বন্ধ করুন" : "সাব-টপিক খুলুন"}
+                className="shrink-0 h-full px-3 py-3 border-l border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
+                aria-label={isExpanded ? "সাব-টপিক বন্ধ করুন" : "সাব-টপিক খুলুন"}
               >
                 <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
               </button>
             )}
 
-            {/* পুরো রো = বড় পড়ুন বাটন */}
-            <button
-              type="button"
-              onClick={() => openTopic(node.fullPath, node.fullPath)}
-              className="flex-1 min-w-0 rounded-xl px-2.5 py-2 sm:px-3 flex items-center gap-2.5 text-left cursor-pointer group transition"
-              title={`${node.fullPath} — পড়ুন`}
-            >
-              {hasChildren ? (
-                <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center text-sm font-black shadow-sm">
-                  {accent}
-                </span>
-              ) : (
-                <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center text-sm font-black shadow-sm">
-                  {accent}
-                </span>
-              )}
-              <span className="min-w-0 flex-1">
-                {/* মোবাইলে নাম কাটা পড়ত (truncate) — এখন পুরো নাম wrap হয়ে দেখা যায় */}
-                <span className="block font-black text-slate-900 text-sm sm:text-base leading-snug break-words group-hover:text-indigo-700 transition">
-                  {node.name}
-                </span>
-                {hasChildren && (
-                  <span className="block text-[11px] text-slate-400 font-semibold">
-                    {isExpanded ? "সাব-টপিক খোলা আছে" : "গ্রুপ — ভেতরে সাব-টপিক আছে"}
-                  </span>
-                )}
+            {!hasChildren && (
+              <span className="shrink-0 px-3 py-3 text-indigo-400 group-hover:text-indigo-600 pointer-events-none">
+                <ChevronRight className="w-4 h-4" />
               </span>
-              {node.count > 0 && (
-                <span className="shrink-0 text-[11px] font-black bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
-                  {toBengaliDigits(node.count)}টি
-                </span>
-              )}
-              <span className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 text-white text-[11px] sm:text-xs font-black px-2.5 sm:px-3 py-2 shadow-sm group-hover:bg-indigo-700 transition">
-                <span className="hidden sm:inline">পড়ুন</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </span>
-            </button>
+            )}
           </div>
 
           {hasChildren && isExpanded && (
-            <div className="ml-4 sm:ml-6 pl-2 sm:pl-3 border-l-2 border-indigo-100 space-y-1 mt-1.5">
+            <div className="ml-3 pl-3 border-l-2 border-indigo-100 space-y-1 mt-1">
               {renderNodeRows(node.children)}
             </div>
           )}
@@ -983,8 +975,8 @@ export default function QuestionBankPage() {
                     ref={detailRef}
                     className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm scroll-mt-20"
                   >
-                    <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 mb-4 flex-wrap">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <button
                           type="button"
                           onClick={backToGroups}
@@ -994,54 +986,35 @@ export default function QuestionBankPage() {
                           <ChevronRight className="w-4 h-4 rotate-180" />
                         </button>
                         <div className="min-w-0">
-                          <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug break-words">
+                          <h2 className="text-sm font-black text-slate-900 leading-snug truncate">
                             {activeGroupNode.name}
                           </h2>
-                          <p className="text-[11px] sm:text-xs text-slate-500 font-semibold">
-                            {toBengaliDigits(activeGroupNode.count)}টি প্রশ্ন এই গ্রুপে — টপিকে ট্যাপ করলেই পড়া শুরু
+                          <p className="text-[11px] text-slate-400 font-semibold">
+                            {toBengaliDigits(activeGroupNode.count)}টি প্রশ্ন
                           </p>
                         </div>
                       </div>
-                      <span className="text-[11px] font-black text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full shrink-0">
-                        {activeGroupNode.name} — {toBengaliDigits(activeGroupNode.count)}টি
-                      </span>
                     </div>
 
-                    <div className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-1">
-                      {/* পুরো গ্রুপ পড়ুন — বড় পরিষ্কার বাটন */}
+                    <div className="space-y-1">
+                      {/* পুরো গ্রুপ একসাথে পড়ুন */}
                       <button
                         type="button"
                         onClick={() => openTopic(activeGroupNode.fullPath, activeGroupNode.fullPath)}
-                        className="w-full flex items-center gap-2.5 p-2.5 sm:p-3 rounded-2xl border transition cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-600 text-white hover:from-indigo-700 hover:to-violet-700 hover:shadow-md group"
-                        title={`পুরো ${activeGroupNode.name} গ্রুপ পড়ুন`}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 hover:border-indigo-400 transition cursor-pointer group"
                       >
-                        <span className="shrink-0 w-8 h-8 rounded-lg bg-white/20 text-white flex items-center justify-center text-sm font-black">
-                          <Sparkles className="w-4 h-4" />
+                        <span className="min-w-0 flex-1 text-left">
+                          <span className="block font-black text-indigo-900 text-sm leading-snug">সব প্রশ্ন একসাথে পড়ুন</span>
+                          <span className="block text-[11px] text-indigo-500 font-medium mt-0.5">মিক্সড — {toBengaliDigits(activeGroupNode.count)}টি প্রশ্ন</span>
                         </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block font-black text-sm sm:text-base leading-snug break-words">
-                            পুরো {activeGroupNode.name} গ্রুপ পড়ুন (মিক্সড)
-                          </span>
-                          <span className="block text-[11px] text-indigo-100 font-semibold">
-                            সাব-টপিক ভেদে না গিয়ে সব প্রশ্ন একসাথে পড়ুন
-                          </span>
-                        </span>
-                        {activeGroupNode.count > 0 && (
-                          <span className="shrink-0 text-[11px] font-black bg-white/20 text-white px-2.5 py-1 rounded-full">
-                            {toBengaliDigits(activeGroupNode.count)}টি
-                          </span>
-                        )}
-                        <span className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-white text-indigo-700 text-[11px] sm:text-xs font-black px-3 py-2 shadow-sm">
-                          পড়ুন <ChevronRight className="w-3.5 h-3.5" />
-                        </span>
+                        <ChevronRight className="w-4 h-4 text-indigo-500 shrink-0 group-hover:text-indigo-700" />
                       </button>
 
                       {renderNodeRows(activeGroupNode.children)}
                     </div>
 
                     <p className="text-[11px] text-slate-400 mt-3 font-medium">
-                      💡 যেকোনো টপিক/সাব-টপিকে ট্যাপ করলেই সেই অংশের সব প্রশ্ন উত্তর ও ব্যাখ্যাসহ খুলে যাবে — বড়
-                      হলে ধাপে ধাপে লোড হয়।
+                      যেকোনো টপিকে ট্যাপ করলেই সেই অংশের প্রশ্ন খুলে যাবে।
                     </p>
                   </div>
                 )}
