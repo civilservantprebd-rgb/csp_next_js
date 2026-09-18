@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { SelfPracticeModal } from "@/components/modals/SelfPracticeModal";
+import { SelfPracticeExamArena } from "@/components/modals/SelfPracticeExamArena";
 import { getPracticeQuestions } from "@/actions/practice-actions";
 import { getLocalStudentUser } from "@/lib/student-auth";
 import { PracticeQuestion } from "@/lib/practice-helper";
@@ -21,7 +22,7 @@ function PracticeSessionInner() {
   const searchParams = useSearchParams();
   const topic = searchParams.get("topic") || "সকল টপিক (মিক্সড)";
   const rawCount = parseInt(searchParams.get("count") || "10", 10);
-  const count = [10, 20, 30, 50].includes(rawCount) ? rawCount : 10;
+  const count = Math.min(Math.max(5, rawCount || 10), 200);
   const mode = searchParams.get("mode") === "exam" ? "exam" : "instant";
 
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
@@ -29,20 +30,12 @@ function PracticeSessionInner() {
   const [message, setMessage] = useState("");
 
   const closeWindow = useCallback(() => {
-    try {
-      if (typeof window !== "undefined") {
-        window.close();
-        // window.close() শুধু script-খোলা উইন্ডোতে কাজ করে — সরাসরি ঢুকলে ফিরিয়ে দিই
-        setTimeout(() => {
-          if (typeof window !== "undefined" && window.history.length > 1) {
-            window.history.back();
-          } else {
-            window.location.href = "/practice";
-          }
-        }, 150);
+    if (typeof window !== "undefined") {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = "/portal";
       }
-    } catch {
-      if (typeof window !== "undefined") window.location.href = "/practice";
     }
   }, []);
 
@@ -124,6 +117,17 @@ function PracticeSessionInner() {
           </button>
         </div>
       </div>
+    );
+  }
+
+  if (mode === "exam") {
+    return (
+      <SelfPracticeExamArena
+        questions={questions}
+        subjectName={topic}
+        onClose={closeWindow}
+        onRestart={handleRestart}
+      />
     );
   }
 

@@ -22,6 +22,8 @@ import { verifyTeacherSession } from "@/actions/admin-actions";
 import type { TopicOption } from "@/lib/practice-helper";
 import { buildDeepTopicTree, TreeNode } from "@/lib/topic-hierarchy";
 import { toBengaliDigits } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+
 
 interface SelfPracticeCardProps {
   config: AppConfigData;
@@ -33,6 +35,7 @@ const QUESTION_COUNTS = [10, 20, 30, 50];
 export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOpenEnrollModal }) => {
   const [availableTopics, setAvailableTopics] = useState<TopicOption[]>([]);
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     import("@/lib/student-auth").then(({ getLocalStudentUser }) => {
@@ -184,7 +187,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
     });
     if (typeof window !== "undefined") {
       setIsLoading(true);
-      window.open(`/practice/session?${params.toString()}`, "_blank", "noopener,noreferrer");
+      router.push(`/practice/session?${params.toString()}`);
       // লোডিং-স্টেট বেশিক্ষণ না রাখি — উইন্ডো নিজে থেকেই প্রশ্ন লোড করে
       setTimeout(() => setIsLoading(false), 800);
     }
@@ -246,21 +249,38 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
             <label className="text-xs font-black text-black flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-black" /> ২. প্রশ্নের সংখ্যা:
             </label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {QUESTION_COUNTS.map((cnt) => (
-                <button
-                  key={cnt}
-                  type="button"
-                  onClick={() => setSelectedCount(cnt)}
-                  className={`py-1.5 rounded-xl text-xs font-black transition cursor-pointer border-2 ${
-                    selectedCount === cnt
-                      ? "bg-black border-black text-white shadow-sm"
-                      : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
-                  }`}
-                >
-                  {toBengaliDigits(cnt)}টি
-                </button>
-              ))}
+            {/* কাস্টম ইনপুট ও কুইক সিলেক্ট */}
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="number"
+                min={5}
+                max={200}
+                value={selectedCount}
+                onChange={(e) => {
+                  let val = parseInt(e.target.value, 10) || 5;
+                  if (val > 200) val = 200;
+                  setSelectedCount(val);
+                }}
+                className="w-16 h-8 text-center text-xs font-black bg-white/80 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-black focus:ring-1 focus:ring-black text-slate-900"
+              />
+              <span className="text-[11px] font-bold text-slate-500">টি</span>
+              
+              <div className="flex gap-1 ml-auto">
+                {[10, 30, 50, 100, 200].map((cnt) => (
+                  <button
+                    key={cnt}
+                    type="button"
+                    onClick={() => setSelectedCount(cnt)}
+                    className={`py-1 px-2 rounded-lg text-[11px] font-black transition cursor-pointer border ${
+                      selectedCount === cnt
+                        ? "bg-black border-black text-white"
+                        : "bg-white/80 border-slate-300 text-slate-600 hover:bg-slate-50 hover:text-black"
+                    }`}
+                  >
+                    {toBengaliDigits(cnt)}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

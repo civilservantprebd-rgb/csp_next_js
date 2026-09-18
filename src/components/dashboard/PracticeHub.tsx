@@ -22,6 +22,8 @@ import type { TopicOption } from "@/lib/practice-helper";
 import { buildTopicCountMap, buildTopicGroupTree, colorFor, pruneEmptyNodes, type HubNode } from "@/lib/topic-group";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { toBengaliDigits } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+
 
 /**
  * সেলফ প্র্যাকটিস হাব — Live MCQ-স্টাইলের টপিক-গ্রুপ কার্ড গ্রিড।
@@ -47,7 +49,9 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
   const [phase, setPhase] = useState<"loading" | "guest" | "locked" | "hub">("loading");
   const [accessError, setAccessError] = useState("");
   const [topics, setTopics] = useState<TopicOption[] | null>(null);
-  const [topicsError, setTopicsError] = useState("");
+  const [topicMap, setTopicMap] = useState<Record<string, number>>({});
+  const [topicsError, setTopicsError] = useState<string | null>(null);
+  const router = useRouter();
   const [refreshTick, setRefreshTick] = useState(0);
 
   // হাব স্টেট
@@ -248,7 +252,7 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
         identityRef.current.id,
         identityRef.current.email
       ).catch(() => {});
-      window.open(`/practice/session?${params.toString()}`, "_blank", "noopener,noreferrer");
+      router.push(`/practice/session?${params.toString()}`);
       setTimeout(() => setIsStarting(false), 800);
     }
   };
@@ -418,19 +422,6 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
 
   return (
     <div className="font-bengali space-y-5">
-      {/* নিয়ম-হিন্ট */}
-      <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row gap-2.5 sm:items-center text-[11px] sm:text-xs font-semibold text-indigo-950">
-        <span className="flex items-center gap-1.5">
-          <Check className="w-4 h-4 text-indigo-600 shrink-0" />
-          যেকোনো একটি কোর্সে এনরোল্ড থাকলেই সব টপিক-গ্রুপ আনলক
-        </span>
-        <span className="hidden sm:inline text-indigo-300">•</span>
-        <span className="flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-          লাইভ পরীক্ষা শেষ হলেই তার প্রশ্ন এখানে স্বয়ংক্রিয়ভাবে যুক্ত হয়
-        </span>
-      </div>
-
       {tree.length === 0 ? (
         <div className="bg-white rounded-3xl p-8 sm:p-10 border border-slate-200 shadow-sm text-center space-y-3 font-bengali">
           <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-2xl mx-auto flex items-center justify-center">
@@ -453,63 +444,6 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
         <>
           {/* ===== টপিক-গ্রুপ কার্ড গ্রিড (Live MCQ স্টাইল) ===== */}
           <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-3 border-b border-slate-200 pb-4 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-sm shrink-0">
-                <Layers className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                  টপিক-গ্রুপ বেছে নিন
-                </h2>
-                <p className="text-[11px] sm:text-xs text-slate-500 font-medium">
-                  টপিক-গ্রুপে একবার ট্যাপ করুন — নিচে সাব-টপিক, তারপর প্রশ্নের সংখ্যা ও মোড বেছে সোজা শুরু করুন
-                </p>
-              </div>
-            </div>
-
-            {/* মাস্টার কার্ড — সকল টপিক */}
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedTopic(ALL_LABEL);
-                setActiveGroupPath(null);
-                // সব টপিক বাছাই হয়ে গেছে — এক ট্যাপেই কনফিগ সেকশনে
-                scrollToConfig();
-              }}
-              className={`w-full text-left rounded-3xl border-2 p-4 sm:p-5 transition cursor-pointer mb-4 ${
-                selectedTopic === ALL_LABEL
-                  ? "border-indigo-500 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/20"
-                  : "border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 text-slate-900 hover:border-indigo-400"
-              }`}
-            >
-              <div className="flex items-center gap-3.5">
-                <div
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                    selectedTopic === ALL_LABEL ? "bg-white/20" : "bg-indigo-600"
-                  }`}
-                >
-                  <Sparkles className="w-6 h-6 text-white" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-black text-sm sm:text-base leading-tight">সকল টপিক (মিক্সড মডেল টেস্ট)</h3>
-                  <p
-                    className={`text-[11px] sm:text-xs font-bold mt-0.5 ${
-                      selectedTopic === ALL_LABEL ? "text-indigo-100" : "text-indigo-800"
-                    }`}
-                  >
-                    সব গ্রুপের প্রশ্ন এলোমেলো — মোট {toBengaliDigits(totalCount)}টি
-                  </p>
-                </div>
-                {selectedTopic === ALL_LABEL && <Check className="w-5 h-5 shrink-0 text-white" />}
-                <span
-                  className={`hidden sm:inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-black shrink-0 ${
-                    selectedTopic === ALL_LABEL ? "bg-white/20 text-white" : "bg-indigo-600 text-white"
-                  }`}
-                >
-                  নির্বাচন করুন <ChevronRight className="w-4 h-4" />
-                </span>
-              </div>
-            </button>
 
             {/* গ্রুপ কার্ড গ্রিড */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
@@ -647,99 +581,113 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
           )}
           {/* ===== নির্বাচন + কনফিগ বার (সব ভিউতে) ===== */}
           <div ref={configRef} className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4 scroll-mt-20">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="min-w-0 flex items-center gap-2 text-xs sm:text-sm">
-                <span className="text-slate-500 font-semibold shrink-0">🎯 নির্বাচিত:</span>
-                <strong className="text-indigo-900 truncate">{selectedTopic}</strong>
+
+            {/* নির্বাচিত টপিক */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">🎯 নির্বাচিত টপিক</p>
+                <p className="font-black text-indigo-900 text-sm leading-snug truncate">{selectedTopic}</p>
                 {availableForSelection > 0 && (
-                  <span className="text-slate-400 font-semibold shrink-0">
-                    ({toBengaliDigits(availableForSelection)}টি প্রশ্ন)
-                  </span>
+                  <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{toBengaliDigits(availableForSelection)}টি প্রশ্ন পাওয়া যাবে</p>
                 )}
               </div>
-              <span className="text-[11px] sm:text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full shrink-0">
-                মোট {toBengaliDigits(totalCount)}টি প্রশ্ন
+              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full shrink-0">
+                মোট {toBengaliDigits(totalCount)}টি
               </span>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-4 lg:items-center">
-              {/* ২. প্রশ্নের সংখ্যা */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-black text-slate-800">প্রশ্নের সংখ্যা:</span>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {QUESTION_COUNTS.map((cnt) => (
-                    <button
-                      key={cnt}
-                      type="button"
-                      onClick={() => setSelectedCount(cnt)}
-                      className={`py-1.5 px-2 rounded-xl text-xs font-black transition cursor-pointer border-2 ${
-                        selectedCount === cnt
-                          ? "bg-black border-black text-white shadow-sm"
-                          : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
-                      }`}
-                    >
-                      {toBengaliDigits(cnt)}টি
-                    </button>
-                  ))}
+            <div className="border-t border-slate-100 pt-3 space-y-3">
+              {/* প্রশ্নের সংখ্যা */}
+              <div>
+                <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">প্রশ্নের সংখ্যা</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                    <input
+                      type="number"
+                      min={5}
+                      max={200}
+                      value={selectedCount}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value, 10) || 5;
+                        if (val > 200) val = 200;
+                        setSelectedCount(val);
+                      }}
+                      className="w-12 text-center text-sm font-black bg-transparent focus:outline-none text-slate-900"
+                    />
+                    <span className="text-xs font-bold text-slate-400">টি</span>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[10, 30, 50, 100, 200].map((cnt) => (
+                      <button
+                        key={cnt}
+                        type="button"
+                        onClick={() => setSelectedCount(cnt)}
+                        className={`py-1.5 px-2.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                          selectedCount === cnt
+                            ? "bg-black border-black text-white"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-black"
+                        }`}
+                      >
+                        {toBengaliDigits(cnt)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* ৩. মোড */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-black text-slate-800">মোড:</span>
-                <div className="grid grid-cols-2 gap-1.5">
+              {/* মোড */}
+              <div>
+                <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">মোড</p>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setPracticeMode("instant")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border-2 ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-black transition cursor-pointer border-2 text-center ${
                       practiceMode === "instant"
                         ? "bg-black border-black text-white shadow-sm"
-                        : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
+                        : "bg-white border-slate-200 text-black hover:bg-slate-50"
                     }`}
                   >
-                    ইনস্ট্যান্ট <span className="font-bold opacity-70">(ক্লিকেই উত্তর)</span>
+                    ⚡ ইনস্ট্যান্ট
+                    <span className="block text-[10px] font-semibold opacity-70 mt-0.5">ক্লিকেই উত্তর</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPracticeMode("exam")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border-2 ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-black transition cursor-pointer border-2 text-center ${
                       practiceMode === "exam"
                         ? "bg-black border-black text-white shadow-sm"
-                        : "bg-white/80 border-slate-300 text-black hover:bg-slate-50"
+                        : "bg-white border-slate-200 text-black hover:bg-slate-50"
                     }`}
                   >
-                    মক টেস্ট <span className="font-bold opacity-70">(টাইমারসহ)</span>
+                    📝 মক টেস্ট
+                    <span className="block text-[10px] font-semibold opacity-70 mt-0.5">জমা দিলে রিভিউ</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="pt-1 border-t border-indigo-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <p className="text-[11px] sm:text-xs text-slate-500">
+            {/* শুরু বাটন */}
+            <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row items-center justify-between gap-2">
+              <p className="text-[11px] text-slate-400 text-center sm:text-left">
                 {practiceMode === "instant"
-                  ? "উত্তর দিলেই সাথে সাথে সঠিক উত্তর ও ব্যাখ্যা দেখতে পাবেন।"
-                  : "টাইমারসহ পুরো তালিকা — জমা দেওয়ার পর স্কোরকার্ড ও সমাধান রিভিউ।"}
+                  ? "উত্তর দিলেই সঠিক উত্তর ও ব্যাখ্যা দেখাবে।"
+                  : "সব প্রশ্ন একসাথে — জমা দেওয়ার পর স্কোর ও রিভিউ।"}
               </p>
               <button
                 type="button"
                 disabled={!canStart || isStarting}
                 onClick={handleStartPractice}
-                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white font-bold px-8 py-3 rounded-2xl text-xs sm:text-sm shadow-md transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white font-bold px-8 py-3 rounded-2xl text-sm shadow-md transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                   canStart ? "bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-indigo-600/20" : "bg-slate-400"
                 }`}
               >
                 {isStarting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> উইন্ডো খুলছে...
-                  </>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> উইন্ডো খুলছে...</>
                 ) : canStart ? (
-                  <>
-                    <Play className="w-4 h-4 fill-white" /> প্র্যাকটিস শুরু করুন
-                  </>
+                  <><Play className="w-4 h-4 fill-white" /> প্র্যাকটিস শুরু করুন</>
                 ) : (
-                  <>
-                    <Lock className="w-4 h-4" /> এই নির্বাচনে এখনো প্রশ্ন নেই
-                  </>
+                  <><Lock className="w-4 h-4" /> এই নির্বাচনে এখনো প্রশ্ন নেই</>
                 )}
               </button>
             </div>

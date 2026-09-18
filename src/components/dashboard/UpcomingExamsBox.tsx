@@ -78,9 +78,9 @@ export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-red-100 via-red-50 to-white border border-red-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995] h-full"
+        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-red-100 via-red-50 to-white border border-red-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995] h-full flex flex-col justify-between gap-3"
       >
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-3.5 w-full">
           <div className="w-11 h-11 rounded-2xl bg-red-600 text-white flex items-center justify-center shadow-md shadow-red-600/30 shrink-0 group-hover:scale-105 transition">
             <CalendarClock className="w-6 h-6" />
           </div>
@@ -95,7 +95,9 @@ export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => 
               {toBengaliDigits(upcoming.length)}টি পরীক্ষা শুরু হতে বাকি — ট্যাপ করে টাইমার দেখুন
             </p>
           </div>
-          <span className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-red-600 text-white text-xs font-black px-3 py-2 group-hover:bg-red-700 transition shadow-sm">
+        </div>
+        <div className="w-full">
+          <span className="w-full inline-flex justify-center items-center gap-1 rounded-xl bg-red-600 text-white text-xs font-black px-3 py-2 group-hover:bg-red-700 transition shadow-sm">
             দেখুন <ChevronRight className="w-4 h-4" />
           </span>
         </div>
@@ -104,13 +106,11 @@ export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => 
       {/* ---------- ২) উইন্ডো (মোডাল): কাউন্টডাউন লাল রঙে ---------- */}
       {open && (
         <div
-          className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center font-bengali"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200"
           role="dialog"
           aria-modal="true"
         >
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-
-          <div className="relative w-full sm:max-w-2xl max-h-[88vh] flex flex-col bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-300">
+          <div className="relative bg-white rounded-3xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[92vh] shadow-2xl border border-slate-100">
             {/* হেডার */}
             <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
