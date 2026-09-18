@@ -25,6 +25,7 @@ const ArchiveManager = dynamic(() => import("@/components/admin/ArchiveManager")
 const CourseVideoManager = dynamic(() => import("@/components/admin/CourseVideoManager").then(mod => mod.CourseVideoManager), { loading: LoadingFallback });
 const NewsManager = dynamic(() => import("@/components/admin/NewsManager").then(mod => mod.NewsManager), { loading: LoadingFallback });
 const WhatsAppGroupManager = dynamic(() => import("@/components/admin/WhatsAppGroupManager").then(mod => mod.WhatsAppGroupManager), { loading: LoadingFallback });
+const AttendanceManager = dynamic(() => import("@/components/admin/AttendanceManager").then(mod => mod.AttendanceManager), { loading: LoadingFallback });
 import { fetchAdminBootstrap, fetchExamForDemo, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
 import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
@@ -860,6 +861,8 @@ export default function AdminPage() {
             {activeTab === "news" && <NewsManager />}
 
             {activeTab === "whatsapp" && <WhatsAppGroupManager courses={config.courses || []} />}
+
+            {activeTab === "attendance" && <AttendanceManager courses={config.courses || []} />}
 
             {activeTab === "archive" && (
               <ArchiveManager

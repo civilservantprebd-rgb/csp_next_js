@@ -584,6 +584,13 @@ export async function submitExamAnswers(payload: {
       throw insertError;
     }
 
+    // Update streak silently
+    try {
+      await supabase.rpc("sync_user_streak", { user_id: recordStudentId });
+    } catch (e) {
+      console.error("Streak sync failed:", e);
+    }
+
     return {
       success: true,
       isLive,

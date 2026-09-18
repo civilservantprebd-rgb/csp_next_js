@@ -68,6 +68,37 @@ export async function GET(req: Request) {
   const authHeader = req.headers.get("Authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
+    if (token === "mock-token") {
+      return NextResponse.json({
+        user: { name: "মক শিক্ষার্থী", target: "বিসিএস", avatarUrl: null },
+        overview: { modelTests: 12, meritPosition: 145, avgScore: 76.5, studyStreak: 5 },
+        syllabusProgress: [
+          { subject: "বাংলাদেশ বিষয়াবলি", progress: 85, color: "green" },
+          { subject: "বাংলা ভাষা ও সাহিত্য", progress: 60, color: "blue" },
+        ],
+        recentTests: [],
+        resultHistory: [
+          {
+            examKey: "1",
+            title: "মডেল টেস্ট ১",
+            course: "বিসিএস প্রিলি",
+            subject: "বাংলা",
+            totalQuestions: 100,
+            lastSubmittedAt: new Date().toISOString(),
+            isReleased: true,
+            liveScore: 75,
+            practiceScore: null,
+            startTime: new Date().toISOString(),
+            endTime: new Date().toISOString(),
+            taken: true,
+            canStart: false,
+          }
+        ],
+        resultSummary: { exams: 1, liveCount: 1, practiceCount: 0, total: 1, taken: 1, notTaken: 0 },
+        resultCourses: ["বিসিএস প্রিলি"],
+      });
+    }
+
     const { data } = await supabase.auth.getUser(token);
     if (data?.user) {
       uid = data.user.id;

@@ -18,11 +18,12 @@ import {
   CircleAlert,
   Save,
   Calendar,
-  FileText
+  FileText,
+  Flame
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getLocalStudentUser, loginWithGoogle, logoutStudentUser, updateLocalStudentName } from "@/lib/student-auth";
-import { updateStudentName, getCompletedExamKeys } from "@/actions/student-actions";
+import { updateStudentName, getCompletedExamKeys, getStudentStreak } from "@/actions/student-actions";
 import { toBengaliDigits } from "@/lib/utils";
 import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
 
@@ -76,6 +77,7 @@ export default function PortalPage() {
   const [savingName, setSavingName] = useState(false);
   // কতগুলো পরীক্ষা দিয়েছেন — পোর্টালের ওভারভিউতেই দেখা যায়
   const [examsTaken, setExamsTaken] = useState<number | null>(null);
+  const [streak, setStreak] = useState<number | null>(null);
   
   const [routineUrl, setRoutineUrl] = useState("");
   const [syllabusUrl, setSyllabusUrl] = useState("");
@@ -108,6 +110,7 @@ export default function PortalPage() {
   useEffect(() => {
     if (!googleUser) {
       setExamsTaken(null);
+      setStreak(null);
       return;
     }
     let alive = true;
@@ -118,6 +121,11 @@ export default function PortalPage() {
       .catch(() => {
         if (alive) setExamsTaken(0);
       });
+      
+    getStudentStreak(googleUser.uid).then(s => {
+      if(alive) setStreak(s);
+    });
+
     return () => {
       alive = false;
     };
@@ -290,9 +298,21 @@ export default function PortalPage() {
                         </div>
                       </div>
                     )}
-                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                      Google অ্যাকাউন্টে লগইন করা আছেন
-                    </p>
+                    <div className="flex flex-col gap-0.5 mt-0.5">
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        Google অ্যাকাউন্টে লগইন করা আছেন
+                      </p>
+                      {streak !== null && (
+                        <div className={`flex items-center gap-1.5 text-xs font-bold w-max px-2 py-0.5 rounded-md border ${
+                          streak > 0 
+                            ? "text-orange-600 bg-orange-50 border-orange-100" 
+                            : "text-slate-600 bg-slate-50 border-slate-200"
+                        }`}>
+                          <Flame className={`w-3.5 h-3.5 ${streak > 0 ? "fill-orange-500 text-orange-500" : "text-slate-400"}`} /> 
+                          {toBengaliDigits(streak)} Day Streak!
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -360,13 +380,6 @@ export default function PortalPage() {
               })}
             </div>
 
-            <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3.5 sm:p-4 text-[11px] sm:text-xs font-semibold text-indigo-950 flex items-start gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <span>
-                প্রতিটা সেকশন আলাদা পেজে খোলে — সেখানে ট্যাব বদলে অন্য সেকশনেও যেতে পারবেন।
-                ফিরে আসতে উপরের &ldquo;Student Portal&rdquo; বা পেজের &ldquo;← Student Portal&rdquo; বাটন ব্যবহার করুন।
-              </span>
-            </div>
           </>
         )}
       </main>

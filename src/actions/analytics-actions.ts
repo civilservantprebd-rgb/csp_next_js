@@ -223,3 +223,189 @@ export async function getLiveExamParticipants(examKey: string): Promise<LivePart
     return { examKey, count: 0, names: [] };
   }
 }
+
+export interface StudentMissedExams {
+  averageScore?: number;
+  lastActiveDate?: string | null;
+  studentId: string;
+  studentName: string;
+  courses: string[];
+  totalAvailable: number;
+  totalTaken: number;
+  totalMissed: number;
+  attendanceRate: number;
+}
+
+export async function getMissedExamsReport(
+  courseFilter?: string,
+  timeFilter?: string,
+  customStart?: string,
+  customEnd?: string
+): Promise<StudentMissedExams[]> {
+  try {
+    await requireTeacher();
+
+    // 1. Fetch Students
+    const { data: studentsData } = await supabase.from("allowed_students").select("id, name, courses");
+    const students = studentsData || [];
+
+    // 2. Fetch Exams with date fields
+    const { data: examsData, error: examsErr } = await supabase.from("exams").select("id, course, end_time, leaderboard_end_time");
+    if (examsErr) {
+      console.error("Exams fetch error:", examsErr);
+    }
+    let exams = examsData || [];
+
+    // Apply time filter
+    if (timeFilter && timeFilter !== "all") {
+      const now = new Date();
+      let startDate = new Date();
+      let endDate = new Date();
+
+      if (timeFilter === "this_week") {
+        startDate.setDate(now.getDate() - now.getDay()); // Sunday
+        startDate.setHours(0,0,0,0);
+      } else if (timeFilter === "this_month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else if (timeFilter === "last_month") {
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      } else if (timeFilter === "custom" && customStart && customEnd) {
+        startDate = new Date(customStart);
+        startDate.setHours(0,0,0,0);
+        endDate = new Date(customEnd);
+        endDate.setHours(23,59,59,999);
+      }
+
+      exams = exams.filter(ex => {
+        const dStr = ex.end_time || ex.leaderboard_end_time;
+        if (!dStr) return false; 
+        const d = new Date(dStr);
+        if (timeFilter === "last_month" || timeFilter === "custom") {
+          return d >= startDate && d <= endDate;
+        }
+        return d >= startDate;
+      });
+    }
+
+    // Group exams by course
+    const examsByCourse: Record<string, string[]> = {};
+    exams.forEach(ex => {
+      const c = ex.course || "সাধারণ";
+      if (!examsByCourse[c]) examsByCourse[c] = [];
+      examsByCourse[c].push(ex.id);
+    });
+
+    // 3. Fetch all submissions
+    const { data: subData } = await supabase.from("submissions").select("student_id, exam_key, score, total_questions, submitted_at");
+    const submissions = subData || [];
+
+    // Group submissions by student
+    const subsByStudent: Record<string, Array<{key: string, score: number, total: number, date: string}>> = {};
+    submissions.forEach(sub => {
+      if (!sub.student_id) return;
+      if (!subsByStudent[sub.student_id]) subsByStudent[sub.student_id] = [];
+      if (sub.exam_key) {
+        subsByStudent[sub.student_id].push({
+          key: sub.exam_key,
+          score: sub.score || 0,
+          total: sub.total_questions || 0,
+          date: sub.submitted_at || ""
+        });
+      }
+    });
+
+    // 4. Calculate for each student
+    const report: StudentMissedExams[] = [];
+
+    students.forEach(st => {
+      const courses = Array.isArray(st.courses) ? st.courses : [];
+      if (courses.length === 0) return; // Ignore unregistered
+      
+      // If courseFilter is set, and the student doesn't have it (and it's not ALL), skip them
+      if (courseFilter && courseFilter !== "all") {
+        if (!courses.includes(courseFilter) && !courses.includes("ALL")) {
+          return;
+        }
+      }
+      
+      const availableExamIds = new Set<string>();
+      
+      if (courses.includes("ALL")) {
+        // If student has ALL, they have access to all exams
+        Object.keys(examsByCourse).forEach(cName => {
+          if (courseFilter && courseFilter !== "all" && cName !== "সাধারণ" && cName !== courseFilter) {
+            return; // skip if filtering by a specific course
+          }
+          examsByCourse[cName].forEach(e => availableExamIds.add(e));
+        });
+      } else {
+        courses.forEach((c: string) => {
+          const cName = c;
+          if (courseFilter && courseFilter !== "all" && cName !== courseFilter) {
+            return;
+          }
+          if (examsByCourse[cName]) {
+            examsByCourse[cName].forEach(e => availableExamIds.add(e));
+          }
+          if (cName !== "সাধারণ" && examsByCourse["সাধারণ"]) {
+            examsByCourse["সাধারণ"].forEach(e => availableExamIds.add(e));
+          }
+        });
+      }
+
+      const totalAvailable = availableExamIds.size; console.log('Student:', st.name, 'totalAvailable:', totalAvailable, 'courses:', courses);
+      const stSubs = subsByStudent[st.id] || [];
+      
+      let totalTaken = 0;
+      let sumPct = 0;
+      let lastActive: Date | null = null;
+
+      const uniqueTaken = new Set<string>(); // handle retakes safely
+      
+      stSubs.forEach(s => {
+        if (availableExamIds.has(s.key)) {
+          if (!uniqueTaken.has(s.key)) {
+             totalTaken++;
+             uniqueTaken.add(s.key);
+          }
+          if (s.total > 0) {
+            sumPct += (s.score / s.total) * 100;
+          }
+          if (s.date) {
+            const d = new Date(s.date);
+            if (!lastActive || d > lastActive) lastActive = d;
+          }
+        }
+      });
+      
+      const averageScore = stSubs.length > 0 ? Math.round(sumPct / stSubs.length) : 0;
+
+      const totalMissed = totalAvailable - totalTaken;
+      const attendanceRate = totalAvailable > 0 ? Math.round((totalTaken / totalAvailable) * 100) : 0;
+      
+      const safeLastActive = lastActive as Date | null;
+
+      report.push({
+        studentId: st.id,
+        studentName: st.name || "Unknown",
+        courses,
+        totalAvailable,
+        totalTaken,
+        totalMissed: Math.max(0, totalMissed),
+        attendanceRate,
+        averageScore,
+        lastActiveDate: safeLastActive ? safeLastActive.toISOString() : null
+      });
+    });
+
+    report.sort((a, b) => b.attendanceRate - a.attendanceRate); // Highest attendance first
+
+    return report;
+
+  } catch (err) {
+    console.error("Missed exams report err:", err);
+    return [];
+  }
+}
+

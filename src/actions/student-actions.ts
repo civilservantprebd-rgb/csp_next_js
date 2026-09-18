@@ -1188,3 +1188,62 @@ export async function getStudentExamHistoryForTeacher(rawStudentId: string): Pro
     return null;
   }
 }
+export async function getStudentStreak(uid: string): Promise<number> {
+  if (!uid) return 0;
+  try {
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("submitted_at")
+      .eq("student_id", uid)
+      .order("submitted_at", { ascending: false });
+
+    if (error || !data || data.length === 0) return 0;
+
+    const uniqueDates = new Set<string>();
+    data.forEach(sub => {
+      if (sub.submitted_at) {
+        const d = new Date(sub.submitted_at);
+        const bdTime = new Date(d.getTime() + (6 * 60 * 60 * 1000));
+        uniqueDates.add(bdTime.toISOString().split("T")[0]);
+      }
+    });
+
+    const dates = Array.from(uniqueDates);
+    if (dates.length === 0) return 0;
+
+    const now = new Date();
+    const bdNow = new Date(now.getTime() + (6 * 60 * 60 * 1000));
+    const todayStr = bdNow.toISOString().split("T")[0];
+    
+    const bdYesterday = new Date(bdNow);
+    bdYesterday.setDate(bdYesterday.getDate() - 1);
+    const yesterdayStr = bdYesterday.toISOString().split("T")[0];
+
+    const lastActive = dates[0];
+    if (lastActive !== todayStr && lastActive !== yesterdayStr) {
+      return 0;
+    }
+
+    let streak = 1;
+    let curr = new Date(lastActive);
+    
+    for (let i = 1; i < dates.length; i++) {
+      const prevDay = new Date(curr);
+      prevDay.setDate(prevDay.getDate() - 1);
+      const prevDayStr = prevDay.toISOString().split("T")[0];
+      
+      if (dates[i] === prevDayStr) {
+        streak++;
+        curr = prevDay;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  } catch (err) {
+    console.error("Streak calc err:", err);
+    return 0;
+  }
+}
+

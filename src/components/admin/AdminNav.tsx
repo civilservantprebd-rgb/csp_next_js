@@ -28,7 +28,8 @@ export type AdminTabType =
   | "archive"
   | "drivelinks"
   | "news"
-  | "whatsapp";
+  | "whatsapp"
+  | "attendance";
 
 interface AdminNavProps {
   activeTab: AdminTabType;
@@ -54,6 +55,7 @@ export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) =>
     { id: "videos", label: "কোর্স ভিডিও", icon: Video },
     { id: "news", label: "দৈনিক সংবাদ", icon: Newspaper },
     { id: "whatsapp", label: "WhatsApp গ্রুপ", icon: MessageCircle },
+    { id: "attendance", label: "অ্যাটেনডেন্স", icon: Users },
     { id: "archive", label: "আর্কাইভ", icon: Archive },
     { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2 },
   ];
