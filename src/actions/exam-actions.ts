@@ -258,10 +258,51 @@ export async function claimExamStart(
       if (/exam_attempt_starts/.test(String(error.message || ""))) return { ok: false };
       throw error;
     }
-    return { ok: true, startedAtMs: Date.parse(nowIso) };
+
+    // প্রকৃত (প্রথম) শুরুর সময়টাই ফেরত দিই — `nowIso` নয়।
+    //
+    // ⚠️ কেন: upsert টা `ignoreDuplicates` দিয়ে ডুপ্লিকেট এড়ায়, অর্থাৎ DB-তে
+    // **প্রথম** সময়টাই থেকে যায়, কিন্তু এখানে `Date.parse(nowIso)` ফেরত দিলে
+    // প্রতিবারই "এখন" ফিরত যেত। অথচ অ্যাপ এই মানটাকেই টাইমারের起点 বানায়
+    // (`resolveExamDeadlineMs`) — ফলে শিক্ষার্থী পরীক্ষা বন্ধ করে আবার খুললেই
+    // নতুন করে পুরো সময় পেয়ে যেত। ওটা বন্ধ করতে হলে সত্যিকারের সারি পড়তে হবে।
+    let startedAtMs = Date.parse(nowIso);
+    const stored = await readExamStartMs(examKeyClean, studentId);
+    if (stored !== null) startedAtMs = stored;
+
+    return { ok: true, startedAtMs };
   } catch (err) {
     console.error("claimExamStart error:", err);
     return { ok: false };
+  }
+}
+
+/**
+ * সার্ভারে নিবন্ধিত **প্রকৃত** শুরুর সময় (epoch ms) — না থাকলে `null`।
+ *
+ * `claimExamStart` যেটা লেখে, এটা ঠিক সেটাই পড়ে। `claimExamStart`-এর রিটার্ন
+ * ব্যবহার না করে আলাদা রাখা হলো, কারণ একই পাঠ দরকার হয় তিন জায়গায়:
+ * heartbeat-এ (`remainingSeconds`-এর জন্য), submit-এ (লাইভ-যোগ্যতা ও সময়ের
+ * হিসাবে), আর debug-এ।
+ *
+ * টেবিল/মাইগ্রেশন না থাকলে নীরবে `null` — কোনোটাই ব্লক করি না।
+ */
+export async function readExamStartMs(
+  examKey: string,
+  studentId: string
+): Promise<number | null> {
+  try {
+    const { data } = await supabase
+      .from("exam_attempt_starts")
+      .select("started_at")
+      .eq("exam_id", String(examKey || "").trim())
+      .eq("student_id", String(studentId || "").trim())
+      .maybeSingle();
+    if (!data?.started_at) return null;
+    const t = Date.parse(String(data.started_at));
+    return Number.isNaN(t) ? null : t;
+  } catch {
+    return null;
   }
 }
 
@@ -424,7 +465,26 @@ export async function submitExamAnswers(payload: {
       ? (now.getTime() >= startTime.getTime() && now.getTime() <= endTime.getTime() + LIVE_GRACE_MS)
       : false;
 
-    const isLiveSubmission = startTime && endTime ? (liveByStart || liveBySubmit) : false;
+    // ── লাইভ-যোগ্যতার উপরের সীমা ──
+    //
+    // ⚠️ কেন দরকার: `liveByStart` কেবল দেখে "শুরু হয়েছিল উইন্ডোর ভেতরে কি না",
+    // **জমা কখন হলো** তা নয়। ফলে কেউ লাইভ পরীক্ষা খুলে (start-রেকর্ড হয়ে যায়)
+    // দিন পেরিয়ে, উত্তর প্রকাশের পরে — অর্থাৎ উত্তর দেখে — জমা দিলে সেটা তখনো
+    // `is_live_submission = true` হয়ে **লিডারবোর্ডে** উঠে যেত।
+    //
+    // এখন নিজের পরীক্ষা-দৈর্ঘ্যের বাইরে গেলে সেটা "প্র্যাকটিস-প্রয়াস": জমা
+    // নেওয়া হয় (ওয়েবের নিয়ম), কিন্তু লিডারবোর্ডে যায় না। start-রেকর্ড না
+    // থাকলে (মাইগ্রেশন pending) আগের আচরণই থাকে — নাহলে ওই পরিবেশে সব লাইভ
+    // সাবমিশন হঠাৎ প্র্যাকটিস হয়ে যেত।
+    const liveWindowDurationMs =
+      Math.max(1, exam?.timerMinutes ?? payload.examTimerMinutes ?? 60) * 60 * 1000;
+    const withinOwnDuration = startedAtMs === null
+      ? true
+      : now.getTime() <= startedAtMs + liveWindowDurationMs + LIVE_GRACE_MS;
+
+    const isLiveSubmission = startTime && endTime
+      ? ((liveByStart || liveBySubmit) && withinOwnDuration)
+      : false;
 
     if (isLiveSubmission) {
       const alreadySubmitted = await checkStudentAlreadySubmitted(payload.examKey, recordStudentId);

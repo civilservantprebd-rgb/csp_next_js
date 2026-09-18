@@ -34,6 +34,13 @@ export const POST = withApi<RouteParams>("student", async (ctx, req, routeCtx) =
 
   const exam = await loadExam(examId);
   const access = await assertExamAccess(exam, identity);
+
+  // উইন্ডো-চেক কেবল "এখনো শুরু হয়নি" পর্যন্ত — **শেষ হয়ে গেলেও জমা নেওয়া হয়**।
+  //
+  // কারণ: লাইভ উইন্ডোর শেষ বাউন্ডারিতে শুরু করা শিক্ষার্থী পুরো সময় পাওয়ার
+  // কথা (উত্তর-কীও `endTime + timerMinutes`-এ খোলে), আর উইন্ডো-শেষের পরে
+  // দেওয়া পরীক্ষা প্র্যাকটিস-প্রয়াস হিসেবে জমা হয় — ঠিক ওয়েবের মতো।
+  // সে-সারি `is_live_submission = false` হয়, তাই লিডারবোর্ডে ওঠে না।
   assertExamWindow(exam, Date.now());
 
   const body = await readJsonBody(req);

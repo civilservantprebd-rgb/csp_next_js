@@ -4,7 +4,6 @@ import { ApiError, ApiIdentity, resolveStudentProfile } from "@/lib/api-auth";
 import {
   parseBangladeshDateTime,
   isAnswerTimeReached,
-  LIVE_GRACE_MS,
 } from "@/lib/bangladesh-time";
 import { verifyStudentAccess } from "@/actions/student-actions";
 
@@ -265,22 +264,38 @@ export async function submissionIdsFor(identity: ApiIdentity): Promise<string[]>
   return Array.from(ids).filter(Boolean);
 }
 
-/** সময়-উইন্ডো চেক — না মিললে নির্দিষ্ট এরর-কোড (অ্যাপ কোড ধরে স্ক্রিন বাছবে)। */
+/**
+ * সময়-উইন্ডো চেক — **শুধু "এখনো শুরু হয়নি" পর্যন্ত**।
+ *
+ * ── কেন শেষ হওয়া আর আটকায় না ──
+ * আগে এখানে `endTime` পার হলেই `EXAM_CLOSED` (410) ছোড়া হত। কিন্তু ওয়েব
+ * অ্যাপে কখনোই তা হয় না: ওখানে কেবল **শুরুর আগে** আটকানো হয়
+ * (`exam-actions.ts` — `now < startTime`), আর উইন্ডো শেষ হওয়ার পরে দেওয়া
+ * পরীক্ষা **প্র্যাকটিস-প্রয়াস** হিসেবে চলে। ওয়েবের কোডে সেটা স্পষ্ট লেখাই
+ * আছে: "post-window 'practice' attempts are still allowed by design"।
+ * ফলে কড়াটা দুই ক্লায়েন্টে আলাদা আচরণ করত — ওয়েবে শেষ হওয়া পরীক্ষা খোলা
+ * যেত, অ্যাপে "পরীক্ষার সময় শেষ" দেখাত।
+ *
+ * ── এতে কারো ক্ষতি হয় না ──
+ *   • উইন্ডোর পরে জমা পড়লে সেটা `is_live_submission = false` হিসেবে লেখা হয়,
+ *     আর **লিডারবোর্ড কেবল লাইভ সারি গোনে** (`exam-actions.ts:621`, `:761`) —
+ *     অর্থাৎ প্র্যাকটিস-প্রয়াস কারো র‍্যাংক ছোঁয় না।
+ *   • প্রশ্ন কখনো উত্তর-কী বহন করে না (`fetchExamQuestions`-এর `select`-এ
+ *     `correct`/`exp` নেই), তাই খোলা রাখলে লিকের নতুন পথ তৈরি হয় না।
+ *   • এক-বার-নিয়ম লাইভের জন্য অটুট থাকে — সেটা `/questions`-এ আলাদা করে
+ *     চেক করা হয়, কেবল পরীক্ষাটি **এখন লাইভ** থাকলে।
+ *
+ * ⚠️ **শুরুর আগের আটকটা অটুট** — ওটা বদলানো যাবে না: নির্ধারিত পরীক্ষার প্রশ্ন
+ * আগেভাগে পেলে পুরো পরীক্ষাটাই অর্থহীন হয়ে যায়।
+ */
 export function assertExamWindow(exam: Exam, nowMs: number): void {
-  const { startMs, endMs } = examWindows(exam, nowMs);
+  const { startMs } = examWindows(exam, nowMs);
 
   if (startMs !== null && nowMs < startMs) {
     throw new ApiError(
       "EXAM_NOT_STARTED",
       `পরীক্ষাটি এখনো শুরু হয়নি। শুরু হবে ${new Date(startMs).toISOString()} (বাংলাদেশ সময়)।`,
       425
-    );
-  }
-  if (endMs !== null && nowMs > endMs + LIVE_GRACE_MS) {
-    throw new ApiError(
-      "EXAM_CLOSED",
-      "পরীক্ষার সময় শেষ হয়ে গেছে।",
-      410
     );
   }
 }

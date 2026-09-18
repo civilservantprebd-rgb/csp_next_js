@@ -27,8 +27,13 @@ export const GET = withApi<RouteParams>("optional", async (_ctx, _req, routeCtx)
 
   return apiOk({
     exam: dto,
-    // না শুরু হয়েছে, বা শেষ হয়ে গেছে → শুরু করা যাবে না। উইন্ডো-হীন
-    // সর্বদা-খোলা পরীক্ষায় দুটোই false, তাই canStart = true।
-    canStart: !dto.isUpcoming && !dto.isClosed,
+    // কেবল **শুরুর আগে** শুরু করা যায় না।
+    //
+    // ⚠️ আগে `!dto.isClosed`-ও ছিল — অর্থাৎ সময় শেষ হলেই বোতাম নিষ্ক্রিয়।
+    // কিন্তু ওয়েব তা করে না: উইন্ডো শেষ হওয়ার পরে দেওয়া পরীক্ষা ওখানে
+    // "প্র্যাকটিস-প্রয়াস" হিসেবে চলে, আর লিডারবোর্ড কেবল লাইভ সারি গোনে
+    // (`is_live_submission = true`) — তাই প্র্যাকটিস কারো র‍্যাংক ছোঁয় না।
+    // উইন্ডো-হীন সর্বদা-খোলা পরীক্ষায়ও দুটোই false, তাই canStart = true।
+    canStart: !dto.isUpcoming,
   });
 });

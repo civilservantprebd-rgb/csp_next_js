@@ -1,8 +1,7 @@
 import { apiOk, requireStudent, withApi } from "@/lib/api-auth";
 import { assertExamAccess, examToDto, loadExam } from "@/lib/exam-api";
 import { LIVE_GRACE_MS } from "@/lib/bangladesh-time";
-import { supabase } from "@/lib/supabase";
-import { claimExamStart } from "@/actions/exam-actions";
+import { claimExamStart, readExamStartMs } from "@/actions/exam-actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,31 +44,45 @@ export const POST = withApi<RouteParams>("student", async (ctx, _req, routeCtx) 
   // সেশন হারিয়ে থাকলে (অ্যাপ নতুন করে ইনস্টল/ক্লিয়ার) start-রেকর্ড নিশ্চিত করি
   await claimExamStart(examId, access.studentId);
 
-  // প্রকৃত started_at পড়ি — claimExamStart প্রথম মানটাই রাখে, তাই এটাই সত্য
-  let startedAtMs: number | null = null;
-  try {
-    const { data } = await supabase
-      .from("exam_attempt_starts")
-      .select("started_at")
-      .eq("exam_id", examId)
-      .eq("student_id", access.studentId)
-      .maybeSingle();
-    if (data?.started_at) {
-      const t = Date.parse(String(data.started_at));
-      if (!Number.isNaN(t)) startedAtMs = t;
-    }
-  } catch {
-    // টেবিল/মাইগ্রেশন না থাকলে startedAtMs null থাকল — অ্যাপ ক্লায়েন্ট-ঘড়িতে চলবে
-  }
+  // প্রকৃত started_at — claimExamStart প্রথম মানটাই রাখে, তাই এটাই সত্য
+  const startedAtMs = await readExamStartMs(examId, access.studentId);
 
   const nowMs = Date.now();
   const dto = examToDto(exam, nowMs);
 
-  // অবশিষ্ট সময়: endTime-ই শেষ সীমা; grace যোগ করা হয় যাতে নেট-ল্যাটেন্সিতে
-  // ঠিক সময়ে জমা দেওয়া শিক্ষার্থী বঞ্চিত না হয় (submit-এর নিয়মের সাথে সামঞ্জস্যপূর্ণ)
+  const durationMs = Math.max(1, exam.timerMinutes || 10) * 60 * 1000;
+
+  // ── উইন্ডো-ভিত্তিক বাকি সময় (আগের মতোই) ──
+  // grace যোগ করা হয় যাতে নেট-ল্যাটেন্সিতে ঠিক সময়ে জমা দেওয়া শিক্ষার্থী বঞ্চিত না হয়
   const deadlineMs = dto.endTimeMs;
   const remainingSeconds =
     deadlineMs === null ? null : Math.floor((deadlineMs + LIVE_GRACE_MS - nowMs) / 1000);
+
+  // ── ব্যক্তিগত বাকি সময় (নতুন) ──
+  //
+  // ⚠️ এটা ছাড়া একটা আসল বঞ্চনা ঘটত: যে শিক্ষার্থী লাইভ উইন্ডোর শেষ সেকেন্ডে
+  // শুরু করে, সে ডিজাইন-অনুযায়ী পুরো পরীক্ষা-দৈর্ঘ্য পায় (আর উত্তর-কীও ততক্ষণ
+  // বন্ধ থাকে)। কিন্তু অ্যাপ পটভূমি থেকে ফিরে `remainingSeconds` দেখলে
+  // `endTime`-এর হিসাবে "শেষ" পেত — আর সাথে সাথেই অটো-সাবমিট করে তার পুরো
+  // সময়টা জলে যেত।
+  //
+  // হিসাবটা অ্যাপের `resolveExamDeadlineMs()`-এর হুবহু প্রতিরূপ — দুই দিকে
+  // একই সিদ্ধান্ত না হলে একটা আরেকটাকে খণ্ডন করত:
+  //   • উইন্ডো নেই → null (সর্বদা-খোলা প্র্যাকটিস)
+  //   • উইন্ডো শেষ হয়ে গেছে → null (প্র্যাকটিস-প্রয়াস; সার্ভারের `started_at`
+  //     হয়তো লাইভ-উইন্ডোর পুরোনো সময়, ওটা দিয়ে ঘড়ি বাঁধলে পরীক্ষা খোলার
+  //     সাথে সাথেই "সময় শেষ" হয়ে যেত — অর্থাৎ শেষ হওয়া পরীক্ষা আর দেওয়াই যেত না)
+  //   • উইন্ডো খোলা → নিবন্ধিত শুরু থেকে পুরো দৈর্ঘ্য
+  const hasWindow = dto.endTimeMs !== null;
+  const windowOpen = hasWindow && nowMs <= dto.endTimeMs! + LIVE_GRACE_MS;
+  const personalDeadlineMs = !windowOpen
+    ? null
+    : startedAtMs !== null && startedAtMs <= dto.endTimeMs! + LIVE_GRACE_MS
+      ? startedAtMs + durationMs
+      : dto.endTimeMs! + LIVE_GRACE_MS;
+  const personalRemainingSeconds = personalDeadlineMs === null
+    ? null
+    : Math.floor((personalDeadlineMs + LIVE_GRACE_MS - nowMs) / 1000);
 
   return apiOk({
     examId: exam.id,
@@ -81,6 +94,13 @@ export const POST = withApi<RouteParams>("student", async (ctx, _req, routeCtx) 
     graceMs: LIVE_GRACE_MS,
     /** `null` = উইন্ডো নেই (সর্বদা-খোলা); ঋণাত্মক = সময় শেষ, অ্যাপ অটো-সাবমিট করবে */
     remainingSeconds,
+    /**
+     * **এই মানটাই অ্যাপ ব্যবহার করবে** — সার্ভার-নিবন্ধিত শুরু থেকে পুরো
+     * পরীক্ষা-দৈর্ঘ্যের হিসাব। উইন্ডো-শেষে ক্যাপ করা হয় না, তাই শেষ বাউন্ডারিতে
+     * শুরু করাও শিক্ষার্থীও তার প্রাপ্য সময়টা পায়।
+     */
+    personalDeadlineMs,
+    personalRemainingSeconds,
   });
 });
 
