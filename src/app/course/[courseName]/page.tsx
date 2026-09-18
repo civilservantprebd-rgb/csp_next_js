@@ -17,6 +17,7 @@ import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
 import { isExamCurrentlyLive, parseBangladeshDateTime, getTrueNowMs } from "@/lib/bangladesh-time";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { getLocalIdentity, setVerifiedStudent } from "@/lib/student-identity";
+import { useCompletedExams } from "@/lib/use-completed-exams";
 import {
   ChevronLeft,
   ChevronDown,
@@ -62,6 +63,7 @@ export default function CourseStudyPage() {
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [examSearch, setExamSearch] = useState("");
   const [courseDetails, setCourseDetails] = useState("");
+  const completedExams = useCompletedExams();
   // "কোর্সের বিস্তারিত" অ্যাকর্ডিয়ন — বিস্তারিত থাকলে ডিফল্ট খোলা
   const [detailsOpen, setDetailsOpen] = useState(true);
   // এনরোল্ড স্টুডেন্টের জন্য কোর্সের WhatsApp গ্রুপ লিংক (খালি = দেখানো হবে না)
@@ -392,7 +394,14 @@ export default function CourseStudyPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" /> লাইভ
               </span>
             )}
-            <h4 className={`font-black text-sm truncate ${live ? "text-rose-900" : "text-slate-900"}`}>{ex.title}</h4>
+            <h4 className={`font-black text-sm truncate flex items-center gap-2 ${live ? "text-rose-900" : "text-slate-900"}`}>
+              {ex.title}
+              {completedExams.has(eKey) && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300 shrink-0">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> সম্পন্ন
+                </span>
+              )}
+            </h4>
             {ex.isFree && (
               <span className="bg-emerald-100 text-emerald-950 text-xs font-black px-2 py-0.5 rounded-md flex items-center gap-0.5 shrink-0">
                 <CheckCircle2 className="w-2.5 h-2.5" /> ফ্রি

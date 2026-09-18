@@ -11,12 +11,15 @@ import {
   Video,
   PlayCircle,
   ArrowRight,
-  FileText
+  FileText,
+  CheckCircle2
 } from "lucide-react";
 import { Exam, SubjectItem } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
 
 import { getCoursePrices } from "@/actions/course-actions";
+import { getLocalStudentUser } from "@/lib/student-auth";
+import { verifyStudentAccess } from "@/actions/student-actions";
 
 interface CourseCardGridProps {
   courses: string[];
@@ -43,6 +46,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
 
   // কোর্সের দাম/ছাড় + পরিকল্পিত মোট পরীক্ষা/ভিডিও (হোম কার্ডে)
   const [prices, setPrices] = useState<Record<string, { price?: number; offerPrice?: number; plannedExams?: number; plannedVideos?: number; description?: string }>>({});
+  const [enrolledCourses, setEnrolledCourses] = useState<string[]>([]);
 
   useEffect(() => {
     getCoursePrices()
@@ -50,6 +54,17 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
       .catch(() => {
         // দাম নেই মানেই কার্ডে "শীঘ্রই" লেখা দেখাবে
       });
+
+    const user = getLocalStudentUser();
+    if (user) {
+      verifyStudentAccess(user.uid, "ALL", user.email || undefined)
+        .then(res => {
+          if (res.allowed && res.courses) {
+            setEnrolledCourses(res.courses);
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   // Pinned courses appear first
@@ -67,12 +82,6 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
             <Layers className="w-3.5 h-3.5 text-indigo-700" />
             <span>আমাদের ব্যাচ</span>
           </div>
-          <h3 className="text-xl sm:text-2xl font-black text-indigo-950">
-            কোর্স বেছে নিন — ভিডিও ক্লাস ও পরীক্ষা এক জায়গায়
-          </h3>
-          <p className="text-xs sm:text-sm text-black font-bold">
-            প্রতিটি কোর্সে পরিকল্পিত পরীক্ষা ও ভিডিও — এনরোল করে ধাপে ধাপে সব কনটেন্ট পাবেন
-          </p>
         </div>
       </div>
 
@@ -124,16 +133,36 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                   </div>
                 )}
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenEnrollModal(courseName);
-                  }}
-                  className="mt-4 w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md hover:shadow-emerald-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Enroll Now</span>
-                </button>
+                {(() => {
+                  const isEnrolled = enrolledCourses.includes(courseName);
+                  return (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isEnrolled) return;
+                        onOpenEnrollModal(courseName);
+                      }}
+                      disabled={isEnrolled}
+                      className={`mt-4 w-full sm:w-auto font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 shrink-0 ${
+                        isEnrolled
+                          ? "bg-emerald-900/40 text-emerald-100 cursor-not-allowed border border-emerald-500/30 shadow-none"
+                          : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-emerald-500/20 cursor-pointer"
+                      }`}
+                    >
+                      {isEnrolled ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Enrolled</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>Enroll Now</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })()}
               </div>
 
               {/* Course body — দাম/ছাড় + সাবজেক্ট (নিচের ডুপ্লিকেট কাউন্ট বাদ) */}

@@ -486,16 +486,9 @@ export async function submitExamAnswers(payload: {
       ? ((liveByStart || liveBySubmit) && withinOwnDuration)
       : false;
 
-    if (isLiveSubmission) {
-      const alreadySubmitted = await checkStudentAlreadySubmitted(payload.examKey, recordStudentId);
-      if (alreadySubmitted) {
-        return {
-          success: false,
-          isLive: true,
-          message: "আপনি ইতিমধ্যে এই লাইভ পরীক্ষায় অংশগ্রহণ করেছেন! লাইভ চলাকালীন এক আইডি দিয়ে কেবল একবারই পরীক্ষা দেওয়া যাবে।"
-        };
-      }
-    }
+    // (User requested: "kew duibar exam dile agew ager rank r submission kete new ta add koro")
+    // Therefore, we no longer block multiple live submissions. The previous submission
+    // is simply deleted below and replaced by the new one.
 
     const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
     // isLive: if currently in live window and results are not published yet
@@ -537,6 +530,20 @@ export async function submitExamAnswers(payload: {
       });
       score = Math.max(0, correct - incorrect * 0.5);
     }
+
+    // Delete any existing submission for this exam by this student
+    await supabase
+      .from("submissions")
+      .delete()
+      .eq("student_id", recordStudentId)
+      .eq("exam_key", payload.examKey);
+
+    // Remove the old start time record so if they retake it, they get a fresh timer
+    await supabase
+      .from("exam_attempt_starts")
+      .delete()
+      .eq("student_id", recordStudentId)
+      .eq("exam_id", payload.examKey);
 
     const { data: newSub, error: insertError } = await supabase
       .from("submissions")
@@ -618,9 +625,6 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       }
       : undefined;
 
-    if (!exam) {
-      return [];
-    }
     // Only SCHEDULED exams have an official leaderboard, and only after the
     // answer-release time. Late "practice" submissions and always-open exams
     // are never ranked on any leaderboard.
@@ -639,6 +643,7 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
     if (hasScheduledTime) {
       query = query.eq("is_live_submission", true);
     }
+
 
     const { data: subData, error: subError } = await query;
 
@@ -773,13 +778,16 @@ export async function getExamCandidateRank(
 
     if (error) throw error;
 
-    // Rank only among OFFICIAL live submissions — exactly the entries that
-    // appear on the leaderboard. Late/practice attempts are never ranked.
-    const official: { score: number; timeSecs: number }[] = [];
+    // Compute rank based on EVERYONE who has given the exam (both live and practice).
+    const allSubmissions: { score: number; timeSecs: number }[] = [];
+    let officialCandidates = 0;
+
     (subData || []).forEach((row) => {
-      if (row.is_live_submission !== true) return;
+      if (row.is_live_submission === true) {
+        officialCandidates++;
+      }
       const sc = typeof row.score === "number" ? row.score : parseFloat(row.score as any) || 0;
-      official.push({
+      allSubmissions.push({
         score: sc,
         timeSecs: parseTimeSpentToSeconds(row.time_spent)
       });
@@ -787,20 +795,19 @@ export async function getExamCandidateRank(
 
     const userTimeSecs = parseTimeSpentToSeconds(userTimeSpent);
 
-    let higherCount = 0;
-    official.forEach((sub) => {
-      if (sub.score > userScore) {
-        higherCount++;
-      } else if (sub.score === userScore && sub.timeSecs < userTimeSecs) {
-        higherCount++;
+    let practiceRank = 1;
+    allSubmissions.forEach((cand) => {
+      if (cand.score > userScore) {
+        practiceRank++;
+      } else if (cand.score === userScore && cand.timeSecs < userTimeSecs) {
+        practiceRank++;
       }
     });
 
-    const practiceRank = higherCount + 1;
-    return {
-      practiceRank,
-      totalCandidates: Math.max(1, official.length),
-      officialCandidates: official.length
+    return { 
+      practiceRank, 
+      totalCandidates: Math.max(1, allSubmissions.length), 
+      officialCandidates 
     };
   } catch (err) {
     console.error("Error calculating candidate rank:", err);

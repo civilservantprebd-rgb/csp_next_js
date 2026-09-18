@@ -75,14 +75,14 @@ export const LiveExamsBox: React.FC<LiveExamsBoxProps> = ({
   };
 
   return (
-    <>
-      {/* ---------- ১) কমপ্যাক্ট বক্স (হালকা লাল — ট্যাপ → উইন্ডো) ---------- */}
+    <div>
+      {/* ---------- ১) ড্যাশবোর্ডের বক্স (ট্রিগার) ---------- */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-red-100 via-red-50 to-white border border-red-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995] h-full"
+        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-red-100 via-red-50 to-white border border-red-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995] h-full flex flex-col justify-between gap-3"
       >
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-3.5 w-full">
           <div className="w-11 h-11 rounded-2xl bg-red-600 text-white flex items-center justify-center shadow-md shadow-red-600/30 shrink-0 group-hover:scale-105 transition">
             <Zap className="w-6 h-6 fill-white" />
           </div>
@@ -97,7 +97,9 @@ export const LiveExamsBox: React.FC<LiveExamsBoxProps> = ({
               {toBengaliDigits(liveKeys.length)}টি পরীক্ষা এখন চলমান — ট্যাপ করে দেখুন ও অংশ নিন
             </p>
           </div>
-          <span className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-red-600 text-white text-xs font-black px-3 py-2 group-hover:bg-red-700 transition shadow-sm">
+        </div>
+        <div className="w-full">
+          <span className="w-full inline-flex justify-center items-center gap-1 rounded-xl bg-red-600 text-white text-xs font-black px-3 py-2 group-hover:bg-red-700 transition shadow-sm">
             দেখুন <ChevronRight className="w-4 h-4" />
           </span>
         </div>
@@ -106,14 +108,11 @@ export const LiveExamsBox: React.FC<LiveExamsBoxProps> = ({
       {/* ---------- ২) উইন্ডো (মোডাল): চলমান সব লাইভ এক্সাম ---------- */}
       {open && (
         <div
-          className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center font-bengali"
+          className="fixed inset-0 w-screen h-screen z-[9999] flex flex-col font-bengali bg-white animate-in fade-in slide-in-from-bottom-6 duration-300"
           role="dialog"
           aria-modal="true"
         >
-          {/* backdrop */}
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-
-          <div className="relative w-full sm:max-w-2xl max-h-[88vh] flex flex-col bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-300">
+          <div className="relative w-full h-full flex flex-col overflow-hidden">
             {/* হেডার */}
             <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -183,14 +182,14 @@ export const LiveExamsBox: React.FC<LiveExamsBoxProps> = ({
                               <CheckCircle2 className="w-3 h-3 text-red-700" /> ফ্রি
                             </span>
                           )}
+                        </div>
+                        <h4 className="font-black text-black text-sm sm:text-base group-hover:text-red-800 transition leading-snug flex items-center gap-2">
+                          {ex.title}
                           {isCompleted && (
-                            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-0.5">
-                              <CheckCircle2 className="w-2.5 h-2.5" /> সম্পন্ন
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> সম্পন্ন
                             </span>
                           )}
-                        </div>
-                        <h4 className="font-black text-black text-sm sm:text-base group-hover:text-red-800 transition leading-snug">
-                          {ex.title}
                         </h4>
                         <div className="flex items-center gap-3 mt-1 text-[11px] text-red-900 font-bold flex-wrap">
                           <span className="flex items-center gap-1">
@@ -222,6 +221,6 @@ export const LiveExamsBox: React.FC<LiveExamsBoxProps> = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };

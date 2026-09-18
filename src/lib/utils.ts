@@ -152,6 +152,12 @@ export function sortExamsForStudents(a: [string, Exam], b: [string, Exam]): numb
   const sa = status(ta, ea);
   const sb = status(tb, eb);
   if (sa !== sb) return sa - sb;
+  
+  // যদি উভয়েই শেষ হয়ে যাওয়া (ended) পরীক্ষা হয়, তবে যেটা সবচেয়ে পরে শেষ হয়েছে সেটাকে আগে দেখান
+  if (sa === 2) {
+    if (ea !== null && eb !== null) return eb - ea;
+  }
+  
   if (ta === null) return 0;
   if (tb === null) return 0;
   return ta - tb;

@@ -60,9 +60,8 @@ export async function GET(req: Request) {
 
     const { data } = await supabase
       .from('submissions')
-      .select('exam_key, exam_title, score, time_spent, submitted_at, correct, incorrect, total_questions')
+      .select('exam_key, exam_title, score, time_spent, submitted_at, correct, incorrect, total_questions, is_pending_evaluation')
       .eq('student_id', uid)
-      .eq('is_live_submission', true)
       .order('submitted_at', { ascending: false });
 
     // Compute Syllabus Progress dynamically from exam_titles
@@ -84,11 +83,13 @@ export async function GET(req: Request) {
       avgScore = parseFloat((totalScore / modelTests).toFixed(1));
       
       const latestTest = data[0];
-      try {
-        const { practiceRank } = await getExamCandidateRank(latestTest.exam_key, Number(latestTest.score) || 0, latestTest.time_spent);
-        meritPosition = practiceRank;
-      } catch (e) {
-        console.error("Error getting rank:", e);
+      if (!latestTest.is_pending_evaluation) {
+        try {
+          const { practiceRank } = await getExamCandidateRank(latestTest.exam_key, Number(latestTest.score) || 0, latestTest.time_spent);
+          meritPosition = practiceRank;
+        } catch (e) {
+          console.error("Error getting rank:", e);
+        }
       }
 
       // Group by subject based on exam_title
@@ -113,14 +114,17 @@ export async function GET(req: Request) {
       const recentThree = data.slice(0, 3);
       for (let i = 0; i < recentThree.length; i++) {
         const test = recentThree[i];
-        let pos = "N/A";
+        let pos = test.is_pending_evaluation ? "অপেক্ষমান" : "N/A";
         let participants = 0;
-        // Calculate rank for recent tests
-        try {
-          const { practiceRank, totalCandidates } = await getExamCandidateRank(test.exam_key, Number(test.score) || 0, test.time_spent);
-          pos = toBn(practiceRank) + "তম";
-          participants = totalCandidates;
-        } catch(e) {}
+        
+        if (!test.is_pending_evaluation) {
+          // Calculate rank for recent tests
+          try {
+            const { practiceRank, totalCandidates } = await getExamCandidateRank(test.exam_key, Number(test.score) || 0, test.time_spent);
+            pos = toBn(practiceRank) + " তম";
+            participants = totalCandidates;
+          } catch(e) {}
+        }
         
         let type = "মডেল টেস্ট";
         try {

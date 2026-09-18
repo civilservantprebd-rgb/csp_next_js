@@ -37,7 +37,7 @@ export default function ExamResultPage() {
       try {
         const parsed = JSON.parse(rawResult);
         setResultData(parsed);
-        if (typeof parsed.score === "number" && parsed.isLiveSubmission === true) {
+        if (typeof parsed.score === "number") {
           getExamCandidateRank(examId, parsed.score, parsed.timeSpent || "").then(setRankInfo);
         }
       } catch {
@@ -104,9 +104,8 @@ export default function ExamResultPage() {
                   };
                   setResultData(updatedRes);
                   sessionStorage.setItem("last_result", JSON.stringify(updatedRes));
-                  if (currentRes.isLiveSubmission === true) {
-                    getExamCandidateRank(examId, score ?? 0, updatedRes.timeSpent || "").then(setRankInfo);
-                  }
+                  // Always fetch rank, whether live or practice
+                  getExamCandidateRank(examId, score ?? 0, updatedRes.timeSpent || "").then(setRankInfo);
                 }
               }
             }

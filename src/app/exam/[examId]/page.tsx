@@ -297,6 +297,19 @@ export default function ExamPage() {
   // ---- "পরীক্ষা শুরু করুন" ট্যাপ: টাইমার এখানেই চালু হয় (প্রশ্ন আগেই লোড) ----
   const beginExam = async () => {
     if (!exam || started || secondsRemaining !== null) return;
+    
+    // ব্রাউজারের ফুলস্ক্রিন মোড চালু করা
+    if (typeof document !== "undefined") {
+      const elem = document.documentElement as any;
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(() => {});
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+      }
+    }
+
     // ডিভাইস ঘড়ি নয় — বাংলাদেশ (নেটওয়ার্ক-সিঙ্কড) সময়ে হিসাব নিশ্চিত করি
     try { await syncBangladeshNetworkTime(); } catch { /* fallback */ }
     // লিডারবোর্ড-যোগ্যতা সার্ভারের start-রেকর্ডে নির্ভর করে — শুরু বাটনে সার্ভার claim চালাই
@@ -328,6 +341,18 @@ export default function ExamPage() {
   const doSubmit = async (timeRemaining: number) => {
     if (isSubmitting || !exam || !student) return;
     setIsSubmitting(true);
+
+    // পরীক্ষা শেষ হলে ফুলস্ক্রিন থেকে বের হওয়া
+    if (typeof document !== "undefined") {
+      const doc = document as any;
+      if (doc.exitFullscreen && doc.fullscreenElement) {
+        doc.exitFullscreen().catch(() => {});
+      } else if (doc.webkitExitFullscreen && doc.webkitFullscreenElement) {
+        doc.webkitExitFullscreen();
+      } else if (doc.msExitFullscreen && doc.msFullscreenElement) {
+        doc.msExitFullscreen();
+      }
+    }
 
     // ---- ডেমো: লোকালি স্কোর করি — কোথাও সেভ হয় না ----
     if (demoMode) {

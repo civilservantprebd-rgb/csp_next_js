@@ -35,9 +35,8 @@ export async function GET(req: Request) {
 
   const { data } = await supabase
     .from('submissions')
-    .select('exam_key, exam_title, score, time_spent, submitted_at, correct, incorrect, total_questions')
+    .select('exam_key, exam_title, score, time_spent, submitted_at, correct, incorrect, total_questions, is_pending_evaluation')
     .eq('student_id', uid)
-    .eq('is_live_submission', true)
     .order('submitted_at', { ascending: false });
 
   const toBn = (n: number | string) => n.toString().replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
@@ -46,14 +45,16 @@ export async function GET(req: Request) {
   if (data && data.length > 0) {
     for (let i = 0; i < data.length; i++) {
       const test = data[i];
-      let pos = "N/A";
+      let pos = test.is_pending_evaluation ? "অপেক্ষমান" : "N/A";
       let participants = 0;
       
-      try {
-        const { practiceRank, totalCandidates } = await getExamCandidateRank(test.exam_key, Number(test.score) || 0, test.time_spent);
-        pos = toBn(practiceRank) + "তম";
-        participants = totalCandidates;
-      } catch(e) {}
+      if (!test.is_pending_evaluation) {
+        try {
+          const { practiceRank, totalCandidates } = await getExamCandidateRank(test.exam_key, Number(test.score) || 0, test.time_spent);
+          pos = toBn(practiceRank) + " তম";
+          participants = totalCandidates;
+        } catch(e) {}
+      }
       
       let type = "মডেল টেস্ট";
       try {
