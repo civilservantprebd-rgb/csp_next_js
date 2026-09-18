@@ -1,14 +1,69 @@
 import { NextResponse } from 'next/server';
 import { getSessionUserFromCookies } from '@/lib/teacher-auth';
-import { apiFail } from '@/lib/api-auth';
+import { apiFail, resolveStudentProfile } from '@/lib/api-auth';
 import { supabase } from '@/lib/supabase';
 import { getExamCandidateRank } from '@/actions/exam-actions';
-import { isAnswerTimeReached } from '@/lib/bangladesh-time';
+import { isAnswerTimeReached, parseBangladeshDateTime } from '@/lib/bangladesh-time';
+import { examToDto, rowToExam } from '@/lib/exam-api';
+import { compareExamsByStartTime } from '@/lib/utils';
 import type { Exam } from '@/types/exam';
+
+/**
+ * পরীক্ষার ইতিহাসের জন্য দরকারি কলামগুলো।
+ *
+ * `total_questions` পরীক্ষার সারিতে সব স্কিমায় নাও থাকতে পারে — তখন ওই কলাম
+ * বাদ দিয়ে আবার চেষ্টা করা হয়। না করলে পুরো কোয়েরিটাই ব্যর্থ হয়ে তালিকা
+ * খালি দেখাত, অথচ পরীক্ষাগুলো ঠিকই আছে (`api-auth.ts`-এর রোস্টার-কলামেও
+ * ঠিক এই ফলব্যাক-নীতিই আছে)।
+ */
+const EXAM_COLS_FULL =
+  'id, title, course, subject, start_time, end_time, leaderboard_end_time, is_result_published, timer_minutes, total_questions';
+const EXAM_COLS_LITE =
+  'id, title, course, subject, start_time, end_time, leaderboard_end_time, is_result_published, timer_minutes';
+
+/**
+ * কোন কলাম-সেটটা আসলে কাজ করে — একবার জেনে রাখা হয়।
+ *
+ * কারণ: স্কিমা প্রতি রিকোয়েস্টে বদলায় না, অথচ প্রোফাইল রুট অ্যাপ সবচেয়ে বেশি
+ * ডাকে। মনে না রাখলে কলাম না-থাকা ডেটাবেসে প্রতিবার পুরো `exams` টেবিল **দুইবার**
+ * টানতে হতো (একবার ব্যর্থ, একবার সফল)।
+ */
+let examColsForHistory: string | null = null;
+
+/**
+ * সব পরীক্ষা **এক ব্যাচে** — ওয়েবও পুরো `exams` টেবিলটাই লোড করে
+ * (StudentDashboardModal-এ যাওয়া `exams` ম্যাপ), তাই এখানেও ঠিক তাই: প্রতি
+ * পরীক্ষায় আলাদা কোয়েরি (N+1) নয়, আর সাবমিশন-ভিত্তিক `.in()` তালিকাও লাগে না
+ * (শূন্য-তালিকার সমস্যাটাই নেই)।
+ *
+ * কোর্স-ফিল্টার SQL-এ না করে JS-এ করা হয়, কারণ ওয়েবের নিয়ম হলো trim +
+ * lowercase মিলিয়ে দেখা আর `all`/`সকল কোর্স`-কে "সব মেলে" ধরা — SQL ফিল্টার
+ * দিলে ওই নিয়মগুলো চুপচাপ ভিন্ন ফল দিত (স্পেস/বড়-ছোট অক্ষরের ফারাকে পরীক্ষা
+ * হারিয়ে যেত)।
+ */
+async function loadExamRowsForHistory(): Promise<any[]> {
+  // আগেই কোনটা চলে জানা থাকলে কেবল সেটাই — ব্যর্থ কোয়েরিটা দোহরানো হয় না।
+  const candidates = examColsForHistory ? [examColsForHistory] : [EXAM_COLS_FULL, EXAM_COLS_LITE];
+  for (const cols of candidates) {
+    try {
+      const { data, error } = await supabase.from('exams').select(cols);
+      // কলাম-সেট না মিললে সংকীর্ণ সেটে চেষ্টা
+      if (error) continue;
+      examColsForHistory = cols;
+      return ((data || []) as unknown) as any[];
+    } catch {
+      // পরের (সংকীর্ণ) কলাম-সেটে চেষ্টা
+    }
+  }
+  return [];
+}
 
 export async function GET(req: Request) {
   let uid = null;
   let sessionUser: any = null;
+  // কোর্স-তালিকা (allowed_students) খোঁজার জন্য ইমেইল দরকার — ওয়েবের
+  // `checkEnrollmentCached`-ও ঠিক এই uid → ইমেইল ক্রমেই রোস্টার খোঁজে।
+  let sessionEmail: string | null = null;
 
   const authHeader = req.headers.get("Authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -16,6 +71,7 @@ export async function GET(req: Request) {
     const { data } = await supabase.auth.getUser(token);
     if (data?.user) {
       uid = data.user.id;
+      sessionEmail = data.user.email ?? null;
       sessionUser = { id: uid, name: data.user.user_metadata?.full_name || data.user.user_metadata?.name };
     }
   }
@@ -23,6 +79,7 @@ export async function GET(req: Request) {
   if (!uid) {
     sessionUser = await getSessionUserFromCookies();
     uid = sessionUser?.id;
+    sessionEmail = sessionUser?.email ?? null;
   }
 
   let modelTests = 0;
@@ -69,6 +126,8 @@ export async function GET(req: Request) {
       .eq('student_id', uid)
       .order('submitted_at', { ascending: false });
 
+    const submissions: any[] = data || [];
+
     // Compute Syllabus Progress dynamically from exam_titles
     let subjectScores: Record<string, { total: number, count: number }> = {
       "বাংলাদেশ বিষয়াবলি": { total: 0, count: 0 },
@@ -80,19 +139,19 @@ export async function GET(req: Request) {
     };
 
     let computedRecentTests: any[] = [];
-    // পরীক্ষাভিত্তিক ফলাফল-ইতিহাস ও তার সারসংক্ষেপ — সাবমিশন খালি থাকলে এই
-    // ডিফল্টগুলোই ক্লায়েন্টে যায় (কনট্র্যাক্ট: `[]`, শূন্য-গণনা, `[]`)।
+    // পরীক্ষাভিত্তিক ফলাফল-ইতিহাস ও তার সারসংক্ষেপ — কোনো ডেটা না থাকলেও
+    // ঠিক এই আকারেই ক্লায়েন্টে যায় (`[]` আর শূন্য-গণনা)।
     let computedResultHistory: any[] = [];
-    let computedResultSummary = { exams: 0, liveCount: 0, practiceCount: 0 };
+    let computedResultSummary = { exams: 0, liveCount: 0, practiceCount: 0, total: 0, taken: 0, notTaken: 0 };
     let computedResultCourses: string[] = [];
     const toBn = (n: number | string) => n.toString().replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
-    if (data && data.length > 0) {
-      modelTests = data.length;
-      const totalScore = data.reduce((sum, row) => sum + (Number(row.score) || 0), 0);
+    if (submissions.length > 0) {
+      modelTests = submissions.length;
+      const totalScore = submissions.reduce((sum, row) => sum + (Number(row.score) || 0), 0);
       avgScore = parseFloat((totalScore / modelTests).toFixed(1));
       
-      const latestTest = data[0];
+      const latestTest = submissions[0];
       if (!latestTest.is_pending_evaluation) {
         try {
           const { practiceRank } = await getExamCandidateRank(latestTest.exam_key, Number(latestTest.score) || 0, latestTest.time_spent);
@@ -103,7 +162,7 @@ export async function GET(req: Request) {
       }
 
       // Group by subject based on exam_title
-      data.forEach(sub => {
+      submissions.forEach(sub => {
         const title = sub.exam_title || "";
         let pct = 0;
         if (sub.total_questions && sub.total_questions > 0) {
@@ -121,7 +180,7 @@ export async function GET(req: Request) {
       });
 
       // Build recentTests
-      const recentThree = data.slice(0, 3);
+      const recentThree = submissions.slice(0, 3);
       for (let i = 0; i < recentThree.length; i++) {
         const test = recentThree[i];
         let pos = test.is_pending_evaluation ? "অপেক্ষমান" : "N/A";
@@ -147,7 +206,6 @@ export async function GET(req: Request) {
         if (tq >= 200) { badge = "সকল বিষয়"; }
         else if (tq >= 50) { badge = "শীর্ষ স্কোর"; }
 
-        console.log('Sending type:', type);
         computedRecentTests.push({
           id: test.exam_key || i.toString(),
           title: test.exam_title || "মডেল টেস্ট",
@@ -162,132 +220,224 @@ export async function GET(req: Request) {
         });
       }
 
-      // ── পরীক্ষাভিত্তিক ফলাফল-ইতিহাস: প্রতি exam_key-তে **একটাই** এন্ট্রি ──
-      //
-      // কেন গ্রুপ করা দরকার: একই পরীক্ষা একজন শিক্ষার্থী দুইবার দিতে পারে —
-      // একবার নির্ধারিত লাইভ উইন্ডোতে (`is_live_submission = true`, লিডারবোর্ডে
-      // গণ্য) আর পরে প্র্যাকটিস হিসেবে (`false`)। সাবমিশন টেবিলে ওগুলো দুইটা
-      // আলাদা সারি, কিন্তু শিক্ষার্থীর কাছে সেটা **একেরই পরীক্ষা**। গ্রুপ না করলে
-      // ইতিহাসে একই নাম দুইবার ওঠে আর কোনটা লাইভ বোঝার উপায় থাকে না — ওয়েবের
-      // StudentDashboardModal-ও ঠিক এই কারণেই exam_key ধরে গ্রুপ করে
-      // ("পরীক্ষার ইতিহাস" ট্যাবের liveSub/practiceSub)।
-      const examKeys = Array.from(
-        new Set(data.map((row: any) => row.exam_key).filter((k: any) => !!k))
-      ) as string[];
+    }
 
-      // কেন একটাই ব্যাচ-কোয়েরি (লুপে প্রতি সারির জন্য আলাদা কোয়েরি নয়):
-      // আগের ধরনে প্রতি সাবমিশনের জন্য একটি `exams` কোয়েরি হতো (N+1) — ২০০
-      // সাবমিশনে ২০০ রাউন্ড-ট্রিপ, আর অ্যাপ ঠিক এই রুটটাই সবচেয়ে বেশি ডাকে।
-      // এখন সব exam_key একবারে `.in(...)` দিয়ে আনা হয়: মোট কোয়েরি সাবমিশন
-      // সংখ্যা যতই হোক, স্থির।
-      const examRowById = new Map<string, any>();
-      if (examKeys.length > 0) {
-        const { data: examRows } = await supabase
-          .from('exams')
-          // `isAnswerTimeReached`-এর জন্য timer_minutes + সময়সীমা (start_time /
-          // end_time / leaderboard_end_time) আর ম্যানুয়াল-প্রকাশের
-          // is_result_published দরকার — তাই আসল কলামগুলোই আনা হচ্ছে,
-          // কোনো মান অনুমান করে বসানো হচ্ছে না।
-          .select('id, course, subject, end_time, start_time, leaderboard_end_time, is_result_published, timer_minutes')
-          .in('id', examKeys);
+    // ── পরীক্ষার ইতিহাস: কোর্সের **সব** পরীক্ষা — দেওয়া হোক বা না হোক ──
+    //
+    // কেন আর কেবল সাবমিশন থেকে নয়: শিক্ষার্থী এক নজরে দেখতে চায় কোনটা দিয়েছে
+    // আর কোনটা **দেয়নি**। ওয়েবে ঠিক এই তালিকাই দেখানো হয় (StudentDashboardModal-এর
+    // "পরীক্ষার ইতিহাস" ট্যাব, `examStatusList`), তাই অ্যাপেও একই অর্থ — সাবমিশন
+    // একটাও না থাকলেও তালিকা খালি হয় না, কেবল সবগুলোতে `taken: false` থাকে।
+    //
+    // এই ব্লকটা `submissions.length > 0`-এর বাইরে: গার্ড হলো "শিক্ষার্থীর কোর্সের
+    // তালিকা", সাবমিশন নয়।
 
-        (examRows || []).forEach((row: any) => {
-          if (row?.id) examRowById.set(String(row.id), row);
-        });
+    // ওয়েবের `studentCourses` কোথা থেকে আসে: StudentDashboardModal-এ প্রপ
+    // হিসেবে আসে `checkEnrollmentCached(uid, email)` থেকে, আর সেটা ডাকে
+    // `verifyStudentAccess(uid, "ALL", email)` — যা পড়ে `allowed_students.courses`
+    // (প্রথমে uid দিয়ে, না মিললে ইমেইল দিয়ে)। সার্ভারেও ঠিক সেই একই টেবিল/কলাম
+    // এবং একই uid → ইমেইল ক্রম `resolveStudentProfile` পড়ে, তাই অ্যাপ আর ওয়েব
+    // একই কোর্স-তালিকা দেখে। `verifyStudentAccess`-কেই এখানে ডাকা হয়নি: মিল না
+    // পেলে সেটা পুরো `allowed_students` স্ক্যান করে, আর প্রোফাইল রুটটাই অ্যাপ
+    // সবচেয়ে বেশি ডাকে — ওই খরচটা এখানে বাড়ানো ঠিক নয়।
+    const rosterProfile = await resolveStudentProfile({
+      uid,
+      email: sessionEmail || undefined,
+      role: 'student',
+    });
+    const studentCourses = (rosterProfile?.courses || [])
+      .map((c) => String(c || '').trim())
+      .filter(Boolean);
+
+    // সব পরীক্ষা এক ব্যাচে (হেল্পারটা উপরে) — প্রতি পরীক্ষায় আলাদা কোয়েরি নয়,
+    // আর সাবমিশন-তালিকা খালি হলে `.in()` চালানোর প্রশ্নই ওঠে না।
+    const examRows = await loadExamRowsForHistory();
+    const examRowById = new Map<string, any>();
+    const examById = new Map<string, Exam>();
+    examRows.forEach((row: any) => {
+      const id = String(row?.id ?? '').trim();
+      if (!id) return;
+      examRowById.set(id, row);
+      // `rowToExam` দিয়েই সারি → Exam: একই ম্যাপিং সব রাউটে, আর
+      // `isAnswerTimeReached`-এর জন্য `timerMinutes` ফাঁকা পড়ার ভয় নেই।
+      examById.set(id, rowToExam(row));
+    });
+
+    const submittedKeys = new Set<string>();
+    submissions.forEach((row: any) => {
+      const key = String(row.exam_key ?? '').trim();
+      // exam_key ছাড়া সারি কোনো পরীক্ষার সাথে মেলানোই যায় না — বাদ।
+      if (key) submittedKeys.add(key);
+    });
+
+    // কোর্স-মেলানোর নিয়ম ওয়েবের সাথে হুবহু: কোর্স-তালিকা খালি হলে **সব** পরীক্ষা
+    // মেলে, আর `all`/`সকল কোর্স` লেখা এন্ট্রিও সব মেলে। তুলনা trim + lowercase,
+    // নাহলে কোর্সের বাড়তি স্পেস বা হাতের লেখা বড়-ছোট অক্ষরে পরীক্ষা হারিয়ে যেত।
+    const matchesStudentCourse = (course: unknown): boolean => {
+      if (studentCourses.length === 0) return true;
+      const examCourse = String(course ?? '').trim().toLowerCase();
+      return studentCourses.some((c) => {
+        const sc = String(c || '').trim().toLowerCase();
+        return sc === 'all' || sc === 'সকল কোর্স' || sc === examCourse;
+      });
+    };
+
+    const allExamIds = Array.from(examById.keys());
+    const myCourseExamIds = allExamIds.filter((id) => matchesStudentCourse(examById.get(id)?.course));
+    const myCourseIdSet = new Set(myCourseExamIds);
+    // কোর্সের বাইরের কোনো পরীক্ষা দিয়ে থাকলে সেটাও তালিকায় থাকবে — নাহলে
+    // "দেওয়া হয়েছে" সংখ্যাটা ভুল দেখাত (ওয়েবের `alsoTaken` ঠিক এটাই করে)।
+    const alsoTakenIds = allExamIds.filter((id) => submittedKeys.has(id) && !myCourseIdSet.has(id));
+    // সাবমিশন আছে কিন্তু পরীক্ষার সারি আর নেই (শিক্ষক পরীক্ষাটা মুছে ফেলেছেন) —
+    // এন্ট্রিটা বাদ দেওয়া হয় না, নাহলে ইতিহাস থেকে ফলাফল হঠাৎ উধাও হয়ে যেত
+    // (আগের আচরণও এটাই ছিল: fail-closed `isReleased: false` নিয়ে এন্ট্রি থাকত)।
+    const orphanTakenIds = Array.from(submittedKeys).filter((id) => !examById.has(id));
+
+    // একই পরীক্ষার লাইভ ও প্র্যাকটিস **দুইটাই** থাকতে পারে (দুই সারি), কিন্তু
+    // শিক্ষার্থীর কাছে সেটা একটাই পরীক্ষা — তাই exam_key ধরে এক এন্ট্রি (ওয়েবের
+    // liveSub/practiceSub-ও ঠিক এই কারণেই গ্রুপ করে)। ক্রম `submitted_at DESC`,
+    // তাই প্রথম যে সারিটা সামনে পড়ছে সেটাই নতুনতম — ওটার মান নিয়েই এন্ট্রি।
+    const submissionInfoByExam = new Map<string, any>();
+    submissions.forEach((row: any) => {
+      const examKey = String(row.exam_key ?? '').trim();
+      if (!examKey) return;
+
+      let info = submissionInfoByExam.get(examKey);
+      if (!info) {
+        info = {
+          title: row.exam_title || "মডেল টেস্ট",
+          totalQuestions: Number(row.total_questions ?? 0) || 0,
+          lastSubmittedAt: row.submitted_at ?? null,
+          liveScore: null,
+          practiceScore: null,
+        };
+        submissionInfoByExam.set(examKey, info);
       }
 
-      const historyByExam = new Map<string, any>();
+      // পুরনো সারিতে `is_live_submission` null বা একেবারে অনুপস্থিত থাকতে পারে;
+      // কঠোরভাবে `true` না হলে প্র্যাকটিস ধরাই নিয়ম।
+      if (row.is_live_submission === true) {
+        if (info.liveScore === null) info.liveScore = Number(row.score ?? 0) || 0;
+      } else {
+        if (info.practiceScore === null) info.practiceScore = Number(row.score ?? 0) || 0;
+      }
+    });
 
-      data.forEach((row: any) => {
-        const examKey = String(row.exam_key ?? '').trim();
-        // exam_key ছাড়া সারি কোনো পরীক্ষার সাথে মেলানোই যায় না — বাদ।
-        if (!examKey) return;
+    // কনট্র্যাক্ট "ISO string বা null": ডেটাবেসে সময় "YYYY-MM-DD HH:mm" আকারেও
+    // থাকতে পারে, তাই শেয়ার্ড পার্সার দিয়ে পার্স করে canonical ISO বানানো হয়।
+    const toIsoOrNull = (value: unknown): string | null => {
+      if (value === null || value === undefined || value === '') return null;
+      const parsed = parseBangladeshDateTime(String(value));
+      return parsed ? parsed.toISOString() : null;
+    };
 
-        let entry = historyByExam.get(examKey);
-        if (!entry) {
-          const examRow = examRowById.get(examKey);
+    const nowMs = Date.now();
+    const historyByExam = new Map<string, any>();
 
-          // exam সারি না মিললে ফলাফল অপ্রকাশিত (false) — অজানা পরীক্ষার উত্তর
-          // কী দেখানো নিরাপদ নয়।
-          let isReleased = false;
-          if (examRow) {
-            const exam: Exam = {
-              id: String(examRow.id ?? examKey),
-              course: String(examRow.course ?? ''),
-              subject: String(examRow.subject ?? ''),
-              title: String(row.exam_title ?? ''),
-              timerMinutes: Number(examRow.timer_minutes ?? 0) || 0,
-              startTime: examRow.start_time || undefined,
-              endTime: examRow.end_time || undefined,
-              leaderboardEndTime: examRow.leaderboard_end_time || undefined,
-              isResultPublished: examRow.is_result_published === true,
-            };
-            isReleased = isAnswerTimeReached(exam);
-          }
+    // ওয়েবের `examStatusList = [...myCourseExams, ...alsoTaken]` — একই ক্রমে,
+    // একই ডিডুপ (Map হওয়ায় একই exam id দুইবার ঢুকলেও এন্ট্রি একটাই)।
+    [...myCourseExamIds, ...alsoTakenIds, ...orphanTakenIds].forEach((examId) => {
+      const examRow = examRowById.get(examId);
+      const exam = examById.get(examId);
+      const info = submissionInfoByExam.get(examId);
+      const taken = !!info;
 
-          entry = {
-            examKey: examKey,
-            title: row.exam_title || "মডেল টেস্ট",
-            course: examRow?.course ?? null,
-            subject: examRow?.subject ?? null,
-            // কোয়েরি `submitted_at DESC`-এ সাজানো, তাই এই পরীক্ষার **প্রথম যে
-            // সারিটা সামনে পড়ছে সেটাই নতুনতম** — ওটার মান নিয়েই এন্ট্রি তৈরি,
-            // পরে আসা পুরনো সারিগুলো আর এই ফিল্ড ছোঁয় না।
-            totalQuestions: Number(row.total_questions ?? 0) || 0,
-            lastSubmittedAt: row.submitted_at ?? null,
-            isReleased: isReleased,
-            liveScore: null,
-            practiceScore: null,
-          };
-          historyByExam.set(examKey, entry);
-        }
+      // ⚠️ fail-closed: পরীক্ষার সারি না মিললে ফলাফল অপ্রকাশিত (false) — অজানা
+      // পরীক্ষার উত্তর কী দেখানো নিরাপদ নয়। বাকি সব ক্ষেত্রে আগের মতোই
+      // `isAnswerTimeReached` (ম্যানুয়াল publish বা সময়-পেরোনো হলে true), আর
+      // ততক্ষণ কোনো লাইভ/প্র্যাকটিস স্কোর কখনো প্রকাশ পায় না —না-দেওয়া
+      // পরীক্ষার দুটোই `null`, তাই লুকোবার মতো কিছুই নেই।
+      const isReleased = exam ? isAnswerTimeReached(exam) : false;
 
-        // একই পরীক্ষার লাইভ ও প্র্যাকটিস **দুইটাই** থাকতে পারে — তাই দুইটাই
-        // আলাদা ঘরে রাখা হয়। পুরনো সারিতে `is_live_submission` null বা একেবারে
-        // অনুপস্থিত থাকতে পারে; কঠোরভাবে `true` না হলে প্র্যাকটিস ধরাই নিয়ম।
-        if (row.is_live_submission === true) {
-          if (entry.liveScore === null) entry.liveScore = Number(row.score ?? 0) || 0;
-        } else {
-          if (entry.practiceScore === null) entry.practiceScore = Number(row.score ?? 0) || 0;
-        }
+      // `canStart`: `/api/exams/{id}`-এর সাথে হুবহু একই হিসাব — `examToDto`-র
+      // `isUpcoming` (কেবল **শুরুর আগে** শুরু করা যায় না; উইন্ডো শেষ হওয়া বা
+      // উইন্ডো-হীন প্র্যাকটিসে true)। পরীক্ষার সারিটাই নেই মানে সেটা আর নেই,
+      // তাই ওখানকার 404-এর সাথে মিলিয়ে false।
+      const canStart = exam ? !examToDto(exam, nowMs).isUpcoming : false;
+
+      historyByExam.set(examId, {
+        examKey: examId,
+        title: info?.title || examRow?.title || "মডেল টেস্ট",
+        course: examRow?.course ?? null,
+        subject: examRow?.subject ?? null,
+        // না-দেওয়া পরীক্ষায় সাবমিশনের সারিই নেই, তাই মোট প্রশ্ন আসে পরীক্ষার
+        // সারি থেকে; দেওয়া পরীক্ষায় আগের মতোই সাবমিশনের মানটাই থাকে।
+        totalQuestions: taken ? info.totalQuestions : (Number(examRow?.total_questions ?? 0) || 0),
+        lastSubmittedAt: info?.lastSubmittedAt ?? null,
+        isReleased: isReleased,
+        liveScore: info?.liveScore ?? null,
+        practiceScore: info?.practiceScore ?? null,
+        // অ্যাপের নতুন কী: সময়সূচি (ISO/null), দেওয়া হয়েছে কি না, আর এখন
+        // শুরু করা যাবে কি না — সবই পরীক্ষার সারি থেকে; কোনো স্কোর নয়।
+        startTime: toIsoOrNull(examRow?.start_time),
+        endTime: toIsoOrNull(examRow?.end_time),
+        taken: taken,
+        canStart: canStart,
       });
+    });
 
-      computedResultHistory = Array.from(historyByExam.values());
+    computedResultHistory = Array.from(historyByExam.values());
 
-      // নতুনটাই আগে (`submitted_at` DESC), আর যাদের তারিখই নেই তারা সবার শেষে —
-      // null তারিখ সরাসরি বিয়োগ করলে সাজানো এলোমেলো হয়ে যেত।
-      const submissionTime = (value: string | null): number | null => {
-        if (!value) return null;
-        const t = new Date(value).getTime();
-        return isNaN(t) ? null : t;
+    // ক্রম: **নতুন শুরুর আগে**, আর সময়-হীন (সবসময়-খোলা) পরীক্ষা সবার শেষে।
+    // তারিখ-তুলনার মূল অংশটা শেয়ার্ড `compareExamsByStartTime`-ই করে (নিজের
+    // আলাদা ফরম্যাট-পার্সিং নয়), আর parser-ও ওটাই ব্যবহার করে।
+    //
+    // ⚠️ কেন কেবল `compareExamsByStartTime(b, a)` লিখেই ছাড়া হলো না: উল্টো
+    // ক্রমে ডাকলে ওই ফাংশনের null-নিয়মও উল্টে যায় — অর্থাৎ সময়-হীন পরীক্ষা
+    // সবার **আগে** চলে আসে (ওয়েবের মডালের `...b, a` কলটাতেও তাই ঘটে), অথচ
+    // `/api/exams`-সহ অ্যাপের বাকি সব তালিকায় সময়-হীন পরীক্ষা সবার শেষে।
+    // তাই null নিজে সামলানো হচ্ছে; সময়সহ দুটো এন্ট্রির তুলনা আগের মতোই শেয়ার্ড
+    // ফাংশনের হাতে (সমান সময়ে নামের ক্রমও ওটাই দেয়)।
+    const examForSort = (entry: any): Exam => {
+      const exam = examById.get(String(entry?.examKey ?? ''));
+      if (exam) return exam;
+      // মুছে ফেলা পরীক্ষা: সময় নেই, তাই নিয়ম অনুযায়ী সবার শেষে যাবে।
+      return {
+        id: String(entry?.examKey ?? ''),
+        course: String(entry?.course ?? ''),
+        subject: String(entry?.subject ?? ''),
+        title: String(entry?.title ?? ''),
+        timerMinutes: 0,
+        startTime: entry?.startTime ?? undefined,
       };
-      computedResultHistory.sort((a, b) => {
-        const ta = submissionTime(a.lastSubmittedAt);
-        const tb = submissionTime(b.lastSubmittedAt);
-        if (ta === null && tb === null) return 0;
-        if (ta === null) return 1;
-        if (tb === null) return -1;
-        return tb - ta;
-      });
+    };
+    const startMsOf = (entry: any): number | null => {
+      const startTime = examForSort(entry).startTime;
+      if (!startTime) return null;
+      const parsed = parseBangladeshDateTime(String(startTime));
+      return parsed ? parsed.getTime() : null;
+    };
+    computedResultHistory.sort((a, b) => {
+      const ta = startMsOf(a);
+      const tb = startMsOf(b);
+      if (ta === null && tb === null) return compareExamsByStartTime(examForSort(a), examForSort(b));
+      if (ta === null) return 1;
+      if (tb === null) return -1;
+      return compareExamsByStartTime(examForSort(b), examForSort(a));
+    });
 
-      // সারসংক্ষেপ: কতগুলো পরীক্ষা, তার মধ্যে কতগুলোয় লাইভ স্কোর আর কতগুলোয়
-      // প্র্যাকটিস স্কোর আছে (দুইটাই একসাথে থাকলে দুই জায়গাতেই গোনা হয়)।
-      computedResultSummary = {
-        exams: computedResultHistory.length,
-        liveCount: computedResultHistory.filter((e) => e.liveScore !== null).length,
-        practiceCount: computedResultHistory.filter((e) => e.practiceScore !== null).length,
-      };
+    const takenCount = computedResultHistory.filter((e) => e.taken === true).length;
 
-      // অ্যাপের কোর্স-ফিল্টার ড্রপডাউনের জন্য: শুধু থাকা কোর্সগুলো, একবার করে,
-      // বাংলা লোকেলে সাজানো।
-      computedResultCourses = Array.from(
-        new Set(
-          computedResultHistory
-            .map((e) => e.course)
-            .filter((c: any): c is string => typeof c === 'string' && c.trim() !== '')
-        )
-      ).sort((a, b) => a.localeCompare(b, 'bn'));
-    }
+    // সারসংক্ষেপ: মোট কতগুলো পরীক্ষা, তার মধ্যে দেওয়া/না-দেওয়া কতগুলো, আর
+    // কতগুলোয় লাইভ ও কতগুলোয় প্র্যাকটিস স্কোর আছে (দুইটাই থাকলে দুই জায়গাতেই)।
+    computedResultSummary = {
+      exams: computedResultHistory.length,
+      liveCount: computedResultHistory.filter((e) => e.liveScore !== null).length,
+      practiceCount: computedResultHistory.filter((e) => e.practiceScore !== null).length,
+      total: computedResultHistory.length,
+      taken: takenCount,
+      notTaken: computedResultHistory.length - takenCount,
+    };
+
+    // অ্যাপের কোর্স-ফিল্টার ড্রপডাউনের জন্য: **পুরো ইতিহাসে** থাকা কোর্সগুলো,
+    // একবার করে, বাংলা লোকেলে সাজানো (না-দেওয়া পরীক্ষার কোর্সও তাই ওঠে)।
+    computedResultCourses = Array.from(
+      new Set(
+        computedResultHistory
+          .map((e) => e.course)
+          .filter((c: any): c is string => typeof c === 'string' && c.trim() !== '')
+      )
+    ).sort((a, b) => a.localeCompare(b, 'bn'));
 
     // Prepare syllabusProgress array
     const computedSyllabusProgress = Object.entries(subjectScores).map(([subject, stats]) => {
