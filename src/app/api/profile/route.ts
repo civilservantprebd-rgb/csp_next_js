@@ -3,6 +3,8 @@ import { getSessionUserFromCookies } from '@/lib/teacher-auth';
 import { apiFail } from '@/lib/api-auth';
 import { supabase } from '@/lib/supabase';
 import { getExamCandidateRank } from '@/actions/exam-actions';
+import { isAnswerTimeReached } from '@/lib/bangladesh-time';
+import type { Exam } from '@/types/exam';
 
 export async function GET(req: Request) {
   let uid = null;
@@ -60,7 +62,10 @@ export async function GET(req: Request) {
 
     const { data } = await supabase
       .from('submissions')
-      .select('exam_key, exam_title, score, time_spent, submitted_at, correct, incorrect, total_questions, is_pending_evaluation')
+      // `is_live_submission` যোগ করা হলো: একই পরীক্ষা লাইভ আর প্র্যাকটিস —
+      // দুইভাবে দেওয়া যায়, আর কোন স্কোরটা কোনটা সেটা এই কলাম ছাড়া বোঝার উপায় নেই
+      // (ওয়েবের StudentDashboardModal-ও ঠিক এই ফিল্ডটাই দেখে)।
+      .select('exam_key, exam_title, score, time_spent, submitted_at, correct, incorrect, total_questions, is_pending_evaluation, is_live_submission')
       .eq('student_id', uid)
       .order('submitted_at', { ascending: false });
 
@@ -75,6 +80,11 @@ export async function GET(req: Request) {
     };
 
     let computedRecentTests: any[] = [];
+    // পরীক্ষাভিত্তিক ফলাফল-ইতিহাস ও তার সারসংক্ষেপ — সাবমিশন খালি থাকলে এই
+    // ডিফল্টগুলোই ক্লায়েন্টে যায় (কনট্র্যাক্ট: `[]`, শূন্য-গণনা, `[]`)।
+    let computedResultHistory: any[] = [];
+    let computedResultSummary = { exams: 0, liveCount: 0, practiceCount: 0 };
+    let computedResultCourses: string[] = [];
     const toBn = (n: number | string) => n.toString().replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
     if (data && data.length > 0) {
@@ -151,6 +161,132 @@ export async function GET(req: Request) {
           timeTaken: test.time_spent || "N/A",
         });
       }
+
+      // ── পরীক্ষাভিত্তিক ফলাফল-ইতিহাস: প্রতি exam_key-তে **একটাই** এন্ট্রি ──
+      //
+      // কেন গ্রুপ করা দরকার: একই পরীক্ষা একজন শিক্ষার্থী দুইবার দিতে পারে —
+      // একবার নির্ধারিত লাইভ উইন্ডোতে (`is_live_submission = true`, লিডারবোর্ডে
+      // গণ্য) আর পরে প্র্যাকটিস হিসেবে (`false`)। সাবমিশন টেবিলে ওগুলো দুইটা
+      // আলাদা সারি, কিন্তু শিক্ষার্থীর কাছে সেটা **একেরই পরীক্ষা**। গ্রুপ না করলে
+      // ইতিহাসে একই নাম দুইবার ওঠে আর কোনটা লাইভ বোঝার উপায় থাকে না — ওয়েবের
+      // StudentDashboardModal-ও ঠিক এই কারণেই exam_key ধরে গ্রুপ করে
+      // ("পরীক্ষার ইতিহাস" ট্যাবের liveSub/practiceSub)।
+      const examKeys = Array.from(
+        new Set(data.map((row: any) => row.exam_key).filter((k: any) => !!k))
+      ) as string[];
+
+      // কেন একটাই ব্যাচ-কোয়েরি (লুপে প্রতি সারির জন্য আলাদা কোয়েরি নয়):
+      // আগের ধরনে প্রতি সাবমিশনের জন্য একটি `exams` কোয়েরি হতো (N+1) — ২০০
+      // সাবমিশনে ২০০ রাউন্ড-ট্রিপ, আর অ্যাপ ঠিক এই রুটটাই সবচেয়ে বেশি ডাকে।
+      // এখন সব exam_key একবারে `.in(...)` দিয়ে আনা হয়: মোট কোয়েরি সাবমিশন
+      // সংখ্যা যতই হোক, স্থির।
+      const examRowById = new Map<string, any>();
+      if (examKeys.length > 0) {
+        const { data: examRows } = await supabase
+          .from('exams')
+          // `isAnswerTimeReached`-এর জন্য timer_minutes + সময়সীমা (start_time /
+          // end_time / leaderboard_end_time) আর ম্যানুয়াল-প্রকাশের
+          // is_result_published দরকার — তাই আসল কলামগুলোই আনা হচ্ছে,
+          // কোনো মান অনুমান করে বসানো হচ্ছে না।
+          .select('id, course, subject, end_time, start_time, leaderboard_end_time, is_result_published, timer_minutes')
+          .in('id', examKeys);
+
+        (examRows || []).forEach((row: any) => {
+          if (row?.id) examRowById.set(String(row.id), row);
+        });
+      }
+
+      const historyByExam = new Map<string, any>();
+
+      data.forEach((row: any) => {
+        const examKey = String(row.exam_key ?? '').trim();
+        // exam_key ছাড়া সারি কোনো পরীক্ষার সাথে মেলানোই যায় না — বাদ।
+        if (!examKey) return;
+
+        let entry = historyByExam.get(examKey);
+        if (!entry) {
+          const examRow = examRowById.get(examKey);
+
+          // exam সারি না মিললে ফলাফল অপ্রকাশিত (false) — অজানা পরীক্ষার উত্তর
+          // কী দেখানো নিরাপদ নয়।
+          let isReleased = false;
+          if (examRow) {
+            const exam: Exam = {
+              id: String(examRow.id ?? examKey),
+              course: String(examRow.course ?? ''),
+              subject: String(examRow.subject ?? ''),
+              title: String(row.exam_title ?? ''),
+              timerMinutes: Number(examRow.timer_minutes ?? 0) || 0,
+              startTime: examRow.start_time || undefined,
+              endTime: examRow.end_time || undefined,
+              leaderboardEndTime: examRow.leaderboard_end_time || undefined,
+              isResultPublished: examRow.is_result_published === true,
+            };
+            isReleased = isAnswerTimeReached(exam);
+          }
+
+          entry = {
+            examKey: examKey,
+            title: row.exam_title || "মডেল টেস্ট",
+            course: examRow?.course ?? null,
+            subject: examRow?.subject ?? null,
+            // কোয়েরি `submitted_at DESC`-এ সাজানো, তাই এই পরীক্ষার **প্রথম যে
+            // সারিটা সামনে পড়ছে সেটাই নতুনতম** — ওটার মান নিয়েই এন্ট্রি তৈরি,
+            // পরে আসা পুরনো সারিগুলো আর এই ফিল্ড ছোঁয় না।
+            totalQuestions: Number(row.total_questions ?? 0) || 0,
+            lastSubmittedAt: row.submitted_at ?? null,
+            isReleased: isReleased,
+            liveScore: null,
+            practiceScore: null,
+          };
+          historyByExam.set(examKey, entry);
+        }
+
+        // একই পরীক্ষার লাইভ ও প্র্যাকটিস **দুইটাই** থাকতে পারে — তাই দুইটাই
+        // আলাদা ঘরে রাখা হয়। পুরনো সারিতে `is_live_submission` null বা একেবারে
+        // অনুপস্থিত থাকতে পারে; কঠোরভাবে `true` না হলে প্র্যাকটিস ধরাই নিয়ম।
+        if (row.is_live_submission === true) {
+          if (entry.liveScore === null) entry.liveScore = Number(row.score ?? 0) || 0;
+        } else {
+          if (entry.practiceScore === null) entry.practiceScore = Number(row.score ?? 0) || 0;
+        }
+      });
+
+      computedResultHistory = Array.from(historyByExam.values());
+
+      // নতুনটাই আগে (`submitted_at` DESC), আর যাদের তারিখই নেই তারা সবার শেষে —
+      // null তারিখ সরাসরি বিয়োগ করলে সাজানো এলোমেলো হয়ে যেত।
+      const submissionTime = (value: string | null): number | null => {
+        if (!value) return null;
+        const t = new Date(value).getTime();
+        return isNaN(t) ? null : t;
+      };
+      computedResultHistory.sort((a, b) => {
+        const ta = submissionTime(a.lastSubmittedAt);
+        const tb = submissionTime(b.lastSubmittedAt);
+        if (ta === null && tb === null) return 0;
+        if (ta === null) return 1;
+        if (tb === null) return -1;
+        return tb - ta;
+      });
+
+      // সারসংক্ষেপ: কতগুলো পরীক্ষা, তার মধ্যে কতগুলোয় লাইভ স্কোর আর কতগুলোয়
+      // প্র্যাকটিস স্কোর আছে (দুইটাই একসাথে থাকলে দুই জায়গাতেই গোনা হয়)।
+      computedResultSummary = {
+        exams: computedResultHistory.length,
+        liveCount: computedResultHistory.filter((e) => e.liveScore !== null).length,
+        practiceCount: computedResultHistory.filter((e) => e.practiceScore !== null).length,
+      };
+
+      // অ্যাপের কোর্স-ফিল্টার ড্রপডাউনের জন্য: শুধু থাকা কোর্সগুলো, একবার করে,
+      // বাংলা লোকেলে সাজানো।
+      computedResultCourses = Array.from(
+        new Set(
+          computedResultHistory
+            .map((e) => e.course)
+            .filter((c: any): c is string => typeof c === 'string' && c.trim() !== '')
+        )
+      ).sort((a, b) => a.localeCompare(b, 'bn'));
     }
 
     // Prepare syllabusProgress array
@@ -199,6 +335,11 @@ export async function GET(req: Request) {
       },
       syllabusProgress: computedSyllabusProgress,
       recentTests: computedRecentTests,
+      // অ্যাপের "পরীক্ষার ইতিহাস" তালিকা: প্রতি পরীক্ষায় একটাই সারি, আর
+      // লাইভ/প্র্যাকটিস স্কোর আলাদা করে দেওয়া (ওয়েবের মডালের সমান অর্থ)।
+      resultHistory: computedResultHistory,
+      resultSummary: computedResultSummary,
+      resultCourses: computedResultCourses,
     });
 }
   // গাইড §৩.৩-এর এরর-চুক্তি: `{ error: { code, message } }`।
