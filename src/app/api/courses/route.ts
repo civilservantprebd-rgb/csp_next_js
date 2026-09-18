@@ -60,6 +60,16 @@ export const GET = withApi("optional", async (ctx) => {
         title: name,
         priceTaka: price.price ?? null,
         offerPriceTaka: price.offerPrice ?? null,
+        /**
+         * "সম্পূর্ণ ফ্রি" — ওয়েবের `CourseCardGrid.tsx:145` ঠিক এই শর্তেই
+         * ফ্রি ধরে। `/api/home`-ও একই ফ্ল্যাগ পাঠায়, তাই দুই রুট এক কথা বলে।
+         */
+        isFree: price.price === 0 || price.offerPrice === 0,
+        /** ছাড়ের শতাংশ — সার্ভারেই হিসাব, যাতে দুই ক্লায়েন্টে রাউন্ডিং না মেলে */
+        discountPercent:
+          price.price && price.offerPrice && price.offerPrice < price.price
+            ? Math.round((1 - price.offerPrice / price.price) * 100)
+            : null,
         description: price.description ?? null,
         details: price.details ?? null,
         plannedExams: price.plannedExams ?? null,

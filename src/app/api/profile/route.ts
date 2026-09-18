@@ -151,12 +151,14 @@ export async function GET(req: Request) {
 
     // Prepare syllabusProgress array
     const computedSyllabusProgress = Object.entries(subjectScores).map(([subject, stats]) => {
-      let progress = stats.count > 0 ? Math.round(stats.total / stats.count) : 0;
-      // If 0, assign a slight fallback based on avgScore to avoid empty progress bars if they haven't taken specific tests yet
-      if (progress === 0 && avgScore > 0) {
-        progress = Math.max(0, Math.round(avgScore) - Math.floor(Math.random() * 15));
-      }
-      
+      // ⚠️ পরীক্ষা না দিলে progress = ০ — **এটাই সত্য**, আর সেটাই পাঠানো হয়।
+      //
+      // ২০২৬-০৯-১৭: আগে এখানে `Math.random()` দিয়ে একটা সংখ্যা বানানো হতো
+      // ("খালি বার দেখতে খারাপ লাগে" — কোডের নিজের কমেন্টে তাই লেখা ছিল)।
+      // ফলে শিক্ষার্থী রিফ্রেশ করলেই একই বিষয়ে ৭২% → ৬৫% → ৭৯% পাল্টাত,
+      // অথচ ওটা তার কোনো অগ্রগতিই ছিল না। মিথ্যা সংখ্যার চেয়ে খালি বার ভালো।
+      const progress = stats.count > 0 ? Math.round(stats.total / stats.count) : 0;
+
       let color = "red";
       if (progress >= 80) color = "green";
       else if (progress >= 60) color = "blue";
@@ -165,34 +167,25 @@ export async function GET(req: Request) {
       return { subject, progress, color };
     }).sort((a, b) => b.progress - a.progress);
 
-    // Compute cadre probability
-    const targetCadreStr = sessionUser?.name ? (sessionUser as any).target_cadre : null; // target_cadre is actually inside metadata
-    
-    // We already extracted userMeta earlier
     const userMeta = userResp?.user?.user_metadata || {};
-    const predictedTarget = userMeta.target_cadre || "বিসিএস প্রশাসন";
-    
-    const adminProb = Math.min(99, Math.max(5, Math.round((avgScore / 100) * 80 + 15)));
-    const policeProb = Math.min(99, Math.max(5, Math.round((avgScore / 100) * 75 + 10)));
-    const targetProb = Math.min(99, Math.max(5, Math.round((avgScore / 100) * 85 + 5)));
-    
-    const breakdown: Record<string, number> = {
-      admin: adminProb,
-      police: policeProb,
-    };
-    
-    // If user's target isn't admin or police, add it to breakdown dynamically
-    if (!predictedTarget.includes("প্রশাসন") && !predictedTarget.includes("পুলিশ")) {
-      breakdown["target"] = targetProb;
-    }
+    const predictedTarget = userMeta.target_cadre || null;
+
+    // ⚠️ ২০২৬-০৯-১৭: এখানে আগে একটা **সম্পূর্ণ বানানো** "ক্যাডার সম্ভাবনা" ছিল —
+    // `avgScore` থেকে সূত্র কষে (প্রশাসন = avgScore×০.৮+১৫) একটা শতাংশ, আর
+    // `totalExaminees: 106708` নামের একটা যাদু সংখ্যা। ওটা কোনো ডেটা নয়,
+    // কোনো মডেলও নয় — অথচ স্ক্রিনে "নিরাপদ জোন" লেখা সবুজ ব্যাজ সহ দেখানো হতো।
+    // এখন বাদ: মিথ্যা ভবিষ্যদ্বাণীর চেয়ে কিছু না দেখানো অনেক ভালো।
+    // (আসল ভবিষ্যদ্বাণী করতে হলে মডেল দরকার — সেটা আলাদা কাজ।)
 
     return NextResponse.json({
       user: {
-        name: sessionUser?.name || "User",
-        badge: "প্রো মেম্বার",
-        subtitle: "বিসিএস প্রো শিক্ষার্থী",
-        target: `১ম পছন্দ ${predictedTarget}`,
-        avatarUrl: userMeta.avatar_url || "https://ui-avatars.com/api/?name=User",
+        name: sessionUser?.name || null,
+        // ⚠️ `badge` ("প্রো মেম্বার") আর `subtitle` ("বিসিএস প্রো শিক্ষার্থী")
+        // ছিল hardcoded — কোনো ডেটার সাথে সম্পর্ক নেই। বাদ দেওয়া হলো।
+        target: predictedTarget ? `১ম পছন্দ ${predictedTarget}` : null,
+        // ⚠️ `ui-avatars.com`-এর বাইরের লিংক fallback ছিল — অ্যাপে সেটা
+        // ডিকোড ব্যর্থ হয়ে ব্যতিক্রম ছুড়ত। এখন ছবি না থাকলে `null`।
+        avatarUrl: userMeta.avatar_url || null,
       },
       overview: {
         modelTests: modelTests,
@@ -200,21 +193,9 @@ export async function GET(req: Request) {
         avgScore: avgScore,
         studyStreak: studyStreak,
       },
-      cadreProbability: {
-        score: avgScore,
-        predictedTarget: predictedTarget,
-        totalExaminees: 106708,
-        breakdown: breakdown
-      },
       syllabusProgress: computedSyllabusProgress,
       recentTests: computedRecentTests,
-      studyTools: [
-      { id: "bookmarks", title: "বুকমার্ক করা প্রশ্নব্যাংক", subtitle: "৩০৩টি কঠিন প্রশ্ন সেভ করা আছে", hasBadge: true },
-      { id: "weak_topics", title: "দুর্বল টপিক ও রিভিশন শিডিউল", subtitle: "ইংরেজি গ্রামার ও সাধারণ বিজ্ঞান অগ্রাধিকার", hasBadge: false },
-      { id: "offline_notes", title: "অফলাইন স্টাডি নোটস ও লেকচার শিট", subtitle: "১২টি পিডিএফ অফলাইন ব্যবহারের জন্য", hasBadge: false },
-      { id: "subscription", title: "অ্যাকাউন্ট ও সাবস্ক্রিপশন প্ল্যান", subtitle: "ভ্যালিডিটি: ৩১ ডিসেম্বর ২০২৭ পর্যন্ত", hasBadge: false },
-    ]
-  });
+    });
 }
   // গাইড §৩.৩-এর এরর-চুক্তি: `{ error: { code, message } }`।
   // ⚠️ আগে ছিল `{ error: "Unauthorized" }` (String) — অ্যাপের ApiClient কেবল
