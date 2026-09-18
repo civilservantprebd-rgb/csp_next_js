@@ -93,8 +93,18 @@ export const TopLoadingBar: React.FC = () => {
     // ইন্টারনাল লিংকে ক্লিক → নেটওয়ার্ক শুরুর আগেই সাথে সাথে সাড়া
     const onClick = (e: MouseEvent) => {
       const el = e.target as Element | null;
-      const anchor = el?.closest?.('a[href^="/"]');
-      if (anchor) show();
+      const anchor = el?.closest?.('a[href^="/"]') as HTMLAnchorElement | null;
+      if (anchor) {
+        try {
+          const targetUrl = new URL(anchor.href, window.location.origin);
+          if (targetUrl.pathname === window.location.pathname && targetUrl.search === window.location.search) {
+            return;
+          }
+        } catch {
+          // ignore parsing error
+        }
+        show();
+      }
     };
     document.addEventListener("click", onClick, true);
 

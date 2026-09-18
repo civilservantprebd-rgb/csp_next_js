@@ -462,24 +462,24 @@ export default function CourseStudyPage() {
 
       <main className="flex-grow max-w-7xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-5">
         {/* Course header */}
-        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-800">
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-800">
           <button
             onClick={() => router.push("/")}
-            className="flex items-center gap-1 text-xs text-indigo-200 hover:text-white transition cursor-pointer font-semibold"
+            className="flex items-center gap-1 text-[11px] text-indigo-200 hover:text-white transition cursor-pointer font-semibold"
           >
-            <ChevronLeft className="w-4 h-4" /> হোম পেজে ফিরে যান
+            <ChevronLeft className="w-3.5 h-3.5" /> হোম পেজে ফিরে যান
           </button>
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mt-3">
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0">
-                  <div className="w-full h-full bg-slate-900/90 rounded-[14px] flex items-center justify-center">
-                    <GraduationCap className="w-5 h-5 text-amber-300" />
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mt-2.5">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0">
+                  <div className="w-full h-full bg-slate-900/90 rounded-[10px] flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 text-amber-300" />
                   </div>
                 </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-black text-white leading-tight">{courseName}</h1>
-                  <p className="text-xs text-indigo-200 font-semibold">
+                  <h1 className="text-lg sm:text-xl font-black text-white leading-tight">{courseName}</h1>
+                  <p className="text-[11px] text-indigo-200 font-semibold mt-0.5">
                     {toBengaliDigits(courseSubjects.length)}টি বিষয় · {toBengaliDigits(examCount)}টি পরীক্ষা
                     {isUnlocked && <> · {toBengaliDigits(playlists.length)}টি ভিডিও প্লেলিস্ট</>}
                   </p>
@@ -488,19 +488,40 @@ export default function CourseStudyPage() {
 
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {courseSubjects.slice(0, 12).map((s) => (
-                  <span key={s.name} className="bg-white/10 border border-white/20 text-xs font-bold px-2 py-0.5 rounded-lg">
+                  <span key={s.name} className="bg-white/10 border border-white/20 text-[10px] font-bold px-2 py-0.5 rounded-md">
                     {s.name}
                   </span>
                 ))}
               </div>
             </div>
 
-            <button
-              onClick={() => setEnrollOpen(true)}
-              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-[0.98]"
-            >
-              <UserPlus className="w-4 h-4" /> Enroll Now
-            </button>
+            {checking ? (
+              <div className="w-[100px] flex items-center justify-center shrink-0">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-300" />
+              </div>
+            ) : (
+              <button
+                disabled={isUnlocked}
+                onClick={() => !isUnlocked && setEnrollOpen(true)}
+                className={`w-full sm:w-auto font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 shrink-0 ${
+                  isUnlocked
+                    ? "bg-emerald-900/40 text-emerald-100 cursor-not-allowed border border-emerald-500/30 shadow-none"
+                    : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-emerald-500/20 cursor-pointer active:scale-[0.98]"
+                }`}
+              >
+                {isUnlocked ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Enrolled</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Enroll Now</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 

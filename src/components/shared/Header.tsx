@@ -290,16 +290,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
             </div>
 
             <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 font-bengali">
-              <button
-                type="button"
-                onClick={goHome}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
-              >
-                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                  <GraduationCap className="w-4 h-4" />
-                </span>
-                হোম
-              </button>
 
               <button
                 type="button"
@@ -351,20 +341,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                 Student Portal
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  closeMenu();
-                  sessionStorage.setItem("open_enroll", "1");
-                  router.push("/");
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
-              >
-                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                  <ShoppingCart className="w-4 h-4" />
-                </span>
-                কোর্স এনরোল করুন
-              </button>
+
             </nav>
 
             <div className="px-4 py-3 border-t border-slate-900/5">

@@ -97,6 +97,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   onSelectSubmissionDetail,
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "history");
+  const [courseFilter, setCourseFilter] = useState<string>("all");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [mistakes, setMistakes] = useState<MistakeQuestionItem[]>([]);
   const [bookmarks, setBookmarks] = useState<MistakeQuestionItem[]>([]);
@@ -354,8 +355,14 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   const mineIds = new Set(myCourseExams.map(([id]) => id));
   const alsoTaken = Object.entries(exams).filter(([id]) => submittedKeys.has(id) && !mineIds.has(id));
   const examStatusList = [...myCourseExams, ...alsoTaken].sort((a, b) => compareExamsByStartTime(b[1], a[1]));
-  const takenCount = examStatusList.filter(([id]) => submittedKeys.has(id)).length;
-  const notTakenCount = examStatusList.length - takenCount;
+  const uniqueCourses = Array.from(new Set(examStatusList.map(([, ex]) => String(ex.course || "").trim()).filter(Boolean)));
+  
+  const filteredExamStatusList = examStatusList.filter(([, ex]) => {
+    if (courseFilter === "all") return true;
+    return String(ex.course || "").trim() === courseFilter;
+  });
+  const takenCount = filteredExamStatusList.filter(([id]) => submittedKeys.has(id)).length;
+  const notTakenCount = filteredExamStatusList.length - takenCount;
 
   return (
     <div className={embedded ? "font-bengali" : "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200"}>
@@ -367,77 +374,77 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         }
       >
         
-        {/* Header */}
-        <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
-          <div className="flex items-center space-x-3 min-w-0 flex-1">
-            <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-sm shrink-0">
-              {studentUser?.photoURL ? (
-                <Image src={studentUser.photoURL} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full" />
-              ) : (
-                <GraduationCap className="w-6 h-6 text-violet-700" />
-              )}
+        {/* Header - hide when embedded since the page has its own header */}
+        {!embedded && (
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
+              <div className="bg-violet-100 text-violet-700 w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-sm shrink-0">
+                {studentUser?.photoURL ? (
+                  <Image src={studentUser.photoURL} alt="Avatar" width={32} height={32} className="w-8 h-8 rounded-full" />
+                ) : (
+                  <GraduationCap className="w-6 h-6 text-violet-700" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                {editingName ? (
+                  <div className="flex items-center gap-1.5 max-w-sm mt-0.5">
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-600 bg-white text-slate-900 font-bold"
+                    />
+                    <button
+                      onClick={handleSaveName}
+                      className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                      title="সংরক্ষণ করুন"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingName(false);
+                        if (studentUser) setNewName(studentUser.name);
+                      }}
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                      {studentUser?.name || "স্টুডেন্ট ড্যাশবোর্ড"}
+                    </h3>
+                    <button
+                      onClick={() => setEditingName(true)}
+                      className="text-slate-400 hover:text-violet-600 p-0.5 transition cursor-pointer"
+                      title="নাম এডিট করুন"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                <p className="text-xs text-slate-500 font-mono truncate">
+                  {studentUser?.email || `আইডি: ${studentId}`}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              {editingName ? (
-                <div className="flex items-center gap-1.5 max-w-sm mt-0.5">
-                  <input
-                    type="text"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-600 bg-white text-slate-900 font-bold"
-                  />
-                  <button
-                    onClick={handleSaveName}
-                    className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                    title="সংরক্ষণ করুন"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingName(false);
-                      if (studentUser) setNewName(studentUser.name);
-                    }}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
-                    {studentUser?.name || "স্টুডেন্ট ড্যাশবোর্ড"}
-                  </h3>
-                  <button
-                    onClick={() => setEditingName(true)}
-                    className="text-slate-400 hover:text-violet-600 p-0.5 transition cursor-pointer"
-                    title="নাম এডিট করুন"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-              <p className="text-xs text-slate-500 font-mono truncate">
-                {studentUser?.email || `আইডি: ${studentId}`}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleLogout}
-              className="text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/50 p-2 rounded-xl text-xs flex items-center gap-1 font-semibold transition cursor-pointer"
-              title="লগআউট করুন"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">লগআউট</span>
-            </button>
-            {!embedded && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleLogout}
+                className="text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/50 p-2 rounded-xl text-xs flex items-center gap-1 font-semibold transition cursor-pointer"
+                title="লগআউট করুন"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">লগআউট</span>
+              </button>
               <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Navigation Tabs — portal সেকশন-পেজে hideTabs হলে ৪টি ট্যাব দেখাই না
             (শুধু initialTab-এর নির্দিষ্ট সেকশনের কনটেন্ট দেখানো হয়) */}
@@ -527,198 +534,110 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         {/* Tab Body */}
         <div className="overflow-y-auto flex-grow pr-1 space-y-4">
 
-          {/* Warning: ended exams not yet taken in the student's courses */}
-          {endedNotTaken.length > 0 && (
-            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 flex items-start gap-2.5">
-              <AlertTriangle className="w-[18px] h-[18px] text-amber-600 shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-amber-950">
-                  ⚠️ আপনার কোর্সের {toBengaliDigits(endedNotTaken.length)}টি শেষ হওয়া পরীক্ষায় অংশ নেননি
-                </p>
-                <p className="text-sm text-amber-800 mt-0.5">
-                  এগুলো এখনও দেওয়া যাবে — মিস করবেন না!
-                </p>
-                {activeTab !== "history" && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("history")}
-                    className="mt-2 text-[11px] font-black text-amber-900 bg-white border border-amber-300 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                  >
-                    কোনটা দেননি — তালিকা দেখুন →
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+
 
           {/* TAB 1: EXAM HISTORY */}
           {activeTab === "history" && (
             <>
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-3">
-                <div>
-                  <h4 className="font-bold text-emerald-950 text-sm">রুটিন ও সিলেবাস ডাউনলোড</h4>
-                  <p className="text-sm text-emerald-700">গুগল ড্রাইভ থেকে আপডেটেড সিলেবাস ও পরীক্ষার রুটিন পান</p>
-                </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <a
-                    href={routineUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 sm:flex-none text-center bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
-                  >
-                    <Calendar className="w-3.5 h-3.5" /> রুটিন
-                  </a>
-                  <a
-                    href={syllabusUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 sm:flex-none text-center bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
-                  >
-                    <FileText className="w-3.5 h-3.5" /> সিলেবাস
-                  </a>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center">
-                  <span className="text-xs sm:text-xs text-slate-500 block">অংশগ্রহণকৃত এক্সাম</span>
-                  <span className="text-base sm:text-lg font-bold text-slate-800">{toBengaliDigits(submissions.length)}</span>
-                </div>
-                <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-center">
-                  <span className="text-xs sm:text-xs text-emerald-600 block">গড় পারসেন্টেজ</span>
-                  <span className="text-base sm:text-lg font-bold text-emerald-700">{toBengaliDigits(avgAcc)}%</span>
-                </div>
-                <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-200 text-center">
-                  <span className="text-xs sm:text-xs text-indigo-600 block">সর্বোচ্চ স্কোর</span>
-                  <span className="text-base sm:text-lg font-bold text-indigo-700">{toBengaliDigits(bestScore)}</span>
-                </div>
-                <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 text-center">
-                  <span className="text-xs sm:text-xs text-amber-600 block">গড় স্কোর</span>
-                  <span className="text-base sm:text-lg font-bold text-amber-700">{toBengaliDigits(avgScore)}</span>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-800 text-xs sm:text-sm mb-2 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <History className="w-4 h-4 text-violet-600" /> সাম্প্রতিক পরীক্ষার পারফরম্যান্স
-                  </span>
-                  <span className="text-sm text-slate-400 font-normal">(ক্লিক করে সমাধান ও মার্কশিট দেখুন)</span>
-                </h4>
-
-                <div className="space-y-2">
-                  {isLoading ? (
-                    <LoadingState label="পারফরম্যান্স লোড হচ্ছে..." variant="list" rows={4} />
-                  ) : submissions.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-6">আপনার কোনো পরীক্ষার রেকর্ড পাওয়া যায়নি।</p>
-                  ) : (
-                    submissions.map((sub, sIdx) => {
-                      const ex = exams[sub.examKey];
-                      const canShow = ex ? isAnswerTimeReached(ex) : true;
-
-                      return (
-                        <button
-                          key={sIdx}
-                          onClick={() => onSelectSubmissionDetail(sub)}
-                          className="w-full text-left p-3.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-violet-50/60 transition shadow-sm cursor-pointer group"
-                        >
-                          {/* মোবাইল-ফ্রেন্ডলি: উপরে শিরোনাম (wrap হয়), নিচে পুরো-প্রস্থ স্কোর */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition leading-snug">
-                                  {toBengaliDigits(sIdx + 1)}. {sub.examTitle}
-                                </h4>
-                                {sub.isLiveSubmission === false && (
-                                  <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">
-                                    অনুশীলন
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-1 font-mono">সময়কাল: {sub.timeSpent}</p>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-violet-600 transition shrink-0 mt-0.5" />
-                          </div>
-
-                          <div className="mt-2.5">
-                            {canShow ? (
-                              <span className="flex items-center justify-between gap-2 bg-indigo-100 group-hover:bg-indigo-200 text-indigo-700 font-bold px-3 py-2 rounded-xl text-xs transition">
-                                <span className="truncate">স্কোর: {toBengaliDigits(sub.score)}</span>
-                                <span className="text-[10px] font-black text-indigo-600 shrink-0">ফলাফল দেখুন →</span>
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-3 py-2 rounded-xl font-bold">
-                                <Lock className="w-3 h-3 shrink-0" /> ফলাফল প্রকাশের অপেক্ষায়
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              {/* কোনটা দিয়েছেন, কোনটা দেননি — কোর্সের সব পরীক্ষা এক নজরে */}
-              {examStatusList.length > 0 && (
-                <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-4 space-y-2.5">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
-                      <ListChecks className="w-4 h-4 text-indigo-600" /> কোনটা দিয়েছেন, কোনটা দেননি
-                    </h4>
-                    <span className="text-[11px] font-black text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
-                      ✅ {toBengaliDigits(takenCount)}টি দিয়েছেন · ◻️ {toBengaliDigits(notTakenCount)}টি বাকি
-                    </span>
+              {filteredExamStatusList.length > 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5 mb-1">
+                        <History className="w-4 h-4 text-indigo-600" /> পরীক্ষার ইতিহাস
+                      </h4>
+                      <span className="text-[11px] font-black text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                        ✅ {toBengaliDigits(takenCount)}টি দিয়েছেন · ◻️ {toBengaliDigits(notTakenCount)}টি বাকি
+                      </span>
+                    </div>
+                    {uniqueCourses.length > 1 && (
+                      <select
+                        value={courseFilter}
+                        onChange={(e) => setCourseFilter(e.target.value)}
+                        className="text-xs sm:text-sm border border-slate-200 rounded-xl px-3 py-1.5 bg-slate-50 focus:ring-indigo-500 font-medium cursor-pointer"
+                      >
+                        <option value="all">সকল কোর্স</option>
+                        {uniqueCourses.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-                    {examStatusList.map(([examKey, ex]) => {
-                      const taken = submittedKeys.has(examKey);
-                      const sub = taken ? submissions.find((s) => s.examKey === examKey) : undefined;
+                  <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                    {filteredExamStatusList.map(([examKey, ex]) => {
+                      // Find all submissions for this exam
+                      const subsForExam = submissions.filter((s) => s.examKey === examKey);
+                      const liveSub = subsForExam.find((s) => s.isLiveSubmission === true);
+                      const practiceSub = subsForExam.find((s) => s.isLiveSubmission === false);
+                      const taken = subsForExam.length > 0;
                       const canShowResult = ex ? isAnswerTimeReached(ex) : true;
+
                       return (
                         <div
                           key={examKey}
-                          className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${
-                            taken ? "bg-emerald-50/70 border-emerald-200" : "bg-slate-50 border-slate-200"
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border p-3.5 transition-colors ${
+                            taken ? "bg-indigo-50/30 border-indigo-100 hover:bg-indigo-50/70" : "bg-slate-50 border-slate-200 hover:bg-slate-100"
                           }`}
                         >
-                          <span className="text-sm shrink-0">{taken ? "✅" : "◻️"}</span>
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-xs sm:text-sm font-bold truncate ${taken ? "text-emerald-950" : "text-slate-700"}`}>
-                              {ex.title}
-                            </p>
-                            <p className="text-[11px] text-slate-500 truncate">
-                              {ex.subject}
-                              {ex.startTime ? ` · ${formatBangladeshDate(ex.startTime)}` : ""}
-                            </p>
+                          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                            <span className="text-sm shrink-0 mt-0.5">{taken ? "✅" : "◻️"}</span>
+                            <div className="min-w-0">
+                              <p className={`text-xs sm:text-sm font-bold leading-snug ${taken ? "text-indigo-950" : "text-slate-700"}`}>
+                                {ex.title}
+                              </p>
+                              <p className="text-[11px] text-slate-500 truncate mt-0.5 font-mono">
+                                {ex.subject}
+                                {ex.startTime ? ` · ${formatBangladeshDate(ex.startTime)}` : ""}
+                              </p>
+                            </div>
                           </div>
-                          {taken ? (
-                            sub && canShowResult ? (
-                              <button
-                                type="button"
-                                onClick={() => onSelectSubmissionDetail(sub)}
-                                className="text-[11px] font-black text-emerald-700 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer hover:bg-emerald-50 transition"
-                              >
-                                স্কোর {toBengaliDigits(sub.score)}
-                              </button>
+                          
+                          <div className="flex items-center gap-2 flex-wrap pl-6 sm:pl-0 shrink-0">
+                            {taken ? (
+                              canShowResult ? (
+                                <>
+                                  {liveSub && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectSubmissionDetail(liveSub)}
+                                      className="text-[11px] font-black text-indigo-700 bg-white border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition shadow-sm cursor-pointer"
+                                    >
+                                      লাইভ: {toBengaliDigits(liveSub.score)}
+                                    </button>
+                                  )}
+                                  {practiceSub && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectSubmissionDetail(practiceSub)}
+                                      className="text-[11px] font-black text-emerald-700 bg-white border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition shadow-sm cursor-pointer"
+                                    >
+                                      প্র্যাকটিস: {toBengaliDigits(practiceSub.score)}
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+                                  ফলাফল প্রকাশের অপেক্ষায়
+                                </span>
+                              )
                             ) : (
-                              <span className="text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg shrink-0">
-                                দেওয়া হয়েছে
-                              </span>
-                            )
-                          ) : (
-                            <a
-                              href={`/exam/${encodeURIComponent(examKey)}`}
-                              className="text-[11px] font-black text-white bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1.5 rounded-lg shrink-0 transition"
-                            >
-                              পরীক্ষা দিন
-                            </a>
-                          )}
+                              <a
+                                href={`/exam/${encodeURIComponent(examKey)}`}
+                                className="text-[11px] font-black text-white bg-slate-800 hover:bg-slate-900 px-4 py-1.5 rounded-lg transition shadow-sm"
+                              >
+                                পরীক্ষা দিন
+                              </a>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200">
+                  <p className="text-sm text-slate-500">কোনো পরীক্ষার ইতিহাস পাওয়া যায়নি।</p>
                 </div>
               )}
             </>

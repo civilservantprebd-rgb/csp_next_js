@@ -531,12 +531,14 @@ export async function submitExamAnswers(payload: {
       score = Math.max(0, correct - incorrect * 0.5);
     }
 
-    // Delete any existing submission for this exam by this student
+    // Delete any existing submission for this exam by this student that has the SAME live/practice status
+    // (allows keeping a live score AND a practice score separately)
     await supabase
       .from("submissions")
       .delete()
       .eq("student_id", recordStudentId)
-      .eq("exam_key", payload.examKey);
+      .eq("exam_key", payload.examKey)
+      .eq("is_live_submission", isLiveSubmission);
 
     // Remove the old start time record so if they retake it, they get a fresh timer
     await supabase

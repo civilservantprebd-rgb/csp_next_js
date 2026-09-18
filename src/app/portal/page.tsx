@@ -14,7 +14,11 @@ import {
   LogIn,
   LogOut,
   User,
-  Pencil
+  Pencil,
+  CircleAlert,
+  Save,
+  Calendar,
+  FileText
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getLocalStudentUser, loginWithGoogle, logoutStudentUser, updateLocalStudentName } from "@/lib/student-auth";
@@ -72,6 +76,9 @@ export default function PortalPage() {
   const [savingName, setSavingName] = useState(false);
   // কতগুলো পরীক্ষা দিয়েছেন — পোর্টালের ওভারভিউতেই দেখা যায়
   const [examsTaken, setExamsTaken] = useState<number | null>(null);
+  
+  const [routineUrl, setRoutineUrl] = useState("");
+  const [syllabusUrl, setSyllabusUrl] = useState("");
 
   useEffect(() => {
     const isTeacherLoggedIn = sessionStorage.getItem("teacher_user");
@@ -83,6 +90,14 @@ export default function PortalPage() {
     const u = getLocalStudentUser();
     setGoogleUser(u);
     if (u) setNewName(u.name);
+    
+    // Fetch routine and syllabus links
+    import("@/actions/admin-actions").then(({ fetchDriveLinks }) => {
+      fetchDriveLinks().then((links) => {
+        setRoutineUrl(links.driveRoutineUrl || "");
+        setSyllabusUrl(links.driveSyllabusUrl || "");
+      });
+    });
   }, [router]);
 
   /**
@@ -250,20 +265,29 @@ export default function PortalPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-black text-slate-900 text-sm sm:text-base truncate">
                           {googleUser.name}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNewName(googleUser.name);
-                            setEditingName(true);
-                          }}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition cursor-pointer shrink-0"
-                        >
-                          <Pencil className="w-3 h-3" /> নাম পরিবর্তন
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewName(googleUser.name);
+                              setEditingName(true);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" /> নাম পরিবর্তন
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handlePortalLogout}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                          >
+                            <LogOut className="w-3 h-3" /> লগআউট
+                          </button>
+                        </div>
                       </div>
                     )}
                     <p className="text-[11px] text-slate-500 font-medium mt-0.5">
@@ -274,59 +298,36 @@ export default function PortalPage() {
               </div>
             </div>
 
-            {/* কতগুলো পরীক্ষা দিয়েছেন — ওভারভিউতেই এক নজরে */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center shrink-0">
-                  <History className="w-5 h-5" />
+            {(routineUrl || syllabusUrl) && (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-3xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div>
+                  <h4 className="font-bold text-emerald-950 text-sm">রুটিন ও সিলেবাস ডাউনলোড</h4>
+                  <p className="text-xs sm:text-sm text-emerald-700">আপডেটেড সিলেবাস ও পরীক্ষার রুটিন পান</p>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-slate-500">অংশগ্রহণকৃত এক্সাম</p>
-                  <p className="text-base sm:text-lg font-black text-slate-900 leading-tight">
-                    {examsTaken === null
-                      ? "লোড হচ্ছে..."
-                      : `মোট ${toBengaliDigits(examsTaken)}টি পরীক্ষা দেওয়া হয়েছে`}
-                  </p>
-                  {examsTaken === 0 && (
-                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                      এখনো কোনো পরীক্ষা দেননি — নিচের সেকশন থেকে শুরু করুন
-                    </p>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  {routineUrl && (
+                    <a
+                      href={routineUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 sm:flex-none text-center bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
+                    >
+                      <Calendar className="w-3.5 h-3.5" /> রুটিন
+                    </a>
+                  )}
+                  {syllabusUrl && (
+                    <a
+                      href={syllabusUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 sm:flex-none text-center bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> সিলেবাস
+                    </a>
                   )}
                 </div>
               </div>
-              {examsTaken !== null && examsTaken > 0 && (
-                <button
-                  type="button"
-                  onClick={() => router.push("/portal/results")}
-                  className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-1.5 rounded-full transition cursor-pointer"
-                >
-                  ফলাফল দেখুন <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                  আপনার পোর্টাল
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  সেকশনে ট্যাপ করলে বিস্তারিত আলাদা পেজে খুলবে
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] sm:text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">
-                  ৪টি সেকশন
-                </span>
-                <button
-                  type="button"
-                  onClick={handlePortalLogout}
-                  className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-full transition cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5" /> লগআউট
-                </button>
-              </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {SECTIONS.map((sec) => {
