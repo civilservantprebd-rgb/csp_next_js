@@ -93,14 +93,31 @@ export const LeaderboardExamSearch: React.FC<LeaderboardExamSearchProps> = ({
     );
   };
 
-  /** নির্বাচিত কোর্সের ভেতরে নাম দিয়ে ছেঁকা তালিকা */
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    
+    // Helper to get a timestamp for sorting (newest first)
+    const getExamTime = (ex: Exam) => {
+      const t = ex.startTime || ex.endTime || ex.leaderboardEndTime;
+      if (!t) return 0;
+      const parsed = parseBangladeshDateTime(t);
+      return parsed ? parsed.getTime() : 0;
+    };
+
     const list = Object.entries(exams)
       .filter(([, ex]) => !course || courseOf(ex) === course)
       .filter(([k, ex]) => matchesQuery(k, ex, q))
-      .sort((a, b) => (a[1].title || "").localeCompare(b[1].title || "", "bn"));
-    return list.slice(0, 8);
+      .sort((a, b) => {
+        // Sort by date descending (newest first)
+        const timeA = getExamTime(a[1]);
+        const timeB = getExamTime(b[1]);
+        if (timeA !== timeB) return timeB - timeA;
+        // Fallback to title
+        return (a[1].title || "").localeCompare(b[1].title || "", "bn");
+      });
+      
+    // Remove the slice(0, 8) to show all matching exams
+    return list;
   }, [exams, query, course]);
 
   const totalMatches = useMemo(() => {
