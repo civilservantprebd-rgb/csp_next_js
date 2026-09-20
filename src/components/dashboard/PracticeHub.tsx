@@ -112,7 +112,8 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
           checkEnrollmentCached(u.uid, u.email)
         ]);
         if (teacher.ok) {
-          if (!cancelled) await loadTopics(u.uid, u.email || "");
+          if (!cancelled) setPhase("hub");
+          if (!cancelled) loadTopics(u.uid, u.email || "");
           return;
         }
         let allowed = g.allowed;
@@ -134,7 +135,8 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
           if (!cancelled) setPhase("locked");
           return;
         }
-        if (!cancelled) await loadTopics(effId, effEmail);
+        if (!cancelled) setPhase("hub");
+        if (!cancelled) loadTopics(effId, effEmail);
       } catch {
         if (!cancelled) {
           setAccessError("এক্সেস যাচাই করা যায়নি। নেটওয়ার্ক ঠিক আছে কি না দেখে আবার চেষ্টা করুন।");
@@ -243,15 +245,6 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
     });
     if (typeof window !== "undefined") {
       setIsStarting(true);
-      // PERF: নতুন ট্যাব খোলার সাথে সাথেই সার্ভারে প্রশ্ন প্রস্তুত করা শুরু করি —
-      // ট্যাব লোড হয়ে যখন চাইবে, পুল প্রায় তৈরি (৬০ সেকেন্ডের ক্যাশে) থাকবে,
-      // তাই "প্রশ্ন প্রস্তুত হচ্ছে..." স্ক্রিন প্রায় চোখেই পড়বে না।
-      void getPracticeQuestions(
-        selectedTopic,
-        selectedCount,
-        identityRef.current.id,
-        identityRef.current.email
-      ).catch(() => {});
       router.push(`/practice/session?${params.toString()}`);
       setTimeout(() => setIsStarting(false), 800);
     }

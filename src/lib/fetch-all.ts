@@ -69,3 +69,42 @@ export async function fetchAllRows<T>(
 
   return out;
 }
+
+/**
+ * যদি মোট সারির সংখ্যা জানা থাকে (count: "exact"), তাহলে সব পেজ একসাথে 
+ * প্যারালালে কল করা যায়, যা অনেক দ্রুত।
+ */
+export async function fetchAllRowsParallel<T>(
+  totalCount: number,
+  build: (from: number, to: number) => PromiseLike<PageResponse>,
+  onError?: (err: unknown) => void
+): Promise<T[]> {
+  if (totalCount <= 0) return [];
+  
+  const results: PageResponse[] = [];
+  const BATCH_SIZE = 5; // ৫টি রিকোয়েস্ট একসাথে
+
+  try {
+    for (let from = 0; from < totalCount; from += SUPABASE_PAGE_SIZE * BATCH_SIZE) {
+      const batchPromises: PromiseLike<PageResponse>[] = [];
+      for (let i = 0; i < BATCH_SIZE; i++) {
+        const start = from + i * SUPABASE_PAGE_SIZE;
+        if (start >= totalCount) break;
+        batchPromises.push(build(start, start + SUPABASE_PAGE_SIZE - 1));
+      }
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+    }
+
+    const out: T[] = [];
+    for (const res of results) {
+      if (res && res.data) {
+        out.push(...(res.data as T[]));
+      }
+    }
+    return out;
+  } catch (err) {
+    onError?.(err);
+    return [];
+  }
+}

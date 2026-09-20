@@ -83,9 +83,17 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
     // ⚠️ `.limit(5000)` কাজ করে না — PostgREST সার্ভার-সাইডে **১০০০ সারিতে** কেটে
     // দেয়, আর বাকিগুলো নীরবে বাদ পড়ে। টেবিল বড় হওয়ার পর টপিক-তালিকা ও প্রশ্ন-
     // সংখ্যা কম দেখাত। তাই এখন পৃষ্ঠা-পৃষ্ঠা (`fetchAllRows`)।
+    // প্রথমে count বের করি প্যারালাল ফেচের জন্য
+    const [{ count: tqCount }, { count: linkCount }] = await Promise.all([
+      supabase.from("topic_questions").select("*", { count: "exact", head: true }),
+      supabase.from("exam_questions_link").select("*", { count: "exact", head: true })
+    ]);
+
+    const { fetchAllRowsParallel } = await import("@/lib/fetch-all");
+
     const [settingsRes, topicQuestionsRows, linksRows] = await Promise.all([
       supabase.from("app_settings").select("topics").eq("id", "main").maybeSingle(),
-      fetchAllRows<any>((from, to) =>
+      fetchAllRowsParallel<any>(tqCount || 0, (from, to) =>
         supabase
           .from("topic_questions")
           .select("topic, q, exam_key")
@@ -93,7 +101,7 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
           .order("id", { ascending: true })
           .range(from, to)
       ),
-      fetchAllRows<any>((from, to) =>
+      fetchAllRowsParallel<any>(linkCount || 0, (from, to) =>
         supabase
           .from("exam_questions_link")
           .select("exam_id, question_bank(id, topic, q)")
@@ -260,20 +268,57 @@ export async function getPracticeQuestions(
       return pageQuery;
     };
 
-    // PERF: exams (subject lookup) + topic_questions + links — তিনটি স্বাধীন কোয়েরি
-    // একসাথে। আগে সিরিয়ালে ~৬৫০ms শুধু অপেক্ষায় যেত।
-    const [examsRes, topicQuestionRows, linkRows] = await Promise.all([
-      supabase.from("exams").select("id, subject"),
-      fetchAllRows<any>(buildTopicQuestionsPage),
-      fetchAllRows<any>((from, to) =>
+    let examsRes: any, topicQuestionRows: any[] = [], linkRows: any[] = [];
+
+    // PERF: "সকল টপিক (মিক্সড)" হলে পুরো ডাটাবেস ডাউনলোড না করে শুধু কয়েকটি র‍্যান্ডম পেজ আনি
+    if (isAll && !unlimited) {
+      // শুধু ১০০০টি র‍্যান্ডম প্রশ্ন নিয়ে কাজ করি
+      const [{ count: tqCount }, { count: linkCount }] = await Promise.all([
+        supabase.from("topic_questions").select("*", { count: "exact", head: true }),
+        supabase.from("exam_questions_link").select("*", { count: "exact", head: true })
+      ]);
+      const maxTq = Math.max(0, (tqCount || 0) - 1000);
+      const randomTqFrom = Math.floor(Math.random() * (maxTq > 0 ? maxTq : 1));
+      
+      const maxLink = Math.max(0, (linkCount || 0) - 500);
+      const randomLinkFrom = Math.floor(Math.random() * (maxLink > 0 ? maxLink : 1));
+
+      const [eRes, tqRes, lRes] = await Promise.all([
+        supabase.from("exams").select("id, subject"),
+        buildTopicQuestionsPage(randomTqFrom, randomTqFrom + 999),
         supabase
           .from("exam_questions_link")
           .select("exam_id, order_index, question_bank!inner(id, q, opts, topic, correct, exp)")
           .order("exam_id", { ascending: true })
           .order("question_id", { ascending: true })
-          .range(from, to)
-      )
-    ]);
+          .range(randomLinkFrom, randomLinkFrom + 499)
+      ]);
+      examsRes = eRes;
+      topicQuestionRows = tqRes.data || [];
+      linkRows = lRes.data || [];
+    } else {
+      // নির্দিষ্ট টপিক বা কোশ্চেন ব্যাংকের জন্য পুরোটা (ilike দিয়ে ফিল্টার করা)
+      const [eRes, tqRes, lRes] = await Promise.all([
+        supabase.from("exams").select("id, subject"),
+        fetchAllRows<any>(buildTopicQuestionsPage),
+        fetchAllRows<any>((from, to) => {
+          let q = supabase
+            .from("exam_questions_link")
+            .select("exam_id, order_index, question_bank!inner(id, q, opts, topic, correct, exp)")
+            .order("exam_id", { ascending: true })
+            .order("question_id", { ascending: true })
+            .range(from, to);
+          if (topicLikePattern) {
+            q = q.ilike("question_bank.topic", topicLikePattern);
+          }
+          return q;
+        })
+      ]);
+      examsRes = eRes;
+      topicQuestionRows = tqRes;
+      linkRows = lRes;
+    }
+
     // নিচের ব্যবহারগুলো অপরিবর্তিত রাখতে পুরোনো আকারে মুড়ে দিই
     const tqRes = { data: topicQuestionRows };
     const linksRes = { data: linkRows };
@@ -376,3 +421,36 @@ export async function getPracticeQuestions(
     return [];
   }
 }
+
+/**
+ * প্রশ্নব্যাংকের জন্য পেজ-ভিত্তিক প্রশ্ন আনা।
+ * এতে শুধুমাত্র একটি পেজের প্রশ্ন নেটওয়ার্কে পাঠানো হয়, এবং মোট সংখ্যাটি metadata হিসেবে দেওয়া হয়।
+ */
+export async function getQuestionBankTopicQuestions(
+  selectedTopic: string,
+  page: number,
+  limit: number,
+  studentId?: string,
+  email?: string
+): Promise<{ questions: PracticeQuestion[]; metadata: { total: number } }> {
+  try {
+    // আগের মতোই সব প্রশ্ন জেনারেট/ক্যাশ করা হয়
+    const allQuestions = await getPracticeQuestions(selectedTopic, 0, studentId, email);
+    
+    // পেজ অনুযায়ী কাটা (pagination)
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedQuestions = allQuestions.slice(startIndex, endIndex);
+
+    return {
+      questions: paginatedQuestions,
+      metadata: {
+        total: allQuestions.length
+      }
+    };
+  } catch (err) {
+    console.error("Get paginated questions error:", err);
+    return { questions: [], metadata: { total: 0 } };
+  }
+}
+

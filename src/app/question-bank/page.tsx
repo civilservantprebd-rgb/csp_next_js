@@ -23,7 +23,7 @@ import {
   X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-actions";
+import { getPracticeTopics, getPracticeQuestions, getQuestionBankTopicQuestions } from "@/actions/practice-actions";
 import { verifyTeacherSession } from "@/actions/admin-actions";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { toBengaliDigits } from "@/lib/utils";
@@ -101,8 +101,8 @@ function writeTopicsCache(uid: string, list: TopicEntry[]): void {
   }
 }
 
-// রিডিং-এ একবারে রেন্ডার হওয়া প্রশ্নের সংখ্যা (সব লোড হয়; বাকিগুলো "আরও দেখুন"-এ আসে)
-const READ_CHUNK = 200;
+// রিডিং-এ একবারে রেন্ডার হওয়া প্রশ্নের সংখ্যা (এখন পেজ-বাই-পেজ আসে)
+const READ_CHUNK = 50;
 
 export default function QuestionBankPage() {
   const router = useRouter();
@@ -111,11 +111,16 @@ export default function QuestionBankPage() {
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [topicsLoaded, setTopicsLoaded] = useState(false);
   const [accessId, setAccessId] = useState("");
   const [accessEmail, setAccessEmail] = useState("");
+  const [questionCache, setQuestionCache] = useState<Record<string, { qs: BankQ[]; total: number }>>({});
 
   // রিডিং স্টেট
   const [questions, setQuestions] = useState<BankQ[]>([]);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedLabel, setSelectedLabel] = useState("");
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [fullscreen, setFullscreen] = useState(false);
@@ -195,6 +200,15 @@ export default function QuestionBankPage() {
 
     (async () => {
       try {
+        // দ্রুত খোলা: পরিচয় ঠিক হলেই লোকাল cache-এর তালিকা সাথে সাথে দেখাই (Optimistic UI) —
+        // এতে নেটওয়ার্ক কলের (verifyTeacherSession) জন্য পেজ আটকে থাকবে না।
+        const cached = readTopicsCache(u.uid || u.email);
+        if (cached && cached.length > 0) {
+          setEntries(cached);
+          // লোকাল ক্যাশে ডেটা থাকলে প্রাথমিকভাবে ধরে নিই সে এনরোল্ড (পরে ভুল হলে আপডেট হবে)
+          setEnrolled(true);
+        }
+
         const teacher = await verifyTeacherSession();
         // কার্যকর পরিচয়: Google uid/email-ই প্রথম। এতে এনরোলমেন্ট না মিললে
         // আগে যাচাই-কৃত (ফোন/ম্যানুয়াল) পরিচয় দিয়ে চেষ্টা — পুরনো
@@ -204,6 +218,7 @@ export default function QuestionBankPage() {
         if (!teacher.ok) {
           const { checkEnrollmentCached } = await import("@/lib/access-cache");
           let allowed = false;
+          // "ALL" (বা ফাঁকা) দিয়ে চেক করলে, যেকোনো একটি কোর্সে এনরোল থাকলেই allowed = true আসবে
           const g = await checkEnrollmentCached(u.uid, u.email);
           if (g.allowed) {
             allowed = true;
@@ -232,19 +247,13 @@ export default function QuestionBankPage() {
         // store "storage" ইভেন্ট দেয়, তাতেই readKeys/totalReads হালনাগাদ হয়।
         void syncStudentReads(effId || u.uid).catch(() => {});
 
-        // দ্রুত খোলা: পরিচয় ঠিক হলেই লোকাল cache-এর তালিকা সাথে সাথে দেখাই —
-        // তারপর পেছনে সার্ভার থেকে নতুন কাউন্ট এনে cache হালনাগাদ হয়।
-        const cached = readTopicsCache(effId || effEmail);
-        if (cached && cached.length > 0) {
-          setEntries(cached);
-        }
-
         const t = await getPracticeTopics(effId, effEmail);
         const mapped = (t || []).map((x: { name: string; count: number }) => ({
           name: x.name,
           count: x.count
         }));
         setEntries(mapped);
+        setTopicsLoaded(true);
         if (mapped.length > 0) {
           writeTopicsCache(effId || effEmail, mapped);
         }
@@ -257,13 +266,36 @@ export default function QuestionBankPage() {
 
   const openTopic = async (value: string, label: string) => {
     if (!user) return;
+    
+    // ক্যাশে থাকলে সাথে সাথে দেখাই, সার্ভারে যাওয়ার দরকার নেই
+    if (questionCache[value]) {
+      setQuestions(questionCache[value].qs);
+      setTotalQuestions(questionCache[value].total);
+      setCurrentPage(1);
+      setSelectedLabel(label);
+      setVisibleCount(READ_CHUNK);
+      setFullscreen(false);
+      setFilter("all");
+      setCollection(null);
+      setTimeout(() => {
+        questionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+      return;
+    }
+
     setBusy(true);
     setLoadError("");
     setRevealed(new Set());
     try {
-      // count=0 → সার্ভার থেকে এই নির্বাচনের (গ্রুপ/টপিক/সাবটপিক) সব প্রশ্ন আসে —
-      // ৫০-এর ক্যাপ ছাড়া। খালি value = সব টপিক।
-      const qs = await getPracticeQuestions(value, 0, accessId || user.uid, accessEmail || user.email);
+      // প্রথম পেজ (১) এবং READ_CHUNK সংখ্যক প্রশ্ন আনা হয় + metadata.total
+      const { questions: qs, metadata } = await getQuestionBankTopicQuestions(
+        value,
+        1,
+        READ_CHUNK,
+        accessId || user.uid,
+        accessEmail || user.email
+      );
+
       if (!qs || qs.length === 0) {
         setLoadError(
           "এই নির্বাচনে বর্তমানে দেখানোর মতো প্রশ্ন পাওয়া যায়নি — নির্ধারিত (লাইভ) পরীক্ষার প্রশ্ন ফলাফল প্রকাশের আগে প্রশ্নব্যাংকে দেখানো হয় না। অন্য বিষয়/টপিক বেছে নিন।"
@@ -272,6 +304,9 @@ export default function QuestionBankPage() {
         return;
       }
       setQuestions(qs);
+      setTotalQuestions(metadata.total);
+      setQuestionCache((prev) => ({ ...prev, [value]: { qs, total: metadata.total } }));
+      setCurrentPage(1);
       setSelectedLabel(label);
       setVisibleCount(READ_CHUNK);
       setFullscreen(false);
@@ -288,12 +323,44 @@ export default function QuestionBankPage() {
 
   const backToBank = () => {
     setQuestions([]);
+    setTotalQuestions(0);
+    setCurrentPage(1);
     setLoadError("");
     setRevealed(new Set());
     setFullscreen(false);
     setVisibleCount(READ_CHUNK);
     setFilter("all");
     setCollection(null);
+  };
+
+  const loadMoreQuestions = async () => {
+    if (!user || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const nextPage = currentPage + 1;
+      const topicKey = activeGroupPath || selectedLabel;
+      const { questions: newQs, metadata } = await getQuestionBankTopicQuestions(
+        topicKey,
+        nextPage,
+        READ_CHUNK,
+        accessId || user.uid,
+        accessEmail || user.email
+      );
+      if (newQs && newQs.length > 0) {
+        setQuestions((prev) => {
+          const combined = [...prev, ...newQs];
+          // নতুন আনা প্রশ্নগুলোও ক্যাশে সেভ করে রাখি
+          setQuestionCache((c) => ({ ...c, [topicKey]: { qs: combined, total: metadata.total } }));
+          return combined;
+        });
+        setCurrentPage(nextPage);
+        setTotalQuestions(metadata.total);
+        setVisibleCount((v) => v + READ_CHUNK);
+      }
+    } catch {
+      // নীরবে ব্যর্থ হলে সমস্যা নেই, ইউজার আবার চাপতে পারবে
+    }
+    setIsLoadingMore(false);
   };
 
   // ── পড়া-চিহ্ন (✓) / বুকমার্ক / সংগ্রহ ───────────────────────────────────
@@ -367,6 +434,8 @@ export default function QuestionBankPage() {
           topic: i.topic
         }))
       );
+      setTotalQuestions(items.length);
+      setCurrentPage(1);
       setCollection(kind);
       setFilter("all");
       setSelectedLabel(kind === "bookmarks" ? "আমার বুকমার্ক" : "পড়া হয়েছে");
@@ -651,27 +720,32 @@ export default function QuestionBankPage() {
         </div>
       )}
 
-      {visibleCount < visibleQuestions.length && (
+      {(questions.length < totalQuestions || visibleCount < visibleQuestions.length) && (
         <div className="flex flex-col items-center gap-2.5 pt-2 pb-4">
           <p className="text-[11px] font-bold text-slate-400">
-            মোট {toBengaliDigits(visibleQuestions.length)}টির মধ্যে {toBengaliDigits(visibleCount)}টি দেখানো হচ্ছে
+            মোট {toBengaliDigits(totalQuestions)}টির মধ্যে {toBengaliDigits(Math.min(visibleCount, visibleQuestions.length))}টি দেখানো হচ্ছে
           </p>
           <div className="flex items-center gap-2 flex-wrap justify-center">
-            <button
-              type="button"
-              onClick={() => setVisibleCount((v) => Math.min(visibleQuestions.length, v + READ_CHUNK))}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition"
-            >
-              <BookOpen className="w-4 h-4" /> আরও{" "}
-              {toBengaliDigits(Math.min(READ_CHUNK, visibleQuestions.length - visibleCount))}টি প্রশ্ন দেখুন
-            </button>
-            <button
-              type="button"
-              onClick={() => setVisibleCount(visibleQuestions.length)}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs cursor-pointer transition"
-            >
-              সবগুলো দেখান ({toBengaliDigits(visibleQuestions.length)}টি)
-            </button>
+            {visibleCount < visibleQuestions.length ? (
+              <button
+                type="button"
+                onClick={() => setVisibleCount((v) => Math.min(visibleQuestions.length, v + READ_CHUNK))}
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition"
+              >
+                <BookOpen className="w-4 h-4" /> আরও{" "}
+                {toBengaliDigits(Math.min(READ_CHUNK, visibleQuestions.length - visibleCount))}টি প্রশ্ন দেখুন
+              </button>
+            ) : questions.length < totalQuestions ? (
+              <button
+                type="button"
+                onClick={loadMoreQuestions}
+                disabled={isLoadingMore}
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+              >
+                {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+                সার্ভার থেকে আরও {toBengaliDigits(Math.min(READ_CHUNK, totalQuestions - questions.length))}টি প্রশ্ন আনুন
+              </button>
+            ) : null}
           </div>
         </div>
       )}
@@ -847,6 +921,13 @@ export default function QuestionBankPage() {
         {user && enrolled === true && questions.length === 0 && (
           <section className="space-y-5">
             {tree.length === 0 ? (
+              !topicsLoaded ? (
+                <LoadingState
+                  label="টপিক লোড হচ্ছে..."
+                  hint="আপনার পড়ার জন্য টপিক প্রস্তুত করা হচ্ছে"
+                  variant="card"
+                />
+              ) : (
               <div className="bg-white rounded-3xl p-8 sm:p-10 border border-slate-200 shadow-sm text-center space-y-3">
                 <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-2xl mx-auto flex items-center justify-center">
                   <BookOpen className="w-6 h-6" />
@@ -863,6 +944,7 @@ export default function QuestionBankPage() {
                   <RotateCcw className="w-4 h-4" /> আবার চেষ্টা করুন
                 </button>
               </div>
+              )
             ) : (
               <>
                 {/* আমার সংগ্রহ — বুকমার্ক ও পড়া-হয়েছে প্রশ্ন সব টপিক মিলিয়ে */}
@@ -1041,7 +1123,7 @@ export default function QuestionBankPage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="font-black text-slate-900 text-sm sm:text-base leading-snug truncate">{selectedLabel}</h2>
                   <p className="text-[11px] text-slate-400 font-semibold">
-                    {toBengaliDigits(questions.length)}টি প্রশ্ন • পড়া {toBengaliDigits(readCount)}টি • বুকমার্ক {toBengaliDigits(bookmarkedCount)}টি
+                    {toBengaliDigits(totalQuestions)}টি প্রশ্ন • পড়া {toBengaliDigits(readCount)}টি • বুকমার্ক {toBengaliDigits(bookmarkedCount)}টি
                   </p>
                 </div>
               </div>
@@ -1092,7 +1174,7 @@ export default function QuestionBankPage() {
                   </button>
                   <h2 className="font-black text-slate-900 text-sm sm:text-base truncate mt-1">{selectedLabel}</h2>
                   <p className="text-xs text-slate-400 font-semibold">
-                    {toBengaliDigits(visibleQuestions.length)}টি প্রশ্ন • পড়া {toBengaliDigits(readCount)}টি • বুকমার্ক{" "}
+                    {toBengaliDigits(totalQuestions)}টি প্রশ্ন • পড়া {toBengaliDigits(readCount)}টি • বুকমার্ক{" "}
                     {toBengaliDigits(bookmarkedCount)}টি
                   </p>
                 </div>
