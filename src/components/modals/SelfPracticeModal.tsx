@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { PracticeQuestion } from "@/lib/practice-helper";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 
 interface SelfPracticeModalProps {
   isOpen: boolean;
@@ -270,7 +271,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
           )}
         </div>
         <h4 className="mt-1.5 text-[13px] sm:text-sm font-bold text-slate-900 leading-snug">
-          {currentQ.q}
+          <MathText text={currentQ.q} />
         </h4>
       </div>
 
@@ -306,7 +307,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
               >
                 {optLabels[optIdx]}
               </span>
-              <span className="flex-1 leading-snug">{opt}</span>
+              <span className="flex-1 leading-snug"><MathText text={opt} /></span>
               {isCurrentAnswered && (isCorrect ? (
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               ) : isSelected ? (
@@ -323,12 +324,12 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-900">
             <HelpCircle className="w-3.5 h-3.5" />
             <span>
-              সঠিক উত্তর: ({optLabels[currentQ.correct]}) {currentQ.opts[currentQ.correct]}
+              সঠিক উত্তর: ({optLabels[currentQ.correct]}) <MathText text={currentQ.opts[currentQ.correct]} />
             </span>
           </div>
           {currentQ.exp && (
             <p className="text-[11px] text-slate-700 leading-relaxed pt-0.5 whitespace-pre-wrap">
-              <strong>ব্যাখ্যা:</strong> {currentQ.exp}
+              <strong>ব্যাখ্যা:</strong> <MathText text={currentQ.exp} />
             </p>
           )}
         </div>
@@ -415,7 +416,7 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
-                      {toBengaliDigits(qIdx + 1)}. {q.q}
+                      {toBengaliDigits(qIdx + 1)}. <MathText text={q.q} />
                     </span>
                     {isCorrect ? (
                       <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
@@ -444,14 +445,14 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                               : "bg-white border-slate-200/80 text-slate-700"
                           }`}
                         >
-                          ({optLabels[optIdx]}) {opt}
+                          ({optLabels[optIdx]}) <MathText text={opt} />
                         </div>
                       );
                     })}
                   </div>
                   {q.exp && (
                     <div className="p-3 bg-white/80 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                      <strong>ব্যাখ্যা:</strong> {q.exp}
+                      <strong>ব্যাখ্যা:</strong> <MathText text={q.exp} />
                     </div>
                   )}
                 </div>

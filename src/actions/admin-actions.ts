@@ -1272,31 +1272,72 @@ export async function getArchivedQuestions(): Promise<ArchivedQuestion[]> {
   }
 }
 
-export async function permanentDeleteArchivedQuestions(ids: string[]): Promise<boolean> {
+/**
+ * আর্কাইভ থেকে চিরতরে মুছে ফেলা।
+ *
+ * ⚠️ আগে এই ফাংশন **সবসময় `true` ফেরাত** — ভেতরের upsert/delete ব্যর্থ হলেও
+ * এরর চেপে যেত আর UI "সফলভাবে মুছে ফেলা হয়েছে" দেখাত, অথচ প্রশ্নটা ওখানেই
+ * থাকত। এখন প্রতিটি ধাপের ফল পরীক্ষা করা হয়, কারণ ফেরত দেওয়া হয়, আর
+ * সার্ভার-লগে সারসংক্ষেপ লেখা হয় (কোনোদিন আটকালে লগ থেকেই ধরা পড়বে)।
+ */
+export async function permanentDeleteArchivedQuestions(
+  ids: string[]
+): Promise<{ success: boolean; removed: number; message?: string }> {
   try {
     await requireTeacher();
-    const { data: settings } = await supabase
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return { success: false, removed: 0, message: "মুছে ফেলার জন্য কোনো প্রশ্ন নির্বাচন করা হয়নি।" };
+    }
+
+    const { data: settings, error: selErr } = await supabase
       .from("app_settings")
       .select("archived_questions")
       .eq("id", "main")
       .maybeSingle();
+    if (selErr) {
+      return { success: false, removed: 0, message: `আর্কাইভ পড়া যায়নি: ${selErr.message}` };
+    }
 
     const existingArchive: ArchivedQuestion[] = settings?.archived_questions || [];
     const idSet = new Set(ids);
     const updatedArchive = existingArchive.filter((q) => !idSet.has(q.id));
+    const removed = existingArchive.length - updatedArchive.length;
 
-    await supabase
-      .from("app_settings")
-      .upsert({ id: "main", archived_questions: updatedArchive });
+    if (removed > 0) {
+      const { error: upErr } = await supabase
+        .from("app_settings")
+        .upsert({ id: "main", archived_questions: updatedArchive });
+      if (upErr) {
+        return { success: false, removed: 0, message: `আর্কাইভ হালনাগাদ করা যায়নি: ${upErr.message}` };
+      }
+    }
 
-    // Also remove from question_bank permanently if still present
-    await supabase.from("question_bank").delete().in("id", ids);
+    // প্রশ্নব্যাংকে ঢুকে থাকলে সেটাও চিরতরে মুছে দেওয়া হয়
+    const { error: qbErr } = await supabase.from("question_bank").delete().in("id", ids);
+    if (qbErr) {
+      console.error("[archive-delete] question_bank ডিলিট ব্যর্থ:", qbErr.message);
+    }
+
+    console.log(
+      `[archive-delete] পাঠানো id=${ids.length} | আর্কাইভে আগে=${existingArchive.length} পরে=${updatedArchive.length} | সরানো=${removed} | question_bank=${qbErr ? "ERR" : "OK"}`
+    );
 
     invalidateConfigCache();
-    return true;
-  } catch (err) {
+
+    if (removed === 0) {
+      // id না মিললে কখনোই নীরব সফলতা দেখানো উচিত নয়
+      return {
+        success: false,
+        removed: 0,
+        message: "আর্কাইভে এই প্রশ্নটি খুঁজে পাওয়া যায়নি — তালিকা রিফ্রেশ করে আবার চেষ্টা করুন।",
+      };
+    }
+
+    return { success: true, removed };
+  } catch (err: any) {
     console.error("Permanent delete archived questions error:", err);
-    return false;
+    return { success: false, removed: 0, message: err?.message || "মুছে ফেলতে সমস্যা হয়েছে।" };
   }
 }
 
@@ -2281,6 +2322,48 @@ const splitTopicPath = (t: string | null | undefined) =>
 const normalizeTopicPath = (t: string | null | undefined) => splitTopicPath(t).join(TOPIC_PATH_SEP);
 
 /**
+ * একটা টেবিলের সব সারির `id, topic` আনা — **পৃষ্ঠা পৃষ্ঠা**।
+ *
+ * ⚠️ কেন `fetchAllRows` লাগে: PostgREST এক অনুরোধে সর্বোচ্চ ১০০০ সারি দেয়, আর
+ * বাকিগুলো **নীরবে বাদ পড়ে** (কোনো এরর নেই, status 200)। টপিক-ডিলিট/রিনেম
+ * আগে সরাসরি `.select("id, topic")` করত — তাই ১০০০-এর পরের প্রশ্নগুলো খুঁজে
+ * না পেয়ে কিছুই সরাত না, অথচ "✅ ডিলিট সম্পন্ন" দেখাত। বাগটা লাইভ ডেটায়
+ * ধরা পড়েছে: `topic_questions`-এ ১৪৩০ সারি, কিন্তু কোয়েরি ফেরাত মাত্র ১০০০।
+ */
+async function fetchTopicRows(table: "topic_questions" | "question_bank") {
+  return fetchAllRows<{ id: string; topic: string | null }>(
+    (from, to) =>
+      supabase
+        .from(table)
+        .select("id, topic")
+        .order("id", { ascending: true })
+        .range(from, to),
+    (err) => console.error(`টপিক-সারি আনা যায়নি (${table}):`, err)
+  );
+}
+
+/**
+ * অনেক প্রশ্নের টপিক একবারে বদলানো — ভাগে ভাগে, আর **এরর চেপে না রাখা**।
+ * (আগে `.in("id", ids)`-এর এরর নীরবে উপেক্ষা করা হতো, তাই ব্যর্থ হলেও
+ * সফল বলে দেখানো হতো।)
+ */
+async function updateTopicByIds(
+  table: "topic_questions" | "question_bank",
+  ids: string[],
+  topic: string
+): Promise<{ moved: number; error?: string }> {
+  const CHUNK = 150; // খুব লম্বা `.in(...)` URL-সীমায় আটকে যেতে পারে
+  let moved = 0;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const batch = ids.slice(i, i + CHUNK);
+    const { error } = await supabase.from(table).update({ topic }).in("id", batch);
+    if (error) return { moved, error: error.message };
+    moved += batch.length;
+  }
+  return { moved };
+}
+
+/**
  * Delete a topic (or subtopic) node. The questions under it (and its
  * descendants) are NOT deleted — they move to the "সাধারণ" (General) topic,
  * from where they can be re-allocated later.
@@ -2300,24 +2383,21 @@ export async function deleteTopicNode(
       return norm === path || norm.startsWith(path + TOPIC_PATH_SEP);
     };
 
-    // 1. Move matching topic_questions to "সাধারণ"
-    const { data: tqRows } = await supabase.from("topic_questions").select("id, topic");
-    const tqIds: string[] = [];
-    (tqRows || []).forEach((r: any) => {
-      if (isMatch(r.topic)) tqIds.push(r.id);
-    });
+    // 1. Move matching topic_questions to "সাধারণ" (পৃষ্ঠা পৃষ্ঠা, নইলে ১০০০-এর
+    //    পরের প্রশ্নগুলো নীরবে বাদ পড়ে — এটাই ছিল "ডিলিট হয় না" বাগের কারণ)
+    const tqRows = await fetchTopicRows("topic_questions");
+    const tqIds = tqRows.filter((r) => isMatch(String(r.topic ?? ""))).map((r) => r.id);
     if (tqIds.length > 0) {
-      await supabase.from("topic_questions").update({ topic: "সাধারণ" }).in("id", tqIds);
+      const res = await updateTopicByIds("topic_questions", tqIds, "সাধারণ");
+      if (res.error) return { success: false, message: `প্রশ্নগুলো সরানো যায়নি: ${res.error}` };
     }
 
     // 2. Same for question_bank
-    const { data: qbRows } = await supabase.from("question_bank").select("id, topic");
-    const qbIds: string[] = [];
-    (qbRows || []).forEach((r: any) => {
-      if (isMatch(r.topic)) qbIds.push(r.id);
-    });
+    const qbRows = await fetchTopicRows("question_bank");
+    const qbIds = qbRows.filter((r) => isMatch(String(r.topic ?? ""))).map((r) => r.id);
     if (qbIds.length > 0) {
-      await supabase.from("question_bank").update({ topic: "সাধারণ" }).in("id", qbIds);
+      const res = await updateTopicByIds("question_bank", qbIds, "সাধারণ");
+      if (res.error) return { success: false, message: `প্রশ্নগুলো সরানো যায়নি: ${res.error}` };
     }
 
     // 3. Remove the node (and descendants) from the registered topics list
@@ -2332,7 +2412,8 @@ export async function deleteTopicNode(
       return norm !== path && !norm.startsWith(path + TOPIC_PATH_SEP);
     });
     if (kept.length !== currentTopics.length) {
-      await supabase.from("app_settings").upsert({ id: "main", topics: kept });
+      const { error: upErr } = await supabase.from("app_settings").upsert({ id: "main", topics: kept });
+      if (upErr) return { success: false, message: `টপিক-তালিকা থেকে বাদ দেওয়া যায়নি: ${upErr.message}` };
     }
 
     invalidateConfigCache();
@@ -2382,15 +2463,18 @@ export async function renameTopicNode(
 
     let renamed = 0;
 
-    const { data: tqRows } = await supabase.from("topic_questions").select("id, topic");
-    for (const g of buildUpdates(tqRows || [])) {
-      await supabase.from("topic_questions").update({ topic: g.topic }).in("id", g.ids);
+    // পৃষ্ঠা পৃষ্ঠা আনা হয় — ১০০০-সারির সীমায় পড়ে টপিক হারানো যাবে না
+    const tqRows = await fetchTopicRows("topic_questions");
+    for (const g of buildUpdates(tqRows)) {
+      const res = await updateTopicByIds("topic_questions", g.ids, g.topic);
+      if (res.error) return { success: false, message: `রিনেম করা যায়নি: ${res.error}` };
       renamed += g.ids.length;
     }
 
-    const { data: qbRows } = await supabase.from("question_bank").select("id, topic");
-    for (const g of buildUpdates(qbRows || [])) {
-      await supabase.from("question_bank").update({ topic: g.topic }).in("id", g.ids);
+    const qbRows = await fetchTopicRows("question_bank");
+    for (const g of buildUpdates(qbRows)) {
+      const res = await updateTopicByIds("question_bank", g.ids, g.topic);
+      if (res.error) return { success: false, message: `রিনেম করা যায়নি: ${res.error}` };
       renamed += g.ids.length;
     }
 
@@ -2408,7 +2492,8 @@ export async function renameTopicNode(
       return t;
     });
     if (JSON.stringify(updated) !== JSON.stringify(currentTopics)) {
-      await supabase.from("app_settings").upsert({ id: "main", topics: updated });
+      const { error: upErr } = await supabase.from("app_settings").upsert({ id: "main", topics: updated });
+      if (upErr) return { success: false, message: `টপিক-তালিকা হালনাগাদ করা যায়নি: ${upErr.message}` };
     }
 
     invalidateConfigCache();

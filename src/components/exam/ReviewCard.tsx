@@ -4,6 +4,7 @@ import React from "react";
 import { QuestionItem, QuestionSolution } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
 import { BookmarkButton } from "@/components/shared/BookmarkButton";
+import { MathText } from "@/lib/MathText";
 
 interface ReviewCardProps {
   questions: QuestionItem[];
@@ -40,7 +41,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
             <div className="flex justify-between items-start gap-3 flex-wrap sm:flex-nowrap">
               <div className="space-y-1 flex-grow">
                 <h4 className="font-bold text-base sm:text-lg text-slate-900 leading-relaxed">
-                  {toBengaliDigits(idx + 1)}. {q.q}
+                  {toBengaliDigits(idx + 1)}. <MathText text={q.q} />
                 </h4>
                 {q.topic && (
                   <span className="inline-block text-xs bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-0.5 rounded-md border border-indigo-100">
@@ -71,17 +72,18 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
               <p className="text-lg sm:text-xl text-slate-700">
                 <strong>আপনার উত্তর:</strong>{" "}
                 <span className={ans !== sol.correct ? "text-rose-600 font-bold" : ""}>
-                  {ans !== null && q.opts[ans] ? q.opts[ans] : "দেওয়া হয়নি"}
+                  {ans !== null && q.opts[ans] ? <MathText text={q.opts[ans]} /> : "দেওয়া হয়নি"}
                 </span>
               </p>
               <p className="text-lg sm:text-xl text-emerald-700 font-bold">
-                <strong>সঠিক উত্তর:</strong> {q.opts[sol.correct] || "—"}
+                <strong>সঠিক উত্তর:</strong>{" "}
+                {q.opts[sol.correct] ? <MathText text={q.opts[sol.correct]} /> : "—"}
               </p>
             </div>
 
             {sol.exp && (
               <div className="text-lg sm:text-xl text-slate-600 bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 leading-relaxed whitespace-pre-wrap">
-                <strong className="text-indigo-800 block mb-1">ব্যাখ্যা:</strong> {sol.exp}
+                <strong className="text-indigo-800 block mb-1">ব্যাখ্যা:</strong> <MathText text={sol.exp} />
               </div>
             )}
           </div>

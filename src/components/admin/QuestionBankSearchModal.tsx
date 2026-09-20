@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, Search, Plus, Check, Loader2, BookOpen, Layers } from "lucide-react";
 import { searchQuestionBank, linkQuestionToExam, getTopicTreeData } from "@/actions/admin-actions";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 
 interface QuestionBankSearchModalProps {
   isOpen: boolean;
@@ -269,7 +270,7 @@ export const QuestionBankSearchModal: React.FC<QuestionBankSearchModalProps> = (
                       }`}
                     >
                       <div className="flex-1 min-w-0 space-y-1 text-xs text-slate-700">
-                        <p className="font-bold text-slate-900 text-sm leading-relaxed">{q.q}</p>
+                        <p className="font-bold text-slate-900 text-sm leading-relaxed"><MathText text={q.q} /></p>
                         {q.topic && (
                           <span className="inline-block bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-full font-bold">
                             {q.topic}

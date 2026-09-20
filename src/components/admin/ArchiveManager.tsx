@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { ArchivedQuestion, Exam } from "@/types/exam";
@@ -23,6 +23,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { formatBangladeshDate, toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 
 interface ArchiveManagerProps {
   exams: Record<string, Exam>;
@@ -81,16 +82,16 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
     if (!confirm(confirmMsg)) return;
 
     setIsProcessing(true);
-    const ok = await permanentDeleteArchivedQuestions(idsToDelete);
+    const res = await permanentDeleteArchivedQuestions(idsToDelete);
     setIsProcessing(false);
 
-    if (ok) {
+    if (res.success) {
       alert("সফলভাবে ডাটাবেজ থেকে চিরতরে মুছে ফেলা হয়েছে।");
+      setArchived((prev) => prev.filter((item) => !idsToDelete.includes(item.id)));
       setSelectedIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
       await loadArchive();
       onRefresh();
-    } else {
-      alert("মুছে ফেলতে সমস্যা হয়েছে।");
+    } else { alert(res.message || "মুছে ফেলতে সমস্যা হয়েছে।");
     }
   };
 
@@ -278,7 +279,7 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                          {toBengaliDigits(idx + 1)}. {item.q}
+                          {toBengaliDigits(idx + 1)}. <MathText text={item.q} />
                         </span>
                       </div>
 
@@ -355,14 +356,14 @@ export const ArchiveManager: React.FC<ArchiveManagerProps> = ({
                       <span className="text-slate-400 font-mono text-xs">
                         {toBengaliDigits(oIdx + 1)})
                       </span>
-                      <span>{opt}</span>
+                      <span><MathText text={opt} /></span>
                     </div>
                   ))}
                 </div>
 
                 {item.exp && (
                   <p className="text-xs text-indigo-800 bg-indigo-50/70 p-2 rounded-xl border border-indigo-100 whitespace-pre-wrap">
-                    💡 <strong>ব্যাখ্যা:</strong> {item.exp}
+                    💡 <strong>ব্যাখ্যা:</strong> <MathText text={item.exp} />
                   </p>
                 )}
               </div>

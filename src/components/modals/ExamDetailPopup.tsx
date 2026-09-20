@@ -9,6 +9,7 @@ import { formatBangladeshClock, toBengaliDigits } from "@/lib/utils";
 
 import { BookmarkButton } from "@/components/shared/BookmarkButton";
 import { saveMistakesFromSubmission } from "@/lib/mistake-bookmark-store";
+import { MathText } from "@/lib/MathText";
 
 interface ExamDetailPopupProps {
   isOpen: boolean;
@@ -216,7 +217,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                     <div className="flex items-start justify-between gap-2">
                       <h4 className="font-black text-slate-900 text-sm sm:text-base leading-relaxed">
                         <span className="text-indigo-600 mr-1.5">{toBengaliDigits(qIdx + 1)}.</span>
-                        {q.q}
+                        <MathText text={q.q} />
                       </h4>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <BookmarkButton
@@ -251,7 +252,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                             <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0 bg-slate-800 text-white">
                               {optLabels[oIdx]}
                             </span>
-                            <span className="flex-1">{opt}</span>
+                            <span className="flex-1"><MathText text={opt} /></span>
                             {isAns && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                             {isStudent && !isAns && <XCircle className="w-4 h-4 text-rose-600 shrink-0" />}
                           </div>
@@ -264,13 +265,19 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                       <span className="text-slate-600">
                         আপনার উত্তর:{" "}
                         <strong className={isCorrect ? "text-emerald-700" : isSkipped ? "text-slate-400" : "text-rose-700"}>
-                          {isSkipped ? "দেওয়া হয়নি" : `${optLabels[studentAnsIdx!]} (${q.opts[studentAnsIdx!] || "—"})`}
+                          {isSkipped ? (
+                            "দেওয়া হয়নি"
+                          ) : (
+                            <>
+                              {optLabels[studentAnsIdx!]} (<MathText text={q.opts[studentAnsIdx!] || "—"} />)
+                            </>
+                          )}
                         </strong>
                       </span>
                       <span className="text-emerald-700">
                         সঠিক উত্তর:{" "}
                         <strong>
-                          {optLabels[sol.correct]} ({q.opts[sol.correct] || "—"})
+                          {optLabels[sol.correct]} (<MathText text={q.opts[sol.correct] || "—"} />)
                         </strong>
                       </span>
                     </div>
@@ -279,7 +286,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                     {sol.exp && (
                       <div className="mt-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                         <strong className="text-amber-900 block mb-0.5">ব্যাখ্যা:</strong>
-                        {sol.exp}
+                        <MathText text={sol.exp} />
                       </div>
                     )}
                   </div>

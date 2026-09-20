@@ -26,6 +26,7 @@ import {
 import { getStudentSubmissions, updateStudentName } from "@/actions/student-actions";
 import { Submission } from "@/types/submission";
 import { toBengaliDigits, shuffleArray, compareExamsByStartTime, formatBangladeshDate } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
 import { Exam } from "@/types/exam";
 import {
@@ -854,7 +855,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                             )}
                           </div>
                           <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
-                            {toBengaliDigits(idx + 1)}. {m.q}
+                            {toBengaliDigits(idx + 1)}. <MathText text={m.q} />
                           </h4>
                         </div>
 
@@ -896,7 +897,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                               }`}
                             >
                               <span>
-                                ({optLabels[optIdx]}) {opt}
+                                ({optLabels[optIdx]}) <MathText text={opt} />
                               </span>
                               {isCorrect && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
                               {isUserWrong && <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
@@ -907,7 +908,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
                       {m.exp && (
                         <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                          <strong>ব্যাখ্যা:</strong> {m.exp}
+                          <strong>ব্যাখ্যা:</strong> <MathText text={m.exp} />
                         </div>
                       )}
                     </div>
@@ -975,7 +976,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                             </span>
                           )}
                           <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
-                            {toBengaliDigits(idx + 1)}. {b.q}
+                            {toBengaliDigits(idx + 1)}. <MathText text={b.q} />
                           </h4>
                         </div>
 
@@ -1004,7 +1005,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                               }`}
                             >
                               <span>
-                                ({optLabels[optIdx]}) {opt}
+                                ({optLabels[optIdx]}) <MathText text={opt} />
                               </span>
                               {isCorrect && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
                             </div>
@@ -1014,7 +1015,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
                       {b.exp && (
                         <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                          <strong>ব্যাখ্যা:</strong> {b.exp}
+                          <strong>ব্যাখ্যা:</strong> <MathText text={b.exp} />
                         </div>
                       )}
                     </div>

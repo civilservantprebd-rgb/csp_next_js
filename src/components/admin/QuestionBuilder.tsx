@@ -11,6 +11,7 @@ import {
 import { getExamSolutions } from "@/actions/exam-actions";
 import { Plus, Trash2, Edit2, CheckCircle2, Layers, Tag, BookOpen, Upload, FileText, Sparkles } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
 import { AIQuestionGeneratorModal } from "./AIQuestionGeneratorModal";
 import { QuestionBankSearchModal } from "./QuestionBankSearchModal";
@@ -479,7 +480,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
                     <div className="space-y-1 flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-slate-800">
-                          {toBengaliDigits(idx + 1)}. {q.q}
+                          {toBengaliDigits(idx + 1)}. <MathText text={q.q} />
                         </p>
                         {q.topic && (
                           <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold border border-indigo-200">
@@ -488,7 +489,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
                         )}
                       </div>
                       <p className="text-emerald-700 font-medium">
-                        সঠিক উত্তর: {q.opts[sol.correct] || "—"}
+                        সঠিক উত্তর: <MathText text={q.opts[sol.correct] || "—"} />
                       </p>
                     </div>
                   </div>

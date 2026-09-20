@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { PracticeQuestion } from "@/lib/practice-helper";
 import { QuestionList } from "@/components/exam/QuestionList";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 import { CheckCheck, X, AlertCircle, CheckCircle2, Send, RotateCcw, LayoutGrid } from "lucide-react";
 
 interface SelfPracticeExamArenaProps {
@@ -141,7 +142,7 @@ export const SelfPracticeExamArena: React.FC<SelfPracticeExamArenaProps> = ({
                      </span>
                      <div className="flex-1 min-w-0">
                        <h4 className="font-bold text-slate-900 text-[15px] sm:text-base leading-relaxed mb-4">
-                         {q.q}
+                         <MathText text={q.q} />
                        </h4>
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                          {q.opts.map((opt, optIdx) => {
@@ -164,7 +165,7 @@ export const SelfPracticeExamArena: React.FC<SelfPracticeExamArenaProps> = ({
                                <span className="shrink-0 w-6 h-6 rounded-full bg-white flex items-center justify-center text-[10px] font-black border border-current opacity-80">
                                  {["ক", "খ", "গ", "ঘ"][optIdx] || optIdx + 1}
                                </span>
-                               <span className="text-[13px] sm:text-sm font-medium flex-1">{opt}</span>
+                               <span className="text-[13px] sm:text-sm font-medium flex-1"><MathText text={opt} /></span>
                                {icon && <span className="shrink-0">{icon}</span>}
                              </div>
                            );
@@ -172,9 +173,9 @@ export const SelfPracticeExamArena: React.FC<SelfPracticeExamArenaProps> = ({
                        </div>
                        
                        {q.exp && (
-                         <div className="mt-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 text-indigo-900 text-sm leading-relaxed">
+                         <div className="mt-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 text-indigo-900 text-sm leading-relaxed whitespace-pre-wrap">
                            <strong className="block mb-1 text-[11px] uppercase tracking-wider text-indigo-500">ব্যাখ্যা</strong>
-                           {q.exp}
+                           <MathText text={q.exp} />
                          </div>
                        )}
                      </div>

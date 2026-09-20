@@ -3,6 +3,7 @@
 import React from "react";
 import { QuestionItem } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 import { Check } from "lucide-react";
 
 interface QuestionListProps {
@@ -46,7 +47,7 @@ export const QuestionList: React.FC<QuestionListProps> = ({
                 {toBengaliDigits(qIdx + 1)}
               </span>
               <h3 className="font-bold text-slate-900 text-base sm:text-lg leading-relaxed flex-1 min-w-0">
-                {q.q}
+                <MathText text={q.q} />
               </h3>
             </div>
 
@@ -76,7 +77,7 @@ export const QuestionList: React.FC<QuestionListProps> = ({
                     >
                       {bengaliOptionLetters[optIndex] || optIndex + 1}
                     </span>
-                    <span className="text-sm sm:text-base font-medium leading-snug flex-1">{opt}</span>
+                    <span className="text-sm sm:text-base font-medium leading-snug flex-1"><MathText text={opt} /></span>
                     {isSelected && (
                       <span className="shrink-0 w-5 h-5 rounded-full bg-white flex items-center justify-center">
                         <Check className="w-3.5 h-3.5 text-indigo-700" strokeWidth={3} />

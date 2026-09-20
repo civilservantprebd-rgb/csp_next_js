@@ -24,6 +24,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
 import { AIQuestionGeneratorModal } from "./AIQuestionGeneratorModal";
 import { TopicTreeSelector } from "./TopicTreeSelector";
@@ -860,7 +861,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                     />
                     <div className="space-y-1">
                       <p className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
-                        {toBengaliDigits(idx + 1)}. {q.q}
+                        {toBengaliDigits(idx + 1)}. <MathText text={q.q} />
                       </p>
                       <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                         <span className="text-xs bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
@@ -894,14 +895,14 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                       <span className="text-slate-400 font-medium">
                         {oIdx === 0 ? "ক)" : oIdx === 1 ? "খ)" : oIdx === 2 ? "গ)" : "ঘ)"}
                       </span>
-                      <span className="truncate">{opt}</span>
+                      <span className="truncate"><MathText text={opt} /></span>
                     </div>
                   ))}
                 </div>
 
                 {q.exp && (
                   <p className="text-xs text-slate-500 bg-white p-2 rounded-lg border border-slate-100 leading-relaxed whitespace-pre-wrap">
-                    <strong>ব্যাখ্যা:</strong> {q.exp}
+                    <strong>ব্যাখ্যা:</strong> <MathText text={q.exp} />
                   </p>
                 )}
               </div>

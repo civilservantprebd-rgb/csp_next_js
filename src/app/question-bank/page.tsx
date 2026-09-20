@@ -27,6 +27,7 @@ import { getPracticeTopics, getPracticeQuestions } from "@/actions/practice-acti
 import { verifyTeacherSession } from "@/actions/admin-actions";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 import { buildTopicGroupTree, colorFor, pruneEmptyNodes, type HubNode } from "@/lib/topic-group";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { BookmarkButton } from "@/components/shared/BookmarkButton";
@@ -534,7 +535,7 @@ export default function QuestionBankPage() {
             className={`bg-white rounded-2xl p-4 border shadow-sm ${isRead ? "border-emerald-200" : "border-slate-200"}`}
           >
             <p className="text-sm font-bold text-slate-900 leading-relaxed">
-              {toBengaliDigits(idx + 1)}. {q.q}
+              {toBengaliDigits(idx + 1)}. <MathText text={q.q} />
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2.5">
               {q.opts.map((opt, oIdx) => {
@@ -555,7 +556,7 @@ export default function QuestionBankPage() {
                     }`}>
                       {optLabels[oIdx]}
                     </span>
-                    <span className="flex-1">{opt}</span>
+                    <span className="flex-1"><MathText text={opt} /></span>
                     {isOpen && isCorrect && (
                       <span className="ml-auto text-emerald-700 font-bold shrink-0">✓</span>
                     )}
@@ -618,7 +619,7 @@ export default function QuestionBankPage() {
               <div className="mt-2 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-slate-700 leading-relaxed flex gap-2 whitespace-pre-wrap">
                 <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong className="text-amber-900">ব্যাখ্যা:</strong> {q.exp}
+                  <strong className="text-amber-900">ব্যাখ্যা:</strong> <MathText text={q.exp} />
                 </span>
               </div>
             )}

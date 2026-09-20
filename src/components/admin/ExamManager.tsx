@@ -25,6 +25,7 @@ import {
   Loader2
 } from "lucide-react";
 import { toBengaliDigits, compareExamsByStartTime, formatBangladeshDate, formatBangladeshClock } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 
 /** প্রিভিউ/এডিটে দরকারি আকার: প্রশ্ন + (শিক্ষক-গেটেড) সঠিক উত্তর ও ব্যাখ্যা */
 type LoadedQuestion = QuestionItem & { correct?: number; exp?: string };
@@ -741,7 +742,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                 <div key={qi} className="bg-white rounded-2xl border border-slate-200 p-4">
                   <h4 className="font-black text-slate-900 text-sm sm:text-base leading-snug">
                     <span className="text-sky-600 mr-1.5">{toBengaliDigits(qi + 1)}.</span>
-                    {q.q}
+                    <MathText text={q.q} />
                   </h4>
                   <div className="mt-2.5 space-y-1.5">
                     {(q.opts || []).map((opt, oi) => {
@@ -765,7 +766,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                           >
                             {["ক", "খ", "গ", "ঘ"][oi] || oi + 1}
                           </span>
-                          <span className="flex-1">{opt}</span>
+                          <span className="flex-1"><MathText text={opt} /></span>
                           {isCorrect && (
                             <span className="text-[10px] font-black text-emerald-700 shrink-0">✔ সঠিক উত্তর</span>
                           )}
@@ -775,7 +776,7 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                   </div>
                   {q.exp ? (
                     <p className="mt-2 text-xs text-slate-600 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap">
-                      <b className="text-indigo-800">ব্যাখ্যা:</b> {q.exp}
+                      <b className="text-indigo-800">ব্যাখ্যা:</b> <MathText text={q.exp} />
                     </p>
                   ) : null}
                 </div>

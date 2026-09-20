@@ -19,6 +19,7 @@ import {
 import { PracticeQuestion } from "@/lib/practice-helper";
 import { PieChart } from "@/components/shared/PieChart";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 
 type LiveStats = { correct: number; wrong: number; skipped: number; total: number };
 
@@ -237,7 +238,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                     <div className="flex items-start justify-between gap-3">
                       <h4 className="font-bold text-slate-900 text-sm sm:text-base leading-relaxed">
                         <span className="text-indigo-600 mr-1.5">{toBengaliDigits(idx + 1)}.</span>
-                        {q.q}
+                        <MathText text={q.q} />
                       </h4>
                     </div>
 
@@ -261,7 +262,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                             >
                               {optLabels[oIdx]}
                             </span>
-                            <span>{opt}</span>
+                            <span><MathText text={opt} /></span>
                             {isCorrect && (
                               <CheckCircle2 className="w-4 h-4 text-emerald-600 ml-auto shrink-0" />
                             )}
@@ -276,7 +277,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                         <span className="font-bold text-amber-900 flex items-center gap-1 text-sm">
                           <Sparkles className="w-3 h-3 text-amber-600" /> সঠিক উত্তর ও ব্যাখ্যা:
                         </span>
-                        <p className="text-slate-800 whitespace-pre-wrap">{q.exp}</p>
+                        <p className="text-slate-800 whitespace-pre-wrap"><MathText text={q.exp} /></p>
                       </div>
                     )}
 
@@ -311,7 +312,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                   </div>
 
                   <h4 className="font-bold text-slate-900 text-base sm:text-lg leading-relaxed">
-                    {filteredQuestions[currentCardIdx].q}
+                    <MathText text={filteredQuestions[currentCardIdx].q} />
                   </h4>
 
                   <div className="space-y-2 text-xs sm:text-sm">
@@ -334,7 +335,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                           >
                             {optLabels[oIdx]}
                           </span>
-                          <span>{opt}</span>
+                          <span><MathText text={opt} /></span>
                           {isRevealed && isCorrect && (
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 ml-auto shrink-0" />
                           )}
@@ -346,7 +347,7 @@ export const TopicReadingModal: React.FC<TopicReadingModalProps> = ({
                   {revealedAnswers[currentCardIdx] && filteredQuestions[currentCardIdx].exp && (
                     <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-slate-800 leading-relaxed animate-in fade-in whitespace-pre-wrap">
                       <strong className="text-amber-900 block mb-1">ব্যাখ্যা:</strong>
-                      {filteredQuestions[currentCardIdx].exp}
+                      <MathText text={filteredQuestions[currentCardIdx].exp} />
                     </div>
                   )}
 

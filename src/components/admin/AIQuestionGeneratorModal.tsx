@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { generateMCQWithAI } from "@/actions/ai-actions";
 import { toBengaliDigits } from "@/lib/utils";
+import { MathText } from "@/lib/MathText";
 import { addBulkQuestionsToExam, addBulkQuestionsToBank } from "@/actions/admin-actions";
 
 interface AIQuestionGeneratorModalProps {
@@ -327,7 +328,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
                     >
                       <div className="font-bold text-slate-900 flex items-start gap-1.5">
                         <span className="text-indigo-600 shrink-0">{toBengaliDigits(idx + 1)}.</span>
-                        <span>{q.q}</span>
+                        <span><MathText text={q.q} /></span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 pl-4">
@@ -347,7 +348,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
                               }`}>
                                 {optLabels[optIdx]}
                               </span>
-                              <span className="truncate">{opt}</span>
+                              <span className="truncate"><MathText text={opt} /></span>
                             </div>
                           );
                         })}
@@ -355,7 +356,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
 
                       {sol.exp && (
                         <div className="mt-1 p-2 rounded-xl bg-amber-50/70 border border-amber-200/60 text-amber-900 text-sm leading-relaxed whitespace-pre-wrap">
-                          <strong className="text-amber-950">💡 ব্যাখ্যা:</strong> {sol.exp}
+                          <strong className="text-amber-950">💡 ব্যাখ্যা:</strong> <MathText text={sol.exp} />
                         </div>
                       )}
                     </div>

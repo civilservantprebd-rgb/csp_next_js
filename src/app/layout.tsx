@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+// প্রশ্ন/অপশন/ব্যাখ্যার LaTeX (LaTeX → KaTeX) রেন্ডারিংয়ের ফন্ট ও ক্লাস
+import "katex/dist/katex.min.css";
 import { Analytics } from "@vercel/analytics/next";
 import { TopLoadingBar } from "@/components/shared/TopLoadingBar";
 
