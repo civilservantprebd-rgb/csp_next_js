@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUserFromCookies } from '@/lib/teacher-auth';
 import { apiFail, resolveStudentProfile } from '@/lib/api-auth';
 import { supabase } from '@/lib/supabase';
-import { getExamCandidateRank } from '@/actions/exam-actions';
+import { getExamCandidateRanks } from '@/actions/exam-actions';
 import { isAnswerTimeReached, parseBangladeshDateTime } from '@/lib/bangladesh-time';
 import { examToDto, rowToExam } from '@/lib/exam-api';
 import { compareExamsByStartTime } from '@/lib/utils';
@@ -148,16 +148,32 @@ export async function GET(req: Request) {
       }
     }
 
-    const { data } = await supabase
-      .from('submissions')
-      // `is_live_submission` যোগ করা হলো: একই পরীক্ষা লাইভ আর প্র্যাকটিস —
-      // দুইভাবে দেওয়া যায়, আর কোন স্কোরটা কোনটা সেটা এই কলাম ছাড়া বোঝার উপায় নেই
-      // (ওয়েবের StudentDashboardModal-ও ঠিক এই ফিল্ডটাই দেখে)।
-      .select('exam_key, exam_title, score, time_spent, submitted_at, correct, incorrect, total_questions, is_pending_evaluation, is_live_submission')
-      .eq('student_id', uid)
-      .order('submitted_at', { ascending: false });
+    // সাবমিশন আর পুরো `exams` টেবিল — দুটোই স্বাধীন, তাই **একসাথে**।
+    // আগে `loadExamRowsForHistory()` নিচে আলাদা করে ডাকা হতো, অর্থাৎ একটা শেষ
+    // না হওয়া পর্যন্ত অন্যটা শুরুই হতো না — অথচ দুটোর মধ্যে কোনো নির্ভরতা নেই।
+    const [subRes, examRows] = await Promise.all([
+      supabase
+        .from('submissions')
+        // `is_live_submission` যোগ করা হলো: একই পরীক্ষা লাইভ আর প্র্যাকটিস —
+        // দুইভাবে দেওয়া যায়, আর কোন স্কোরটা কোনটা সেটা এই কলাম ছাড়া বোঝার উপায় নেই
+        // (ওয়েবের StudentDashboardModal-ও ঠিক এই ফিল্ডটাই দেখে)।
+        .select('exam_key, exam_title, score, time_spent, submitted_at, correct, incorrect, total_questions, is_pending_evaluation, is_live_submission')
+        .eq('student_id', uid)
+        .order('submitted_at', { ascending: false }),
+      loadExamRowsForHistory(),
+    ]);
 
-    const submissions: any[] = data || [];
+    const submissions: any[] = subRes.data || [];
+
+    // id → course — নিচের recentTests-এর `type` এবং পরীক্ষার ইতিহাস, দুটোতেই
+    // লাগে, আর টেবিলটা এই রিকোয়েস্টে একবারই এসেছে। আগে প্রতিটি সারির জন্য
+    // আলাদা করে `exams.single()` ডাকা হতো (লুপের ভেতরে, ক্রমিকভাবে)।
+    const courseByExamId = new Map<string, string>();
+    examRows.forEach((row: any) => {
+      const id = String(row?.id ?? '').trim();
+      const course = String(row?.course ?? '').trim();
+      if (id && course) courseByExamId.set(id, course);
+    });
 
     // Compute Syllabus Progress dynamically from exam_titles
     let subjectScores: Record<string, { total: number, count: number }> = {
@@ -183,13 +199,32 @@ export async function GET(req: Request) {
       avgScore = parseFloat((totalScore / modelTests).toFixed(1));
       
       const latestTest = submissions[0];
+
+      // ── র‍্যাঙ্ক: **এক ব্যাচে**, ক্রমিক নয় ──
+      //
+      // আগে এখানে দুবার আলাদা `await getExamCandidateRank(...)` হতো — একবার
+      // সর্বশেষ পরীক্ষার জন্য, আরেকবার নিচের লুপে প্রতিটির জন্য, একটা শেষ হলে
+      // পরেরটা শুরু করে। প্রতিটি কল আবার পুরো submission টেবিল টেনে আনত, আর
+      // প্রতিটি রাউন্ড-ট্রিপ ফাংশন-রিজিয়ন থেকে ডেটাবেস-রিজিয়ন পাড়ি দিত।
+      // এখন সব কুয়েরি একসাথে যায় (`getExamCandidateRanks`)।
+      const recentThree = submissions.slice(0, 3);
+      const rankTargets = recentThree.filter((t) => !t.is_pending_evaluation);
+      const rankResults = await getExamCandidateRanks(
+        rankTargets.map((t) => ({
+          examKey: String(t.exam_key ?? ''),
+          score: Number(t.score) || 0,
+          timeSpent: t.time_spent,
+        }))
+      );
+      // সারির পরিচয় ধরে ম্যাপ — একই পরীক্ষার লাইভ ও প্র্যাকটিস সারি আলাদা, তাই
+      // exam_key দিয়ে key করা যেত না।
+      const rankByRow = new Map<any, (typeof rankResults)[number]>();
+      rankTargets.forEach((t, i) => rankByRow.set(t, rankResults[i]));
+
+      // `meritPosition` = সর্বশেষ পরীক্ষার র‍্যাঙ্ক (আগের আচরণ অপরিবর্তিত)।
+      // `latestTest` === `recentThree[0]`, তাই আলাদা কুয়েরির দরকার নেই।
       if (!latestTest.is_pending_evaluation) {
-        try {
-          const { practiceRank } = await getExamCandidateRank(latestTest.exam_key, Number(latestTest.score) || 0, latestTest.time_spent);
-          meritPosition = practiceRank;
-        } catch (e) {
-          console.error("Error getting rank:", e);
-        }
+        meritPosition = rankByRow.get(latestTest)?.practiceRank ?? 0;
       }
 
       // Group by subject based on exam_title
@@ -211,26 +246,25 @@ export async function GET(req: Request) {
       });
 
       // Build recentTests
-      const recentThree = submissions.slice(0, 3);
       for (let i = 0; i < recentThree.length; i++) {
         const test = recentThree[i];
         let pos = test.is_pending_evaluation ? "অপেক্ষমান" : "N/A";
         let participants = 0;
-        
+
         if (!test.is_pending_evaluation) {
-          // Calculate rank for recent tests
-          try {
-            const { practiceRank, totalCandidates } = await getExamCandidateRank(test.exam_key, Number(test.score) || 0, test.time_spent);
-            pos = toBn(practiceRank) + " তম";
-            participants = totalCandidates;
-          } catch(e) {}
+          // উপরে ব্যাচে আনা র‍্যাঙ্ক — এখানে আর কোনো কুয়েরিই নেই
+          const info = rankByRow.get(test);
+          if (info) {
+            pos = toBn(info.practiceRank) + " তম";
+            participants = info.totalCandidates;
+          }
         }
-        
+
         let type = "মডেল টেস্ট";
-        try {
-          const { data: examData } = await supabase.from('exams').select('course').eq('id', test.exam_key).single();
-          if (examData?.course) type = examData.course;
-        } catch(e) {}
+        // পুরো `exams` টেবিল এই রিকোয়েস্টেই আগেই এসেছে (`examRows`) — তাই
+        // প্রতিটি সারির জন্য আলাদা `.single()` কুয়েরির আর দরকার নেই।
+        const courseForRow = courseByExamId.get(String(test.exam_key ?? '').trim());
+        if (courseForRow) type = courseForRow;
         
         let badge = "গড় মান";
         const tq = test.total_questions || 0;
@@ -282,7 +316,8 @@ export async function GET(req: Request) {
 
     // সব পরীক্ষা এক ব্যাচে (হেল্পারটা উপরে) — প্রতি পরীক্ষায় আলাদা কোয়েরি নয়,
     // আর সাবমিশন-তালিকা খালি হলে `.in()` চালানোর প্রশ্নই ওঠে না।
-    const examRows = await loadExamRowsForHistory();
+    // `examRows` উপরে সাবমিশনের সাথে সমান্তরালেই আনা হয়ে গেছে — এখানে আবার
+    // ডাকলে ওটা আরেকটা অপ্রয়োজনীয় রাউন্ড-ট্রিপ হতো।
     const examRowById = new Map<string, any>();
     const examById = new Map<string, Exam>();
     examRows.forEach((row: any) => {

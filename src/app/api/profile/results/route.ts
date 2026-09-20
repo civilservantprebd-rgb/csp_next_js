@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiFail } from '@/lib/api-auth';
 import { supabase } from '@/lib/supabase';
-import { getExamCandidateRank } from '@/actions/exam-actions';
+import { getExamCandidateRanks, getExamCourseMap } from '@/actions/exam-actions';
 import { getSessionUserFromCookies } from '@/lib/teacher-auth';
 
 export async function GET(req: Request) {
@@ -42,25 +42,51 @@ export async function GET(req: Request) {
   const toBn = (n: number | string) => n.toString().replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
   let allTests: any[] = [];
 
-  if (data && data.length > 0) {
-    for (let i = 0; i < data.length; i++) {
-      const test = data[i];
+  const rows: any[] = data || [];
+
+  // ── র‍্যাঙ্ক ও কোর্স: **এক ব্যাচে**, লুপের ভেতরে নয় ──
+  //
+  // ⚠️ এখানেই N+1-এর সবচেয়ে খারাপ রূপটা ছিল। লুপটা শিক্ষার্থীর প্রতিটি
+  // submission-এর উপরে চলে, আর প্রতি ঘুরে **দুটো করে `await`** করত — একবার
+  // র‍্যাঙ্কের জন্য, আরেকবার কোর্সের জন্য। অর্থাৎ শিক্ষার্থীর পরীক্ষা যত,
+  // রাউন্ড-ট্রিপ তার **দ্বিগুণ**, সব ক্রমিক — আর প্রতিটি রাউন্ড-ট্রিপ
+  // ফাংশন-রিজিয়ন থেকে ডেটাবেস-রিজিয়ন পর্যন্ত পাড়ি দিত।
+  //
+  // এখন যা লাগবে সব আগেই ঠিক করে নেওয়া হয়: র‍্যাঙ্ক কুয়েরিগুলো একসাথে
+  // (`getExamCandidateRanks`), আর কোর্সগুলো এক কুয়েরিতে (`getExamCourseMap`)।
+  // লুপটা তখন নিছক মেমরি-লুকআপ।
+  const rankTargets = rows.filter((t) => !t.is_pending_evaluation);
+  const [rankResults, courseByExamId] = await Promise.all([
+    getExamCandidateRanks(
+      rankTargets.map((t) => ({
+        examKey: String(t.exam_key ?? ''),
+        score: Number(t.score) || 0,
+        timeSpent: t.time_spent,
+      }))
+    ),
+    getExamCourseMap(rows.map((t) => String(t.exam_key ?? ''))),
+  ]);
+  // সারির পরিচয় ধরে ম্যাপ — একই পরীক্ষার লাইভ ও প্র্যাকটিস সারি আলাদা।
+  const rankByRow = new Map<any, (typeof rankResults)[number]>();
+  rankTargets.forEach((t, i) => rankByRow.set(t, rankResults[i]));
+
+  if (rows.length > 0) {
+    for (let i = 0; i < rows.length; i++) {
+      const test = rows[i];
       let pos = test.is_pending_evaluation ? "অপেক্ষমান" : "N/A";
       let participants = 0;
-      
+
       if (!test.is_pending_evaluation) {
-        try {
-          const { practiceRank, totalCandidates } = await getExamCandidateRank(test.exam_key, Number(test.score) || 0, test.time_spent);
-          pos = toBn(practiceRank) + " তম";
-          participants = totalCandidates;
-        } catch(e) {}
+        const info = rankByRow.get(test);
+        if (info) {
+          pos = toBn(info.practiceRank) + " তম";
+          participants = info.totalCandidates;
+        }
       }
-      
+
       let type = "মডেল টেস্ট";
-      try {
-        const { data: examData } = await supabase.from('exams').select('course').eq('id', test.exam_key).single();
-        if (examData?.course) type = examData.course;
-      } catch(e) {}
+      const courseForRow = courseByExamId.get(String(test.exam_key ?? '').trim());
+      if (courseForRow) type = courseForRow;
       
       let badge = "গড় মান";
       const tq = test.total_questions || 0;

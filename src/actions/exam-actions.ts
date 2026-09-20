@@ -778,54 +778,224 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
   }
 }
 
+/** র‍্যাঙ্ক-গণনার জন্য দরকারি কলাম এতটুকুই — পুরো সারি নয়। */
+interface RankRow {
+  score?: unknown;
+  time_spent?: unknown;
+  is_live_submission?: unknown;
+}
+
+export interface ExamRankInfo {
+  practiceRank: number;
+  totalCandidates: number;
+  officialCandidates: number;
+}
+
+/** কুয়েরি ব্যর্থ, বা পরীক্ষার কোনো submission নেই — দুটোতেই আগের ফলাফলই। */
+const RANK_FALLBACK: ExamRankInfo = {
+  practiceRank: 1,
+  totalCandidates: 1,
+  officialCandidates: 0,
+};
+
+/**
+ * এক পরীক্ষার সব submission থেকে র‍্যাঙ্ক।
+ *
+ * ⚠️ `time_spent` একটি **মুক্ত টেক্সট** কলাম ("১২ মিনিট ৩০ সেকেন্ড", "45:30",
+ * "120") — তাই টাই-ব্রেকের তুলনাটা SQL-এ হয় না, `parseTimeSpentToSeconds` দিয়ে
+ * JS-এ করতেই হয়। ওই একটাই কারণ, যেজন্য পুরো সারিগুলো টানা হয়।
+ */
+function computeRank(
+  rows: RankRow[],
+  userScore: number,
+  userTimeSpent: string
+): ExamRankInfo {
+  let officialCandidates = 0;
+  const allSubmissions: { score: number; timeSecs: number }[] = [];
+
+  rows.forEach((row) => {
+    if (row.is_live_submission === true) {
+      officialCandidates++;
+    }
+    const sc = typeof row.score === "number" ? row.score : parseFloat(row.score as any) || 0;
+    allSubmissions.push({
+      score: sc,
+      timeSecs: parseTimeSpentToSeconds(row.time_spent as any),
+    });
+  });
+
+  const userTimeSecs = parseTimeSpentToSeconds(userTimeSpent);
+
+  let practiceRank = 1;
+  allSubmissions.forEach((cand) => {
+    if (cand.score > userScore) {
+      practiceRank++;
+    } else if (cand.score === userScore && cand.timeSecs < userTimeSecs) {
+      practiceRank++;
+    }
+  });
+
+  return {
+    practiceRank,
+    totalCandidates: Math.max(1, allSubmissions.length),
+    officialCandidates,
+  };
+}
+
+/**
+ * সীমিত সমান্তরালতায় ম্যাপ — একসাথে শত শত কুয়েরি ছুড়ে দিয়ে Supabase-এর
+ * কানেকশন-পুল চেপে বসা ঠেকাতে।
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      for (;;) {
+        const i = next++;
+        if (i >= items.length) return;
+        out[i] = await fn(items[i], i);
+      }
+    }
+  );
+  await Promise.all(workers);
+  return out;
+}
+
+/** একসাথে কতগুলো submission-কুয়েরি উড়বে। */
+const RANK_FETCH_CONCURRENCY = 8;
+
+/**
+ * **প্রতিটা পরীক্ষার জন্য একবার** submission আনে, এবং সেগুলো **সমান্তরালে**।
+ *
+ * ── কেন এটাই N+1-এর সমাধান ──
+ * আগে কলাররা (দুই প্রোফাইল রুট) র‍্যাঙ্ক-ফাংশনটা **লুপের ভেতরে `await`** করত,
+ * অর্থাৎ একটা শেষ না হলে পরেরটা শুরুই হতো না। `/api/profile/results`-এ সেটা ছিল
+ * শিক্ষার্থীর প্রতিটি submission-এর জন্য দুটো করে ক্রমিক রাউন্ড-ট্রিপ (র‍্যাঙ্ক +
+ * `exams`), আর প্রতিটি রাউন্ড-ট্রিপ ফাংশন-রিজিয়ন থেকে ডেটাবেস-রিজিয়ন পর্যন্ত
+ * পাড়ি দিত। ফলে শিক্ষার্থীর পরীক্ষা যত, অপেক্ষা তত — সরলরৈখিকভাবে।
+ *
+ * এখন একই কুয়েরিগুলোই চলে, কেবল **ক্রমিকের বদলে একসাথে**। তাই মোট অপেক্ষা
+ * প্রায় একটাই রাউন্ড-ট্রিপের, N-এর নয়।
+ *
+ * ⚠️ ইচ্ছাকৃতভাবে **এক কুয়েরিতে সব exam_key মেলানো হয়নি** (`.in(...)`)।
+ * PostgREST-এর ডিফল্ট সারি-সীমা ১০০০; অনেক পরীক্ষার সারি একসাথে আনলে ওই সীমায়
+ * কাটা পড়ে র‍্যাঙ্ক চুপচাপ **ভুল** হয়ে যেত (সবাইকে "১ম" দেখানোর ঝুঁকি)। প্রতি
+ * পরীক্ষায় আলাদা কুয়েরি রাখলে সীমাটা আগের মতোই প্রতি-পরীক্ষায় খাটে, অর্থাৎ
+ * কোনো নতুন আচরণ-পরিবর্তন নেই।
+ */
+export async function getExamCandidateRanks(
+  queries: { examKey: string; score: number; timeSpent: string }[]
+): Promise<ExamRankInfo[]> {
+  if (queries.length === 0) return [];
+
+  // একই পরীক্ষা একাধিকবার চাওয়া হলে (একই পরীক্ষার লাইভ ও প্র্যাকটিস সারি)
+  // কুয়েরিটা যেন একবারই যায় — নাহলে লাভটা অর্ধেক হয়ে যায়।
+  const uniqueKeys: string[] = [];
+  const seen = new Set<string>();
+  queries.forEach((q) => {
+    const key = String(q.examKey ?? "").trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    uniqueKeys.push(key);
+  });
+
+  if (uniqueKeys.length === 0) {
+    return queries.map(() => ({ ...RANK_FALLBACK }));
+  }
+
+  const rowsByExam = await mapWithConcurrency(
+    uniqueKeys,
+    RANK_FETCH_CONCURRENCY,
+    async (examKey) => {
+      try {
+        const { data, error } = await supabase
+          .from("submissions")
+          .select("score, time_spent, is_live_submission")
+          .eq("exam_key", examKey);
+        if (error) {
+          console.error("Error calculating candidate rank:", error);
+          return null;
+        }
+        return ((data || []) as unknown) as RankRow[];
+      } catch (err) {
+        console.error("Error calculating candidate rank:", err);
+        return null;
+      }
+    }
+  );
+
+  const byKey = new Map<string, RankRow[] | null>();
+  uniqueKeys.forEach((key, i) => byKey.set(key, rowsByExam[i]));
+
+  return queries.map((q) => {
+    const key = String(q.examKey ?? "").trim();
+    const rows = key ? byKey.get(key) : undefined;
+    // কুয়েরি ব্যর্থ (null) আর শূন্য submission — দুটোতেই একই ফল, ঠিক আগের মতো।
+    if (!rows || rows.length === 0) return { ...RANK_FALLBACK };
+    return computeRank(rows, Number(q.score) || 0, q.timeSpent);
+  });
+}
+
+/**
+ * একক পরীক্ষার র‍্যাঙ্ক — ব্যাচড সংস্করণের সরু মোড়ক।
+ *
+ * ক্লায়েন্ট-কম্পোনেন্ট (`exam/[examId]/result/page.tsx`) একটা পরীক্ষার জন্যই
+ * ডাকে, তাই ওখানে সিগনেচার অপরিবর্তিত রাখা হলো।
+ */
 export async function getExamCandidateRank(
   examKey: string,
   userScore: number,
   userTimeSpent: string
-): Promise<{ practiceRank: number; totalCandidates: number; officialCandidates: number }> {
+): Promise<ExamRankInfo> {
+  const [info] = await getExamCandidateRanks([
+    { examKey, score: userScore, timeSpent: userTimeSpent },
+  ]);
+  return info ?? { ...RANK_FALLBACK };
+}
+
+/**
+ * একগুচ্ছ পরীক্ষার কোর্স — **এক কুয়েরিতে**, `id → course` ম্যাপ।
+ *
+ * আগে প্রোফাইল রুটগুলো প্রতিটি সারির জন্য আলাদা করে
+ * `exams.select('course').eq('id', …).single()` ডাকত, লুপের ভেতরে — অর্থাৎ
+ * আরও N ক্রমিক রাউন্ড-ট্রিপ। ছোট ম্যাপটা একবার আনাই যথেষ্ট।
+ */
+export async function getExamCourseMap(
+  examKeys: string[]
+): Promise<Map<string, string>> {
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  examKeys.forEach((k) => {
+    const key = String(k ?? "").trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    keys.push(key);
+  });
+
+  const map = new Map<string, string>();
+  if (keys.length === 0) return map;
+
   try {
-    const { data: subData, error } = await supabase
-      .from("submissions")
-      .select("score, time_spent, is_live_submission")
-      .eq("exam_key", examKey);
-
-    if (error) throw error;
-
-    // Compute rank based on EVERYONE who has given the exam (both live and practice).
-    const allSubmissions: { score: number; timeSecs: number }[] = [];
-    let officialCandidates = 0;
-
-    (subData || []).forEach((row) => {
-      if (row.is_live_submission === true) {
-        officialCandidates++;
-      }
-      const sc = typeof row.score === "number" ? row.score : parseFloat(row.score as any) || 0;
-      allSubmissions.push({
-        score: sc,
-        timeSecs: parseTimeSpentToSeconds(row.time_spent)
-      });
+    const { data, error } = await supabase
+      .from("exams")
+      .select("id, course")
+      .in("id", keys);
+    if (error) return map;
+    ((data || []) as any[]).forEach((row) => {
+      const id = String(row?.id ?? "").trim();
+      const course = String(row?.course ?? "").trim();
+      if (id && course) map.set(id, course);
     });
-
-    const userTimeSecs = parseTimeSpentToSeconds(userTimeSpent);
-
-    let practiceRank = 1;
-    allSubmissions.forEach((cand) => {
-      if (cand.score > userScore) {
-        practiceRank++;
-      } else if (cand.score === userScore && cand.timeSecs < userTimeSecs) {
-        practiceRank++;
-      }
-    });
-
-    return { 
-      practiceRank, 
-      totalCandidates: Math.max(1, allSubmissions.length), 
-      officialCandidates 
-    };
-  } catch (err) {
-    console.error("Error calculating candidate rank:", err);
-    return { practiceRank: 1, totalCandidates: 1, officialCandidates: 0 };
+  } catch {
+    // কোর্স না মিললে ডিফল্ট ("মডেল টেস্ট")-ই থাকবে — আগের আচরণ
   }
+  return map;
 }
 
 /**
