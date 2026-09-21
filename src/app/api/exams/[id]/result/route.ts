@@ -7,7 +7,7 @@ import {
   questionsToDto,
 } from "@/lib/exam-api";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
-import { getExamSolutions, getMySubmissionResult } from "@/actions/exam-actions";
+import { getExamSolutions, getMySubmissions, getExamCandidateRanks } from "@/actions/exam-actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,18 +44,48 @@ export const GET = withApi<RouteParams>("student", async (ctx, _req, routeCtx) =
 
   // স্কোর ও নিজের উত্তর — সার্ভার-সংরক্ষিত সারি থেকে।
   // `access.studentId` পাঠানো হচ্ছে (uid নয়): পেইড পরীক্ষার সাবমিশন রোস্টার-আইডিতে
-  // (ফোন-আইডি) সংরক্ষিত হয়, আর getMySubmissionResult ওই id-তেই খোঁজে।
-  const mine = await getMySubmissionResult(examId, access.studentId);
+  // (ফোন-আইডি) সংরক্ষিত হয়, আর getMySubmissions ওই id-তেই খোঁজে।
+  //
+  // ⚠️ **একই পরীক্ষার সব সাবমিশন** আনা হচ্ছে, কেবল সর্বশেষটা নয় (২০২৬-০৯-২১)।
+  // কারণ: লাইভ পরীক্ষার পরে শিক্ষার্থী যতবার খুশি প্র্যাকটিস দিতে পারে, আর
+  // তখন সর্বশেষ সারিটা প্র্যাকটিসের — ফলে আগে **লাইভ ফলটা পর্দা থেকে হারিয়ে
+  // যেত**। ওয়েবের ড্যাশবোর্ড দুইটাই দেখায় (`StudentDashboardModal.tsx` →
+  // `লাইভ: …` · `প্র্যাকটিস: …`), তাই অ্যাপেও দুইটাই পাঠানো হয়।
+  const submissions = await getMySubmissions(examId, access.studentId);
 
-  if (!mine) {
+  if (submissions.length === 0) {
     return apiOk({
       exam: examToDto(exam, Date.now()),
       submitted: false,
       result: null,
+      liveResult: null,
+      practiceResult: null,
       solutions: null,
       review: null,
     });
   }
+
+  // `result` = সর্বশেষ সাবমিশন — **পুরোনো আচরণ অপরিবর্তিত** (রিভিউ এর answers
+  // ধরে আঁকা হয়, আর পুরোনো ক্লায়েন্টও ঠিক এটাই পড়ে)।
+  const mine = submissions[0];
+
+  // লাইভ ও প্র্যাকটিস — প্রতিটির **একটাই** ফল দেখানো হয়: লাইভ একবারই দেওয়া যায়
+  // (সার্ভার দ্বিতীয়বার `ALREADY_SUBMITTED` ফেরায়), আর প্র্যাকটিসের সর্বশেষটাই
+  // ("শেষের ফলাফলই গন্য")। কিছুই মোছা হয় না — পুরোনো অ্যাটেম্পট সার্ভারে থাকে,
+  // ওয়েবও মোছে না; কেবল এখানে দেখানো হয় সর্বশেষটা।
+  const liveRow = submissions.find((s) => s.isLiveSubmission) ?? null;
+  const practiceRow = submissions.find((s) => !s.isLiveSubmission) ?? null;
+  const liveCount = submissions.filter((s) => s.isLiveSubmission).length;
+  const practiceCount = submissions.length - liveCount;
+
+  // র্যাঙ্ক — দুই সারির জন্যই, তবু **এক কুয়েরিতে** (`getExamCandidateRanks`
+  // একই examKey একাধিকবার চাইলে ডিডিউপ করে, তাই বাড়তি খরচ নেই)।
+  const rankTargets: { examKey: string; score: number; timeSpent: string }[] = [];
+  if (liveRow) rankTargets.push({ examKey: examId, score: liveRow.score, timeSpent: liveRow.timeSpent });
+  if (practiceRow) rankTargets.push({ examKey: examId, score: practiceRow.score, timeSpent: practiceRow.timeSpent });
+  const ranks = rankTargets.length > 0 ? await getExamCandidateRanks(rankTargets) : [];
+  const rankAt = (i: number) =>
+    ranks[i] ? { position: ranks[i].practiceRank, participants: ranks[i].totalCandidates } : { position: 0, participants: 0 };
 
   // উত্তর-কী কেবল প্রকাশের পরে। প্রশ্নগুলো এখানে **রিভিউয়ের জন্য** আসে,
   // তাই প্রশ্ন + (রিলিজ হলে) উত্তর পাশাপাশি বসানো হয়।
@@ -78,6 +108,38 @@ export const GET = withApi<RouteParams>("student", async (ctx, _req, routeCtx) =
         }))
       : null;
 
+  const totalQuestions = questions.length || mine.answers.length;
+
+  /** একটাই ফলের ব্লক — স্কোর + অবস্থান (র্যাঙ্ক) + তারিখ + কতবার দিয়েছে। */
+  const resultBlock = (
+    row: (typeof submissions)[number] | null,
+    rank: { position: number; participants: number },
+    attempts: number
+  ) =>
+    row
+      ? {
+          score: row.score,
+          correct: row.correct,
+          incorrect: row.incorrect,
+          totalQuestions,
+          isPendingEvaluation: row.isPendingEvaluation,
+          submittedAtISO: row.submittedAtISO,
+          position: rank.position,
+          participants: rank.participants,
+          attempts,
+          /**
+           * প্রশ্ন-ক্রম অনুযায়ী শিক্ষার্থীর দেওয়া উত্তর (`null` = ছেড়ে দেওয়া)।
+           *
+           * ⚠️ কেন এখানে: অ্যাপে এখন লাইভ ও প্র্যাকটিস — দুইটা আলাদা অপশন, আর
+           * প্রতিটির ভেতরে **নিজের** প্রশ্নভিত্তিক বিস্তারিত (কোনটা ঠিক, কোনটা
+           * ভুল) দেখানো হয়। প্রশ্ন + সঠিক উত্তর + ব্যাখ্যা উপরে `review`-এ
+           * **একবারই** যায়; দুইবার পাঠালে ২০০-প্রশ্নের পরীক্ষায় পেলোড দ্বিগুণ
+           * হতো। অ্যাপ এই `answers` দিয়ে `review`-এর সাথে মিলিয়ে নিজের রিভিউ বানায়।
+           */
+          answers: row.answers,
+        }
+      : null;
+
   return apiOk({
     exam: examToDto(exam, Date.now()),
     submitted: true,
@@ -86,7 +148,7 @@ export const GET = withApi<RouteParams>("student", async (ctx, _req, routeCtx) =
       score: mine.score,
       correct: mine.correct,
       incorrect: mine.incorrect,
-      totalQuestions: questions.length || mine.answers.length,
+      totalQuestions,
       answers: mine.answers,
       isPendingEvaluation: mine.isPendingEvaluation,
       isLiveSubmission: mine.isLiveSubmission,
@@ -94,6 +156,13 @@ export const GET = withApi<RouteParams>("student", async (ctx, _req, routeCtx) =
       passMark: exam.passMark ?? 0,
       isPassed: mine.score >= (exam.passMark ?? 1),
     },
+    // ⭐ দুইটা ফল — বাঁয়ে লাইভ (একটাই), ডানে প্র্যাকটিস (সর্বশেষটা)
+    liveResult: resultBlock(liveRow, rankAt(0), liveCount),
+    practiceResult: resultBlock(
+      practiceRow,
+      rankAt(liveRow ? 1 : 0),
+      practiceCount
+    ),
     // reliz না হলে null — উপরের নিয়ম
     solutions: solutions
       ? solutions.map((s, idx) => ({ order: idx, correct: s.correct, explanation: s.exp || "" }))

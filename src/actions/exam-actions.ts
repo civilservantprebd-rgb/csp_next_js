@@ -1002,11 +1002,22 @@ export async function getExamCourseMap(
  * Returns the student's own stored submission result from the database.
  * Used by the result page so the displayed score is the server-computed one,
  * not a client-side re-computation of editable sessionStorage data.
+ *
+ * ⚠️ এটা **সর্বশেষ** সাবমিশনটাই দেয় (যেকোনো ধরনের — লাইভ বা প্র্যাকটিস) —
+ * ওয়েবের আচরণ অপরিবর্তিত রাখতে এটাই রেখে দেওয়া হলো। একই পরীক্ষার লাইভ ও
+ * প্র্যাকটিস — **দুইটাই** দরকার হলে [getMySubmissions] ডাকুন (অ্যাপের
+ * `/api/exams/{id}/result` তাই করে)।
  */
 export async function getMySubmissionResult(
   examKey: string,
   studentId: string
-): Promise<{
+): Promise<MySubmission | null> {
+  const [latest] = await getMySubmissions(examKey, studentId);
+  return latest ?? null;
+}
+
+/** শিক্ষার্থীর নিজের এক সাবমিশন — সার্ভার-সংরক্ষিত, ক্লায়েন্টের নয়। */
+export interface MySubmission {
   score: number;
   correct: number;
   incorrect: number;
@@ -1014,15 +1025,35 @@ export async function getMySubmissionResult(
   isPendingEvaluation: boolean;
   isLiveSubmission: boolean;
   submittedAtISO: string;
-} | null> {
+  /** টাই-ব্রেকের জন্য দরকার (র‍্যাঙ্ক গণনা) — `"১২ মিনিট ৩০ সেকেন্ড"` জাতীয় টেক্সট। */
+  timeSpent: string;
+}
+
+/**
+ * একই পরীক্ষার **সব** সাবমিশন — নতুন আগে (`submitted_at` desc)।
+ *
+ * ── কেন লাগল ──
+ * ওয়েব আর অ্যাপ — দুই জায়গাতেই একই পরীক্ষার **দুইটা ফল** থাকতে পারে: একবার
+ * নির্ধারিত সময়ে (লাইভ, `is_live_submission = true`) আর যতবার খুশি তারপর
+ * (প্র্যাকটিস, `false`)। ওয়েবের ড্যাশবোর্ড ঠিক এভাবেই দুইটা বাটন দেখায়
+ * (`StudentDashboardModal.tsx` → `লাইভ: …` · `প্র্যাকটিস: …`)।
+ *
+ * অ্যাপের `/api/exams/{id}/result` আগে কেবল **সর্বশেষ সারিটাই** দিত, তাই লাইভ
+ * পরীক্ষার পরে একবার প্র্যাকটিস করলেই লাইভ ফলটা পর্দা থেকে **মুছে যেত**।
+ * এখন দুইটাই পাঠানো হয় — কিছুই মোছা হয় না (ওয়েবও মোছে না)।
+ */
+export async function getMySubmissions(
+  examKey: string,
+  studentId: string
+): Promise<MySubmission[]> {
   try {
     const cleanId = String(studentId || "").trim();
-    if (!cleanId) return null;
+    if (!cleanId) return [];
     const normId = parseBengaliDigits(cleanId).trim();
 
     // SECURITY: only the student themselves may fetch their own result
     const { sessionOwnsStudent } = await import("@/lib/teacher-auth");
-    if (!(await sessionOwnsStudent(cleanId)) && !(await sessionOwnsStudent(normId))) return null;
+    if (!(await sessionOwnsStudent(cleanId)) && !(await sessionOwnsStudent(normId))) return [];
     const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
 
     const { data, error } = await supabase
@@ -1030,62 +1061,44 @@ export async function getMySubmissionResult(
       .select("*")
       .eq("exam_key", examKey)
       .in("student_id", ids)
-      .order("submitted_at", { ascending: false })
-      .limit(1);
+      .order("submitted_at", { ascending: false });
 
     if (error) throw error;
-    const row = data?.[0];
-    if (!row) return null;
+    const rows = (data || []) as any[];
+    if (rows.length === 0) return [];
 
-    // If the row is still pending evaluation but answers are now released,
-    // evaluate it here (idempotently) so the student's result page never shows
-    // placeholder 0s while the review section shows the real per-question marks.
-    if (row.is_pending_evaluation) {
-      const { data: exRow } = await supabase
-        .from("exams")
-        .select("start_time, end_time, leaderboard_start_time, leaderboard_end_time, is_result_published, timer_minutes")
-        .eq("id", examKey)
-        .maybeSingle();
-      if (exRow) {
-        const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
-        const releaseExam = {
-          startTime: exRow.start_time,
-          endTime: exRow.end_time,
-          leaderboardStartTime: exRow.leaderboard_start_time,
-          leaderboardEndTime: exRow.leaderboard_end_time,
-          isResultPublished: exRow.is_result_published === true,
-          // SECURITY: required -- without it the release delay defaulted to 10
-          // minutes (see lib/bangladesh-time.ts isAnswerTimeReached).
-          timerMinutes: Number(exRow.timer_minutes ?? 0) || undefined
-        } as Exam;
-        if (isAnswerTimeReached(releaseExam)) {
-          const solutions = await getExamSolutions(examKey);
-          if (solutions) {
-            const rawAnswers = Array.isArray(row.answers) ? row.answers : [];
-            let cor = 0;
-            let incor = 0;
-            rawAnswers.forEach((v: any, qIdx: number) => {
-              const sol = solutions[qIdx];
-              if (v !== null && v !== -1 && v !== undefined && sol) {
-                if (Number(v) === sol.correct) cor++;
-                else incor++;
-              }
-            });
-            const sc = Math.max(0, cor - incor * 0.5);
-            await supabase
-              .from("submissions")
-              .update({ score: sc, correct: cor, incorrect: incor, is_pending_evaluation: false })
-              .eq("id", row.id);
-            row.score = sc;
-            row.correct = cor;
-            row.incorrect = incor;
-            row.is_pending_evaluation = false;
+    // উত্তর-কী প্রকাশ হয়ে গেলে যেসব সারি এখনো "pending" তাদের এখানেই (idempotent)
+    // মূল্যায়ন করে নেওয়া হয় — নাহলে ফলাফলের পর্দায় ভুয়া শূন্য দেখাত, অথচ
+    // রিভিউ-সেকশনে সত্যিকারের নম্বর থাকত। আগে এটা কেবল সর্বশেষ সারির জন্য হতো।
+    const releaseExam = await loadReleaseExam(examKey);
+    if (releaseExam) {
+      const solutions = await getExamSolutions(examKey);
+      for (const row of rows) {
+        if (!row.is_pending_evaluation) continue;
+        if (!solutions) break;
+        const rawAnswers = Array.isArray(row.answers) ? row.answers : [];
+        let cor = 0;
+        let incor = 0;
+        rawAnswers.forEach((v: any, qIdx: number) => {
+          const sol = solutions[qIdx];
+          if (v !== null && v !== -1 && v !== undefined && sol) {
+            if (Number(v) === sol.correct) cor++;
+            else incor++;
           }
-        }
+        });
+        const sc = Math.max(0, cor - incor * 0.5);
+        await supabase
+          .from("submissions")
+          .update({ score: sc, correct: cor, incorrect: incor, is_pending_evaluation: false })
+          .eq("id", row.id);
+        row.score = sc;
+        row.correct = cor;
+        row.incorrect = incor;
+        row.is_pending_evaluation = false;
       }
     }
 
-    return {
+    return rows.map((row) => ({
       score: Number(row.score ?? 0),
       correct: Number(row.correct ?? 0),
       incorrect: Number(row.incorrect ?? 0),
@@ -1094,12 +1107,42 @@ export async function getMySubmissionResult(
         : [],
       isPendingEvaluation: !!row.is_pending_evaluation,
       isLiveSubmission: !!row.is_live_submission,
-      submittedAtISO: row.submitted_at || ""
-    };
+      submittedAtISO: row.submitted_at || "",
+      timeSpent: row.time_spent || "",
+    }));
   } catch (err) {
     console.error("Get my submission result error:", err);
-    return null;
+    return [];
   }
+}
+
+/**
+ * উত্তর-কী এতক্ষণে প্রকাশ পেয়েছে কি না — pending সারি মূল্যায়নের সময় কাটা।
+ * প্রকাশ না পেলে `null` (তখন হাতে-কলমে মূল্যায়ন করা হয় না)।
+ */
+async function loadReleaseExam(examKey: string): Promise<Exam | null> {
+  const { data: exRow } = await supabase
+    .from("exams")
+    .select(
+      "start_time, end_time, leaderboard_start_time, leaderboard_end_time, is_result_published, timer_minutes"
+    )
+    .eq("id", examKey)
+    .maybeSingle();
+  if (!exRow) return null;
+
+  const { isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+  const releaseExam = {
+    startTime: exRow.start_time,
+    endTime: exRow.end_time,
+    leaderboardStartTime: exRow.leaderboard_start_time,
+    leaderboardEndTime: exRow.leaderboard_end_time,
+    isResultPublished: exRow.is_result_published === true,
+    // SECURITY: required -- without it the release delay defaulted to 10
+    // minutes (see lib/bangladesh-time.ts isAnswerTimeReached).
+    timerMinutes: Number(exRow.timer_minutes ?? 0) || undefined,
+  } as Exam;
+
+  return isAnswerTimeReached(releaseExam) ? releaseExam : null;
 }
 
 /**
