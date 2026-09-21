@@ -56,7 +56,15 @@ export const LeaderboardExamSearch: React.FC<LeaderboardExamSearchProps> = ({
   // কোর্সের তালিকা + প্রতিটিতে কতটি পরীক্ষা (বাংলা বর্ণানুক্রমে)
   const courseList = useMemo(() => {
     const counts = new Map<string, number>();
+    const now = getTrueDate().getTime();
     Object.values(exams).forEach((ex) => {
+      const endStr = ex.endTime || ex.leaderboardEndTime;
+      if (endStr) {
+        const end = parseBangladeshDateTime(endStr);
+        if (end && now <= end.getTime()) {
+          return; // Skip future exams
+        }
+      }
       const c = courseOf(ex);
       if (!c) return;
       counts.set(c, (counts.get(c) || 0) + 1);
@@ -105,6 +113,18 @@ export const LeaderboardExamSearch: React.FC<LeaderboardExamSearchProps> = ({
     };
 
     const list = Object.entries(exams)
+      .filter(([, ex]) => {
+        // "leaderboard e sei xm gula rakho jadr live exm deyar time sesh. future exm gula leaderboard e rekho na"
+        const now = getTrueDate().getTime();
+        const endStr = ex.endTime || ex.leaderboardEndTime;
+        if (!endStr) return true; // Practice exams have no end time
+        const end = parseBangladeshDateTime(endStr);
+        // If it's a scheduled exam and its end time hasn't passed, hide it
+        if (end && now <= end.getTime()) {
+          return false;
+        }
+        return true;
+      })
       .filter(([, ex]) => !course || courseOf(ex) === course)
       .filter(([k, ex]) => matchesQuery(k, ex, q))
       .sort((a, b) => {

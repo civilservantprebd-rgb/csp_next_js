@@ -40,15 +40,16 @@ import { useRouter } from "next/navigation";
 
 interface PracticeHubProps {
   onOpenEnrollModal?: () => void;
+  initialTopics?: TopicOption[] | null;
 }
 
 const ALL_LABEL = "সকল টপিক (মিক্সড)";
 const QUESTION_COUNTS = [10, 20, 30, 50];
 
-export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) => {
+export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal, initialTopics }) => {
   const [phase, setPhase] = useState<"loading" | "guest" | "locked" | "hub">("loading");
   const [accessError, setAccessError] = useState("");
-  const [topics, setTopics] = useState<TopicOption[] | null>(null);
+  const [topics, setTopics] = useState<TopicOption[] | null>(initialTopics || null);
   const [topicMap, setTopicMap] = useState<Record<string, number>>({});
   const [topicsError, setTopicsError] = useState<string | null>(null);
   const router = useRouter();
@@ -80,6 +81,12 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal }) =
 
   const loadTopics = async (id: string, email: string) => {
     identityRef.current = { id, email };
+    if (initialTopics && initialTopics.length > 0) {
+      setTopics(initialTopics);
+      setTopicsError("");
+      setPhase("hub");
+      return;
+    }
     try {
       const t = await getPracticeTopics(id, email);
       setTopics(t || []);

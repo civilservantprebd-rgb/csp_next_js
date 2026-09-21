@@ -101,7 +101,9 @@ export function examWindows(exam: Exam, nowMs: number): ExamWindows {
 export function isExamLiveNow(exam: Exam, nowMs: number): boolean {
   const { startMs, endMs } = examWindows(exam, nowMs);
   if (startMs === null || endMs === null) return false;
-  return nowMs >= startMs && nowMs <= endMs;
+  // +59000 ms: 10:00-এ শেষ হওয়ার কথা থাকলেও 10:00:59 পর্যন্ত লাইভ দেখাবে, 
+  // যাতে 10:00-এ ঢুকলেও লিডারবোর্ডে নাম ওঠে।
+  return nowMs >= startMs && nowMs <= (endMs + 59000);
 }
 
 /** অ্যাপের DTO — কখনো কাঁচা DB সারি নয়। */

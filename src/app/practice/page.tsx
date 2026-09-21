@@ -1,22 +1,25 @@
-"use client";
-
 import React from "react";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { PracticeHub } from "@/components/dashboard/PracticeHub";
+import { getPracticeTopics } from "@/actions/practice-actions";
+import { resolveStudyIdentity } from "@/lib/student-session";
 
-// সেলফ প্র্যাকটিস হাব — টপিক-গ্রুপ কার্ড গ্রিড (Live MCQ-স্টাইল)।
-// PracticeHub নিজেই লগইন/এনরোলমেন্ট যাচাই করে, টপিক-তালিকা (কাউন্টসহ) লোড করে
-// এবং /practice/session-এ প্র্যাকটিস সেশন খোলে। এখানে শুধু লেআউট ও এনরোল-রুট।
-export default function PracticePage() {
-  const router = useRouter();
+export const revalidate = 60; // Cache the page for 60 seconds
 
-  const openEnrollModal = () => {
-    sessionStorage.setItem("open_enroll", "1");
-    router.push("/");
-  };
+export default async function PracticePage() {
+  // Attempt to fetch topics on the server if the user is authenticated via cookies
+  // If not, initialTopics will be null and the client component will fall back to fetching it
+  let initialTopics = null;
+  try {
+    const identity = await resolveStudyIdentity(null, null);
+    if (identity) {
+      initialTopics = await getPracticeTopics();
+    }
+  } catch (e) {
+    // Ignore error, client will handle it
+  }
 
   return (
     <>
@@ -38,7 +41,7 @@ export default function PracticePage() {
           </div>
         </div>
 
-        <PracticeHub onOpenEnrollModal={openEnrollModal} />
+        <PracticeHub initialTopics={initialTopics} />
       </main>
 
       <Footer />

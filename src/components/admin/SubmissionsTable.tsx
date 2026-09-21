@@ -34,6 +34,28 @@ export const SubmissionsTable: React.FC = () => {
     }
   };
 
+  const formatSubmitTime = (isoString?: string) => {
+    if (!isoString) return "—";
+    const d = new Date(isoString);
+    let str = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    return toBengaliDigits(str);
+  };
+
+  const calculateStartTime = (isoString?: string, timeSpentStr?: string) => {
+    if (!isoString) return "—";
+    const d = new Date(isoString);
+    if (timeSpentStr) {
+      const match = timeSpentStr.match(/(\d+)\s*মি\.\s*(\d+)\s*সে\./);
+      if (match) {
+        const mins = parseInt(match[1]);
+        const secs = parseInt(match[2]);
+        d.setSeconds(d.getSeconds() - (mins * 60 + secs));
+      }
+    }
+    let str = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    return toBengaliDigits(str);
+  };
+
   return (
     <div className="space-y-4 font-bengali">
       <div className="flex justify-between items-center">
@@ -62,20 +84,21 @@ export const SubmissionsTable: React.FC = () => {
             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
               <th className="p-2.5 font-semibold">শিক্ষার্থী</th>
               <th className="p-2.5 font-semibold">পরীক্ষা</th>
-              <th className="p-2.5 font-semibold text-center">সময়</th>
+              <th className="p-2.5 font-semibold text-center">সময়সূচি</th>
+              <th className="p-2.5 font-semibold text-center">মোট সময়</th>
               <th className="p-2.5 font-semibold text-right">স্কোর</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={4} className="p-4 text-center text-slate-400">
+                <td colSpan={5} className="p-4 text-center text-slate-400">
                   ফলাফল লোড হচ্ছে...
                 </td>
               </tr>
             ) : submissions.length === 0 ? (
               <tr>
-                <td colSpan={4} className="p-4 text-center text-slate-400">
+                <td colSpan={5} className="p-4 text-center text-slate-400">
                   কোনো ফলাফল জমা পড়েনি।
                 </td>
               </tr>
@@ -87,7 +110,13 @@ export const SubmissionsTable: React.FC = () => {
                     <span className="text-slate-400 font-normal text-xs">({sub.studentId || "আইডি নেই"})</span>
                   </td>
                   <td className="p-2.5 text-slate-600">{sub.examTitle}</td>
-                  <td className="p-2.5 text-center text-slate-500 font-mono text-xs">{sub.timeSpent || "—"}</td>
+                  <td className="p-2.5 text-center text-slate-500 text-[11px] whitespace-nowrap">
+                    <span className="text-emerald-600">শুরু: {calculateStartTime(sub.submittedAtISO, sub.timeSpent)}</span><br />
+                    <span className="text-indigo-600">জমা: {formatSubmitTime(sub.submittedAtISO)}</span>
+                  </td>
+                  <td className="p-2.5 text-center text-slate-500 font-mono text-[11px] font-bold">
+                    {sub.timeSpent || "—"}
+                  </td>
                   <td className="p-2.5 text-right font-black text-indigo-700">
                     {toBengaliDigits(sub.score ?? 0)}
                   </td>

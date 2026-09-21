@@ -240,11 +240,21 @@ export const LiveExamReport: React.FC = () => {
                           <p className="text-[11px] text-indigo-500 font-bold">যারা লাইভ দিয়েছেন</p>
                           <p className="font-black text-indigo-950 text-sm truncate">{selectedExam.title}</p>
                         </div>
-                        {names && (
-                          <span className="inline-flex items-center gap-1 bg-white text-indigo-700 font-black text-xs px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0">
-                            <Users className="w-3 h-3" /> {toBengaliDigits(names.length)} জন
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {names && (
+                            <span className="inline-flex items-center gap-1 bg-white text-indigo-700 font-black text-xs px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0">
+                              <Users className="w-3 h-3" /> {toBengaliDigits(names.length)} জন
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => window.open(`/leaderboard/${encodeURIComponent(selectedExam.examKey)}`, "_blank")}
+                            className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                            title="মেধা তালিকা দেখুন"
+                          >
+                            লিডারবোর্ড
+                          </button>
+                        </div>
                       </div>
 
                       {namesLoading ? (

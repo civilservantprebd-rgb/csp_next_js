@@ -197,10 +197,10 @@ export function isExamCurrentlyLive(exam: Exam): boolean {
 
   if (exam.endTime) {
     const endTime = parseBangladeshDateTime(exam.endTime);
-    if (endTime && now > endTime) return false;
+    if (endTime && now.getTime() > endTime.getTime() + 59000) return false;
   } else if (exam.leaderboardEndTime) {
     const endTime = parseBangladeshDateTime(exam.leaderboardEndTime);
-    if (endTime && now > endTime) return false;
+    if (endTime && now.getTime() > endTime.getTime() + 59000) return false;
   }
   return true;
 }

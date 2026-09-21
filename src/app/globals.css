@@ -26,7 +26,7 @@ html {
    columns cram together and the marksheet looks broken on phones. */
 @page {
   size: A4;
-  margin: 12mm;
+  margin: 0;
 }
 
 @media print {
@@ -51,12 +51,15 @@ html {
   #printable-leaderboard,
   #printable-leaderboard *,
   #printable-marksheet,
-  #printable-marksheet * {
+  #printable-marksheet *,
+  #printable-attendance,
+  #printable-attendance * {
     visibility: visible;
   }
 
   #printable-leaderboard,
-  #printable-marksheet {
+  #printable-marksheet,
+  #printable-attendance {
     position: absolute;
     left: 0;
     top: 0;
@@ -64,10 +67,13 @@ html {
     display: block !important;
     background: white !important;
     color: black !important;
+    padding: 12mm !important;
+    box-sizing: border-box !important;
   }
 
   /* Never slice a row / cell / card between two pages — keep blocks whole */
   #printable-leaderboard tr,
+  #printable-attendance tr,
   #printable-marksheet .grid > div {
     break-inside: avoid;
     page-break-inside: avoid;
@@ -75,7 +81,8 @@ html {
 
   /* Don't leave section headings dangling at the bottom of a page */
   #printable-marksheet h4,
-  #printable-leaderboard h4 {
+  #printable-leaderboard h4,
+  #printable-attendance h4 {
     break-after: avoid;
     page-break-after: avoid;
   }

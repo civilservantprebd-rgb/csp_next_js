@@ -366,7 +366,21 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
       });
 
       const exams: Record<string, Exam> = {};
+      const banglaTime = await import("@/lib/bangladesh-time");
+      const parseBangladeshDateTime = banglaTime.parseBangladeshDateTime;
+      const trueNowMs = banglaTime.getTrueDate().getTime();
+      const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+
       (examsRes?.data || []).forEach((ex) => {
+        // "alread live e eseche, ba live cholche ba 12hr er moddhe live e asbe"
+        // Ignore exams that are more than 12 hours in the future
+        if (ex.start_time) {
+          const start = parseBangladeshDateTime(ex.start_time);
+          if (start && start.getTime() > trueNowMs + TWELVE_HOURS_MS) {
+            return; // Skip far-future exams
+          }
+        }
+
         exams[ex.id] = {
           id: ex.id,
           course: ex.course,

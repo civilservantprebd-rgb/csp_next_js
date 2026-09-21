@@ -54,6 +54,15 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
   releaseDateText = "নির্ধারিত সময়ে",
   onPrint,
 }) => {
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 50;
+  const totalPages = Math.ceil(items.length / itemsPerPage);
+
+  // Reset page when items change (e.g. searching/filtering)
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [items]);
+
   if (noLeaderboard) {
     return (
       <div className="p-8 text-center bg-slate-50/60 rounded-2xl border border-slate-200 font-bengali">
@@ -93,7 +102,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
 
   return (
     <div className="space-y-4 font-bengali">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 print:hidden">
         <div>
           <h3 className="text-base sm:text-xl font-bold text-slate-900 flex items-center gap-2">
             <Trophy className="w-5 h-5 text-amber-500" /> {title}
@@ -125,7 +134,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
             {items.map((sub, idx) => (
               <div
                 key={`${sub.studentId || sub.studentName}-${idx}`}
-                className={`flex items-center gap-3 rounded-2xl border p-3 shadow-sm ${rankCard(idx)}`}
+                className={`items-center gap-3 rounded-2xl border p-3 shadow-sm ${rankCard(idx)} ${idx >= (currentPage - 1) * itemsPerPage && idx < currentPage * itemsPerPage ? "flex" : "hidden print:flex"}`}
               >
                 {/* র‍্যাংক */}
                 <div
@@ -169,8 +178,16 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
           {/* ── ডেস্কটপ / প্রিন্ট: টেবিল ─────────────────────────────────── */}
           <div
             id="printable-leaderboard"
-            className="hidden sm:block overflow-x-auto bg-white rounded-2xl border border-slate-200 shadow-sm"
+            className="hidden sm:block overflow-x-auto bg-white rounded-2xl border border-slate-200 shadow-sm print:border-none print:shadow-none print:overflow-visible"
           >
+            {/* Print-only header */}
+            <div className="hidden print:block text-center border-b border-slate-300 pb-4 mb-6 pt-2">
+              <h1 className="text-3xl font-black text-slate-900">আরোহণ</h1>
+              <p className="text-sm font-semibold text-slate-600 mt-1">হেল্পলাইন / হোয়াটসঅ্যাপ: 01577301529</p>
+              <h2 className="text-xl font-bold text-slate-800 mt-4">{title}</h2>
+              <p className="text-sm text-slate-500 mt-1">{releaseDateText}</p>
+            </div>
+
             <table className="w-full text-left border-collapse text-xs sm:text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
@@ -182,12 +199,13 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                 </tr>
               </thead>
               <tbody>
+                {/* Print mode displays all, Screen mode displays only current page */}
                 {items.map((sub, idx) => (
                   <tr
                     key={`${sub.studentId || sub.studentName}-${idx}`}
                     className={`border-b border-slate-100 transition ${
                       idx === 0 ? "bg-amber-50/50" : idx === 1 ? "bg-slate-50/60" : "hover:bg-slate-50"
-                    }`}
+                    } ${idx >= (currentPage - 1) * itemsPerPage && idx < currentPage * itemsPerPage ? "table-row" : "hidden print:table-row"}`}
                   >
                     <td className="p-3 text-center font-bold text-slate-700">
                       {idx === 0 ? (
@@ -222,7 +240,35 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                 ))}
               </tbody>
             </table>
+            
+            {/* Print-only footer */}
+            <div className="hidden print:block text-center mt-10 pt-4 border-t border-slate-300 text-slate-500 font-medium pb-2">
+              www.aarohon.com
+            </div>
           </div>
+          
+          {/* Pagination Controls (Visible on both mobile and desktop) */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl print:hidden bg-white shadow-sm mt-4">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg disabled:opacity-50 hover:bg-slate-50"
+              >
+                পূর্ববর্তী
+              </button>
+              <span className="text-sm font-medium text-slate-600">
+                পৃষ্ঠা {toBengaliDigits(currentPage)} / {toBengaliDigits(totalPages)}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg disabled:opacity-50 hover:bg-slate-50"
+              >
+                পরবর্তী
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

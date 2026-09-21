@@ -674,6 +674,15 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                                 <FlaskConical className="w-3 h-3" /> ডেমো
                               </button>
                               <button
+                                type="button"
+                                onClick={() => window.open(`/leaderboard/${encodeURIComponent(k)}`, "_blank")}
+                                disabled={isLoading}
+                                className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
+                                title="এই পরীক্ষার মেধা তালিকা দেখুন"
+                              >
+                                <Award className="w-3 h-3" /> লিডারবোর্ড
+                              </button>
+                              <button
                                 onClick={() => startEdit(k, ex)}
                                 className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm font-bold px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
                               >

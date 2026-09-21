@@ -47,6 +47,40 @@ function decodeParam(raw: string): string {
   }
 }
 
+function formatBdDateTimeSec(isoString: string) {
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "";
+  const bd = new Date(d.getTime() + 6 * 60 * 60 * 1000);
+  const dateStr = `${toBengaliDigits(bd.getUTCDate())}/${toBengaliDigits(bd.getUTCMonth() + 1)}/${toBengaliDigits(bd.getUTCFullYear())}`;
+  
+  let hours = bd.getUTCHours();
+  const minutes = bd.getUTCMinutes();
+  const seconds = bd.getUTCSeconds();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  
+  const mm = minutes < 10 ? `০${toBengaliDigits(minutes)}` : toBengaliDigits(minutes);
+  const ss = seconds < 10 ? `০${toBengaliDigits(seconds)}` : toBengaliDigits(seconds);
+  const hh = toBengaliDigits(hours);
+  
+  return `${dateStr}, ${hh}:${mm}:${ss} ${ampm}`;
+}
+
+function calculateStartTimeStr(isoString?: string, timeSpentStr?: string) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  if (timeSpentStr) {
+    const match = timeSpentStr.match(/(\d+)\s*মি\.\s*(\d+)\s*সে\./);
+    if (match) {
+      const mins = parseInt(match[1]);
+      const secs = parseInt(match[2]);
+      d.setSeconds(d.getSeconds() - (mins * 60 + secs));
+    }
+  }
+  return formatBdDateTimeSec(d.toISOString());
+}
+
 const fmtNum = (n: number) => toBengaliDigits(Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 export default function StudentPerformancePage() {
@@ -291,13 +325,18 @@ export default function StudentPerformancePage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap text-[11px] font-semibold text-slate-500">
+                        <div className="flex flex-col gap-1 text-[11px] font-semibold text-slate-500">
                           {s.submittedAtISO && (
                             <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-amber-500" /> {formatBangladeshDate(s.submittedAtISO)}
+                              <Clock className="w-3 h-3 text-emerald-500" /> শুরু: {calculateStartTimeStr(s.submittedAtISO, s.timeSpent)}
                             </span>
                           )}
-                          {s.timeSpent && <span>সময়: {s.timeSpent}</span>}
+                          {s.submittedAtISO && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-amber-500" /> জমা: {formatBdDateTimeSec(s.submittedAtISO)}
+                            </span>
+                          )}
+                          {s.timeSpent && <span>মোট সময়: {s.timeSpent}</span>}
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                           {isLive ? (

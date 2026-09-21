@@ -449,7 +449,7 @@ export async function submitExamAnswers(payload: {
           if (s) {
             startedAtMs = s.getTime();
             if (startTime && endTime) {
-              liveByStart = s.getTime() >= startTime.getTime() && s.getTime() <= endTime.getTime();
+              liveByStart = s.getTime() >= startTime.getTime() && s.getTime() <= (endTime.getTime() + 59000);
             }
           }
         }
@@ -462,7 +462,7 @@ export async function submitExamAnswers(payload: {
     // না থাকলে / মাইগ্রেশন pending হলে আগের মতোই)। LIVE_GRACE_MS answer-release
     // গেটের সাথেও সামঞ্জস্য রাখে।
     const liveBySubmit = (startTime && endTime)
-      ? (now.getTime() >= startTime.getTime() && now.getTime() <= endTime.getTime() + LIVE_GRACE_MS)
+      ? (now.getTime() >= startTime.getTime() && now.getTime() <= endTime.getTime() + 59000 + LIVE_GRACE_MS)
       : false;
 
     // ── লাইভ-যোগ্যতার উপরের সীমা ──
