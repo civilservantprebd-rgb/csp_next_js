@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { apiOk, withApi } from "@/lib/api-auth";
-import { examToDto, rowToExam } from "@/lib/exam-api";
+import { examToDto, isExamVisibleInApp, rowToExam } from "@/lib/exam-api";
 import { Exam } from "@/types/exam";
 
 export const runtime = "nodejs";
@@ -17,6 +17,13 @@ export const dynamic = "force-dynamic";
  * ── যা কখনো আসে না ──
  * কেবল মেটাডেটা: প্রশ্ন, উত্তর, কারও স্কোর বা পরিচয় — একটাও নয়। ওয়েব অ্যাপের
  * `/leaderboard/[examId]` পেজও ঠিক এই কলামগুলোই (`EXAM_META_COLS`) ব্যবহার করে।
+ *
+ * ── ⚠️ ২০২৬-০৯-২৩: ১২-ঘণ্টার দৃশ্যমানতা-নিয়ম ──
+ * ব্যবহারকারীর নির্দেশ: *"যে এক্সামগুলো ১২ ঘন্টার মধ্যে শুরু হবে না বা লাইভ না,
+ * সেগুলো ব্যাকএন্ড থেকে অ্যাপে দেখা যাবে না ... লিডারবোর্ড, কোর্স, কোথাও না।"*
+ * তাই এখন যেসব পরীক্ষার শুরু **১২ ঘণ্টার বেশি দূরে**, তারা এই তালিকায় আসেই না
+ * ([isExamVisibleInApp])। এতে মিলেও যায়: মেধা তালিকা কেবল **হয়ে যাওয়া বা
+ * চলমান** পরীক্ষারই দেখার মতো, ভবিষ্যতের পরীক্ষার র্যাংক তো খালিই।
  *
  * `auth: "optional"` — ওয়েব লিডারবোর্ড পেজের মতো অতিথিও তালিকা দেখতে পারে;
  * মেধা তালিকা নিজেই আলাদা রাউট (`/api/exams/{id}/leaderboard`)।
@@ -39,6 +46,8 @@ export const GET = withApi("optional", async () => {
   for (const row of data || []) {
     const exam = rowToExam(row as Record<string, unknown>);
     if (!exam.id || !exam.title) continue;
+    // ১২ ঘণ্টার বাইরে থাকা পরীক্ষা অ্যাপে আসে না (উপরের নোট)
+    if (!isExamVisibleInApp(exam, nowMs)) continue;
     exams.push(exam);
   }
 

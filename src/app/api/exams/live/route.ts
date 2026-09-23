@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { apiOk, withApi } from "@/lib/api-auth";
-import { examToDto, rowToExam } from "@/lib/exam-api";
+import { examToDto, isExamVisibleInApp, rowToExam } from "@/lib/exam-api";
 import { Exam } from "@/types/exam";
 
 export const runtime = "nodejs";
@@ -16,6 +16,9 @@ export const dynamic = "force-dynamic";
  * পরীক্ষার তালিকা দেখায়, আর অ্যাপে লগইনের আগে "কী কী পরীক্ষা আছে" না দেখালে
  * নতুন শিক্ষার্থী নিবন্ধনই করবে না। নিরাপত্তা-ঝুঁকি নেই: এখানে কোনো প্রশ্ন বা
  * উত্তর আসে না, শুধু শিরোনাম ও সময়।
+ *
+ * ⚠️ ২০২৬-০৯-২৩: "আসন্ন" এখন **১২ ঘণ্টার ভেতরের** পরীক্ষাই — তার বাইরের
+ * পরীক্ষা অ্যাপে দেখানো হয় না ([isExamVisibleInApp])।
  */
 export const GET = withApi("optional", async () => {
   const nowMs = Date.now();
@@ -37,6 +40,8 @@ export const GET = withApi("optional", async () => {
   for (const row of data || []) {
     const exam = rowToExam(row as Record<string, unknown>);
     if (!exam.id || !exam.title) continue;
+    // ১২ ঘণ্টার বাইরে থাকা পরীক্ষা বসেই না
+    if (!isExamVisibleInApp(exam, nowMs)) continue;
     const dto = examToDto(exam, nowMs);
     // উইন্ডো নেই = সর্বদা-খোলা প্র্যাকটিস পরীক্ষা → "আসন্ন" নয়, উপেক্ষা
     if (dto.startTimeMs === null || dto.endTimeMs === null) continue;

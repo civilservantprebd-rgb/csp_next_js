@@ -4,8 +4,7 @@ import { apiFail, resolveStudentProfile } from '@/lib/api-auth';
 import { supabase } from '@/lib/supabase';
 import { getExamCandidateRanks } from '@/actions/exam-actions';
 import { isAnswerTimeReached, parseBangladeshDateTime } from '@/lib/bangladesh-time';
-import { examToDto, rowToExam } from '@/lib/exam-api';
-import { compareExamsByStartTime } from '@/lib/utils';
+import { examToDto, isExamVisibleInApp, rowToExam } from '@/lib/exam-api';
 import type { Exam } from '@/types/exam';
 
 /**
@@ -348,8 +347,28 @@ export async function GET(req: Request) {
       });
     };
 
+    // ⚠️ `nowMs` ছাঁকনি ও ক্রম — দুই জায়গাতেই লাগে, তাই এখানেই একবার।
+    const nowMs = Date.now();
     const allExamIds = Array.from(examById.keys());
-    const myCourseExamIds = allExamIds.filter((id) => matchesStudentCourse(examById.get(id)?.course));
+
+    /**
+     * ⚠️ ২০২৬-০৯-২৩: **১২-ঘণ্টার দৃশ্যমানতা-নিয়ম** — ব্যবহারকারীর নির্দেশ:
+     * *"যে এক্সামগুলো ১২ ঘন্টার মধ্যে শুরু হবে না বা লাইভ না, সেগুলো ব্যাকএন্ড
+     * থেকে অ্যাপে দেখা যাবে না ... লিডারবোর্ড, কোর্স, কোথাও না।"*
+     *
+     * `resultHistory`-ই অ্যাপের কোর্স-পর্দা, প্রোফাইল ও রেজাল্ট ট্যাবের একমাত্র
+     * সূত্র — তাই ছাঁকনিটা এখানেই বসাতে হয়, নইলে কোর্স-বিস্তারিত পাতায় ভবিষ্যতের
+     * পরীক্ষাগুলো তালিকায় থেকে যেত (অথচ শুরুই হয়নি)।
+     *
+     * ⚠️ কেবল **কোর্সের** তালিকায় ছাঁকনি লাগে। যে পরীক্ষা শিক্ষার্থী ইতিমধ্যে
+     * দিয়েছে (`alsoTakenIds`) বা যার সারি মুছে ফেলা হয়েছে (`orphanTakenIds`) —
+     * দুটোই তার ইতিহাস, ওগুলো কখনোই লুকানো চলবে না: ফলাফল হঠাৎ উধাও হয়ে যেত।
+     */
+    const myCourseExamIds = allExamIds.filter((id) => {
+      const exam = examById.get(id);
+      if (!matchesStudentCourse(exam?.course)) return false;
+      return exam ? isExamVisibleInApp(exam, nowMs) : true;
+    });
     const myCourseIdSet = new Set(myCourseExamIds);
     // কোর্সের বাইরের কোনো পরীক্ষা দিয়ে থাকলে সেটাও তালিকায় থাকবে — নাহলে
     // "দেওয়া হয়েছে" সংখ্যাটা ভুল দেখাত (ওয়েবের `alsoTaken` ঠিক এটাই করে)।
@@ -397,7 +416,6 @@ export async function GET(req: Request) {
       return parsed ? parsed.toISOString() : null;
     };
 
-    const nowMs = Date.now();
     const historyByExam = new Map<string, any>();
 
     // ওয়েবের `examStatusList = [...myCourseExams, ...alsoTaken]` — একই ক্রমে,
@@ -473,13 +491,63 @@ export async function GET(req: Request) {
       const parsed = parseBangladeshDateTime(String(startTime));
       return parsed ? parsed.getTime() : null;
     };
+    const endMsOf = (entry: any): number | null => {
+      const endTime = examForSort(entry).endTime;
+      if (!endTime) return null;
+      const parsed = parseBangladeshDateTime(String(endTime));
+      return parsed ? parsed.getTime() : null;
+    };
+
+    /**
+     * দশা — ক্রমের প্রথম ধাপ: ০ শেষ হয়েছে · ১ চলছে · ২ আসন্ন · ৩ সময়সূচি নেই।
+     * অ্যাপের `examRecencyOf`-এর হুবহু প্রতিরূপ, যাতে দুই ক্লায়েন্টে এক ক্রম থাকে।
+     */
+    const recencyRank = (entry: any): number => {
+      const s = startMsOf(entry);
+      const e = endMsOf(entry);
+      if (s === null && e === null) return 3;
+      if (e !== null && nowMs > e) return 0;
+      if (s !== null && nowMs >= s) return 1;
+      return 2;
+    };
+
+    /**
+     * ⚠️ ২০২৬-০৯-২৩: **সদ্য শেষ হওয়া পরীক্ষা সবার আগে** — ব্যবহারকারীর নির্দেশ:
+     * *"course er vetore ar result er vetore exam gulo emon vabe thakbe je je exam
+     * sobar seshe sesh hoyeche segulo sobar samne thakbe, jeno sohoje khuje paoa
+     * jay"*।
+     *
+     * এখানে আগে **শুরুর সময়** ধরে সাজানো হত (নতুন শুরুর আগে), আর লাইভ/আসন্ন
+     * পরীক্ষা সবার উপরে বসত — ফলে এইমাত্র শেষ হওয়া পরীক্ষাটা, যেটা দেখতেই
+     * শিক্ষার্থী প্রোফাইল/কোর্স/রেজাল্ট খোলে, নিচে পড়ে থাকত।
+     *
+     * ⚠️ এখন সময়ের ক্রমও অটুট, কেবল **দশার ভেতরে**: শেষ হওয়া ও চলমান পরীক্ষার
+     * মধ্যে ক্রম endTime ধরে, আসন্নগুলোর মধ্যে startTime ধরে। শেষ হওয়া পরীক্ষা
+     * আসন্নগুলোর **আগে** — কারণ "সবার সামনে" কথাটা আক্ষরিক: কেবল endTime ধরে
+     * उল্টো (বড় আগে) সাজালে ভবিষ্যতের পরীক্ষাগুলোই (যাদের endTime সবচেয়ে বড়)
+     * উপরে উঠে যেত, অথচ তারা এখনো শেষই হয়নি।
+     */
     computedResultHistory.sort((a, b) => {
-      const ta = startMsOf(a);
-      const tb = startMsOf(b);
-      if (ta === null && tb === null) return compareExamsByStartTime(examForSort(a), examForSort(b));
-      if (ta === null) return 1;
-      if (tb === null) return -1;
-      return compareExamsByStartTime(examForSort(b), examForSort(a));
+      const ra = recencyRank(a);
+      const rb = recencyRank(b);
+      if (ra !== rb) return ra - rb;
+
+      const ae = endMsOf(a) ?? startMsOf(a) ?? 0;
+      const be = endMsOf(b) ?? startMsOf(b) ?? 0;
+      if (ra === 0) {
+        // শেষ হয়ে গেছে — সবশেষে শেষ হওয়াটা আগে (endTime DESC)
+        const byEndDesc = be - ae;
+        if (byEndDesc !== 0) return byEndDesc;
+      } else if (ra === 1) {
+        // চলছে — যেটা আগে শেষ হবে
+        const byEndAsc = ae - be;
+        if (byEndAsc !== 0) return byEndAsc;
+      } else if (ra === 2) {
+        // আসন্ন — যেটা আগে শুরু হবে
+        const byStartAsc = (startMsOf(a) ?? 0) - (startMsOf(b) ?? 0);
+        if (byStartAsc !== 0) return byStartAsc;
+      }
+      return String(a?.title ?? "").localeCompare(String(b?.title ?? ""), "bn");
     });
 
     const takenCount = computedResultHistory.filter((e) => e.taken === true).length;

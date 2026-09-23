@@ -4,7 +4,7 @@ import { getDailyNews } from "@/actions/news-actions";
 import { getCompletedExamKeys } from "@/actions/student-actions";
 import { getCoursePrices } from "@/actions/course-actions";
 import { getCourseVideoCounts } from "@/actions/video-actions";
-import { examToDto } from "@/lib/exam-api";
+import { examToDto, isExamVisibleInApp } from "@/lib/exam-api";
 import type { Exam } from "@/types/exam";
 
 export const runtime = "nodejs";
@@ -68,6 +68,16 @@ export const GET = withApi("optional", async (ctx) => {
 
   for (const e of exams) {
     const dto = examToDto(e, nowMs);
+    /**
+     * ⚠️ ২০২৬-০৯-২৩: **১২-ঘণ্টার দৃশ্যমানতা-নিয়ম** — ব্যবহারকারীর নির্দেশ:
+     * *"যে এক্সামগুলো ১২ ঘন্টার মধ্যে শুরু হবে না বা লাইভ না, সেগুলো ব্যাকএন্ড
+     * থেকে অ্যাপে দেখা যাবে না ... লিডারবোর্ড, কোর্স, কোথাও না।"*
+     *
+     * এটা ফিল্টার-লিস্টের **আগেই** বসানো, তাই live · upcoming · free — তিন
+     * তালিকা থেকেই বাদ পড়ে যায়, আর `freeTotal`-ও মিলে থাকে (সংখ্যা আর তালিকা
+     * কখনো আলাদা কথা বলে না)।
+     */
+    if (!isExamVisibleInApp(e, nowMs)) continue;
     // উইন্ডো-হীন সর্বদা-খোলা পরীক্ষা live/upcoming তালিকায় যায় না
     if (dto.startTimeMs !== null && dto.endTimeMs !== null) {
       if (dto.isLive) live.push(e);
