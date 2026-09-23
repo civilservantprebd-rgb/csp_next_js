@@ -378,7 +378,10 @@ export default function ExamPage() {
       examTitle: exam.title,
       examTimerMinutes: exam.timerMinutes,
       timeRemaining: timeRemaining,
-      answers: studentAnswers,
+      answers: studentAnswers.map((ans, idx) => ({
+        qid: exam.questions?.[idx]?.id || `unknown-${idx}`,
+        ans
+      })),
       totalQuestions: exam.questions?.length || 0,
     });
 
@@ -418,7 +421,10 @@ export default function ExamPage() {
           incorrect: res.incorrect,
           timeSpent: timeFormatted,
           totalQuestions: exam.questions?.length || 0,
-          answers: studentAnswers,
+          answers: studentAnswers.map((ans, idx) => ({
+            qid: exam.questions?.[idx]?.id || `unknown-${idx}`,
+            ans
+          })),
         })
       );
       router.push(`/exam/${examId}/result`);

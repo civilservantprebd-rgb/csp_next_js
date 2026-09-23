@@ -7,7 +7,10 @@ import { parseBangladeshDateTime, getTrueDate, LIVE_GRACE_MS } from "@/lib/bangl
 import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
 import { loadAnswerLockState, isQuestionLocked } from "@/lib/answer-lock";
 
-export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {  try {
+export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
+  try {
+    const { unstable_noStore } = require("next/cache");
+    unstable_noStore();
     // SECURITY: never leak the answer key to non-teachers until the exam's answer
     // release time. For SCHEDULED exams the key stays hidden BEFORE the exam starts
     // and while it runs (isAnswerTimeReached is false until endTime passes or the
@@ -53,27 +56,29 @@ export async function getExamSolutions(examKey: string): Promise<QuestionSolutio
     // 1. Fetch from question_bank via exam_questions_link
     const { data: links, error: linkError } = await supabase
       .from("exam_questions_link")
-      .select("order_index, question_bank(correct, exp)")
+      .select("order_index, question_bank(id, correct, exp)")
       .eq("exam_id", examKey)
       .order("order_index", { ascending: true });
 
     if (!linkError && links && links.length > 0) {
       return links.map((l: any) => ({
-        correct: Number(l.question_bank?.correct ?? 0),
-        exp: l.question_bank?.exp || ""
+        id: l.question_bank?.id,
+        correct: l.question_bank?.correct ?? 0,
+        exp: l.question_bank?.exp ?? ""
       }));
     }
 
     // 2. Fallback to exam_questions view if any
     const { data, error } = await supabase
       .from("exam_questions")
-      .select("correct, exp")
+      .select("id, correct, exp")
       .eq("exam_id", examKey)
       .order("created_at", { ascending: true });
 
     if (error) throw error;
 
     return (data || []).map((r) => ({
+      id: r.id,
       correct: Number(r.correct),
       exp: r.exp || ""
     }));
@@ -299,7 +304,9 @@ export async function readExamStartMs(
       .eq("student_id", String(studentId || "").trim())
       .maybeSingle();
     if (!data?.started_at) return null;
-    const t = Date.parse(String(data.started_at));
+    let dateStr = String(data.started_at);
+    if (!dateStr.includes("Z") && !dateStr.includes("+")) dateStr += "Z";
+    const t = Date.parse(dateStr);
     return Number.isNaN(t) ? null : t;
   } catch {
     return null;
@@ -313,7 +320,7 @@ export async function submitExamAnswers(payload: {
   examTitle: string;
   examTimerMinutes: number;
   timeRemaining: number;
-  answers: (number | null)[];
+  answers: any[];
   totalQuestions: number;
 }): Promise<{
   success: boolean;
@@ -405,9 +412,23 @@ export async function submitExamAnswers(payload: {
 
     // Validate + sanitize answers (never trust the client's shape blindly)
     const rawAnswers = Array.isArray(payload.answers) ? payload.answers : [];
-    const answers = rawAnswers.slice(0, 500).map((v) =>
-      v === null || v === undefined ? null : Math.min(20, Math.max(0, Math.floor(Number(v) || 0)))
-    );
+    
+    // Check if new format (objects) or old format (numbers)
+    const isNewFormat = rawAnswers.length > 0 && typeof rawAnswers[0] === 'object' && rawAnswers[0] !== null && 'qid' in rawAnswers[0];
+    let finalAnswers: any[] = [];
+    
+    if (isNewFormat) {
+      finalAnswers = rawAnswers.slice(0, 500).map((v: any) => {
+        if (!v || typeof v !== 'object') return null;
+        const ans = v.ans === null || v.ans === undefined ? -1 : Math.min(20, Math.max(0, Math.floor(Number(v.ans) || 0)));
+        return { qid: String(v.qid), ans };
+      });
+    } else {
+      finalAnswers = rawAnswers.slice(0, 500).map((v: any) =>
+        v === null || v === undefined ? -1 : Math.min(20, Math.max(0, Math.floor(Number(v) || 0)))
+      );
+    }
+
     const totalQuestions = Math.max(0, Number(payload.totalQuestions) || 0);
 
     const { parseBangladeshDateTime, getTrueDate } = await import("@/lib/bangladesh-time");
@@ -438,19 +459,11 @@ export async function submitExamAnswers(payload: {
     let startedAtMs: number | null = null;
     if (startTime || endTime) {
       try {
-        const { data: startRow } = await supabase
-          .from("exam_attempt_starts")
-          .select("started_at")
-          .eq("exam_id", payload.examKey)
-          .eq("student_id", recordStudentId)
-          .maybeSingle();
-        if (startRow?.started_at) {
-          const s = parseBangladeshDateTime(startRow.started_at);
-          if (s) {
-            startedAtMs = s.getTime();
-            if (startTime && endTime) {
-              liveByStart = s.getTime() >= startTime.getTime() && s.getTime() <= (endTime.getTime() + 59000);
-            }
+        const storedMs = await readExamStartMs(payload.examKey, recordStudentId);
+        if (storedMs !== null) {
+          startedAtMs = storedMs;
+          if (startTime && endTime) {
+            liveByStart = storedMs >= startTime.getTime() && storedMs <= (endTime.getTime() + 59000);
           }
         }
       } catch {
@@ -521,13 +534,27 @@ export async function submitExamAnswers(payload: {
     // it is scored automatically at release instead of being frozen at 0.
     const needsEvaluation = solutions === null;
     if (solutions) {
-      answers.forEach((ans, idx) => {
-        const sol = solutions[idx];
-        if (ans !== null && sol) {
-          if (ans === sol.correct) correct++;
-          else incorrect++;
-        }
-      });
+      if (isNewFormat) {
+        const answerMap = new Map<string, number>();
+        finalAnswers.forEach((a: any) => {
+          if (a && a.qid) answerMap.set(a.qid, a.ans);
+        });
+        solutions.forEach((sol) => {
+          const ans = sol.id && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+          if (ans !== undefined && ans !== -1 && sol) {
+            if (ans === sol.correct) correct++;
+            else incorrect++;
+          }
+        });
+      } else {
+        finalAnswers.forEach((ans: number, idx: number) => {
+          const sol = solutions[idx];
+          if (ans !== -1 && sol) {
+            if (ans === sol.correct) correct++;
+            else incorrect++;
+          }
+        });
+      }
       score = Math.max(0, correct - incorrect * 0.5);
     }
 
@@ -559,7 +586,7 @@ export async function submitExamAnswers(payload: {
         incorrect: isLive ? 0 : incorrect,
         total_questions: totalQuestions,
         time_spent: timeFormatted,
-        answers: answers.map((v) => (v === null ? -1 : v)),
+        answers: finalAnswers,
         // CORRECTNESS: a late (non-live) submission used to be written with
         // score 0 and is_pending_evaluation = false -- nothing ever re-evaluated
         // it, so the student saw 0/0 permanently. Any row we could not score
@@ -707,7 +734,12 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       totalQuestions: Number(row.total_questions ?? 0),
       timeSpent: row.time_spent,
       answers: Array.isArray(row.answers)
-        ? row.answers.map((v: any) => (v === -1 || v === null ? null : Number(v)))
+        ? row.answers.map((v: any) => {
+            if (typeof v === 'object' && v !== null && 'qid' in v) {
+               return v;
+            }
+            return (v === -1 || v === null ? null : Number(v));
+          })
         : [],
       isPendingEvaluation: row.is_pending_evaluation,
       isLiveSubmission: row.is_live_submission,
@@ -723,13 +755,31 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
           if ((s.isPendingEvaluation || s.score === undefined) && s.answers) {
             let cor = 0;
             let incor = 0;
-            s.answers.forEach((ans, idx) => {
-              const sol = solutions[idx];
-              if (ans !== null && sol) {
-                if (ans === sol.correct) cor++;
-                else incor++;
-              }
-            });
+            
+            const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === 'object' && s.answers[0] !== null && 'qid' in s.answers[0];
+            
+            if (isNewFormat) {
+               const answerMap = new Map<string, number>();
+               s.answers.forEach((a: any) => {
+                 if (a && a.qid) answerMap.set(a.qid, Number(a.ans));
+               });
+               solutions.forEach((sol) => {
+                 const ans = sol.id && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+                 if (ans !== undefined && ans !== -1 && sol) {
+                    if (ans === sol.correct) cor++;
+                    else incor++;
+                 }
+               });
+            } else {
+               s.answers.forEach((ans, idx) => {
+                 const sol = solutions[idx];
+                 if (ans !== null && sol) {
+                   if (Number(ans) === sol.correct) cor++;
+                   else incor++;
+                 }
+               });
+            }
+            
             s.correct = cor;
             s.incorrect = incor;
             s.score = Math.max(0, cor - incor * 0.5);

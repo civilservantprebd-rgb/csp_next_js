@@ -9,7 +9,7 @@ import { MathText } from "@/lib/MathText";
 interface ReviewCardProps {
   questions: QuestionItem[];
   solutions: QuestionSolution[];
-  studentAnswers: (number | null)[];
+  studentAnswers: any[]; // (number | null)[] OR { qid: string, ans: number | null }[]
 }
 
 export const ReviewCard: React.FC<ReviewCardProps> = ({
@@ -17,10 +17,23 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   solutions,
   studentAnswers,
 }) => {
+  const isNewFormat = studentAnswers.length > 0 && typeof studentAnswers[0] === "object" && studentAnswers[0] !== null;
+  const answerMap = new Map<string, number | null>();
+  if (isNewFormat) {
+    studentAnswers.forEach((a: any) => {
+      let val = a.ans;
+      if (val === -1) val = null;
+      answerMap.set(a.qid, val);
+    });
+  }
+
   return (
     <div className="space-y-4 font-bengali">
       {questions.map((q, idx) => {
-        const ans = studentAnswers[idx];
+        let rawAns = isNewFormat ? (q.id && answerMap.has(q.id) ? answerMap.get(q.id) : null) : studentAnswers[idx];
+        if (rawAns === -1 || rawAns === undefined) rawAns = null;
+        const ans = rawAns as number | null;
+
         const sol = solutions[idx] || { correct: 0, exp: "" };
         const isCorrect = ans === sol.correct;
         const isSkipped = ans === null;

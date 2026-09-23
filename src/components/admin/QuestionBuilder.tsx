@@ -4,12 +4,13 @@ import React, { useState, useEffect } from "react";
 import { Exam, QuestionItem, QuestionSolution } from "@/types/exam";
 import {
   addQuestionToExam,
-  updateQuestionInExam,
   deleteQuestionFromExam,
+  updateQuestionInExam,
+  reorderExamQuestion,
   saveAppConfig
 } from "@/actions/admin-actions";
 import { getExamSolutions } from "@/actions/exam-actions";
-import { Plus, Trash2, Edit2, CheckCircle2, Layers, Tag, BookOpen, Upload, FileText, Sparkles } from "lucide-react";
+import { Plus, Trash2, Edit2, CheckCircle2, Layers, Tag, BookOpen, Upload, FileText, Sparkles, ArrowUp, ArrowDown } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 import { MathText } from "@/lib/MathText";
 import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
@@ -147,9 +148,9 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
       setEditingIndex(null);
     } else {
       const ok = await addQuestionToExam(activeExamKey, questionObj, solutionObj);
-      if (!ok) {
+      if (ok !== true) {
         setIsLoading(false);
-        alert("প্রশ্ন যুক্ত করতে সমস্যা হয়েছে।");
+        alert("প্রশ্ন যুক্ত করতে সমস্যা হয়েছে: " + (typeof ok === 'string' ? ok : ""));
         return;
       }
     }
@@ -182,6 +183,14 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
       await loadSolutions();
       onRefresh();
     }
+  };
+
+  const handleReorder = async (idx: number, direction: "up" | "down") => {
+    setIsLoading(true);
+    await reorderExamQuestion(activeExamKey, idx, direction);
+    await loadSolutions();
+    onRefresh();
+    setIsLoading(false);
   };
 
   const resetForm = () => {
@@ -494,7 +503,27 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex gap-1.5 shrink-0">
+                  <div className="flex gap-1.5 shrink-0 flex-wrap justify-end max-w-[120px] sm:max-w-none">
+                    {idx > 0 && (
+                      <button
+                        onClick={() => handleReorder(idx, "up")}
+                        disabled={isLoading}
+                        className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-1 rounded-lg transition cursor-pointer"
+                        title="উপরে নিন"
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </button>
+                    )}
+                    {idx < (exam.questions?.length || 0) - 1 && (
+                      <button
+                        onClick={() => handleReorder(idx, "down")}
+                        disabled={isLoading}
+                        className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-1 rounded-lg transition cursor-pointer"
+                        title="নিচে নিন"
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleEdit(idx)}
                       className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1"

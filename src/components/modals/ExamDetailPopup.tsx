@@ -183,11 +183,17 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
               </button>
             </div>
 
-            {/* Full question review — শুধু বিস্তারিত চাইলে */}
             {showDetails && (
               <div className="space-y-4">
                 {displayQuestions.map((q, qIdx) => {
-                const studentAnsIdx = submission.answers?.[qIdx] ?? null;
+                const isNewFormat = submission.answers?.length > 0 && typeof submission.answers[0] === 'object' && submission.answers[0] !== null && 'qid' in submission.answers[0];
+                let studentAnsIdx = null;
+                if (isNewFormat) {
+                   const matched: any = submission.answers.find((a: any) => a && typeof a === 'object' && a.qid === q.id);
+                   studentAnsIdx = matched && matched.ans !== -1 ? matched.ans : null;
+                } else {
+                   studentAnsIdx = submission.answers?.[qIdx] ?? null;
+                }
                 const sol = solutions?.[qIdx] || { correct: 0, exp: "" };
                 const isCorrect = studentAnsIdx !== null && studentAnsIdx === sol.correct;
                 const isSkipped = studentAnsIdx === null;

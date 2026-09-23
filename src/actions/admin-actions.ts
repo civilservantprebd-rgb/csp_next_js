@@ -896,7 +896,7 @@ export async function addQuestionToExam(
   examKey: string,
   question: QuestionItem,
   solution: QuestionSolution
-): Promise<boolean> {
+): Promise<boolean | string> {
   try {
     await requireTeacher();
     const { data: examData, error: examError } = await supabase
@@ -918,7 +918,9 @@ export async function addQuestionToExam(
         const qb = Array.isArray(l.question_bank) ? l.question_bank[0] : l.question_bank;
         return qb && String(qb.q || "").trim().toLowerCase() === qText;
       });
-      if (exists) return true; // already added — skip silently
+      if (exists) {
+        throw new Error("এই প্রশ্নটি এই পরীক্ষায় আগেই যুক্ত করা হয়েছে!");
+      }
     }
 
     // 1. Insert question into question_bank
@@ -976,9 +978,9 @@ export async function addQuestionToExam(
 
     invalidateConfigCache();
     return true;
-  } catch (err) {
+  } catch (err: any) {
     console.error("Add question error:", err);
-    return false;
+    return err.message || "Unknown error";
   }
 }
 
