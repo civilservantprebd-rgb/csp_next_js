@@ -8,6 +8,7 @@ export interface QuestionItem {
 }
 
 export interface QuestionSolution {
+  id?: string;
   correct: number;
   exp: string;
 }

@@ -1427,6 +1427,54 @@ export async function restoreArchivedQuestions(
   }
 }
 
+export async function reorderExamQuestion(
+  examKey: string,
+  index: number,
+  direction: "up" | "down"
+): Promise<boolean> {
+  try {
+    await requireTeacher();
+
+    const { data: links, error: fetchError } = await supabase
+      .from("exam_questions_link")
+      .select("question_id, order_index")
+      .eq("exam_id", examKey)
+      .order("order_index", { ascending: true });
+
+    if (fetchError) throw fetchError;
+    if (!links || links.length === 0) return false;
+
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= links.length) return false;
+
+    const linkA = links[index];
+    const linkB = links[swapIndex];
+
+    // Swap their order_index values
+    const [resA, resB] = await Promise.all([
+      supabase
+        .from("exam_questions_link")
+        .update({ order_index: Number(linkB.order_index) })
+        .eq("exam_id", examKey)
+        .eq("question_id", linkA.question_id),
+      supabase
+        .from("exam_questions_link")
+        .update({ order_index: Number(linkA.order_index) })
+        .eq("exam_id", examKey)
+        .eq("question_id", linkB.question_id),
+    ]);
+
+    if (resA.error) throw resA.error;
+    if (resB.error) throw resB.error;
+
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Reorder exam question error:", err);
+    return false;
+  }
+}
+
 export async function deleteQuestionFromExam(examKey: string, index: number): Promise<boolean> {
   try {
     await requireTeacher();

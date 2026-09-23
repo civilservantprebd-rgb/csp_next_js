@@ -540,7 +540,7 @@ export async function submitExamAnswers(payload: {
           if (a && a.qid) answerMap.set(a.qid, a.ans);
         });
         solutions.forEach((sol) => {
-          const ans = sol.id && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+          const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
           if (ans !== undefined && ans !== -1 && sol) {
             if (ans === sol.correct) correct++;
             else incorrect++;
