@@ -45,13 +45,26 @@ export const POST = withApi<RouteParams>("student", async (ctx, req, routeCtx) =
 
   const body = await readJsonBody(req);
 
+  // প্রশ্ন-সংখ্যা সার্ভার থেকেই — ক্লায়েন্ট "১০০টির মধ্যে ১০০" বলে স্কোর ফুলাতে
+  // পারবে না। প্রশ্ন পড়া না গেলে ক্লায়েন্টের দাবিতে fallback (আগের আচরণ)।
+  const questions = await fetchExamQuestions(examId);
+
   // উত্তর স্যানিটাইজ: শুধু 0+ ইন্টিজার বা নতুন {qid, ans} অবজেক্ট, না দিলে null (ছেড়ে দেওয়া প্রশ্ন)
   let rawAnswers: any[] = [];
-  if (Array.isArray(body?.answers)) {
-    rawAnswers = body.answers;
-  } else if (body?.answers && typeof body.answers === 'object') {
+  let parsedAnswers = body?.answers;
+  if (typeof parsedAnswers === 'string') {
+    try {
+      parsedAnswers = JSON.parse(parsedAnswers);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  if (Array.isArray(parsedAnswers)) {
+    rawAnswers = parsedAnswers;
+  } else if (parsedAnswers && typeof parsedAnswers === 'object') {
     // Mobile app dictionary format: { "qid1": "A", "qid2": 1 }
-    for (const [key, val] of Object.entries(body.answers)) {
+    for (const [key, val] of Object.entries(parsedAnswers)) {
       let numericVal = val;
       if (typeof val === 'string') {
         const up = val.toUpperCase();
@@ -62,7 +75,14 @@ export const POST = withApi<RouteParams>("student", async (ctx, req, routeCtx) =
         else if (up === 'E') numericVal = 4;
         else numericVal = Number(val);
       }
-      rawAnswers.push({ qid: key, ans: numericVal });
+      let qidToUse = key;
+      if (/^\d+$/.test(key)) {
+        const idx = parseInt(key, 10);
+        if (questions[idx] && questions[idx].id) {
+          qidToUse = questions[idx].id;
+        }
+      }
+      rawAnswers.push({ qid: qidToUse, ans: numericVal });
     }
   }
 
@@ -79,9 +99,6 @@ export const POST = withApi<RouteParams>("student", async (ctx, req, routeCtx) =
     return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
   });
 
-  // প্রশ্ন-সংখ্যা সার্ভার থেকেই — ক্লায়েন্ট "১০০টির মধ্যে ১০০" বলে স্কোর ফুলাতে
-  // পারবে না। প্রশ্ন পড়া না গেলে ক্লায়েন্টের দাবিতে fallback (আগের আচরণ)।
-  const questions = await fetchExamQuestions(examId);
   const declared = Number(body?.totalQuestions);
   const totalQuestions = questions.length > 0
     ? questions.length
