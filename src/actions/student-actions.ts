@@ -280,7 +280,7 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
           const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === "object" && s.answers[0] !== null && "qid" in s.answers[0];
           if (isNewFormat) {
              const answerMap = new Map();
-             s.answers.forEach((a: any) => { if (a && typeof a === \"object\" && \"qid\" in a) answerMap.set(a.qid, Number(a.ans)); });
+             s.answers.forEach((a: any) => { if (a && typeof a === 'object' && 'qid' in a) answerMap.set(a.qid, Number(a.ans)); });
              solutions.forEach(sol => {
                const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
                if (ans !== undefined && ans !== -1 && sol) {
@@ -436,7 +436,7 @@ export async function getStudentPortalData(
     const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === "object" && s.answers[0] !== null && "qid" in s.answers[0];
           if (isNewFormat) {
              const answerMap = new Map();
-             s.answers.forEach((a: any) => { if (a && typeof a === \"object\" && \"qid\" in a) answerMap.set(a.qid, Number(a.ans)); });
+             s.answers.forEach((a: any) => { if (a && typeof a === 'object' && 'qid' in a) answerMap.set(a.qid, Number(a.ans)); });
              solutions.forEach(sol => {
                const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
                if (ans !== undefined && ans !== -1 && sol) {
@@ -1190,7 +1190,7 @@ export async function getStudentExamHistoryForTeacher(rawStudentId: string): Pro
           const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === "object" && s.answers[0] !== null && "qid" in s.answers[0];
           if (isNewFormat) {
              const answerMap = new Map();
-             s.answers.forEach((a: any) => { if (a && typeof a === \"object\" && \"qid\" in a) answerMap.set(a.qid, Number(a.ans)); });
+             s.answers.forEach((a: any) => { if (a && typeof a === "object" && "qid" in a) answerMap.set(a.qid, Number(a.ans)); });
              solutions.forEach(sol => {
                const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
                if (ans !== undefined && ans !== -1 && sol) {

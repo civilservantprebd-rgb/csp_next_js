@@ -51,12 +51,22 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
           setIsLoading(false);
           const qs = bundle.questions.length > 0 ? bundle.questions : exam?.questions || [];
           if (bundle.solutions && qs.length > 0 && submission.studentId) {
+            
+            let mappedAnswers = submission.answers || [];
+            if (mappedAnswers.length > 0 && typeof mappedAnswers[0] === "object" && mappedAnswers[0] !== null && "qid" in mappedAnswers[0]) {
+               const answerMap = new Map();
+               mappedAnswers.forEach((a: any) => { if (a && a.qid) answerMap.set(a.qid, Number(a.ans)); });
+               mappedAnswers = qs.map(q => {
+                 const ans = q.id && answerMap.has(q.id) ? answerMap.get(q.id) : null;
+                 return (ans === -1 || ans === undefined) ? null : ans;
+               });
+            }
             saveMistakesFromSubmission(
               submission.studentId,
               submission.examTitle,
               qs,
               bundle.solutions,
-              submission.answers || [],
+              mappedAnswers as (number | null)[],
               bundle.exam.subject || exam?.subject || ""
             );
           }
