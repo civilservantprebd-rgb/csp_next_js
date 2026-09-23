@@ -704,7 +704,7 @@ export async function syncStudentLogin(payload: {
 
     const { error } = await supabase.from("allowed_students").upsert({
       id: existing.id,
-      name: payload.name.trim() || existing?.name || "শিক্ষার্থী",
+      name: existing?.name || payload.name.trim() || "শিক্ষার্থী",
       email: sessionEmail || existing?.email || "",
       courses: existingCourses,
       last_login_at: now,
@@ -715,7 +715,7 @@ export async function syncStudentLogin(payload: {
       // Fallback if photo_url or last_login_at columns are missing in older Supabase schema
       const { error: fallbackErr } = await supabase.from("allowed_students").upsert({
         id: existing.id,
-        name: payload.name.trim() || existing?.name || "শিক্ষার্থী",
+        name: existing?.name || payload.name.trim() || "শিক্ষার্থী",
         email: sessionEmail || existing?.email || "",
         courses: existingCourses
       });
