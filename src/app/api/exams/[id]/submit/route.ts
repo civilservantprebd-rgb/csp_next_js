@@ -45,10 +45,36 @@ export const POST = withApi<RouteParams>("student", async (ctx, req, routeCtx) =
 
   const body = await readJsonBody(req);
 
-  // উত্তর স্যানিটাইজ: শুধু 0+ ইন্টিজার, না দিলে null (ছেড়ে দেওয়া প্রশ্ন)
-  const rawAnswers = Array.isArray(body?.answers) ? (body!.answers as unknown[]) : [];
-  const answers: (number | null)[] = rawAnswers.map((v) => {
+  // উত্তর স্যানিটাইজ: শুধু 0+ ইন্টিজার বা নতুন {qid, ans} অবজেক্ট, না দিলে null (ছেড়ে দেওয়া প্রশ্ন)
+  let rawAnswers: any[] = [];
+  if (Array.isArray(body?.answers)) {
+    rawAnswers = body.answers;
+  } else if (body?.answers && typeof body.answers === 'object') {
+    // Mobile app dictionary format: { "qid1": "A", "qid2": 1 }
+    for (const [key, val] of Object.entries(body.answers)) {
+      let numericVal = val;
+      if (typeof val === 'string') {
+        const up = val.toUpperCase();
+        if (up === 'A') numericVal = 0;
+        else if (up === 'B') numericVal = 1;
+        else if (up === 'C') numericVal = 2;
+        else if (up === 'D') numericVal = 3;
+        else if (up === 'E') numericVal = 4;
+        else numericVal = Number(val);
+      }
+      rawAnswers.push({ qid: key, ans: numericVal });
+    }
+  }
+
+  const answers = rawAnswers.map((v) => {
     if (v === null || v === undefined || v === -1) return null;
+    
+    // নতুন ফরম্যাট: { qid: '...', ans: 0 }
+    if (typeof v === 'object' && 'qid' in v) {
+      return v;
+    }
+    
+    // পুরোনো ফরম্যাট: 0, 1, 2...
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
   });
