@@ -9,7 +9,7 @@ export interface Submission {
   incorrect: number;
   totalQuestions: number;
   timeSpent: string;
-  answers: (number | null)[];
+  answers: (number | null | { qid: string; ans: number })[];
   isPendingEvaluation?: boolean;
   isLiveSubmission?: boolean;
   timestamp?: any;

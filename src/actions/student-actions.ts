@@ -267,7 +267,7 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
       // student was not yet entitled to see.
       const isReleased = examObj ? isAnswerTimeReached(examObj) : false;
 
-      if (isReleased && (s.isPendingEvaluation || s.score === undefined)) {
+      if (isReleased) {
         let solutionsPromise = solutionsCache.get(s.examKey);
         if (!solutionsPromise) {
           solutionsPromise = getExamSolutions(s.examKey);
@@ -277,31 +277,43 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
         if (solutions && s.answers) {
           let cor = 0;
           let incor = 0;
-          s.answers.forEach((ans, idx) => {
-            const sol = solutions[idx];
-            if (ans !== null && sol) {
-              if (ans === sol.correct) cor++;
-              else incor++;
-            }
-          });
-          s.correct = cor;
-          s.incorrect = incor;
-          s.score = Math.max(0, cor - incor * 0.5);
-          s.isPendingEvaluation = false;
-
-          evaluateJobs.push(
-            Promise.resolve(
-              supabase
-                .from("submissions")
-                .update({
+          const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === "object" && s.answers[0] !== null && "qid" in s.answers[0];
+          if (isNewFormat) {
+             const answerMap = new Map();
+             s.answers.forEach(a => { if (a && a.qid) answerMap.set(a.qid, Number(a.ans)); });
+             solutions.forEach(sol => {
+               const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+               if (ans !== undefined && ans !== -1 && sol) {
+                  if (ans === sol.correct) cor++;
+                  else incor++;
+               }
+             });
+          } else {
+             s.answers.forEach((ans, idx) => {
+               const sol = solutions[idx];
+               if (ans !== null && sol) {
+                 if (Number(ans) === sol.correct) cor++;
+                 else incor++;
+               }
+             });
+          }
+          const newScore = Math.max(0, cor - incor * 0.5);
+          if (s.score !== newScore || s.correct !== cor || s.incorrect !== incor || s.isPendingEvaluation) {
+            s.correct = cor;
+            s.incorrect = incor;
+            s.score = newScore;
+            s.isPendingEvaluation = false;
+            evaluateJobs.push(
+              Promise.resolve(
+                supabase.from("submissions").update({
                   score: s.score,
                   correct: cor,
                   incorrect: incor,
                   is_pending_evaluation: false
-                })
-                .eq("id", s.id)
-            )
-          );
+                }).eq("id", s.id)
+              )
+            );
+          }
         }
       }
     }
@@ -421,13 +433,26 @@ export async function getStudentPortalData(
 
     let cor = 0;
     let incor = 0;
-    s.answers.forEach((ans, idx) => {
-      const sol = solutions[idx];
-      if (ans !== null && sol) {
-        if (ans === sol.correct) cor++;
-        else incor++;
-      }
-    });
+    const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === "object" && s.answers[0] !== null && "qid" in s.answers[0];
+          if (isNewFormat) {
+             const answerMap = new Map();
+             s.answers.forEach(a => { if (a && a.qid) answerMap.set(a.qid, Number(a.ans)); });
+             solutions.forEach(sol => {
+               const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+               if (ans !== undefined && ans !== -1 && sol) {
+                  if (ans === sol.correct) cor++;
+                  else incor++;
+               }
+             });
+          } else {
+             s.answers.forEach((ans, idx) => {
+               const sol = solutions[idx];
+               if (ans !== null && sol) {
+                 if (Number(ans) === sol.correct) cor++;
+                 else incor++;
+               }
+             });
+          }
     s.correct = cor;
     s.incorrect = incor;
     s.score = Math.max(0, cor - incor * 0.5);
@@ -1157,18 +1182,31 @@ export async function getStudentExamHistoryForTeacher(rawStudentId: string): Pro
       const examObj = examsMap[s.examKey];
       // SECURITY (fail-closed): see the note on the sibling loops above.
       const isReleased = examObj ? isAnswerTimeReached(examObj) : false;
-      if (isReleased && (s.isPendingEvaluation || s.score === undefined)) {
+      if (isReleased) {
         const solutions = await getExamSolutions(s.examKey);
         if (solutions && s.answers) {
           let cor = 0;
           let incor = 0;
-          s.answers.forEach((ans, idx) => {
-            const sol = solutions[idx];
-            if (ans !== null && sol) {
-              if (ans === sol.correct) cor++;
-              else incor++;
-            }
-          });
+          const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === "object" && s.answers[0] !== null && "qid" in s.answers[0];
+          if (isNewFormat) {
+             const answerMap = new Map();
+             s.answers.forEach(a => { if (a && a.qid) answerMap.set(a.qid, Number(a.ans)); });
+             solutions.forEach(sol => {
+               const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+               if (ans !== undefined && ans !== -1 && sol) {
+                  if (ans === sol.correct) cor++;
+                  else incor++;
+               }
+             });
+          } else {
+             s.answers.forEach((ans, idx) => {
+               const sol = solutions[idx];
+               if (ans !== null && sol) {
+                 if (Number(ans) === sol.correct) cor++;
+                 else incor++;
+               }
+             });
+          }
           const sc = Math.max(0, cor - incor * 0.5);
           await supabase
             .from("submissions")

@@ -746,46 +746,49 @@ export async function fetchLeaderboard(examKey: string): Promise<LeaderboardItem
       submittedAtISO: row.submitted_at
     }));
 
-    let hasPending = subs.some((s) => s.isPendingEvaluation || s.score === undefined);
-
-    if (hasPending) {
-      const solutions = await getExamSolutions(examKey);
-      if (solutions) {
-        for (const s of subs) {
-          if ((s.isPendingEvaluation || s.score === undefined) && s.answers) {
-            let cor = 0;
-            let incor = 0;
-            
-            const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === 'object' && s.answers[0] !== null && 'qid' in s.answers[0];
-            
-            if (isNewFormat) {
-               const answerMap = new Map<string, number>();
-               s.answers.forEach((a: any) => {
-                 if (a && a.qid) answerMap.set(a.qid, Number(a.ans));
-               });
-               solutions.forEach((sol) => {
-                 const ans = sol.id && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
-                 if (ans !== undefined && ans !== -1 && sol) {
-                    if (ans === sol.correct) cor++;
-                    else incor++;
-                 }
-               });
-            } else {
-               s.answers.forEach((ans, idx) => {
-                 const sol = solutions[idx];
-                 if (ans !== null && sol) {
-                   if (Number(ans) === sol.correct) cor++;
-                   else incor++;
-                 }
-               });
-            }
-            
+    // ALWAYS fetch solutions and recalculate. If the teacher deleted a question or fixed a wrong answer,
+    // the leaderboard should instantly self-correct without manual intervention.
+    const solutions = await getExamSolutions(examKey);
+    if (solutions) {
+      for (const s of subs) {
+        if (s.answers) {
+          let cor = 0;
+          let incor = 0;
+          
+          const isNewFormat = s.answers.length > 0 && typeof s.answers[0] === 'object' && s.answers[0] !== null && 'qid' in s.answers[0];
+          
+          if (isNewFormat) {
+             const answerMap = new Map<string, number>();
+             s.answers.forEach((a: any) => {
+               if (a && a.qid) answerMap.set(a.qid, Number(a.ans));
+             });
+             // Only evaluate based on CURRENT solutions. If a question was deleted, it won't be in `solutions`.
+             solutions.forEach((sol) => {
+               const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+               if (ans !== undefined && ans !== -1 && sol) {
+                  if (ans === sol.correct) cor++;
+                  else incor++;
+               }
+             });
+          } else {
+             s.answers.forEach((ans, idx) => {
+               const sol = solutions[idx];
+               if (ans !== null && sol) {
+                 if (Number(ans) === sol.correct) cor++;
+                 else incor++;
+               }
+             });
+          }
+          
+          const newScore = Math.max(0, cor - incor * 0.5);
+          
+          // Only hit the DB if the score actually changed, or if it was pending
+          if (s.score !== newScore || s.correct !== cor || s.incorrect !== incor || s.isPendingEvaluation) {
             s.correct = cor;
             s.incorrect = incor;
-            s.score = Math.max(0, cor - incor * 0.5);
+            s.score = newScore;
             s.isPendingEvaluation = false;
 
-            // Save evaluated score back to Supabase
             await supabase
               .from("submissions")
               .update({
