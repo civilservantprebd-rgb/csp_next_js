@@ -53,12 +53,12 @@ You must output in valid JSON matching the required schema. Do not wrap in markd
 
     const { object } = await generateObject({
       model,
-      mode: "json",
+
       system: systemPrompt,
       prompt: `Please solve the following questions:\n\n${promptText}`,
       schema: solveSchema,
-      maxTokens: 4000,
-      temperature: 0.1 // Low temperature for factual accuracy
+
+ // Low temperature for factual accuracy
     });
 
     return NextResponse.json({ solutions: object.solutions });
