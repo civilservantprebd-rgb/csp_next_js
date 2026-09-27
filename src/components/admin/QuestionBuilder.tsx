@@ -371,19 +371,7 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
             )}
           </div>
         </form>
-      {isAIModalOpen && (
-        <AiQuestionGeneratorUI
-          isOpen={isAIModalOpen}
-          onClose={() => setIsAIModalOpen(false)}
-          examKey={activeExamKey}
-          existingQuestionTexts={(exam.questions || []).map((q) => q.q)}
-          topics={topics}
-          onSuccess={async () => {
-            await loadSolutions();
-            onRefresh();
-          }}
-        />
-      )}
+      
 
 
       <div className="space-y-3">

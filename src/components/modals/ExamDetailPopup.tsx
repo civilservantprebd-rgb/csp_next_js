@@ -31,6 +31,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   // আগে সংক্ষিপ্ত (brief) ফলাফল — শিক্ষার্থী চাইলে "বিস্তারিত" চেপে প্রশ্ন-রিভিউ খোলে
   const [showDetails, setShowDetails] = useState(false);
+  const [filterMode, setFilterMode] = useState<"all" | "correct" | "incorrect" | "skipped">("all");
 
   useEffect(() => {
     if (isOpen && submission) {
@@ -165,17 +166,26 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                 <div className="bg-rose-400" style={{ width: `${total ? (incorrect / total) * 100 : 0}%` }} />
               </div>
 
-              {/* ৩টি মেট্রিক — মোবাইলে গ্রিড, টেক্সট ওভারফ্লো করে না */}
+              {/* ৩টি মেট্রিক — tap করলে filter হয় */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-center">
+                <div
+                  onClick={() => { setFilterMode("correct"); setShowDetails(true); }}
+                  className={`bg-emerald-50 border ${filterMode === "correct" ? "border-emerald-400 ring-2 ring-emerald-100" : "border-emerald-200"} rounded-xl p-2.5 text-center cursor-pointer hover:bg-emerald-100 transition`}
+                >
                   <div className="text-base font-black text-emerald-800">{toBengaliDigits(correct)}</div>
                   <div className="text-[10px] text-emerald-700 font-bold mt-0.5">সঠিক</div>
                 </div>
-                <div className="bg-rose-50 border border-rose-200 rounded-xl p-2.5 text-center">
+                <div
+                  onClick={() => { setFilterMode("incorrect"); setShowDetails(true); }}
+                  className={`bg-rose-50 border ${filterMode === "incorrect" ? "border-rose-400 ring-2 ring-rose-100" : "border-rose-200"} rounded-xl p-2.5 text-center cursor-pointer hover:bg-rose-100 transition`}
+                >
                   <div className="text-base font-black text-rose-800">{toBengaliDigits(incorrect)}</div>
                   <div className="text-[10px] text-rose-700 font-bold mt-0.5">ভুল</div>
                 </div>
-                <div className="bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-center">
+                <div
+                  onClick={() => { setFilterMode("skipped"); setShowDetails(true); }}
+                  className={`bg-slate-100 border ${filterMode === "skipped" ? "border-slate-400 ring-2 ring-slate-200" : "border-slate-200"} rounded-xl p-2.5 text-center cursor-pointer hover:bg-slate-200 transition`}
+                >
                   <div className="text-base font-black text-slate-700">{toBengaliDigits(skipped)}</div>
                   <div className="text-[10px] text-slate-500 font-bold mt-0.5">বাদ</div>
                 </div>
@@ -207,6 +217,12 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                 const sol = solutions?.[qIdx] || { correct: 0, exp: "" };
                 const isCorrect = studentAnsIdx !== null && studentAnsIdx === sol.correct;
                 const isSkipped = studentAnsIdx === null;
+
+                // filter mode
+                if (filterMode === "correct" && !isCorrect) return null;
+                if (filterMode === "incorrect" && (isCorrect || isSkipped)) return null;
+                if (filterMode === "skipped" && !isSkipped) return null;
+
 
                 const statusPill = isSkipped ? (
                   <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[11px] font-black">
