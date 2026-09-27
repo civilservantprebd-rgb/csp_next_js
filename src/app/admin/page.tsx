@@ -69,7 +69,7 @@ export default function AdminPage() {
       const t = new URLSearchParams(window.location.search).get("tab");
       const valid: AdminTabType[] = [
         "analytics", "exams", "courses", "subjects", "students",
-        "questions", "question_bank", "videos", "archive", "drivelinks", "news", "whatsapp", "ai_question_generator"
+        "questions", "question_bank", "videos", "archive", "news", "whatsapp", "ai_question_generator"
       ];
       if (t && (valid as string[]).includes(t)) return t as AdminTabType;
     }
