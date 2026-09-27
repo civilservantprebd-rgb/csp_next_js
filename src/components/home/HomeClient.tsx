@@ -423,8 +423,6 @@ export default function HomeClient({
         studentId={activePortalStudentId}
         exams={examsObj}
         config={config}
-        routineUrl={config.driveRoutineUrl}
-        syllabusUrl={config.driveSyllabusUrl}
         onClose={() => setIsStudentDashOpen(false)}
         onSelectSubmissionDetail={(sub) => setSelectedSubmissionForPopup(sub)}
       />

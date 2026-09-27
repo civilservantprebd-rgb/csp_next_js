@@ -26,7 +26,6 @@ export type AdminTabType =
   | "question_bank"
   | "videos"
   | "archive"
-  | "drivelinks"
   | "news"
   | "whatsapp"
   | "ai_question_generator"
@@ -58,9 +57,7 @@ export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) =>
     { id: "news", label: "দৈনিক সংবাদ", icon: Newspaper },
     { id: "whatsapp", label: "WhatsApp গ্রুপ", icon: MessageCircle },
     { id: "attendance", label: "অ্যাটেনডেন্স", icon: Users },
-    { id: "archive", label: "আর্কাইভ", icon: Archive },
-    { id: "drivelinks", label: "রুটিন ও সিলেবাস", icon: Link2 },
-  ];
+    { id: "archive", label: "আর্কাইভ", icon: Archive },];
 
   const visibleTabs = tabs;
 

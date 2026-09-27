@@ -75,8 +75,7 @@ export default function PortalClient({
 }: {
   initialExamsTaken: number | null;
   initialStreak: number | null;
-  initialDriveLinks: { driveRoutineUrl: string; driveSyllabusUrl: string } | null;
-}) {
+  }) {
   const router = useRouter();
   const [googleUser, setGoogleUser] = useState<{ uid: string; name: string; email?: string; photoURL?: string } | null>(null);
   const [editingName, setEditingName] = useState(false);
@@ -86,9 +85,6 @@ export default function PortalClient({
   const [examsTaken, setExamsTaken] = useState<number | null>(initialExamsTaken);
   const [streak, setStreak] = useState<number | null>(initialStreak);
   
-  const [routineUrl, setRoutineUrl] = useState(initialDriveLinks?.driveRoutineUrl || "");
-  const [syllabusUrl, setSyllabusUrl] = useState(initialDriveLinks?.driveSyllabusUrl || "");
-
   useEffect(() => {
     const isTeacherLoggedIn = sessionStorage.getItem("teacher_user");
     if (isTeacherLoggedIn) {
@@ -101,12 +97,7 @@ export default function PortalClient({
     if (u) setNewName(u.name);
     
     if (!initialDriveLinks) {
-      import("@/actions/admin-actions").then(({ fetchDriveLinks }) => {
-        fetchDriveLinks().then((links) => {
-          setRoutineUrl(links.driveRoutineUrl || "");
-          setSyllabusUrl(links.driveSyllabusUrl || "");
-        });
-      });
+      
     }
   }, [router, initialDriveLinks]);
 

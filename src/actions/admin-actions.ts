@@ -78,8 +78,7 @@ const DEFAULT_DATA: AppConfigData = {
   topicQuestions: [],
   exams: {},
   teacherPass: "",
-  driveRoutineUrl: "https://drive.google.com",
-  driveSyllabusUrl: "https://drive.google.com",
+  
   pinnedCourses: []
 };
 
@@ -181,8 +180,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
         const courses = settings.courses || DEFAULT_DATA.courses;
         const topics = settings.topics || DEFAULT_DATA.topics;
         const teacherPass = ""; // never expose the teacher pass to clients
-        const driveRoutineUrl = settings.drive_routine_url || DEFAULT_DATA.driveRoutineUrl;
-        const driveSyllabusUrl = settings.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl;
+        
 
         const subjects = (subjectsRes?.data || []).map((s) => ({
           name: s.name,
@@ -255,8 +253,7 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
           topicQuestions,
           exams,
           teacherPass,
-          driveRoutineUrl,
-          driveSyllabusUrl,
+          
           pinnedCourses
         };
 
@@ -346,8 +343,7 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
       const courses = settings.courses || DEFAULT_DATA.courses;
       const topics = settings.topics || DEFAULT_DATA.topics;
       const teacherPass = ""; // never expose the teacher pass to clients
-      const driveRoutineUrl = settings.drive_routine_url || DEFAULT_DATA.driveRoutineUrl;
-      const driveSyllabusUrl = settings.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl;
+      
 
       const subjects = (subjectsRes?.data || []).map((s) => ({
         name: s.name,
@@ -424,8 +420,7 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
         topicQuestions,
         exams,
         teacherPass,
-        driveRoutineUrl,
-        driveSyllabusUrl,
+        
         pinnedCourses
       };
 
@@ -496,8 +491,7 @@ export async function fetchAppConfigMeta(): Promise<AppConfigData> {
       const courses = settings.courses || DEFAULT_DATA.courses;
       const topics = settings.topics || DEFAULT_DATA.topics;
       const teacherPass = ""; // never expose the teacher pass to clients
-      const driveRoutineUrl = settings.drive_routine_url || DEFAULT_DATA.driveRoutineUrl;
-      const driveSyllabusUrl = settings.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl;
+      
 
       const subjects = (subjectsRes?.data || []).map((s) => ({ name: s.name, course: s.course }));
 
@@ -527,8 +521,7 @@ export async function fetchAppConfigMeta(): Promise<AppConfigData> {
         topicQuestions: [],
         exams,
         teacherPass,
-        driveRoutineUrl,
-        driveSyllabusUrl,
+        
         pinnedCourses: settings.pinned_courses || DEFAULT_DATA.pinnedCourses
       };
 
@@ -709,8 +702,7 @@ export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boo
     if (config.courses) updateData.courses = config.courses;
     if (config.topics) updateData.topics = config.topics;
     if (config.teacherPass) updateData.teacher_pass = config.teacherPass;
-    if (config.driveRoutineUrl) updateData.drive_routine_url = config.driveRoutineUrl;
-    if (config.driveSyllabusUrl) updateData.drive_syllabus_url = config.driveSyllabusUrl;
+    
     if (config.pinnedCourses) updateData.pinned_courses = config.pinnedCourses;
 
     if (Object.keys(updateData).length > 0) {
@@ -2438,26 +2430,6 @@ export async function fetchCourseNameList(): Promise<string[]> {
   }
 }
 
-/**
- * শুধু drive লিংক (routine/syllabus) — app_settings-এর এক সারি পড়া।
- * পোর্টালে exam-তালিকা আসে শিক্ষার্থীর নিজের exam-মেটা থেকে (getStudentExamMeta),
- * তাই এখানে কোনো exam প্রশ্ন/JOIN লাগে না।
- */
-export async function fetchDriveLinks(): Promise<{ driveRoutineUrl: string; driveSyllabusUrl: string }> {
-  try {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("drive_routine_url, drive_syllabus_url")
-      .eq("id", "main")
-      .maybeSingle();
-    return {
-      driveRoutineUrl: data?.drive_routine_url || DEFAULT_DATA.driveRoutineUrl,
-      driveSyllabusUrl: data?.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl
-    };
-  } catch {
-    return { driveRoutineUrl: "", driveSyllabusUrl: "" };
-  }
-}
 
 /**
  * পোর্টাল/ফলাফল পেজের জন্য হালকা ডেটা — শুধু exam-মেটা + drive লিংক।
@@ -2466,24 +2438,12 @@ export async function fetchDriveLinks(): Promise<{ driveRoutineUrl: string; driv
  */
 export async function fetchPortalLite(): Promise<{
   exams: Record<string, Exam>;
-  driveRoutineUrl: string;
-  driveSyllabusUrl: string;
+  
 }> {
   try {
-    const [exams, settingsRes] = await Promise.all([
-      fetchExamMetaList(),
-      supabase
-        .from("app_settings")
-        .select("drive_routine_url, drive_syllabus_url")
-        .eq("id", "main")
-        .maybeSingle()
-    ]);
-    return {
-      exams,
-      driveRoutineUrl: settingsRes?.data?.drive_routine_url || DEFAULT_DATA.driveRoutineUrl,
-      driveSyllabusUrl: settingsRes?.data?.drive_syllabus_url || DEFAULT_DATA.driveSyllabusUrl
-    };
-  } catch {
+    const exams = await fetchExamMetaList();
+    return { exams };
+    } catch {
     return { exams: {}, driveRoutineUrl: "", driveSyllabusUrl: "" };
   }
 }

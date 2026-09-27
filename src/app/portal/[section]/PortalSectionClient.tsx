@@ -66,12 +66,10 @@ const SECTION_META: Record<
 };
 
 export default function PortalSectionClient({
-  initialData,
-  initialDriveLinks
+  initialData
 }: {
   initialData: any | null;
-  initialDriveLinks: { driveRoutineUrl: string; driveSyllabusUrl: string } | null;
-}) {
+  }) {
   const params = useParams();
   const router = useRouter();
   const raw = String(params?.section || "");
@@ -89,25 +87,8 @@ export default function PortalSectionClient({
           topicQuestions: [],
           exams: initialData.exams,
           teacherPass: "",
-          driveRoutineUrl: initialData.driveRoutineUrl,
-          driveSyllabusUrl: initialData.driveSyllabusUrl,
           pinnedCourses: []
-        } as AppConfigData
-      : initialDriveLinks
-      ? {
-          courses: [],
-          subjects: [],
-          topics: [],
-          topicQuestions: [],
-          exams: {},
-          teacherPass: "",
-          driveRoutineUrl: initialDriveLinks.driveRoutineUrl,
-          driveSyllabusUrl: initialDriveLinks.driveSyllabusUrl,
-          pinnedCourses: []
-        } as AppConfigData
-      : null
-  );
-  
+        } as AppConfigData : null);
   const [configError, setConfigError] = useState("");
   const [configAttempt, setConfigAttempt] = useState(0);
   const [activeStudentId, setActiveStudentId] = useState(initialData?.studentId || "");
@@ -129,23 +110,7 @@ export default function PortalSectionClient({
 
     const gUser = getLocalStudentUser();
     if (!gUser) {
-      if (!initialDriveLinks) {
-        fetchDriveLinks()
-          .then((d) =>
-            setConfig({
-              courses: [],
-              subjects: [],
-              topics: [],
-              topicQuestions: [],
-              exams: {},
-              teacherPass: "",
-              driveRoutineUrl: d.driveRoutineUrl,
-              driveSyllabusUrl: d.driveSyllabusUrl,
-              pinnedCourses: []
-            } as AppConfigData)
-          )
-          .catch(() => {});
-      }
+      
       return;
     }
 
@@ -186,8 +151,6 @@ export default function PortalSectionClient({
           topicQuestions: [],
           exams: data.exams,
           teacherPass: "",
-          driveRoutineUrl: data.driveRoutineUrl,
-          driveSyllabusUrl: data.driveSyllabusUrl,
           pinnedCourses: []
         } as AppConfigData);
         setInitialSubmissions(data.submissions);
@@ -199,7 +162,7 @@ export default function PortalSectionClient({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, configAttempt, meta, initialData, initialDriveLinks]);
+  }, [router, configAttempt, meta, initialData]);
 
   if (!meta) return null;
 
@@ -298,8 +261,6 @@ export default function PortalSectionClient({
             studentId={activeStudentId}
             initialSubmissions={initialSubmissions || undefined}
             exams={config?.exams || {}}
-            routineUrl={config?.driveRoutineUrl}
-            syllabusUrl={config?.driveSyllabusUrl}
             onClose={() => {}}
             onSelectSubmissionDetail={(sub) => setSelectedSub(sub)}
           />

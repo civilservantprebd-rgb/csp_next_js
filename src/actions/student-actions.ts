@@ -349,9 +349,7 @@ export async function getStudentPortalData(
   studentId: string;
   submissions: Submission[];
   exams: Record<string, Exam>;
-  driveRoutineUrl: string;
-  driveSyllabusUrl: string;
-} | null> {
+  } | null> {
   const cleanId = String(rawStudentId || "").trim();
   const normId = parseBengaliDigits(cleanId).trim();
   if (!cleanId) return null;
@@ -483,8 +481,7 @@ export async function getStudentPortalData(
     studentId: access?.normalizedId || cleanId,
     submissions: subs,
     exams,
-    driveRoutineUrl: settingsRes?.data?.drive_routine_url || "",
-    driveSyllabusUrl: settingsRes?.data?.drive_syllabus_url || ""
+    
   };
 }
 

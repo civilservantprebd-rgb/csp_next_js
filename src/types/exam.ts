@@ -87,7 +87,5 @@ export interface AppConfigData {
   exams: Record<string, Exam>;
   subAdmins?: SubAdmin[];
   teacherPass?: string;
-  driveRoutineUrl?: string;
-  driveSyllabusUrl?: string;
   pinnedCourses?: string[];
 }

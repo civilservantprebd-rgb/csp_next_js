@@ -1,0 +1,28 @@
+const fs = require('fs');
+
+let code = fs.readFileSync('src/components/admin/QuestionBuilder.tsx', 'utf8');
+
+// 1. Prepend topic to textarea in handleEdit
+code = code.replace(
+  'let text = "১. " + q.q + "\\n";',
+  'let text = (q.topic ? "# " + q.topic + "\\n\\n" : "") + "১. " + q.q + "\\n";'
+);
+
+// 2. In handleSubmit, allow text-based topic overrides
+code = code.replace(
+  'topic: activeTopic || "সাধারণ"',
+  'topic: first.topic || activeTopic || "সাধারণ"'
+);
+
+code = code.replace(
+  'const newQs = rest.map(b => ({ q: b.q, opts: b.opts, topic: activeTopic || "সাধারণ" }));',
+  'const newQs = rest.map(b => ({ q: b.q, opts: b.opts, topic: b.topic || activeTopic || "সাধারণ" }));'
+);
+
+code = code.replace(
+  'const newQs = parsedBlocks.map(b => ({ q: b.q, opts: b.opts, topic: activeTopic || "সাধারণ" }));',
+  'const newQs = parsedBlocks.map(b => ({ q: b.q, opts: b.opts, topic: b.topic || activeTopic || "সাধারণ" }));'
+);
+
+fs.writeFileSync('src/components/admin/QuestionBuilder.tsx', code, 'utf8');
+console.log("Updated handleEdit and handleSubmit with topic overrides.");

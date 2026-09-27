@@ -48,6 +48,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
   const [count, setCount] = useState<number>(5);
   const [difficulty, setDifficulty] = useState<"সহজ" | "মাঝারি" | "কঠিন" | "বিসিএস প্রিলিমিনারি মান">("বিসিএস প্রিলিমিনারি মান");
   const [contextText, setContextText] = useState("");
+  const [customInstruction, setCustomInstruction] = useState("");
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -89,7 +90,8 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
       subtopic: subtopic.trim(),
       count: Number(count),
       difficulty,
-      contextText: contextText.trim()
+      contextText: contextText.trim(),
+      customInstruction: customInstruction.trim()
     });
 
     setIsLoading(false);
@@ -254,7 +256,19 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
               </div>
             </div>
 
+            
             <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                বিশেষ নির্দেশনা (প্রম্পট) - ঐচ্ছিক
+              </label>
+              <textarea
+                value={customInstruction}
+                onChange={(e) => setCustomInstruction(e.target.value)}
+                placeholder="যেমন: সাম্প্রতিক তথ্য যোগ করুন, অথবা কেবল মুক্তিযুদ্ধ নিয়ে প্রশ্ন বানান..."
+                className="w-full text-xs p-3.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 bg-white min-h-[60px]"
+              />
+            </div>
+<div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 সহায়ক টেক্সট বা অনুচ্ছেদ (ঐচ্ছিক)
               </label>

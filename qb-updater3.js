@@ -1,0 +1,171 @@
+const fs = require('fs');
+
+let code = fs.readFileSync('src/components/admin/QuestionBuilder.tsx', 'utf8');
+
+// 1. Replace handleSubmit
+const handleSubmitStart = code.indexOf('const handleSubmit = async (e: React.FormEvent) => {');
+const handleEditStart = code.indexOf('const handleEdit = (idx: number) => {');
+
+const newHandleSubmit = `
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rawText.trim()) {
+      alert("অনুগ্রহ করে প্রশ্ন লিখুন।");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // Parse bulk text
+    const parsedBlocks = parseBulkQuestionsText(rawText);
+    if (parsedBlocks.length === 0) {
+      setIsLoading(false);
+      alert("কোনো সঠিক প্রশ্ন পাওয়া যায়নি। অনুগ্রহ করে সঠিক ফরম্যাটে লিখুন (যেমন: ১. প্রশ্ন, ক) খ) গ) ঘ), উত্তর: ক)।");
+      return;
+    }
+
+    try {
+      const activeTopic = isAddingNewTopic ? newTopicInput.trim() : selectedTopic;
+      
+      if (editingIndex !== null) {
+        // Update the first parsed question into the editing slot
+        const first = parsedBlocks[0];
+        const questionObj = {
+          q: first.q,
+          opts: first.opts,
+          topic: activeTopic || "সাধারণ"
+        };
+        const solutionObj = {
+          correct: first.correct,
+          exp: first.exp,
+        };
+        
+        const ok = await updateQuestionInExam(activeExamKey, editingIndex, questionObj, solutionObj);
+        if (!ok) {
+          setIsLoading(false);
+          alert("প্রশ্ন আপডেট করতে সমস্যা হয়েছে।");
+          return;
+        }
+        
+        // If they pasted MORE than 1 question while editing, append the rest
+        if (parsedBlocks.length > 1) {
+          const rest = parsedBlocks.slice(1);
+          const newQs = rest.map(b => ({ q: b.q, opts: b.opts, topic: activeTopic || "সাধারণ" }));
+          const newSols = rest.map(b => ({ correct: b.correct, exp: b.exp }));
+          await addBulkQuestionsToExam(activeExamKey, newQs, newSols);
+        }
+        
+        setEditingIndex(null);
+      } else {
+        // Add all parsed questions
+        const newQs = parsedBlocks.map(b => ({ q: b.q, opts: b.opts, topic: activeTopic || "সাধারণ" }));
+        const newSols = parsedBlocks.map(b => ({ correct: b.correct, exp: b.exp }));
+        
+        const res = await addBulkQuestionsToExam(activeExamKey, newQs, newSols);
+        if (res && res.error) {
+           alert("প্রশ্ন যুক্ত করতে সমস্যা হয়েছে: " + res.error);
+        }
+      }
+
+      setIsLoading(false);
+      resetForm();
+      await loadSolutions();
+      onRefresh();
+    } catch (err: any) {
+      console.error(err);
+      alert("Error: " + err.message);
+      setIsLoading(false);
+    }
+  };
+
+  `;
+
+code = code.substring(0, handleSubmitStart) + newHandleSubmit + code.substring(handleEditStart);
+
+// 2. Replace Form JSX
+const formStart = code.indexOf('<form onSubmit={handleSubmit} className="space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-200">');
+const submitBtnStart = code.indexOf('<div className="flex justify-end pt-2 gap-2">', formStart);
+
+const sampleTextDef = `
+const SAMPLE_TEXT = \`১. বাংলাদেশের রাজধানী কোথায়?
+ক) ঢাকা
+খ) চট্টগ্রাম
+গ) রাজশাহী
+ঘ) খুলনা
+উত্তর: ক
+ব্যাখ্যা: ঢাকা হলো বাংলাদেশের রাজধানী।\`;
+`;
+
+const newFormJSX = `
+        <form onSubmit={handleSubmit} className="space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-200">
+          <div>
+            <div className="flex justify-between items-end mb-1">
+              <label className="block text-xs sm:text-sm font-bold text-slate-700">প্রশ্ন, অপশন ও ব্যাখ্যা (Smart Paste)</label>
+              <button type="button" onClick={() => setRawText(SAMPLE_TEXT)} className="text-xs text-indigo-600 hover:underline">নমুনা দেখুন</button>
+            </div>
+            <textarea
+              required
+              rows={8}
+              placeholder={\`১. বাংলাদেশের রাজধানী কোথায়?\\nক) ঢাকা\\nখ) চট্টগ্রাম\\nগ) রাজশাহী\\nঘ) খুলনা\\nউত্তর: ক\\nব্যাখ্যা: ঢাকা হলো বাংলাদেশের রাজধানী।\`}
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-white font-mono"
+            />
+            <p className="text-[10px] sm:text-xs text-slate-500 mt-1.5">
+              বাল্ক ইম্পোর্টের মতো একই ফরম্যাটে প্রশ্ন পেস্ট করুন। আপনি চাইলে একসাথে একাধিক প্রশ্নও পেস্ট করতে পারেন।
+            </p>
+          </div>
+
+          <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">টপিক নির্বাচন করুন</label>
+                {!isAddingNewTopic ? (
+                  <select
+                    value={selectedTopic}
+                    onChange={(e) => setSelectedTopic(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs bg-slate-50"
+                  >
+                    <option value="">-- টপিক নির্বাচন করুন --</option>
+                    {allTopics.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={newTopicInput}
+                    onChange={(e) => setNewTopicInput(e.target.value)}
+                    placeholder="নতুন টপিকের নাম লিখুন"
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs bg-slate-50"
+                  />
+                )}
+              </div>
+              <div className="flex items-end pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingNewTopic(!isAddingNewTopic)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition"
+                >
+                  {isAddingNewTopic ? "তালিকা থেকে বাছুন" : "+ নতুন টপিক"}
+                </button>
+              </div>
+            </div>
+          </div>
+          `;
+
+code = code.substring(0, formStart) + newFormJSX + code.substring(submitBtnStart);
+
+// Add Imports if not exists
+if (!code.includes('parseBulkQuestionsText')) {
+  code = code.replace(
+    'import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";',
+    'import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";\nimport { parseBulkQuestionsText } from "@/lib/question-parser";\nimport { addBulkQuestionsToExam } from "@/actions/admin-actions";'
+  );
+}
+
+// Ensure SAMPLE_TEXT is defined
+if (!code.includes('const SAMPLE_TEXT =')) {
+  code = code.replace('export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({', sampleTextDef + '\nexport const QuestionBuilder: React.FC<QuestionBuilderProps> = ({');
+}
+
+fs.writeFileSync('src/components/admin/QuestionBuilder.tsx', code, 'utf8');
+console.log("Updated UI correctly!");

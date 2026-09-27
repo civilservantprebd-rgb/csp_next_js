@@ -16,6 +16,7 @@ export async function generateMCQWithAI(params: {
   count?: number;
   difficulty?: "সহজ" | "মাঝারি" | "কঠিন" | "বিসিএস প্রিলিমিনারি মান";
   contextText?: string;
+  customInstruction?: string;
   apiKey?: string;
 }): Promise<{ success: boolean; data?: GeneratedMCQResult; error?: string }> {
   try {
@@ -23,7 +24,7 @@ export async function generateMCQWithAI(params: {
     const { requireTeacher } = await import("@/lib/teacher-auth");
     await requireTeacher();
 
-    const { topic, subtopic, count = 5, difficulty = "বিসিএস প্রিলিমিনারি মান", contextText } = params;
+    const { topic, subtopic, count = 5, difficulty = "বিসিএস প্রিলিমিনারি মান", contextText, customInstruction } = params;
 
   // Prefer the server-side key; never trust a key sent from the client
   const resolvedApiKey = process.env.GEMINI_API_KEY || "";

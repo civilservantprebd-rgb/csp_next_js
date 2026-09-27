@@ -1,7 +1,7 @@
 import React from "react";
 import PortalClient from "./PortalClient";
 import { getCompletedExamKeys, getStudentStreak } from "@/actions/student-actions";
-import { fetchDriveLinks } from "@/actions/admin-actions";
+
 import { resolveStudyIdentity } from "@/lib/student-session";
 
 export const revalidate = 60; // Cache for 60 seconds

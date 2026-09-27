@@ -84,9 +84,6 @@ export default function AdminPage() {
   const [newCourseName, setNewCourseName] = useState("");
   const [newSubjectCourse, setNewSubjectCourse] = useState("");
   const [newSubjectName, setNewSubjectName] = useState("");
-  const [driveRoutine, setDriveRoutine] = useState("");
-  const [driveSyllabus, setDriveSyllabus] = useState("");
-
   // Subject editing state
   const [editingSubjectIdx, setEditingSubjectIdx] = useState<number | null>(null);
   const [editSubjectName, setEditSubjectName] = useState("");
@@ -123,8 +120,6 @@ export default function AdminPage() {
 
   const applyConfigToState = (data: AppConfigData) => {
     setConfig(data);
-    setDriveRoutine(data.driveRoutineUrl || "");
-    setDriveSyllabus(data.driveSyllabusUrl || "");
     if (data.courses?.length) {
       setNewSubjectCourse(data.courses[0]);
     }
@@ -470,15 +465,6 @@ export default function AdminPage() {
   };
 
   // Drive links
-  const handleSaveDriveLinks = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await saveAppConfig({
-      driveRoutineUrl: driveRoutine.trim(),
-      driveSyllabusUrl: driveSyllabus.trim(),
-    });
-    alert("গুগল ড্রাইভ লিংক সফলভাবে আপডেট করা হয়েছে।");
-  };
-
   // Pin / unpin a course (pinned courses show first on the home page)
   const handleTogglePinCourse = async (courseName: string) => {
     const current = config.pinnedCourses || [];
@@ -873,45 +859,7 @@ export default function AdminPage() {
               />
             )}
 
-            {activeTab === "drivelinks" && (
-              <div className="w-full max-w-3xl bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
-                <h3 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                  <Link2 className="w-4 h-4 text-emerald-600" /> গুগল ড্রাইভ লিংক সেটিংস (রুটিন ও সিলেবাস)
-                </h3>
-                <form onSubmit={handleSaveDriveLinks} className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">
-                      পরীক্ষার রুটিন (Google Drive URL)
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://drive.google.com/file/d/..."
-                      value={driveRoutine}
-                      onChange={(e) => setDriveRoutine(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">
-                      কোর্স সিলেবাস (Google Drive URL)
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://drive.google.com/file/d/..."
-                      value={driveSyllabus}
-                      onChange={(e) => setDriveSyllabus(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl text-xs sm:text-sm transition shadow cursor-pointer"
-                  >
-                    লিংক আপডেট করুন
-                  </button>
-                </form>
-              </div>
-            )}
+            
 
 
             </section>

@@ -77,8 +77,6 @@ interface StudentDashboardModalProps {
       তখন নিজে আর সার্ভারে যায় না (এক রাউন্ডট্রিপ সাশ্রয়)। */
   initialSubmissions?: Submission[];
   config?: AppConfigData;
-  routineUrl?: string;
-  syllabusUrl?: string;
   onClose: () => void;
   onSelectSubmissionDetail: (submission: Submission) => void;
 }
@@ -92,8 +90,6 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   studentId,
   exams,
   initialSubmissions,
-  routineUrl = "https://drive.google.com",
-  syllabusUrl = "https://drive.google.com",
   onClose,
   onSelectSubmissionDetail,
 }) => {
