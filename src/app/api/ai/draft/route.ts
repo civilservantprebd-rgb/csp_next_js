@@ -73,7 +73,7 @@ ${existingTopics.join("\n")}
 
     const { object } = await generateObject({
       model,
-      mode: "json",
+
       system: systemPrompt,
       prompt: `Generate ${count} questions based on this syllabus/context:\n\n${syllabus}`,
       schema: questionSchema,
