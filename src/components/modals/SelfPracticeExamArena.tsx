@@ -23,6 +23,7 @@ export const SelfPracticeExamArena: React.FC<SelfPracticeExamArenaProps> = ({
   const [userAnswers, setUserAnswers] = useState<(number | null)[]>(Array(questions.length).fill(null));
   const [isFinished, setIsFinished] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState<"all" | "correct" | "incorrect" | "skipped">("all");
   
   const totalQuestions = questions.length;
   const answeredCount = userAnswers.filter((a) => a !== null).length;
@@ -88,19 +89,19 @@ export const SelfPracticeExamArena: React.FC<SelfPracticeExamArenaProps> = ({
             </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-slate-50 border border-slate-100 p-3 sm:p-4 rounded-2xl text-center">
+              <div onClick={() => setFilterMode("all")} className={`bg-slate-50 border ${filterMode === "all" ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-100"} p-3 sm:p-4 rounded-2xl text-center cursor-pointer hover:bg-slate-100 transition`}>
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 block mb-1">মোট প্রশ্ন</span>
                 <span className="text-lg sm:text-xl font-black text-slate-800">{toBengaliDigits(totalQuestions)}</span>
               </div>
-              <div className="bg-emerald-50 border border-emerald-100 p-3 sm:p-4 rounded-2xl text-center">
+              <div onClick={() => setFilterMode("correct")} className={`bg-emerald-50 border ${filterMode === "correct" ? "border-emerald-400 ring-2 ring-emerald-100" : "border-emerald-100"} p-3 sm:p-4 rounded-2xl text-center cursor-pointer hover:bg-emerald-100 transition`}>
                 <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 block mb-1">সঠিক</span>
                 <span className="text-lg sm:text-xl font-black text-emerald-700">{toBengaliDigits(correctCount)}</span>
               </div>
-              <div className="bg-rose-50 border border-rose-100 p-3 sm:p-4 rounded-2xl text-center">
+              <div onClick={() => setFilterMode("incorrect")} className={`bg-rose-50 border ${filterMode === "incorrect" ? "border-rose-400 ring-2 ring-rose-100" : "border-rose-100"} p-3 sm:p-4 rounded-2xl text-center cursor-pointer hover:bg-rose-100 transition`}>
                 <span className="text-[10px] sm:text-[11px] font-bold text-rose-700 block mb-1">ভুল</span>
                 <span className="text-lg sm:text-xl font-black text-rose-700">{toBengaliDigits(incorrectCount)}</span>
               </div>
-              <div className="bg-amber-50 border border-amber-100 p-3 sm:p-4 rounded-2xl text-center">
+              <div onClick={() => setFilterMode("skipped")} className={`bg-amber-50 border ${filterMode === "skipped" ? "border-amber-400 ring-2 ring-amber-100" : "border-amber-100"} p-3 sm:p-4 rounded-2xl text-center cursor-pointer hover:bg-amber-100 transition`}>
                 <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 block mb-1">উত্তর দেননি</span>
                 <span className="text-lg sm:text-xl font-black text-amber-700">{toBengaliDigits(finalUnanswered)}</span>
               </div>
@@ -124,6 +125,11 @@ export const SelfPracticeExamArena: React.FC<SelfPracticeExamArenaProps> = ({
                const myAns = userAnswers[qIdx];
                const isSkipped = myAns === null;
                const isCorrect = myAns === q.correct;
+               
+               if (filterMode === "correct" && !isCorrect) return null;
+               if (filterMode === "incorrect" && (isCorrect || isSkipped)) return null;
+               if (filterMode === "skipped" && !isSkipped) return null;
+
                
                let stateColor = "border-slate-200 bg-white";
                if (!isSkipped) {

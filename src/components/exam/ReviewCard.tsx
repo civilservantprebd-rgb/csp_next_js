@@ -10,12 +10,14 @@ interface ReviewCardProps {
   questions: QuestionItem[];
   solutions: QuestionSolution[];
   studentAnswers: any[]; // (number | null)[] OR { qid: string, ans: number | null }[]
+  filterMode?: "all" | "correct" | "incorrect" | "skipped";
 }
 
 export const ReviewCard: React.FC<ReviewCardProps> = ({
   questions,
   solutions,
   studentAnswers,
+  filterMode = "all",
 }) => {
   const isNewFormat = studentAnswers.length > 0 && typeof studentAnswers[0] === "object" && studentAnswers[0] !== null;
   const answerMap = new Map<string, number | null>();
@@ -33,10 +35,13 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
         let rawAns = isNewFormat ? (q.id && answerMap.has(q.id) ? answerMap.get(q.id) : null) : studentAnswers[idx];
         if (rawAns === -1 || rawAns === undefined) rawAns = null;
         const ans = rawAns as number | null;
-
         const sol = solutions[idx] || { correct: 0, exp: "" };
         const isCorrect = ans === sol.correct;
         const isSkipped = ans === null;
+        
+        if (filterMode === "correct" && !isCorrect) return null;
+        if (filterMode === "incorrect" && (isCorrect || isSkipped)) return null;
+        if (filterMode === "skipped" && !isSkipped) return null;
 
         const badgeClass = isSkipped
           ? "bg-slate-200 text-slate-700"

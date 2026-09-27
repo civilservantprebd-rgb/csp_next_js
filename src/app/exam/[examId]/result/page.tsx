@@ -23,6 +23,7 @@ export default function ExamResultPage() {
   const [resultData, setResultData] = useState<any>(null);
   const [solutions, setSolutions] = useState<QuestionSolution[] | null>(null);
   const [showReview, setShowReview] = useState(false);
+  const [filterMode, setFilterMode] = useState<"all" | "correct" | "incorrect" | "skipped">("all");
   const [showLockedModal, setShowLockedModal] = useState(false);
   const [recordMissing, setRecordMissing] = useState(false);
   const [rankInfo, setRankInfo] = useState<{
@@ -129,7 +130,8 @@ export default function ExamResultPage() {
     ? (isAnswerTimeReached(exam) || !resultData?.isLive)
     : !resultData?.isLive;
 
-  const handleToggleReview = async () => {
+  const handleToggleReview = async (forceShow = false, filter?: "all" | "correct" | "incorrect" | "skipped") => {
+    if (filter) setFilterMode(filter);
     if (!exam) return;
 
     if (!isPublished) {
@@ -151,7 +153,7 @@ export default function ExamResultPage() {
         );
       }
     }
-    setShowReview(!showReview);
+    setShowReview(forceShow === true ? true : !showReview);
   };
 
   if (!resultData) {
@@ -263,25 +265,33 @@ export default function ExamResultPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+            <div onClick={() => isPublished && handleToggleReview(true, "all")} className={`bg-white p-4 rounded-2xl border ${filterMode === "all" ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-200"} text-center shadow-sm cursor-pointer hover:bg-slate-50 transition`}>
               <span className="text-sm sm:text-xs text-slate-500 block mb-1">মোট প্রশ্ন</span>
               <span className="text-lg sm:text-xl font-bold text-slate-900">
                 {toBengaliDigits(resultData.totalQuestions)}
               </span>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-sm">
+            <div onClick={() => isPublished && handleToggleReview(true, "correct")} className={`bg-white p-4 rounded-2xl border ${filterMode === "correct" ? "border-emerald-400 ring-2 ring-emerald-100" : "border-slate-200"} text-center shadow-sm cursor-pointer hover:bg-emerald-50 transition`}>
               <span className="text-sm sm:text-xs text-emerald-600 block mb-1">সঠিক উত্তর</span>
               <span className="text-lg sm:text-xl font-bold text-emerald-700">
                 {!isPublished ? "অপ্রকাশিত" : toBengaliDigits(resultData.correct ?? 0)}
               </span>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-sm">
+            <div onClick={() => isPublished && handleToggleReview(true, "incorrect")} className={`bg-white p-4 rounded-2xl border ${filterMode === "incorrect" ? "border-rose-400 ring-2 ring-rose-100" : "border-slate-200"} text-center shadow-sm cursor-pointer hover:bg-rose-50 transition`}>
               <span className="text-sm sm:text-xs text-rose-600 block mb-1">ভুল উত্তর (-০.৫)</span>
               <span className="text-lg sm:text-xl font-bold text-rose-700">
                 {!isPublished ? "অপ্রকাশিত" : toBengaliDigits(resultData.incorrect ?? 0)}
+              </span>
+            </div>
+
+            
+            <div onClick={() => isPublished && handleToggleReview(true, "skipped")} className={`bg-white p-4 rounded-2xl border ${filterMode === "skipped" ? "border-amber-400 ring-2 ring-amber-100" : "border-slate-200"} text-center shadow-sm cursor-pointer hover:bg-amber-50 transition`}>
+              <span className="text-sm sm:text-xs text-amber-600 block mb-1">বাদ / স্কিপড</span>
+              <span className="text-lg sm:text-xl font-bold text-amber-700">
+                {!isPublished ? "অপ্রকাশিত" : toBengaliDigits((resultData.totalQuestions || 0) - ((resultData.correct || 0) + (resultData.incorrect || 0)))}
               </span>
             </div>
 
@@ -329,6 +339,7 @@ export default function ExamResultPage() {
                 questions={exam.questions || []}
                 solutions={solutions}
                 studentAnswers={resultData.answers || []}
+                filterMode={filterMode}
               />
             </div>
           )}
