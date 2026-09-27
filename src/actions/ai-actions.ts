@@ -89,7 +89,7 @@ ${customInstruction ? `\nবিশেষ নির্দেশনা:\n"""\n${cu
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: prompt,
+        contents: prompt, config: { temperature: 0.9 },
       });
 
       const generatedText = response.text || "";

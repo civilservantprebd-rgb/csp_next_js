@@ -78,7 +78,7 @@ ${existingTopics.join("\n")}
 
       system: systemPrompt,
       prompt: `Generate ${count} questions based on this syllabus/context:\n\n${syllabus}`,
-      schema: questionSchema,
+      schema: questionSchema, temperature: 0.9,
 
 
     });
