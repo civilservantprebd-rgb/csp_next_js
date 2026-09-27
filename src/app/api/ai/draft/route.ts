@@ -30,7 +30,7 @@ function calculateSimilarity(str1: string, str2: string) {
   return union === 0 ? 0 : intersection / union;
 }
 
-export async function POST(req: Request) {
+export const maxDuration = 60;`n`nexport async function POST(req: Request) {
   try {
     const body = await req.json();
     const { syllabus, instructions, generatorModel, existingTopics, count = 10 } = body;
@@ -140,3 +140,4 @@ ${existingTopics.join("\n")}
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

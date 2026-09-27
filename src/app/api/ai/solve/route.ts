@@ -13,7 +13,7 @@ const solveSchema = z.object({
   }))
 });
 
-export async function POST(req: Request) {
+export const maxDuration = 60;`n`nexport async function POST(req: Request) {
   try {
     const body = await req.json();
     const { questions, modelName } = body;
@@ -68,3 +68,4 @@ You must output in valid JSON matching the required schema. Do not wrap in markd
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
