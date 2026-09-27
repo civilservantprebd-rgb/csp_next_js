@@ -239,10 +239,26 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
               value={generatorModel}
               onChange={(e) => setGeneratorModel(e.target.value)}
             >
-              <option value="deepseek-chat">DeepSeek V3 (Best Value)</option>
-              <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <optgroup label="Google Gemini (Flash & Pro)">
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
+              </optgroup>
+              <optgroup label="DeepSeek">
+                <option value="deepseek-chat">DeepSeek V3</option>
+              </optgroup>
+              <optgroup label="OpenAI (ChatGPT)">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o-mini</option>
+              </optgroup>
+              <optgroup label="Anthropic (Claude)">
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+              </optgroup>
             </select>
           </div>
 
@@ -253,9 +269,26 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
               value={validatorModel1}
               onChange={(e) => setValidatorModel1(e.target.value)}
             >
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast & Cheap)</option>
-              <option value="gpt-4o-mini">GPT-4o-mini</option>
-              <option value="deepseek-chat">DeepSeek</option>
+              <optgroup label="Google Gemini (Flash & Pro)">
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
+              </optgroup>
+              <optgroup label="DeepSeek">
+                <option value="deepseek-chat">DeepSeek V3</option>
+              </optgroup>
+              <optgroup label="OpenAI (ChatGPT)">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o-mini</option>
+              </optgroup>
+              <optgroup label="Anthropic (Claude)">
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+              </optgroup>
             </select>
           </div>
 
@@ -266,9 +299,26 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
               value={validatorModel2}
               onChange={(e) => setValidatorModel2(e.target.value)}
             >
-              <option value="gpt-4o-mini">GPT-4o-mini (Fast & Cheap)</option>
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-              <option value="deepseek-chat">DeepSeek</option>
+              <optgroup label="Google Gemini (Flash & Pro)">
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
+              </optgroup>
+              <optgroup label="DeepSeek">
+                <option value="deepseek-chat">DeepSeek V3</option>
+              </optgroup>
+              <optgroup label="OpenAI (ChatGPT)">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o-mini</option>
+              </optgroup>
+              <optgroup label="Anthropic (Claude)">
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+              </optgroup>
             </select>
           </div>
         </div>

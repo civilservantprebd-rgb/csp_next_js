@@ -37,7 +37,7 @@ export async function POST(req: Request) {
         baseURL: "https://api.deepseek.com/v1", 
         apiKey: process.env.DEEPSEEK_API_KEY 
       });
-      model = deepseek("deepseek-chat");
+      model = deepseek(modelName);
     } else {
       const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
       model = openai(modelName || "gpt-4o-mini");

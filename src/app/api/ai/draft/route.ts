@@ -47,13 +47,13 @@ export async function POST(req: Request) {
       model = anthropic("claude-3-5-sonnet-20240620");
     } else if (generatorModel.includes("gemini")) {
       const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
-      model = google("models/gemini-1.5-pro-latest");
+      model = google(`models/${generatorModel}`);
     } else if (generatorModel.includes("deepseek")) {
       const deepseek = createOpenAI({ 
         baseURL: "https://api.deepseek.com/v1", 
         apiKey: process.env.DEEPSEEK_API_KEY 
       });
-      model = deepseek("deepseek-chat");
+      model = deepseek(generatorModel);
     } else {
       const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
       model = openai("gpt-4o-2024-05-13");
