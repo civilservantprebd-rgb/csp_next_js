@@ -2444,7 +2444,7 @@ export async function fetchPortalLite(): Promise<{
     const exams = await fetchExamMetaList();
     return { exams };
     } catch {
-    return { exams: {}, driveRoutineUrl: "", driveSyllabusUrl: "" };
+    return { exams: {} };
   }
 }
 

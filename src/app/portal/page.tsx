@@ -12,12 +12,9 @@ export default async function PortalPage() {
   let initialDriveLinks = null;
 
   try {
-    const [identity, links] = await Promise.all([
-      resolveStudyIdentity(null, null),
-      fetchDriveLinks()
-    ]);
+    const identity = await resolveStudyIdentity(null, null);
     
-    initialDriveLinks = links;
+    
 
     if (identity) {
       const [keys, streak] = await Promise.all([
