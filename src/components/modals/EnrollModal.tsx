@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, UserPlus, CheckCircle2, ShieldCheck, ArrowRight, Sparkles, LogIn, Hash, Ticket } from "lucide-react";
 import { submitEnrollRequest } from "@/actions/enroll-actions";
+import { getCoursePrices } from "@/actions/course-actions";
 import { getLocalStudentUser, loginWithGoogle, StudentUser } from "@/lib/student-auth";
 
 interface EnrollModalProps {
@@ -30,6 +31,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [prices, setPrices] = useState<Record<string, { price?: number; offerPrice?: number }>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -38,8 +40,10 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
       if (user) {
         setName(user.name);
       }
+      getCoursePrices().then(setPrices).catch(console.error);
     }
   }, [isOpen]);
+
 
   useEffect(() => {
     if (initialCourse && courses.includes(initialCourse)) {
@@ -63,6 +67,20 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
         : [...prev, cName]
     );
   };
+
+  const calculateTotal = () => {
+    let total = 0;
+    selectedCourses.forEach(c => {
+      const p = prices[c];
+      if (p) {
+        total += p.offerPrice ?? p.price ?? 0;
+      }
+    });
+    return total;
+  };
+
+  const totalAmount = calculateTotal();
+
 
   const handleGoogleLogin = async () => {
     setErrorMsg("");
@@ -99,6 +117,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
       course: selectedCourses,
       name,
       trxId,
+      amount: totalAmount > 0 ? String(totalAmount) : undefined,
       coupon,
     });
 
@@ -271,31 +290,46 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-40 overflow-y-auto pr-1">
                       {courses.map((c) => {
                         const isChecked = selectedCourses.includes(c);
+                        const p = prices[c];
+                        const priceText = p ? (p.offerPrice ? `৳${p.offerPrice}` : `৳${p.price}`) : "";
                         return (
                           <button
                             key={c}
                             type="button"
                             onClick={() => handleToggleCourse(c)}
-                            className={`p-3 rounded-xl border-2 text-xs font-bold transition-all duration-200 flex items-center gap-3 cursor-pointer text-left group ${
+                            className={`p-3 rounded-xl border-2 text-xs font-bold transition-all duration-200 flex items-center justify-between cursor-pointer text-left group ${
                               isChecked
                                 ? "bg-white border-indigo-600 shadow-sm shadow-indigo-100/50"
                                 : "bg-white border-transparent shadow-sm hover:border-indigo-300 hover:shadow-md"
                             }`}
                           >
-                            <span
-                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                                isChecked
-                                  ? "bg-indigo-600 border-indigo-600"
-                                  : "border-slate-300 group-hover:border-indigo-400"
-                              }`}
-                            >
-                              {isChecked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                            </span>
-                            <span className={isChecked ? "text-indigo-900 truncate" : "text-slate-700 truncate"}>{c}</span>
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <span
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                  isChecked
+                                    ? "bg-indigo-600 border-indigo-600"
+                                    : "border-slate-300 group-hover:border-indigo-400"
+                                }`}
+                              >
+                                {isChecked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                              </span>
+                              <span className={`truncate ${isChecked ? "text-indigo-900" : "text-slate-700"}`}>{c}</span>
+                            </div>
+                            {priceText && (
+                              <span className={`shrink-0 ml-2 ${isChecked ? "text-indigo-700" : "text-slate-500"}`}>
+                                {priceText}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
                     </div>
+                    {totalAmount > 0 && (
+                      <div className="mt-4 pt-3 border-t border-indigo-100/50 flex items-center justify-between">
+                        <span className="text-slate-600 font-bold text-sm">সর্বমোট পেমেন্ট:</span>
+                        <span className="text-indigo-700 font-black text-lg">৳{totalAmount}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">

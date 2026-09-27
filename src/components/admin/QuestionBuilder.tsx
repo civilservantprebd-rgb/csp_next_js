@@ -27,6 +27,9 @@ interface QuestionBuilderProps {
   onRefresh: () => void;
 }
 
+
+const SAMPLE_TEXT = "১. বাংলাদেশের রাজধানী কোথায়?\nক) ঢাকা\nখ) চট্টগ্রাম\nগ) রাজশাহী\nঘ) খুলনা\nউত্তর: ক\nব্যাখ্যা: ঢাকা হলো বাংলাদেশের রাজধানী।";
+
 export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
   activeExamKey,
   exam,
@@ -36,17 +39,11 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
   onRefresh,
 }) => {
   const [solutions, setSolutions] = useState<QuestionSolution[]>([]);
-  const [questionText, setQuestionText] = useState("");
+  const [rawText, setRawText] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
   const [isAddingNewTopic, setIsAddingNewTopic] = useState(false);
   const [newTopicInput, setNewTopicInput] = useState("");
   const [allTopics, setAllTopics] = useState<string[]>([]);
-  const [opt0, setOpt0] = useState("");
-  const [opt1, setOpt1] = useState("");
-  const [opt2, setOpt2] = useState("");
-  const [opt3, setOpt3] = useState("");
-  const [correctIdx, setCorrectIdx] = useState(0);
-  const [explanation, setExplanation] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -122,43 +119,70 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!questionText.trim() || !opt0.trim() || !opt1.trim() || !opt2.trim() || !opt3.trim()) {
-      alert("দয়া করে প্রশ্ন ও ৪টি অপশন সঠিকভাবে পূরণ করুন।");
+    if (!rawText.trim()) {
+      alert("অনুগ্রহ করে প্রশ্ন লিখুন।");
       return;
     }
 
     setIsLoading(true);
-    const questionObj: QuestionItem = {
-      q: questionText.trim(),
-      opts: [opt0.trim(), opt1.trim(), opt2.trim(), opt3.trim()],
-      topic: selectedTopic.trim() || "সাধারণ"
-    };
-    const solutionObj: QuestionSolution = {
-      correct: Number(correctIdx),
-      exp: explanation.trim(),
-    };
-
-    if (editingIndex !== null) {
-      const ok = await updateQuestionInExam(activeExamKey, editingIndex, questionObj, solutionObj);
-      if (!ok) {
-        setIsLoading(false);
-        alert("প্রশ্ন আপডেট করতে সমস্যা হয়েছে।");
-        return;
-      }
-      setEditingIndex(null);
-    } else {
-      const ok = await addQuestionToExam(activeExamKey, questionObj, solutionObj);
-      if (ok !== true) {
-        setIsLoading(false);
-        alert("প্রশ্ন যুক্ত করতে সমস্যা হয়েছে: " + (typeof ok === 'string' ? ok : ""));
-        return;
-      }
+    
+    const parsedResult = parseBulkQuestionsText(rawText);
+    const parsedBlocks = parsedResult.blocks.filter(b => b.isValid);
+    if (parsedBlocks.length === 0) {
+      setIsLoading(false);
+      alert("কোনো সঠিক প্রশ্ন পাওয়া যায়নি। অনুগ্রহ করে সঠিক ফরম্যাটে লিখুন (যেমন: ১. প্রশ্ন, ক) খ) গ) ঘ), উত্তর: ক)।");
+      return;
     }
 
-    setIsLoading(false);
-    resetForm();
-    await loadSolutions();
-    onRefresh();
+    try {
+      const activeTopic = isAddingNewTopic ? newTopicInput.trim() : selectedTopic;
+      
+      if (editingIndex !== null) {
+        const first = parsedBlocks[0];
+        const questionObj = {
+          q: first.q,
+          opts: first.opts,
+          topic: first.topic || activeTopic || "\u09B8\u09BE\u09A7\u09BE\u09B0\u09A3"
+        };
+        const solutionObj = {
+          correct: first.correct,
+          exp: first.exp,
+        };
+        
+        const ok = await updateQuestionInExam(activeExamKey, editingIndex, questionObj, solutionObj);
+        if (!ok) {
+          setIsLoading(false);
+          alert("প্রশ্ন আপডেট করতে সমস্যা হয়েছে।");
+          return;
+        }
+        
+        if (parsedBlocks.length > 1) {
+          const rest = parsedBlocks.slice(1);
+          const newQs = rest.map(b => ({ q: b.q, opts: b.opts, topic: b.topic || activeTopic || "\u09B8\u09BE\u09A7\u09BE\u09B0\u09A3" }));
+          const newSols = rest.map(b => ({ correct: b.correct, exp: b.exp }));
+          await addBulkQuestionsToExam(activeExamKey, newQs, newSols);
+        }
+        
+        setEditingIndex(null);
+      } else {
+        const newQs = parsedBlocks.map(b => ({ q: b.q, opts: b.opts, topic: b.topic || activeTopic || "\u09B8\u09BE\u09A7\u09BE\u09B0\u09A3" }));
+        const newSols = parsedBlocks.map(b => ({ correct: b.correct, exp: b.exp }));
+        
+        const res = await addBulkQuestionsToExam(activeExamKey, newQs, newSols);
+        if (res && res.error) {
+           alert("প্রশ্ন যুক্ত করতে সমস্যা হয়েছে: " + res.error);
+        }
+      }
+
+      setIsLoading(false);
+      resetForm();
+      await loadSolutions();
+      onRefresh();
+    } catch (err: any) {
+      console.error(err);
+      alert("Error: " + err.message);
+      setIsLoading(false);
+    }
   };
 
   const handleEdit = (idx: number) => {
@@ -167,14 +191,18 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
     if (!q) return;
 
     setEditingIndex(idx);
-    setQuestionText(q.q);
     setSelectedTopic(q.topic || "");
-    setOpt0(q.opts[0] || "");
-    setOpt1(q.opts[1] || "");
-    setOpt2(q.opts[2] || "");
-    setOpt3(q.opts[3] || "");
-    setCorrectIdx(sol.correct);
-    setExplanation(sol.exp);
+    
+    const chars = ["ক", "খ", "গ", "ঘ"];
+    let text = (q.topic ? "# " + q.topic + "\n\n" : "") + "১. " + q.q + "\n";
+    q.opts.forEach((opt, i) => {
+      text += (chars[i] || i) + ") " + opt + "\n";
+    });
+    text += "উত্তর: " + (chars[sol.correct] || chars[0]) + "\n";
+    if (sol.exp) {
+      text += "ব্যাখ্যা: " + sol.exp + "\n";
+    }
+    setRawText(text);
   };
 
   const handleDelete = async (idx: number) => {
@@ -194,16 +222,9 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
   };
 
   const resetForm = () => {
-    setQuestionText("");
-    // Keep selectedTopic persistent across question submissions as requested
+    setRawText("");
     setIsAddingNewTopic(false);
     setNewTopicInput("");
-    setOpt0("");
-    setOpt1("");
-    setOpt2("");
-    setOpt3("");
-    setCorrectIdx(0);
-    setExplanation("");
     setEditingIndex(null);
   };
 
@@ -219,17 +240,16 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
 
         <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-between md:justify-end">
           <button
-            type="button"
-            onClick={() => setIsAIModalOpen(true)}
-            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
-            <span>AI দিয়ে প্রশ্ন তৈরি</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsBulkModalOpen(true)}
+              type="button"
+              onClick={() => setIsAIModalOpen(true)}
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+              <span>Question Generator</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsBulkModalOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
           >
             <Upload className="w-3.5 h-3.5" />
@@ -301,124 +321,70 @@ export const QuestionBuilder: React.FC<QuestionBuilderProps> = ({
         }}
       />
 
-      <form onSubmit={handleSubmit} className="space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-200">
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">প্রশ্নের বিবরণ</label>
-          <textarea
-            required
-            rows={2}
-            placeholder="প্রশ্ন এখানে লিখুন..."
-            value={questionText}
-            onChange={(e) => setQuestionText(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-white"
-          />
-        </div>
+      
+        <form onSubmit={handleSubmit} className="space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-200">
+          <div>
+            <div className="flex justify-between items-end mb-1">
+              <label className="block text-xs sm:text-sm font-bold text-slate-700">প্রশ্ন, অপশন ও ব্যাখ্যা (Smart Paste)</label>
+              <button type="button" onClick={() => setRawText(SAMPLE_TEXT)} className="text-xs text-indigo-600 hover:underline cursor-pointer">নমুনা দেখুন</button>
+            </div>
+            <textarea
+              required
+              rows={8}
+              placeholder="১. প্রশ্ন...\nক) অপশন...\nউত্তর: ক\nব্যাখ্যা: ..."
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-white font-mono"
+            />
+            <p className="text-[10px] sm:text-xs text-slate-500 mt-1.5">
+              বাল্ক ইম্পোর্টের মতো একই ফরম্যাটে প্রশ্ন পেস্ট করুন। আপনি চাইলে একসাথে একাধিক প্রশ্নও পেস্ট করতে পারেন।
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ১ (ক)</label>
-            <input
-              type="text"
-              required
-              placeholder="প্রথম অপশন"
-              value={opt0}
-              onChange={(e) => setOpt0(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
+            <TopicTreeSelector
+              selectedTopicPath={selectedTopic}
+              onSelectTopicPath={(path) => setSelectedTopic(path)}
+              topics={mergedTopics}
+              onTopicsUpdated={() => onRefresh()}
+              label="প্রশ্নের টপিক ও সাব-টপিক নির্ধারণ"
+              helperText="টপিক নির্বাচন করুন অথবা যেকোনো স্তরে সাব-টপিক তৈরি করুন (পরবর্তী প্রশ্নে বজায় থাকবে)"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ২ (খ)</label>
-            <input
-              type="text"
-              required
-              placeholder="দ্বিতীয় অপশন"
-              value={opt1}
-              onChange={(e) => setOpt1(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ৩ (গ)</label>
-            <input
-              type="text"
-              required
-              placeholder="তৃতীয় অপশন"
-              value={opt2}
-              onChange={(e) => setOpt2(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">অপশন ৪ (ঘ)</label>
-            <input
-              type="text"
-              required
-              placeholder="চতুর্থ অপশন"
-              value={opt3}
-              onChange={(e) => setOpt3(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">সঠিক উত্তর নির্বাচন</label>
-            <select
-              value={correctIdx}
-              onChange={(e) => setCorrectIdx(Number(e.target.value))}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white cursor-pointer"
-            >
-              <option value={0}>অপশন ১ (ক)</option>
-              <option value={1}>অপশন ২ (খ)</option>
-              <option value={2}>অপশন ৩ (গ)</option>
-              <option value={3}>অপশন ৪ (ঘ)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">ব্যাখ্যা (Explanation)</label>
-            <input
-              type="text"
-              required
-              placeholder="সঠিক উত্তরের ব্যাখ্যা..."
-              value={explanation}
-              onChange={(e) => setExplanation(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white"
-            />
-          </div>
-        </div>
-
-        {/* Topic Tree Selector — কোনো বাক্স নেই; সব টপিক একসাথে দেখা যায় */}
-        <div>
-          <TopicTreeSelector
-            selectedTopicPath={selectedTopic}
-            onSelectTopicPath={(path) => setSelectedTopic(path)}
-            topics={mergedTopics}
-            onTopicsUpdated={() => onRefresh()}
-            label="প্রশ্নের টপিক ও সাব-টপিক নির্ধারণ"
-            helperText="টপিক নির্বাচন করুন অথবা যেকোনো স্তরে সাব-টপিক তৈরি করুন (পরবর্তী প্রশ্নে বজায় থাকবে)"
-          />
-        </div>
-
-        <div className="flex gap-2 pt-1">
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-xl text-xs sm:text-sm transition shadow cursor-pointer disabled:opacity-50"
-          >
-            {editingIndex !== null ? "প্রশ্ন আপডেট করুন" : "প্রশ্ন যোগ করুন"}
-          </button>
-          {editingIndex !== null && (
+          
+          <div className="flex gap-2 pt-1">
             <button
-              type="button"
-              onClick={resetForm}
-              className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium px-4 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+              type="submit"
+              disabled={isLoading}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-xl text-xs sm:text-sm transition shadow cursor-pointer disabled:opacity-50"
             >
-              বাতিল
+              {editingIndex !== null ? "প্রশ্ন আপডেট করুন" : "প্রশ্ন যোগ করুন"}
             </button>
-          )}
-        </div>
-      </form>
+            {editingIndex !== null && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium px-4 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+              >
+                বাতিল
+              </button>
+            )}
+          </div>
+        </form>
+      {isAIModalOpen && (
+        <AiQuestionGeneratorUI
+          isOpen={isAIModalOpen}
+          onClose={() => setIsAIModalOpen(false)}
+          examKey={activeExamKey}
+          existingQuestionTexts={(exam.questions || []).map((q) => q.q)}
+          topics={topics}
+          onSuccess={async () => {
+            await loadSolutions();
+            onRefresh();
+          }}
+        />
+      )}
+
 
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">

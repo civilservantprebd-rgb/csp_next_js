@@ -3,6 +3,7 @@
 import { CourseEditModal } from "@/components/admin/CourseEditModal";
 import { CourseDetailsModal } from "@/components/admin/CourseDetailsModal";
 import { AdminLogin } from "@/components/admin/AdminLogin";
+import { AiQuestionGeneratorUI } from "@/components/admin/AiQuestionGeneratorUI";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -68,7 +69,7 @@ export default function AdminPage() {
       const t = new URLSearchParams(window.location.search).get("tab");
       const valid: AdminTabType[] = [
         "analytics", "exams", "courses", "subjects", "students",
-        "questions", "question_bank", "videos", "archive", "drivelinks", "news", "whatsapp"
+        "questions", "question_bank", "videos", "archive", "drivelinks", "news", "whatsapp", "ai_question_generator"
       ];
       if (t && (valid as string[]).includes(t)) return t as AdminTabType;
     }
@@ -835,6 +836,7 @@ export default function AdminPage() {
 
 
             {activeTab === "students" && <StudentApproval courses={config.courses || []} />}
+              {activeTab === "ai_question_generator" && <AiQuestionGeneratorUI exams={config.exams || {}} topics={config.topics || []} />}
 
             {activeTab === "questions" && config.exams?.[selectedExamKey] && (
               examQuestions[selectedExamKey] ? (

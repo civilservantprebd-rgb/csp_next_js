@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import {
+import { Brain,
   FileText,
   GraduationCap,
   BookOpen,
@@ -29,6 +29,7 @@ export type AdminTabType =
   | "drivelinks"
   | "news"
   | "whatsapp"
+  | "ai_question_generator"
   | "attendance";
 
 interface AdminNavProps {
@@ -46,6 +47,7 @@ interface AdminNavProps {
 export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) => {
   const tabs: { id: AdminTabType; label: string; icon: any }[] = [
     { id: "analytics", label: "অ্যানালিটিক্স", icon: BarChart3 },
+      { id: "ai_question_generator", label: "Question Generator", icon: Brain },
     { id: "question_bank", label: "টপিক ও ডাটাবেজ", icon: Layers },
     { id: "exams", label: "এক্সাম সেট", icon: FileText },
     { id: "courses", label: "কোর্স", icon: GraduationCap },

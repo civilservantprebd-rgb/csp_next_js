@@ -319,6 +319,14 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                         <span>
                           TrxID: <span className="font-mono font-bold text-amber-700">{req.trxId}</span>
                         </span>
+                        {req.amount && (
+                          <>
+                            <span>|</span>
+                            <span className="font-bold text-slate-700">
+                              পেমেন্ট: ৳{req.amount}
+                            </span>
+                          </>
+                        )}
                         {req.coupon && (
                           <>
                             <span>|</span>

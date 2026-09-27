@@ -11,6 +11,7 @@ export async function submitEnrollRequest(payload: {
   name: string;
   course: string | string[];
   trxId: string;
+  amount?: string;
   coupon?: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
@@ -110,12 +111,20 @@ export async function submitEnrollRequest(payload: {
       trx_id: trx,
       created_at: getTrueDate().toISOString()
     };
-    if (coupon) {
-      // coupon কলাম থাকলে সেভ হয়; পুরনো DB-তে কলাম না থাকলে কোনো এরর ছাড়াই বাদ পড়ে
-      const { error: probeErr } = await supabase.from("enroll_requests").select("coupon").limit(1);
-      if (!probeErr) toInsert.coupon = coupon;
-    }
-    const { error } = await supabase.from("enroll_requests").insert(toInsert);
+    let finalCoupon = coupon || '';
+      if (payload.amount) {
+        const { error: amErr } = await supabase.from('enroll_requests').select('amount').limit(1);
+        if (!amErr) {
+          toInsert.amount = payload.amount;
+        } else {
+          finalCoupon = finalCoupon ? finalCoupon + ' | ?' + payload.amount : '?' + payload.amount;
+        }
+      }
+      if (finalCoupon) {
+        const { error: probeErr } = await supabase.from('enroll_requests').select('coupon').limit(1);
+        if (!probeErr) toInsert.coupon = finalCoupon;
+      }
+      const { error } = await supabase.from('enroll_requests').insert(toInsert);
 
     if (error) throw error;
 
@@ -149,7 +158,7 @@ export async function getEnrollRequests(): Promise<EnrollmentRequest[]> {
       course: r.course,
       trxId: r.trx_id,
       timestamp: r.created_at,
-      coupon: (r as any)?.coupon || ""
+      amount: (r as any)?.amount || "", coupon: (r as any)?.coupon || ""
     }));
   } catch (err) {
     console.error("Fetch enroll requests error:", err);
@@ -254,3 +263,8 @@ export async function approveEnrollRequest(
     return { success: false, message: "অনুমোদনে সমস্যা হয়েছে।" };
   }
 }
+
+
+
+
+

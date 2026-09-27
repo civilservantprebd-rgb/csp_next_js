@@ -85,9 +85,9 @@ export function compareExamsByStartTime(a: Exam, b: Exam): number {
   const ta = a.startTime ? parseBangladeshDateTime(String(a.startTime))?.getTime() ?? null : null;
   const tb = b.startTime ? parseBangladeshDateTime(String(b.startTime))?.getTime() ?? null : null;
   if (ta !== tb) {
-    if (ta === null) return 1;
-    if (tb === null) return -1;
-    return ta - tb;
+    if (ta === null) return -1;
+    if (tb === null) return 1;
+    return tb - ta;
   }
   return String(a.title || "").localeCompare(String(b.title || ""), "bn");
 }
@@ -162,3 +162,4 @@ export function sortExamsForStudents(a: [string, Exam], b: [string, Exam]): numb
   if (tb === null) return 0;
   return ta - tb;
 }
+
