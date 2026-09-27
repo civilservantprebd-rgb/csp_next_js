@@ -17,7 +17,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
   const [topic, setTopic] = useState("");
   // Fixed target count for simplicity
   const [targetCount, setTargetCount] = useState(50);
-  const [instructions, setInstructions] = useState("Make the questions BCS standard. Keep the options short and precise.");
+  const [instructions, setInstructions] = useState("");
   
   const [generatorModel, setGeneratorModel] = useState("deepseek-chat");
   const [validatorModel1, setValidatorModel1] = useState("deepseek-chat");
@@ -198,8 +198,19 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
               rows={4}
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-            />
-          </div>
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700">বিশেষ নির্দেশনা (প্রম্পট)</label>
+              <textarea
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 bg-white"
+                placeholder="যেমন: সাম্প্রতিক তথ্য যোগ করুন, অথবা কেবল মুক্তিযুদ্ধ নিয়ে প্রশ্ন বানান..."
+                rows={3}
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+              />
+            </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Target Question Count</label>
