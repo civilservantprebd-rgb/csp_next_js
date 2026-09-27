@@ -1,16 +1,9 @@
-"use server";
+const fs = require('fs');
 
-import { GoogleGenAI } from "@google/genai";
-import { QuestionItem, QuestionSolution } from "@/types/exam";
+let code = fs.readFileSync('src/actions/ai-actions.ts', 'utf8');
 
-export interface GeneratedMCQResult {
-  questions: QuestionItem[];
-  solutions: QuestionSolution[];
-  rawText: string;
-  count: number;
-}
-
-export async function generateMCQWithAI(params: {
+// The replacement logic:
+const newFunction = `export async function generateMCQWithAI(params: {
   topic: string;
   subtopic?: string;
   count?: number;
@@ -38,8 +31,8 @@ export async function generateMCQWithAI(params: {
     // Fetch existing questions to avoid duplicates
     const existingSet = new Set<string>();
     if (examId) {
-      const { supabase } = await import("@/lib/supabase");
-      const { data: existingLinks } = await supabase
+      const { supabase } = await import("@/lib/supabase-server");
+      const { data: existingLinks } = await supabase()
         .from("exam_questions_link")
         .select("question_bank(q)")
         .eq("exam_id", examId);
@@ -59,13 +52,13 @@ export async function generateMCQWithAI(params: {
       attempts++;
       const needed = targetCount - allQuestions.length;
 
-      const prompt = `আপনি একজন বিসিএস ক্যাডার ও বিশেষজ্ঞ।
-আপনাকে ঠিক ${needed}টি নতুন ও সম্পূর্ণ ইউনিক (MCQ) প্রশ্ন তৈরি করতে হবে, যা আগে কখনো দেওয়া হয়নি।
+      const prompt = \`আপনি একজন বিসিএস ক্যাডার ও বিশেষজ্ঞ।
+আপনাকে ঠিক \${needed}টি নতুন ও সম্পূর্ণ ইউনিক (MCQ) প্রশ্ন তৈরি করতে হবে, যা আগে কখনো দেওয়া হয়নি।
 
-টপিক: "${topicHierarchy}"
-কাঠিন্য: "${difficulty}"
-${contextText ? `\nকনটেক্সট:\n"""\n${contextText}\n"""\n` : ""}
-${customInstruction ? `\nবিশেষ নির্দেশনা:\n"""\n${customInstruction}\n"""\n` : ""}
+টপিক: "\${topicHierarchy}"
+কাঠিন্য: "\${difficulty}"
+\${contextText ? \`\\nকনটেক্সট:\\n"""\\n\${contextText}\\n"""\\n\` : ""}
+\${customInstruction ? \`\\nবিশেষ নির্দেশনা:\\n"""\\n\${customInstruction}\\n"""\\n\` : ""}
 
 শর্তাবলী:
 ১. প্রতিটি প্রশ্নের ঠিক ৪টি অপশন (ক, খ, গ, ঘ) থাকবে।
@@ -74,7 +67,7 @@ ${customInstruction ? `\nবিশেষ নির্দেশনা:\n"""\n${cu
 ৪. প্রশ্নগুলো যেন বিসিএস স্ট্যান্ডার্ড হয়।
 
 ফরম্যাট (মার্কডাউন):
-# ${topicHierarchy}
+# \${topicHierarchy}
 
 ১. [এখানে প্রশ্ন]
 ক) [অপশন ১]
@@ -85,7 +78,7 @@ ${customInstruction ? `\nবিশেষ নির্দেশনা:\n"""\n${cu
 ব্যাখ্যা: [সঠিক উত্তরের ব্যাখ্যা]
 
 ২. [দ্বিতীয় প্রশ্ন]...
-`;
+\`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -95,7 +88,7 @@ ${customInstruction ? `\nবিশেষ নির্দেশনা:\n"""\n${cu
       const generatedText = response.text || "";
       if (!generatedText.trim()) continue;
 
-      allRawText += "\n\n" + generatedText;
+      allRawText += "\\n\\n" + generatedText;
 
       const { parseBulkQuestionsText } = await import("@/lib/question-parser");
       const parsed = parseBulkQuestionsText(generatedText, topic, subtopic);
@@ -135,4 +128,14 @@ ${customInstruction ? `\nবিশেষ নির্দেশনা:\n"""\n${cu
     console.error("AI MCQ Generation Error:", err);
     return { success: false, error: err?.message || "Generation error" };
   }
+}`;
+
+const oldFuncRegex = /export async function generateMCQWithAI[\s\S]*?\}\s*catch\s*\(err:\s*any\)\s*\{[\s\S]*?\}\s*\}/;
+
+if (oldFuncRegex.test(code)) {
+    code = code.replace(oldFuncRegex, newFunction);
+    fs.writeFileSync('src/actions/ai-actions.ts', code, 'utf8');
+    console.log("Updated generateMCQWithAI to support looping and deduplication");
+} else {
+    console.log("Regex didn't match.");
 }

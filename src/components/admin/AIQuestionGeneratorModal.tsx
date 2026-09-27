@@ -91,7 +91,7 @@ export const AIQuestionGeneratorModal: React.FC<AIQuestionGeneratorModalProps> =
       count: Number(count),
       difficulty,
       contextText: contextText.trim(),
-      customInstruction: customInstruction.trim()
+      customInstruction: customInstruction.trim(), examId: activeExamKey
     });
 
     setIsLoading(false);

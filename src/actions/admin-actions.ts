@@ -1890,7 +1890,7 @@ export async function addBulkQuestionsToExam(
     newQuestions.forEach((qItem, idx) => {
       const key = String(qItem.q || "").trim().toLowerCase();
       if (!key) return;
-      if (seen.has(key)) return; // Ignored existingSet to allow duplicates with previous questions as requested
+      if (seen.has(key) || existingSet.has(key)) return;
       seen.add(key);
       filteredQuestions.push(qItem);
       filteredSolutions.push(newSolutions[idx] || { correct: 0, exp: "" });
