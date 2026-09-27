@@ -70,8 +70,7 @@ const SECTIONS = [
 
 export default function PortalClient({
   initialExamsTaken,
-  initialStreak,
-
+  initialStreak
 }: {
   initialExamsTaken: number | null;
   initialStreak: number | null;
@@ -96,10 +95,8 @@ export default function PortalClient({
     setGoogleUser(u);
     if (u) setNewName(u.name);
     
-    if (!
-      
-    }
-  }, [router,
+    
+  }, [router]);
 
   useEffect(() => {
     if (!googleUser) {
