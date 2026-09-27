@@ -250,7 +250,9 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
               </optgroup>
               <optgroup label="DeepSeek">
+                <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
                 <option value="deepseek-chat">DeepSeek V3</option>
+                <option value="deepseek-flash">DeepSeek Flash</option>
               </optgroup>
               <optgroup label="OpenAI (ChatGPT)">
                 <option value="gpt-4o">GPT-4o</option>
@@ -280,7 +282,9 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
               </optgroup>
               <optgroup label="DeepSeek">
+                <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
                 <option value="deepseek-chat">DeepSeek V3</option>
+                <option value="deepseek-flash">DeepSeek Flash</option>
               </optgroup>
               <optgroup label="OpenAI (ChatGPT)">
                 <option value="gpt-4o">GPT-4o</option>
@@ -310,7 +314,9 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
               </optgroup>
               <optgroup label="DeepSeek">
+                <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
                 <option value="deepseek-chat">DeepSeek V3</option>
+                <option value="deepseek-flash">DeepSeek Flash</option>
               </optgroup>
               <optgroup label="OpenAI (ChatGPT)">
                 <option value="gpt-4o">GPT-4o</option>
