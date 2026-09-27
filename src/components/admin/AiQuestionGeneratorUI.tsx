@@ -120,7 +120,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
             if (res && res.success) {
               totalSaved += res.count; // Only increment by the successfully saved non-duplicate amount
               
-              setVerifiedQuestions(prev => [...prev, ...acceptedBatch]); // Just for visual UI, we can show them
+              setVerifiedQuestions(prev => [...prev, ...(res.insertedQuestions || []) as any]); // Just for visual UI, we can show them
               setProgress(Math.floor((totalSaved / targetCount) * 100));
             } else {
               console.error("Save Error:", res);

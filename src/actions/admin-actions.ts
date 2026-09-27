@@ -1860,7 +1860,7 @@ export async function addBulkQuestionsToExam(
   examKey: string,
   newQuestions: QuestionItem[],
   newSolutions: QuestionSolution[]
-): Promise<{ success: boolean; count: number; error?: string }> {
+): Promise<{ success: boolean; count: number; insertedQuestions?: QuestionItem[]; error?: string }> {
   try {
     await requireTeacher();
     if (!newQuestions.length) return { success: false, count: 0 };
@@ -1896,7 +1896,7 @@ export async function addBulkQuestionsToExam(
       filteredSolutions.push(newSolutions[idx] || { correct: 0, exp: "" });
     });
 
-    if (filteredQuestions.length === 0) return { success: true, count: 0 };
+    if (filteredQuestions.length === 0) return { success: true, count: 0, insertedQuestions: [] };
 
     const questionsInsert = filteredQuestions.map((qItem, idx) => {
       const sol = filteredSolutions[idx];
@@ -2177,7 +2177,7 @@ export async function addBulkQuestionsToBank(
   newSolutions: QuestionSolution[],
   fallbackTopic?: string,
   fallbackSubtopic?: string
-): Promise<{ success: boolean; count: number; error?: string }> {
+): Promise<{ success: boolean; count: number; insertedQuestions?: QuestionItem[]; error?: string }> {
   try {
     await requireTeacher();
     if (!newQuestions.length) return { success: false, count: 0 };
