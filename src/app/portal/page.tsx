@@ -9,7 +9,7 @@ export const revalidate = 60; // Cache for 60 seconds
 export default async function PortalPage() {
   let initialExamsTaken = null;
   let initialStreak = null;
-  let initialDriveLinks = null;
+
 
   try {
     const identity = await resolveStudyIdentity(null, null);
@@ -33,7 +33,7 @@ export default async function PortalPage() {
     <PortalClient 
       initialExamsTaken={initialExamsTaken} 
       initialStreak={initialStreak}
-      initialDriveLinks={initialDriveLinks} 
+ 
     />
   );
 }

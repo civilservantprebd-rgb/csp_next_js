@@ -8,7 +8,7 @@ export const revalidate = 60; // Cache for 60 seconds
 
 export default async function PortalSectionPage() {
   let initialData = null;
-  let initialDriveLinks = null;
+
 
   try {
     const identity = await resolveStudyIdentity(null, null);
@@ -29,7 +29,7 @@ export default async function PortalSectionPage() {
   return (
     <PortalSectionClient 
       initialData={initialData} 
-      initialDriveLinks={initialDriveLinks} 
+ 
     />
   );
 }
