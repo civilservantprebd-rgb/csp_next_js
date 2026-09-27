@@ -77,8 +77,8 @@ ${existingTopics.join("\n")}
       system: systemPrompt,
       prompt: `Generate ${count} questions based on this syllabus/context:\n\n${syllabus}`,
       schema: questionSchema,
-      maxTokens: 4000,
-      temperature: 0.7
+
+
     });
 
     const draftQuestions = object.questions;
