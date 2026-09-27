@@ -14,7 +14,7 @@ export async function generateMCQWithAI(params: {
   topic: string;
   subtopic?: string;
   count?: number;
-  difficulty?: "সহজ" | "মাঝারি" | "কঠিন" | "বিসিএস স্ট্যান্ডার্ড";
+  difficulty?: "সহজ" | "মাঝারি" | "কঠিন" | "বিসিএস প্রিলিমিনারি মান";
   contextText?: string;
   customInstruction?: string;
   apiKey?: string;
@@ -24,7 +24,7 @@ export async function generateMCQWithAI(params: {
     const { requireTeacher } = await import("@/lib/teacher-auth");
     await requireTeacher();
 
-    const { topic, subtopic, count = 5, difficulty = "বিসিএস স্ট্যান্ডার্ড", contextText, customInstruction, examId } = params;
+    const { topic, subtopic, count = 5, difficulty = "বিসিএস প্রিলিমিনারি মান", contextText, customInstruction, examId } = params;
     const resolvedApiKey = process.env.GEMINI_API_KEY || "";
 
     if (!resolvedApiKey) {
@@ -71,7 +71,7 @@ ${customInstruction ? `\nবিশেষ নির্দেশনা:\n"""\n${cu
 ১. প্রতিটি প্রশ্নের ঠিক ৪টি অপশন (ক, খ, গ, ঘ) থাকবে।
 ২. সঠিক উত্তরটি অপশনের (ক / খ / গ / ঘ) অক্ষর দিয়ে উল্লেখ করুন।
 ৩. প্রতিটি প্রশ্নের একটি তথ্যবহুল ব্যাখ্যা দিন।
-৪. প্রশ্নগুলো যেন বিসিএস স্ট্যান্ডার্ড হয়।
+৪. প্রশ্নগুলো যেন বিসিএস প্রিলিমিনারি মান হয়।
 
 ফরম্যাট (মার্কডাউন):
 # ${topicHierarchy}
