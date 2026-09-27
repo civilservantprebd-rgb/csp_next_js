@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Exam, QuestionItem, QuestionSolution } from "@/types/exam";
 import {
   addQuestionToExam,
+  addBulkQuestionsToExam,
   deleteQuestionFromExam,
   updateQuestionInExam,
   reorderExamQuestion,
@@ -17,6 +18,7 @@ import { BulkQuestionImporterModal } from "./BulkQuestionImporterModal";
 import { AIQuestionGeneratorModal } from "./AIQuestionGeneratorModal";
 import { QuestionBankSearchModal } from "./QuestionBankSearchModal";
 import { TopicTreeSelector } from "./TopicTreeSelector";
+import { parseBulkQuestionsText } from "@/lib/question-parser";
 
 interface QuestionBuilderProps {
   activeExamKey: string;

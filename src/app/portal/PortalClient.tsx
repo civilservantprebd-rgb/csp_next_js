@@ -315,37 +315,6 @@ export default function PortalClient({
               </div>
             </div>
 
-            {(routineUrl || syllabusUrl) && (
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-3xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-3">
-                <div>
-                  <h4 className="font-bold text-emerald-950 text-sm">রুটিন ও সিলেবাস ডাউনলোড</h4>
-                  <p className="text-xs sm:text-sm text-emerald-700">আপডেটেড সিলেবাস ও পরীক্ষার রুটিন পান</p>
-                </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  {routineUrl && (
-                    <a
-                      href={routineUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex-1 sm:flex-none text-center bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
-                    >
-                      <Calendar className="w-3.5 h-3.5" /> রুটিন
-                    </a>
-                  )}
-                  {syllabusUrl && (
-                    <a
-                      href={syllabusUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex-1 sm:flex-none text-center bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
-                    >
-                      <FileText className="w-3.5 h-3.5" /> সিলেবাস
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {SECTIONS.map((sec) => {
                 const Icon = sec.icon;
