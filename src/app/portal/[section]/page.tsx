@@ -20,7 +20,7 @@ export default async function PortalSectionPage() {
     }
     
     if (!initialData) {
-      initialDriveLinks = null;
+
     }
   } catch (e) {
     // Ignore, let client handle fallback fetching
