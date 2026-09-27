@@ -6,7 +6,7 @@ import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { StudentDashboardModal } from "@/components/modals/StudentDashboardModal";
 import { ExamDetailPopup } from "@/components/modals/ExamDetailPopup";
-import { fetchDriveLinks } from "@/actions/admin-actions";
+
 import { AppConfigData } from "@/types/exam";
 import { Submission } from "@/types/submission";
 import {
