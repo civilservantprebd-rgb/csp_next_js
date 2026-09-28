@@ -2051,6 +2051,20 @@ export async function addQuestionToBank(
   }
 }
 
+
+export async function toggleQuestionMaster(id: string, is_master: boolean): Promise<boolean> {
+  try {
+    await requireTeacher();
+    const { error } = await supabase.from("question_bank").update({ is_master }).eq("id", id);
+    if (error) throw error;
+    invalidateConfigCache();
+    return true;
+  } catch (err) {
+    console.error("Toggle master error:", err);
+    return false;
+  }
+}
+
 export async function updateQuestionInBank(
   id: string,
   question: QuestionItem,

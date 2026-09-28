@@ -344,6 +344,19 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
     }
   };
 
+  
+  const toggleMaster = async (id: string, current: boolean) => {
+    try {
+      const { toggleQuestionMaster } = await import("@/actions/admin-actions");
+      const ok = await toggleQuestionMaster(id, !current);
+      if (ok) {
+        setQuestions(qs => qs.map(q => q.id === id ? { ...q, is_master: !current } : q));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const startEdit = (q: any) => {
     setEditingId(q.id);
     setQuestionText(q.q);
