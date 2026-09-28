@@ -60,21 +60,9 @@ export async function POST(req: Request) {
       model = openai(generatorModel);
     }
 
-    const systemPrompt = You are an elite subject matter expert and examiner for the BCS (Bangladesh Civil Service) exam.
-Your task is to generate exactly  highly standard, unique, and slightly above-basic level (medium to hard) multiple-choice questions based on the provided syllabus.
+    const systemPrompt = `You are an elite subject matter expert and examiner for the BCS (Bangladesh Civil Service) exam.\nYour task is to generate exactly ${count} highly standard, unique, and slightly above-basic level (medium to hard) multiple-choice questions based on the provided syllabus.\n\nCRITICAL INSTRUCTIONS:\n1. Generate highly creative and deep questions. DO NOT generate basic, commonly known, or generic questions (as they already exist in the database and will be rejected).\n2. Generate ONLY the question and 4 options. DO NOT provide the answer or explanation here.\n3. ${instructions}\n4. You MUST classify each question under one of the provided existing topics. Select the deepest/most specific node. Do NOT invent new topics.\n5. You must output in valid JSON matching the required schema. Do not wrap in markdown tags if possible.\n\nAVAILABLE EXACT TOPICS:\n${existingTopics.join('\n')}\n`;
 
-CRITICAL INSTRUCTIONS:
-1. Generate highly creative and deep questions. DO NOT generate basic, commonly known, or generic questions (as they already exist in the database and will be rejected).
-2. Generate ONLY the question and 4 options. DO NOT provide the answer or explanation here.
-3. 
-4. You MUST classify each question under one of the provided existing topics. Select the deepest/most specific node. Do NOT invent new topics.
-5. You must output in valid JSON matching the required schema. Do not wrap in markdown tags if possible.
-
-AVAILABLE EXACT TOPICS:
-
-;
-
-    const { object } = await generateObject({
+      const { object } = await generateObject({
       abortSignal: AbortSignal.timeout(60000),
       model,
 
