@@ -11,13 +11,74 @@ interface Props {
   topics: string[];
 }
 
+
+interface SavedPrompt {
+  id: string;
+  title: string;
+  text: string;
+}
+
 export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
   const [selectedCourse, setSelectedCourse] = useState("");
   const [selectedExamId, setSelectedExamId] = useState("");
   const [topic, setTopic] = useState("");
   // Fixed target count for simplicity
   const [targetCount, setTargetCount] = useState(50);
+  
   const [instructions, setInstructions] = useState("");
+  const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
+  const [promptTitle, setPromptTitle] = useState("");
+  const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("admin_saved_prompts");
+    if (saved) {
+      try { setSavedPrompts(JSON.parse(saved)); } catch (e) {}
+    }
+  }, []);
+
+  const savePrompt = () => {
+    if (!promptTitle.trim() || !instructions.trim()) return alert("Title and Prompt text are required");
+    let updated;
+    if (editingPromptId) {
+      updated = savedPrompts.map(p => p.id === editingPromptId ? { ...p, title: promptTitle, text: instructions } : p);
+    } else {
+      updated = [...savedPrompts, { id: Date.now().toString(), title: promptTitle, text: instructions }];
+    }
+    setSavedPrompts(updated);
+    localStorage.setItem("admin_saved_prompts", JSON.stringify(updated));
+    setEditingPromptId(null);
+    setPromptTitle("");
+    alert("Prompt Saved!");
+  };
+
+  const deletePrompt = (id: string) => {
+    if (!confirm("Delete this saved prompt?")) return;
+    const updated = savedPrompts.filter(p => p.id !== id);
+    setSavedPrompts(updated);
+    localStorage.setItem("admin_saved_prompts", JSON.stringify(updated));
+    if (editingPromptId === id) {
+      setEditingPromptId(null);
+      setPromptTitle("");
+      setInstructions("");
+    }
+  };
+
+  const loadPrompt = (id: string) => {
+    if (!id) {
+      setEditingPromptId(null);
+      setPromptTitle("");
+      setInstructions("");
+      return;
+    }
+    const p = savedPrompts.find(x => x.id === id);
+    if (p) {
+      setEditingPromptId(p.id);
+      setPromptTitle(p.title);
+      setInstructions(p.text);
+    }
+  };
+
   
   const [generatorModel, setGeneratorModel] = useState("deepseek-chat");
   const [validatorModel1, setValidatorModel1] = useState("deepseek-chat");
@@ -201,16 +262,61 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
               />
             </div>
             
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">বিশেষ নির্দেশনা (প্রম্পট)</label>
+            
+            <div className="space-y-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-sm font-bold text-indigo-700">Custom Prompts</label>
+                {savedPrompts.length > 0 && (
+                  <select 
+                    className="text-xs p-1.5 border border-indigo-200 rounded-lg max-w-[180px] bg-white outline-none focus:border-indigo-400"
+                    value={editingPromptId || ""}
+                    onChange={(e) => loadPrompt(e.target.value)}
+                  >
+                    <option value="">-- Load a Saved Prompt --</option>
+                    {savedPrompts.map(p => (
+                      <option key={p.id} value={p.id}>{p.title}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <input
+                type="text"
+                className="w-full text-sm p-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                placeholder="Prompt Title (e.g. Vocabulary Prompt)"
+                value={promptTitle}
+                onChange={(e) => setPromptTitle(e.target.value)}
+              />
               <textarea
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 bg-white"
-                placeholder="যেমন: সাম্প্রতিক তথ্য যোগ করুন, অথবা কেবল মুক্তিযুদ্ধ নিয়ে প্রশ্ন বানান..."
-                rows={3}
+                className="w-full text-sm p-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                placeholder="Write your prompt instructions here..."
+                rows={4}
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
               />
+              <div className="flex gap-2 pt-1">
+                <button 
+                  onClick={savePrompt}
+                  className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition"
+                >
+                  {editingPromptId ? "Update Prompt" : "Save New Prompt"}
+                </button>
+                {editingPromptId && (
+                  <button 
+                    onClick={() => deletePrompt(editingPromptId)}
+                    className="px-3 py-1.5 bg-red-100 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-200 transition"
+                  >
+                    Delete
+                  </button>
+                )}
+                <button 
+                  onClick={() => loadPrompt("")}
+                  className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-300 transition"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
+
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Target Question Count</label>
