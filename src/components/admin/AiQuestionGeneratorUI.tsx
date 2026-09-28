@@ -124,7 +124,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 count: batchSize,
                 existingQuestions: [
                   ...(exams[selectedExamId]?.questions?.map(q => q.q) || []),
-                  ...acceptedBatch.map(q => q.q)
+                  ...verifiedQuestions.map(q => q.q)
                 ]
               })
           });
