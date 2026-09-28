@@ -22,7 +22,7 @@ import {
   Loader2,
   X,
   Sparkles,
-    Star
+  Star
 } from "lucide-react";
 import { toBengaliDigits } from "@/lib/utils";
 import { MathText } from "@/lib/MathText";
@@ -358,6 +358,18 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
     }
   };
 
+  const toggleMaster = async (id: string, current: boolean) => {
+    try {
+      const { toggleQuestionMaster } = await import("@/actions/admin-actions");
+      const ok = await toggleQuestionMaster(id, !current);
+      if (ok) {
+        setQuestions(qs => qs.map(q => q.id === id ? { ...q, is_master: !current } : q));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const startEdit = (q: any) => {
     setEditingId(q.id);
     setQuestionText(q.q);
@@ -463,7 +475,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
             className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
           >
             <Sparkles,
-    Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+  Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
             <span>AI দিয়ে প্রশ্ন তৈরি</span>
           </button>
 
@@ -888,14 +900,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                        onClick={() => toggleMaster(q.id, !!q.is_master)}
-                        className={g-white hover:bg-amber-50 border p-1.5 rounded-lg text-xs transition cursor-pointer }
-                        title={q.is_master ? "Master Question (High Quality)" : "Mark as Master Question"}
-                      >
-                        <Star className={w-3.5 h-3.5 } />
-                      </button>
-                      <button
-                        onClick={() => startEdit(q)}
+                      onClick={() => startEdit(q)}
                       className="bg-white hover:bg-amber-50 text-amber-600 border border-amber-200 p-1.5 rounded-lg text-xs transition cursor-pointer"
                       title="সম্পাদনা করুন"
                     >
