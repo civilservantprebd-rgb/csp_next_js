@@ -382,9 +382,16 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="deepseek-chat">DeepSeek V3</option>
                 <option value="deepseek-flash">DeepSeek Flash</option>
               </optgroup>
-              <optgroup label="OpenAI (ChatGPT)">
+              <optgroup label="OpenAI (Fast & Cheap)">
+                <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
+                <option value="o3-mini">o3 Mini (High Reasoning)</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+              </optgroup>
+              <optgroup label="OpenAI (Advanced)">
+                <option value="gpt-6-astra">GPT-6 Astra</option>
+                <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
+                <option value="gpt-5.5-pro">GPT-5.5 Pro</option>
                 <option value="gpt-4o">GPT-4o</option>
-                <option value="gpt-4o-mini">GPT-4o-mini</option>
               </optgroup>
               <optgroup label="Anthropic (Claude)">
                 <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
@@ -416,9 +423,16 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="deepseek-chat">DeepSeek V3</option>
                 <option value="deepseek-flash">DeepSeek Flash</option>
               </optgroup>
-              <optgroup label="OpenAI (ChatGPT)">
+              <optgroup label="OpenAI (Fast & Cheap)">
+                <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
+                <option value="o3-mini">o3 Mini (High Reasoning)</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+              </optgroup>
+              <optgroup label="OpenAI (Advanced)">
+                <option value="gpt-6-astra">GPT-6 Astra</option>
+                <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
+                <option value="gpt-5.5-pro">GPT-5.5 Pro</option>
                 <option value="gpt-4o">GPT-4o</option>
-                <option value="gpt-4o-mini">GPT-4o-mini</option>
               </optgroup>
               <optgroup label="Anthropic (Claude)">
                 <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
@@ -450,9 +464,16 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="deepseek-chat">DeepSeek V3</option>
                 <option value="deepseek-flash">DeepSeek Flash</option>
               </optgroup>
-              <optgroup label="OpenAI (ChatGPT)">
+              <optgroup label="OpenAI (Fast & Cheap)">
+                <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
+                <option value="o3-mini">o3 Mini (High Reasoning)</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+              </optgroup>
+              <optgroup label="OpenAI (Advanced)">
+                <option value="gpt-6-astra">GPT-6 Astra</option>
+                <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
+                <option value="gpt-5.5-pro">GPT-5.5 Pro</option>
                 <option value="gpt-4o">GPT-4o</option>
-                <option value="gpt-4o-mini">GPT-4o-mini</option>
               </optgroup>
               <optgroup label="Anthropic (Claude)">
                 <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
