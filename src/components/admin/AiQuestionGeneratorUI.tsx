@@ -273,8 +273,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                     <div 
                       key={p.id} 
                       onClick={() => loadPrompt(p.id)}
-                      className={p-2.5 border rounded-xl flex items-start gap-2.5 cursor-pointer transition shadow-sm 
-                        }
+                      className={`p-2.5 border rounded-xl flex items-start gap-2.5 cursor-pointer transition shadow-sm ${editingPromptId === p.id ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500' : 'bg-white border-slate-200 hover:border-indigo-300'}`}
                     >
                       <input 
                         type="radio" 
