@@ -239,15 +239,17 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
               value={generatorModel}
               onChange={(e) => setGeneratorModel(e.target.value)}
             >
-              <optgroup label="Google Gemini (Flash & Pro)">
+              <optgroup label="Google Gemini (Best for Free Tier)">
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+              </optgroup>
+              <optgroup label="Google Gemini (Low Limit/Advanced)">
                 <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                 <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
                 <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                
-                
               </optgroup>
               <optgroup label="DeepSeek">
                 <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
@@ -271,15 +273,17 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
               value={validatorModel1}
               onChange={(e) => setValidatorModel1(e.target.value)}
             >
-              <optgroup label="Google Gemini (Flash & Pro)">
+              <optgroup label="Google Gemini (Best for Free Tier)">
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+              </optgroup>
+              <optgroup label="Google Gemini (Low Limit/Advanced)">
                 <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                 <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
                 <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                
-                
               </optgroup>
               <optgroup label="DeepSeek">
                 <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
@@ -303,15 +307,17 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
               value={validatorModel2}
               onChange={(e) => setValidatorModel2(e.target.value)}
             >
-              <optgroup label="Google Gemini (Flash & Pro)">
+              <optgroup label="Google Gemini (Best for Free Tier)">
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+              </optgroup>
+              <optgroup label="Google Gemini (Low Limit/Advanced)">
                 <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                 <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
                 <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                
-                
               </optgroup>
               <optgroup label="DeepSeek">
                 <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
