@@ -98,7 +98,7 @@ export async function POST(req: Request) {
       // Check similarity
       let isDuplicate = false;
       for (const eq of existingQuestions) {
-        if (calculateSimilarity(draft.q, eq) > 0.75) {
+        if (calculateSimilarity(draft.q, eq) > 0.85) {
           isDuplicate = true;
           break;
         }
