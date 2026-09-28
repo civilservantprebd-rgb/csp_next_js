@@ -194,7 +194,7 @@ export async function runAiImport(input: { text?: string }): Promise<AiImportRes
     };
   }
 
-  const model = process.env.DEEPSEEK_MODEL || "deepseek-flash";
+  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
 
   const { text: raw, finishReason } = await callDeepSeek({
     apiKey: key,

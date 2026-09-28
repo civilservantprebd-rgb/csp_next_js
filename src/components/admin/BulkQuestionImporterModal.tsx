@@ -364,8 +364,18 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
       }
 
       // প্রশ্ন/অপশন/উত্তর আলাদা করা কাঠামো — এটাই এখন প্রিভিউ ও ইমপোর্ট চালায়
-      setAiPayload(data.payload);
-      setAiWarnings(data.payload.warnings || []);
+              setAiPayload(data.payload);
+        setAiWarnings(data.payload.warnings || []);
+        
+        // Auto-set the topic dropdown from AI extraction
+        if (data.payload.topic) {
+          let aiFullTopic = data.payload.topic;
+          if (data.payload.subtopic) {
+            aiFullTopic += " > " + data.payload.subtopic;
+          }
+          setSelectedTopic(aiFullTopic);
+          setAllTopics(prev => prev.includes(aiFullTopic) ? prev : [...prev, aiFullTopic]);
+        }
 
       // AI-র নিজের ফলাফলে আবার কল যাতে না হয় (লুপ-প্রতিরোধ)
       aiTriedForRef.current = sourceText;
