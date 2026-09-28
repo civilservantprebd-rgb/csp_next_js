@@ -80,9 +80,9 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
   };
 
   
-  const [generatorModel, setGeneratorModel] = useState("deepseek-chat");
-  const [validatorModel1, setValidatorModel1] = useState("deepseek-chat");
-  const [validatorModel2, setValidatorModel2] = useState("deepseek-chat");
+  const [generatorModel, setGeneratorModel] = useState("gpt-4o-mini");
+  const [validatorModel1, setValidatorModel1] = useState("gpt-4o-mini");
+  const [validatorModel2, setValidatorModel2] = useState("gpt-4o-mini");
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
