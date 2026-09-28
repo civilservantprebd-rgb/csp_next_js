@@ -394,9 +394,9 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
               </optgroup>
               <optgroup label="DeepSeek">
-                <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
-                <option value="deepseek-chat">DeepSeek V3</option>
-                <option value="deepseek-flash">DeepSeek Flash</option>
+                <option value="deepseek-reasoner">DeepSeek R1 (Reasoner)</option>
+                <option value="deepseek-chat">DeepSeek V3 (Chat)</option>
+                
               </optgroup>
               <optgroup label="OpenAI (Fast & Cheap)">
                 <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
@@ -435,9 +435,9 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
               </optgroup>
               <optgroup label="DeepSeek">
-                <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
-                <option value="deepseek-chat">DeepSeek V3</option>
-                <option value="deepseek-flash">DeepSeek Flash</option>
+                <option value="deepseek-reasoner">DeepSeek R1 (Reasoner)</option>
+                <option value="deepseek-chat">DeepSeek V3 (Chat)</option>
+                
               </optgroup>
               <optgroup label="OpenAI (Fast & Cheap)">
                 <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
@@ -476,9 +476,9 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
               </optgroup>
               <optgroup label="DeepSeek">
-                <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
-                <option value="deepseek-chat">DeepSeek V3</option>
-                <option value="deepseek-flash">DeepSeek Flash</option>
+                <option value="deepseek-reasoner">DeepSeek R1 (Reasoner)</option>
+                <option value="deepseek-chat">DeepSeek V3 (Chat)</option>
+                
               </optgroup>
               <optgroup label="OpenAI (Fast & Cheap)">
                 <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
