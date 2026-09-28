@@ -887,9 +887,16 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => startEdit(q)}
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => toggleMaster(q.id, !!q.is_master)}
+                        className={`bg-white hover:bg-amber-50 border p-1.5 rounded-lg text-xs transition cursor-pointer ${q.is_master ? "text-amber-500 border-amber-500 bg-amber-50" : "text-slate-400 border-slate-200"}`}
+                        title={q.is_master ? "Master Question (High Quality)" : "Mark as Master Question"}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${q.is_master ? "fill-amber-500" : ""}`} />
+                      </button>
+                      <button
+                        onClick={() => startEdit(q)}
                       className="bg-white hover:bg-amber-50 text-amber-600 border border-amber-200 p-1.5 rounded-lg text-xs transition cursor-pointer"
                       title="সম্পাদনা করুন"
                     >
