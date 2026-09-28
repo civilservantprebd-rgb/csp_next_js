@@ -263,59 +263,80 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
             </div>
             
             
-            <div className="space-y-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-sm font-bold text-indigo-700">Custom Prompts</label>
-                {savedPrompts.length > 0 && (
-                  <select 
-                    className="text-xs p-1.5 border border-indigo-200 rounded-lg max-w-[180px] bg-white outline-none focus:border-indigo-400"
-                    value={editingPromptId || ""}
-                    onChange={(e) => loadPrompt(e.target.value)}
-                  >
-                    <option value="">-- Load a Saved Prompt --</option>
-                    {savedPrompts.map(p => (
-                      <option key={p.id} value={p.id}>{p.title}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <input
-                type="text"
-                className="w-full text-sm p-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                placeholder="Prompt Title (e.g. Vocabulary Prompt)"
-                value={promptTitle}
-                onChange={(e) => setPromptTitle(e.target.value)}
-              />
-              <textarea
-                className="w-full text-sm p-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                placeholder="Write your prompt instructions here..."
-                rows={4}
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-              />
-              <div className="flex gap-2 pt-1">
-                <button 
-                  onClick={savePrompt}
-                  className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition"
-                >
-                  {editingPromptId ? "Update Prompt" : "Save New Prompt"}
-                </button>
-                {editingPromptId && (
+            
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-slate-700">Custom Prompts</label>
+              
+              {savedPrompts.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                  {savedPrompts.map(p => (
+                    <div 
+                      key={p.id} 
+                      onClick={() => loadPrompt(p.id)}
+                      className={p-2.5 border rounded-xl flex items-start gap-2.5 cursor-pointer transition shadow-sm 
+                        }
+                    >
+                      <input 
+                        type="radio" 
+                        name="activePrompt"
+                        checked={editingPromptId === p.id} 
+                        readOnly 
+                        className="mt-0.5 w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                      />
+                      <div className="flex-1 overflow-hidden min-w-0">
+                         <h4 className="text-xs font-bold text-slate-800 truncate">{p.title}</h4>
+                         <p className="text-[10px] text-slate-500 truncate mt-0.5">{p.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    {editingPromptId ? "Edit Active Prompt" : "Create New Prompt"}
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  className="w-full text-sm p-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  placeholder="Prompt Title (e.g. Vocabulary Prompt)"
+                  value={promptTitle}
+                  onChange={(e) => setPromptTitle(e.target.value)}
+                />
+                <textarea
+                  className="w-full text-sm p-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  placeholder="Write your prompt instructions here..."
+                  rows={4}
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                />
+                <div className="flex gap-2 pt-1">
                   <button 
-                    onClick={() => deletePrompt(editingPromptId)}
-                    className="px-3 py-1.5 bg-red-100 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-200 transition"
+                    onClick={savePrompt}
+                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition shadow-sm"
                   >
-                    Delete
+                    {editingPromptId ? "Update Prompt" : "Save as New"}
                   </button>
-                )}
-                <button 
-                  onClick={() => loadPrompt("")}
-                  className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-300 transition"
-                >
-                  Clear
-                </button>
+                  {editingPromptId && (
+                    <button 
+                      onClick={() => deletePrompt(editingPromptId)}
+                      className="px-3 py-1.5 bg-red-100 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-200 transition"
+                    >
+                      Delete
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => loadPrompt("")}
+                    className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition"
+                  >
+                    Clear / Create New
+                  </button>
+                </div>
               </div>
             </div>
+
 
 
           <div>
