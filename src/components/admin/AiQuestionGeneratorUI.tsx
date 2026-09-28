@@ -116,13 +116,17 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              syllabus: syllabusText,
+                syllabus: syllabusText,
                 ragTopic: topic,
-              instructions,
-              generatorModel,
-              existingTopics: topics,
-              count: batchSize
-            })
+                instructions,
+                generatorModel,
+                existingTopics: topics,
+                count: batchSize,
+                existingQuestions: [
+                  ...(exams[selectedExamId]?.questions?.map(q => q.q) || []),
+                  ...acceptedBatch.map(q => q.q)
+                ]
+              })
           });
           
           const draftData = await draftRes.json();

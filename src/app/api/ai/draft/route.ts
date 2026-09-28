@@ -35,7 +35,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { syllabus, instructions, generatorModel, existingTopics, count = 10, ragTopic } = body;
+    const { syllabus, instructions, generatorModel, existingTopics, count = 10, ragTopic, existingQuestions = [] } = body;
 
     let finalSyllabus = syllabus || ragTopic;
     if (!finalSyllabus) {
@@ -96,21 +96,7 @@ export async function POST(req: Request) {
 
     const draftQuestions = object.questions;
 
-    // TARGETED DB FETCH: Get existing questions ONLY for the assigned topics
-    const assignedTopics = Array.from(new Set(draftQuestions.map(q => q.topic)));
-    
-    let existingQuestions: any[] = [];
-    if (assignedTopics.length > 0) {
-      const [qbRes, tqRes] = await Promise.all([
-        supabase.from("question_bank").select("q").in("topic", assignedTopics),
-        supabase.from("topic_questions").select("q").in("topic", assignedTopics)
-      ]);
-      
-      existingQuestions = [
-        ...(qbRes.data || []),
-        ...(tqRes.data || [])
-      ].map(r => r.q);
-    }
+    let allExisting = [...existingQuestions];
 
     // FILTER DUPLICATES & SHUFFLE
     const uniqueDrafts = [];
@@ -118,7 +104,7 @@ export async function POST(req: Request) {
     for (const draft of draftQuestions) {
       // Check similarity
       let isDuplicate = false;
-      for (const eq of existingQuestions) {
+      for (const eq of allExisting) {
         if (calculateSimilarity(draft.q, eq) > 0.85) {
           isDuplicate = true;
           break;
@@ -126,6 +112,7 @@ export async function POST(req: Request) {
       }
       
       if (!isDuplicate) {
+        allExisting.push(draft.q); // Add to local list to prevent repeats within the same batch
         // Shuffle options completely
         const shuffledOpts = [...draft.opts];
         for (let i = shuffledOpts.length - 1; i > 0; i--) {
