@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       model = deepseek(generatorModel);
     } else {
       const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      model = openai("gpt-4o-2024-05-13");
+      model = openai(generatorModel);
     }
 
     const systemPrompt = `You are an expert exam question generator for the BCS (Bangladesh Civil Service) exam.
