@@ -246,8 +246,8 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
+                
+                
               </optgroup>
               <optgroup label="DeepSeek">
                 <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
@@ -278,8 +278,8 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
+                
+                
               </optgroup>
               <optgroup label="DeepSeek">
                 <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
@@ -310,8 +310,8 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
+                
+                
               </optgroup>
               <optgroup label="DeepSeek">
                 <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
