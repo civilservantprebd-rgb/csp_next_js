@@ -22,6 +22,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
   const [selectedCourse, setSelectedCourse] = useState("");
   const [selectedExamId, setSelectedExamId] = useState("");
   const [topic, setTopic] = useState("");
+  const [syllabusText, setSyllabusText] = useState("");
   // Fixed target count for simplicity
   const [targetCount, setTargetCount] = useState(50);
   
@@ -115,7 +116,8 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              syllabus: topic,
+              syllabus: syllabusText,
+                ragTopic: topic,
               instructions,
               generatorModel,
               existingTopics: topics,
@@ -255,9 +257,9 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Topic / Syllabus (Select for RAG matching)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Select Topic (For RAG Matching)</label>
               <select
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white mb-4"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
               >
@@ -266,6 +268,14 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Syllabus / Context</label>
+              <textarea
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                placeholder="Paste the detailed syllabus or context here..."
+                rows={4}
+                value={syllabusText}
+                onChange={(e) => setSyllabusText(e.target.value)}
+              />
             </div>
             
             
