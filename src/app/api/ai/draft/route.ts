@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const { syllabus, instructions, generatorModel, existingTopics, count = 10 } = body;
 
     if (!syllabus) {
-      console.log('Generated Drafts:', object.questions.length);
+      
     return NextResponse.json({ error: "Syllabus is required" }, { status: 400 });
     }
 
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
       }
     }
 
-    console.log('Generated Drafts:', object.questions.length);
+    
     return NextResponse.json({ 
       drafts: uniqueDrafts, 
       generatedCount: draftQuestions.length, 
@@ -130,7 +130,7 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("AI Draft Generation Error:", error);
-    console.log('Generated Drafts:', object.questions.length);
+    
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
