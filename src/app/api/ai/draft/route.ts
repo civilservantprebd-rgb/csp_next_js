@@ -37,7 +37,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { syllabus, instructions, generatorModel, existingTopics, count = 10, ragTopic } = body;
 
-    if (!syllabus) {
+    let finalSyllabus = syllabus || ragTopic;
+    if (!finalSyllabus) {
       
     return NextResponse.json({ error: "Syllabus is required" }, { status: 400 });
     }
