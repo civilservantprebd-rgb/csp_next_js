@@ -132,7 +132,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
           
           const drafts = draftData.drafts || [];
           if (drafts.length === 0) {
-              setStatusText(All generated questions were duplicates! Retrying...);
+              setStatusText('All generated questions were duplicates! Retrying...');
               continue;
             }
           
