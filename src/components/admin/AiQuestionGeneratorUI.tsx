@@ -131,7 +131,10 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
           }
           
           const drafts = draftData.drafts || [];
-          if (drafts.length === 0) continue;
+          if (drafts.length === 0) {
+              setStatusText(All generated questions were duplicates! Retrying...);
+              continue;
+            }
           
           setStatusText(`Checking answers with ${validatorModel1}...`);
           const val1Res = await fetch("/api/ai/solve", {
