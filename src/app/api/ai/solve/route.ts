@@ -17,12 +17,28 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { questions, modelName } = body;
+    // SECURITY: ভ্যালিডেটররাও পেইড মডেল কল করে — যাচাই ছাড়া খোলা রাখলে
+    // বাইরে থেকে যে কেউ কোটা পুড়িয়ে দিতে পারত।
+    const { requireTeacherForRequest } = await import("@/lib/teacher-auth");
+    await requireTeacherForRequest(req);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized: teacher access required" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json().catch(() => ({} as any));
+    const { questions } = body;
 
     if (!questions || !Array.isArray(questions) || questions.length === 0) {
       return NextResponse.json({ error: "No questions provided" }, { status: 400 });
     }
+
+    // আগে `modelName.includes(...)` সরাসরি করা হতো — ফিল্ডটা না এলে
+    // "Cannot read properties of undefined" নিয়ে ৫০০ ফিরত।
+    const modelName =
+      typeof body?.modelName === "string" && body.modelName.trim()
+        ? body.modelName.trim()
+        : "gpt-4o-mini";
 
     let model;
     if (modelName === "claude-3-5-sonnet") {
@@ -40,7 +56,7 @@ export async function POST(req: Request) {
       model = deepseek(modelName);
     } else {
       const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      model = openai(modelName || "gpt-4o-mini");
+      model = openai(modelName);
     }
 
     const systemPrompt = `You are a highly intelligent BCS exam judge.

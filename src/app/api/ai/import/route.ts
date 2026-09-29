@@ -17,8 +17,8 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     // SECURITY: কোটা-অপচয় আটকাতে শুধু ভেরিফায়েড শিক্ষক
-    const { requireTeacher } = await import("@/lib/teacher-auth");
-    await requireTeacher();
+    const { requireTeacherForRequest } = await import("@/lib/teacher-auth");
+    await requireTeacherForRequest(req);
   } catch {
     return NextResponse.json({ success: false, error: "অনুমতি নেই — শিক্ষক হিসেবে লগইন করুন।" }, { status: 401 });
   }

@@ -1962,7 +1962,17 @@ export async function addBulkQuestionsToExam(
     }
 
     invalidateConfigCache();
-    return { success: true, count: filteredQuestions.length };
+    // ⚠️ `insertedQuestions` ফেরত দেওয়া জরুরি — অ্যাডমিনের "Question Generator"
+    // প্যানেল এই তালিকা ধরেই প্রগ্রেস দেখায় (`{verifiedQuestions.length} / {targetCount}
+    // Validated`)। আগে এই লাইনে ফিল্ডটা ছিল না (শুধু ১৮৯৯-এর শূন্য-ফল শাখায় ছিল),
+    // তাই প্রশ্ন সত্যিই সেভ হচ্ছিল কিন্তু প্যানেল **০ / ৫০** আর ০% প্রগ্রেসে
+    // আটকে থাকত — শিক্ষকের কাছে মনে হতো "AI কিছুই বানাচ্ছে না"।
+    const insertedQuestions: QuestionItem[] = questionsInsert.map((qi) => ({
+      q: qi.q,
+      opts: qi.opts,
+      topic: qi.topic,
+    }));
+    return { success: true, count: filteredQuestions.length, insertedQuestions };
   } catch (err) {
     console.error("Add bulk questions error:", err);
     return { success: false, count: 0, error: describeError(err) };

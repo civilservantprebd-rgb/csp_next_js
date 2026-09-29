@@ -15,6 +15,75 @@ import { callDeepSeek } from "@/lib/ai-providers";
 
 const MAX_TEXT_CHARS = 120_000;
 
+/**
+ * এক কলে সর্বোচ্চ কত token লেখা হবে।
+ *
+ * ── যে বাগটা এটা ঠিক করে (২০২৬-০৯-২৮) ──
+ * আগে ছিল ৮,০০০ — আর সেটাই ছিল "AI দিয়ে সাজানো হচ্ছে না"-র আসল কারণ।
+ * ব্যাখ্যাসহ বইয়ের প্রশ্নে ২০টি প্রশ্নেই উত্তর ৮,০০০ token ছাড়িয়ে যেত, JSON
+ * মাঝপথে কেটে যেত, `extractJson` ব্যর্থ হতো, আর ফলাফল **পুরোটা** ফেলে দেওয়া
+ * হতো — ১০টি সম্পূর্ণ প্রশ্ন হাতের মুঠোয় থাকা সত্ত্বেও শিক্ষক দেখতেন
+ * "AI-র উত্তর JSON আকারে আসেনি।"
+ *
+ * মাপা ফল (deepseek-flash): ১০ প্রশ্ন ≈ ৪,৩০০ token, ২০ প্রশ্ন ≈ ৮,০০০ (কাটা
+ * পড়ত), ৩০ প্রশ্ন ≈ ১২,০০০ token। এখন ৩২,০০০ — যেকোনো বাস্তব পেস্ট ধরে।
+ */
+const DEFAULT_MAX_OUTPUT_TOKENS = 32_000;
+
+/**
+ * এক কলে কত অক্ষরের বেশি টেক্সট নয়। এর চেয়ে বড় পেস্ট ভাগ করে কয়েকবার কল হয়।
+ *
+ * ⚠️ মনে রাখতে হবে: ভাগ করায় কল-সংখ্যা বাড়ে, আর Vercel-এ `maxDuration = 60`
+ * (route-এ সেট করা) সেকেন্ডের সীমা। তাই খুব বড় পেস্ট (লাখ অক্ষরের কাছাকাছি)
+ * লোকাল ডেভ-সার্ভারে ঠিকই কাজ করবে, কিন্তু ডিপ্লয়ে টাইমআউট হতে পারে।
+ */
+const CHUNK_CHAR_BUDGET = 20_000;
+
+/**
+ * একসাথে কতগুলো ভাগ পাঠানো হবে।
+ *
+ * ভাগগুলো একটার পর একটা পাঠালে সময় যোগ হয় (৬০ প্রশ্ন ≈ ৭০ সেকেন্ড, যা
+ * রাউটের `maxDuration = 60` ছাড়িয়ে যায়)। ৩টা করে একসাথে পাঠালে সময় প্রায়
+ * এক-তৃতীয়াংশে নামে, কিন্তু মডেলের rate-limit-এ ধাক্কা খাওয়ার ঝুঁকিও থাকে —
+ * তাই ছোট রাখা হয়েছে। কোনো ভাগ ব্যর্থ হলে সেটা আলাদাভাবেই ধরা পড়ে
+ * (চারপাশের try/catch), বাকিরা স্বাভাবিকভাবে ফেরে।
+ */
+const MAX_PARALLEL_CALLS = 3;
+
+/** ক্রম ঠিক রেখে সীমিত সংখ্যক কাজ একসাথে চালানো */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+
+  const worker = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i], i);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker)
+  );
+
+  return out;
+}
+
+function maxOutputTokens(): number {
+  const raw = Number.parseInt(process.env.DEEPSEEK_MAX_TOKENS || "", 10);
+  return Number.isFinite(raw) && raw >= 2_000 ? raw : DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+/** সতর্কতা-বার্তায় বাংলা সংখ্যা (দশমিক অংশটুকু ইংরেজিতেই থাকে) */
+function bn(n: number): string {
+  return String(n).replace(/[0-9]/g, (d) => "০১২৩৪৫৬৭৮৯"[Number(d)]);
+}
+
 export interface AiImportResult {
   success: boolean;
   payload?: AiImportPayload;
@@ -88,9 +157,15 @@ function normalizeExplanation(v: unknown): string {
     .replace(/\n+$/, "");
 }
 
-/** কোড-ফেন্সে মোড়ানো থাকলে বা আশপাশে কথা থাকলে JSON অংশটা বের করা */
+/**
+ * কোড-ফেন্সে মোড়ানো থাকলে বা আশপাশে কথা থাকলে JSON অংশটা বের করা।
+ *
+ * `<|channel|>` জাতীয় বিশেষ token মডেল মাঝে মাঝে আউটপুটে ফাঁস করে দেয়
+ * (প্রকৃত কলেই মাপা গেছে) — সেগুলো JSON-কে ভাঙে, তাই আগেই মুছে দেওয়া হয়।
+ */
 function extractJson(text: string): any | null {
   const cleaned = text
+    .replace(/<\|[^|>]{0,64}\|>/g, "")
     .replace(/^\s*```(?:json)?/i, "")
     .replace(/```\s*$/i, "")
     .trim();
@@ -109,6 +184,102 @@ function extractJson(text: string): any | null {
     }
     return null;
   }
+}
+
+/**
+ * কাটা পড়া JSON থেকে **সম্পূর্ণ** প্রশ্ন-অবজেক্টগুলো উদ্ধার করা।
+ *
+ * ── কেন জরুরি ──
+ * উত্তর token-সীমায় কাটলে `JSON.parse` পুরো লেখাটাই ফেলে দেয় — অথচ প্রথম
+ * দশটি প্রশ্ন অক্ষত পড়ে থাকে। শিক্ষকের কাছে "০টি প্রশ্ন, এরর" আর "১০টি প্রশ্ন,
+ * শেষের দুটি বাদ" — এই পার্থক্যটাই এখানে তৈরি হয়। token-সীমা বাড়ানোর পরও
+ * এটা নিরাপত্তা-জাল হিসেবেই থাকে: মডেল কখনো অকারণে বড় উত্তর দিলে যেন
+ * শিক্ষকের কিছুই হারিয়ে না যায়।
+ *
+ * পদ্ধতি: `questions` অ্যারের ভেতরে বন্ধনী গুনে (স্ট্রিং ও escape মেনে) প্রতিটি
+ * সম্পূর্ণ `{…}` আলাদা করা হয়, তারপর এক-এক করে parse — ভাঙা শেষ অবজেক্টটি
+ * শুধু নিজেই বাদ পড়ে, বাকিরা বেঁচে যায়।
+ */
+function salvageJsonObjects(text: string, key = "questions"): any[] {
+  const keyAt = text.indexOf(`"${key}"`);
+  const start = text.indexOf("[", keyAt >= 0 ? keyAt : 0);
+  if (start < 0) return [];
+
+  const found: any[] = [];
+  let depth = 0;
+  let objStart = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start + 1; i < text.length; i++) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+
+    if (ch === '"') { inString = true; continue; }
+    if (ch === "{") { if (depth === 0) objStart = i; depth++; continue; }
+    if (ch === "}") {
+      depth--;
+      if (depth === 0 && objStart >= 0) {
+        try { found.push(JSON.parse(text.slice(objStart, i + 1))); } catch { /* ভাঙা অবজেক্ট বাদ */ }
+        objStart = -1;
+      }
+      continue;
+    }
+    // questions অ্যারে শেষ — এর পরে আর খোঁজার কিছু নেই
+    if (ch === "]" && depth === 0) break;
+  }
+
+  return found;
+}
+
+/** কাটা পড়া উত্তরের শুরুতেই `"topic": "…"` থাকলে সেটা তুলে নেওয়া */
+function salvageTopic(text: string): string {
+  const m = text.match(/"topic"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (!m) return "";
+  try { return JSON.parse(`"${m[1]}"`); } catch { return m[1]; }
+}
+
+/**
+ * বড় পেস্টকে কয়েকটি ছোট ভাগে ভাগ করা — যাতে কোনো এক কলে উত্তর token-সীমায়
+ * কেটে না যায়।
+ *
+ * ভাগ করা হয় **ফাঁকা লাইনের সীমায়**, কারণ চেনা সব ফরম্যাটে (বই, Word, OCR,
+ * অ্যাপের নমুনা) ফাঁকা লাইনই প্রশ্নের সীমানা — ফলে একটি প্রশ্ন দুই টুকরোয়
+ * ভাগ হয়ে হারিয়ে যায় না। কোনো একক ব্লক নিজেই বাজেটের চেয়ে বড় হলে (যেমন
+ * এক লাইনে গোটা অধ্যায়) তখনই কেবল অক্ষর-গুনে জোর করে কাটা হয়।
+ */
+function splitIntoChunks(text: string): string[] {
+  if (text.length <= CHUNK_CHAR_BUDGET) return [text];
+
+  const blocks = text.split(/\n\s*\n/);
+  const chunks: string[] = [];
+  let current = "";
+
+  const flush = () => {
+    if (current.trim()) chunks.push(current.trim());
+    current = "";
+  };
+
+  for (const block of blocks) {
+    if (block.length > CHUNK_CHAR_BUDGET) {
+      flush();
+      for (let i = 0; i < block.length; i += CHUNK_CHAR_BUDGET) {
+        chunks.push(block.slice(i, i + CHUNK_CHAR_BUDGET));
+      }
+      continue;
+    }
+    if (current.length + block.length + 2 > CHUNK_CHAR_BUDGET) flush();
+    current += (current ? "\n\n" : "") + block;
+  }
+  flush();
+
+  return chunks.length > 0 ? chunks : [text];
 }
 
 /**
@@ -195,37 +366,109 @@ export async function runAiImport(input: { text?: string }): Promise<AiImportRes
   }
 
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+  const chunks = splitIntoChunks(text);
+  const rawItems: any[] = [];
+  const chunkWarnings: string[] = [];
+  let topicRaw = "";
+  let truncated = false;
+  let salvaged = false;
+  let outChars = 0;
 
-  const { text: raw, finishReason } = await callDeepSeek({
-    apiKey: key,
-    model,
-    prompt: `${AI_JSON_PROMPT}\n\n--- ইনপুট শুরু ---\n${text}\n--- ইনপুট শেষ ---`,
-    baseUrl: process.env.DEEPSEEK_BASE_URL,
-    jsonMode: true,
-    disableThinking: (process.env.DEEPSEEK_THINKING || "").trim().toLowerCase() !== "on",
-  });
+  type ChunkOutcome = { raw: string; finishReason?: string; error?: string };
 
-  const parsedJson = extractJson(raw);
-  if (!parsedJson) {
-    console.error("[ai-import] JSON বোঝা যায়নি, কাঁচা উত্তর:", raw.slice(0, 500));
-    return { success: false, error: "AI-র উত্তর JSON আকারে আসেনি। আবার চেষ্টা করুন।" };
+  const outcomes = await mapWithConcurrency<string, ChunkOutcome>(
+    chunks,
+    MAX_PARALLEL_CALLS,
+    async (chunk, i): Promise<ChunkOutcome> => {
+      try {
+        const res = await callDeepSeek({
+          apiKey: key,
+          model,
+          prompt: `${AI_JSON_PROMPT}\n\n--- ইনপুট শুরু ---\n${chunk}\n--- ইনপুট শেষ ---`,
+          baseUrl: process.env.DEEPSEEK_BASE_URL,
+          jsonMode: true,
+          disableThinking: (process.env.DEEPSEEK_THINKING || "").trim().toLowerCase() !== "on",
+          maxTokens: maxOutputTokens(),
+        });
+        return { raw: res.text, finishReason: res.finishReason };
+      } catch (err: any) {
+        // এক ভাগ ব্যর্থ হলে পুরো কাজ নষ্ট না করে বাকি ভাগ চালিয়ে যাওয়া হয় —
+        // শিক্ষক যেন অন্তত বাকি প্রশ্নগুলো পান। এক ভাগই হলে এররটা উপরে যাক।
+        if (chunks.length === 1) throw err;
+        console.error(`[ai-import] ভাগ ${i + 1}/${chunks.length} ব্যর্থ:`, err?.message);
+        return { raw: "", error: err?.message || "অজানা সমস্যা" };
+      }
+    }
+  );
+
+  // ক্রম ঠিক রাখা হয় — ভাগগুলো একসাথে চললেও প্রশ্নের ক্রম বদলায় না
+  for (let i = 0; i < outcomes.length; i++) {
+    const outcome = outcomes[i];
+
+    if (outcome.error) {
+      chunkWarnings.push(
+        `অংশ ${bn(i + 1)}/${bn(chunks.length)} সাজানো যায়নি (${outcome.error}) — বাকি অংশ থেকে প্রশ্ন নেওয়া হয়েছে।`
+      );
+      continue;
+    }
+
+    const raw = outcome.raw;
+    outChars += raw.length;
+    if (outcome.finishReason === "length") truncated = true;
+
+    const parsed = extractJson(raw);
+    let list: any[] | null = null;
+    if (Array.isArray(parsed)) list = parsed;
+    else if (parsed && Array.isArray(parsed.questions)) list = parsed.questions;
+    if (!topicRaw && parsed && typeof parsed.topic === "string") topicRaw = parsed.topic;
+
+    if (!list || list.length === 0) {
+      // JSON কাটা পড়েছে বা ভেঙে গেছে — সম্পূর্ণ প্রশ্নগুলো উদ্ধার করা হয়
+      const recovered = salvageJsonObjects(raw);
+      if (recovered.length > 0) {
+        list = recovered;
+        salvaged = true;
+      }
+      if (!topicRaw) topicRaw = salvageTopic(raw);
+    }
+
+    if (!list || list.length === 0) {
+      console.error(`[ai-import] ভাগ ${i + 1}/${chunks.length}: প্রশ্ন বের করা যায়নি, কাঁচা উত্তর:`, raw.slice(0, 300));
+      chunkWarnings.push(`অংশ ${bn(i + 1)}/${bn(chunks.length)}: কোনো প্রশ্ন বের করা যায়নি।`);
+      continue;
+    }
+
+    rawItems.push(...list);
   }
 
-  const normalized = normalizePayload(parsedJson);
+  if (rawItems.length === 0) {
+    return {
+      success: false,
+      error:
+        chunkWarnings[0] ||
+        "AI-র উত্তর JSON আকারে আসেনি। আবার চেষ্টা করুন।",
+    };
+  }
+
+  const normalized = normalizePayload({ topic: topicRaw, questions: rawItems });
   if ("error" in normalized) return { success: false, error: normalized.error };
 
   const payload = normalized.payload;
-  const truncated = finishReason === "length";
+
+  // সতর্কতাগুলো শিক্ষকের সামনে আগে আসুক (কেন কিছু বাদ পড়ল সেটাই মূল কথা)
+  payload.warnings.unshift(...chunkWarnings);
   if (truncated) {
     payload.warnings.unshift(
-      "উত্তর অনেক বড় হয়ে গিয়েছিল — শেষের কিছু প্রশ্ন বাদ পড়তে পারে। ছোট ছোট ভাগে দিলে সব আসবে।"
+      salvaged
+        ? "AI-র উত্তর মাঝপথে কেটে গিয়েছিল — সম্পূর্ণ হওয়া প্রশ্নগুলো রাখা হয়েছে; শেষের কয়েকটি বাদ পড়তে পারে।"
+        : "উত্তর অনেক বড় হয়ে গিয়েছিল — শেষের কিছু প্রশ্ন বাদ পড়তে পারে। ছোট ছোট ভাগে দিলে সব আসবে।"
     );
   }
 
   const withAnswer = payload.questions.filter((q) => q.correct !== null).length;
 
   console.log(
-    `[ai-import] in=${text.length}chars out=${raw.length}chars questions=${payload.questions.length} withAnswer=${withAnswer} truncated=${truncated}`
+    `[ai-import] in=${text.length}chars chunks=${chunks.length} out=${outChars}chars questions=${payload.questions.length} withAnswer=${withAnswer} truncated=${truncated} salvaged=${salvaged}`
   );
   if ((process.env.AI_IMPORT_DEBUG || "") === "1") {
     console.log("[ai-import] IN >>>\n" + text.slice(0, 3000));

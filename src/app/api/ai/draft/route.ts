@@ -32,16 +32,55 @@ function calculateSimilarity(str1: string, str2: string) {
 
 export const maxDuration = 60;
 
+/** এক অনুরোধে সর্বোচ্চ কত প্রশ্ন — অভিপ্রায় নয়, নিরাপত্তা-সীমা */
+const MAX_COUNT = 50;
+const DEFAULT_COUNT = 10;
+const DEFAULT_GENERATOR_MODEL = "gpt-4o-mini";
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { syllabus, instructions, generatorModel, existingTopics, count = 10, ragTopic, existingQuestions = [] } = body;
+    // SECURITY: এই রাউট OpenAI/Gemini/Anthropic/DeepSeek-এর *পেইড* key ব্যবহার
+    // করে। যাচাই ছাড়া খোলা থাকলে যে কেউ বাইরে থেকে কোটা পুড়িয়ে দিতে পারত
+    // (আগে ঠিক সেটাই ছিল — `/api/ai/import`-এ গার্ড ছিল, এখানে ছিল না)।
+    const { requireTeacherForRequest } = await import("@/lib/teacher-auth");
+    await requireTeacherForRequest(req);
+  } catch {
+    return NextResponse.json({ error: "Unauthorized: teacher access required" }, { status: 401 });
+  }
 
-    let finalSyllabus = syllabus || ragTopic;
+  try {
+    const body = await req.json().catch(() => ({} as any));
+
+    // ── বডি যাচাই ──
+    // আগে সরাসরি `generatorModel.includes(...)` / `existingTopics.join(...)`
+    // করা হতো: ফিল্ডটা না এলে "Cannot read properties of undefined" নিয়ে
+    // পরিষ্কার-৫০০ ফিরত, অথচ কারণটা বোঝার উপায় ছিল না।
+    const syllabus = typeof body?.syllabus === "string" ? body.syllabus : "";
+    const ragTopic = typeof body?.ragTopic === "string" ? body.ragTopic : "";
+    const instructions = typeof body?.instructions === "string" ? body.instructions : "";
+
+    const finalSyllabus = (syllabus || ragTopic).trim();
     if (!finalSyllabus) {
-      
-    return NextResponse.json({ error: "Syllabus is required" }, { status: 400 });
+      return NextResponse.json({ error: "Syllabus is required" }, { status: 400 });
     }
+
+    const generatorModel =
+      typeof body?.generatorModel === "string" && body.generatorModel.trim()
+        ? body.generatorModel.trim()
+        : DEFAULT_GENERATOR_MODEL;
+
+    const rawCount = Number(body?.count);
+    const count = Number.isFinite(rawCount)
+      ? Math.min(Math.max(Math.floor(rawCount), 1), MAX_COUNT)
+      : DEFAULT_COUNT;
+
+    const existingTopics: string[] = Array.isArray(body?.existingTopics)
+      ? body.existingTopics.map((t: unknown) => String(t ?? "").trim()).filter(Boolean)
+      : [];
+
+    const existingQuestions: string[] = Array.isArray(body?.existingQuestions)
+      ? body.existingQuestions.filter((q: unknown): q is string => typeof q === "string")
+      : [];
 
     let model;
     if (generatorModel === "claude-3-5-sonnet") {
@@ -61,7 +100,11 @@ export async function POST(req: Request) {
       model = openai(generatorModel);
     }
 
-    const systemPrompt = `You are an elite subject matter expert and examiner for the BCS (Bangladesh Civil Service) exam.\nYour task is to generate exactly ${count} highly standard, unique, and slightly above-basic level (medium to hard) multiple-choice questions based on the provided syllabus.\n\nCRITICAL INSTRUCTIONS:\n1. Generate highly creative and deep questions. DO NOT generate basic, commonly known, or generic questions (as they already exist in the database and will be rejected).\n2. Generate ONLY the question and 4 options. DO NOT provide the answer or explanation here.\n3. ${instructions}\n4. You MUST classify each question under one of the provided existing topics. Select the deepest/most specific node. Do NOT invent new topics.\n5. You must output in valid JSON matching the required schema. Do not wrap in markdown tags if possible.\n\nAVAILABLE EXACT TOPICS:\n${existingTopics.join('\n')}\n`;
+    const topicBlock = existingTopics.length
+      ? existingTopics.join("\n")
+      : "(কোনো টপিক-তালিকা দেওয়া হয়নি — প্রশ্নের বিষয় থেকেই একটি সংক্ষিপ্ত টপিক বেছে নাও)";
+
+    const systemPrompt = `You are an elite subject matter expert and examiner for the BCS (Bangladesh Civil Service) exam.\nYour task is to generate exactly ${count} highly standard, unique, and slightly above-basic level (medium to hard) multiple-choice questions based on the provided syllabus.\n\nCRITICAL INSTRUCTIONS:\n1. Generate highly creative and deep questions. DO NOT generate basic, commonly known, or generic questions (as they already exist in the database and will be rejected).\n2. Generate ONLY the question and 4 options. DO NOT provide the answer or explanation here.\n3. ${instructions}\n4. You MUST classify each question under one of the provided existing topics. Select the deepest/most specific node. Do NOT invent new topics.\n5. You must output in valid JSON matching the required schema. Do not wrap in markdown tags if possible.\n\nAVAILABLE EXACT TOPICS:\n${topicBlock}\n`;
 
       
       let ragReference = "";
@@ -88,7 +131,9 @@ export async function POST(req: Request) {
       model,
 
       system: finalSystemPrompt,
-      prompt: `Generate ${count} questions based on this syllabus/context:\n\n${syllabus}`,
+      // ⚠️ আগে এখানে `${syllabus}` লেখা ছিল — শুধু `ragTopic` দিলে গার্ড পেরিয়ে
+      // প্রম্পটে "undefined" যেত। এখন `finalSyllabus` (যেটা গার্ডেই যাচাই হয়েছে)।
+      prompt: `Generate ${count} questions based on this syllabus/context:\n\n${finalSyllabus}`,
       schema: questionSchema, temperature: 0.9,
 
 
@@ -96,7 +141,7 @@ export async function POST(req: Request) {
 
     const draftQuestions = object.questions;
 
-    let allExisting = [...existingQuestions];
+    const allExisting = [...existingQuestions];
 
     // FILTER DUPLICATES & SHUFFLE
     const uniqueDrafts = [];
@@ -142,4 +187,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-

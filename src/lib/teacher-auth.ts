@@ -121,6 +121,33 @@ export async function requireTeacher(): Promise<{ id: string; email?: string }> 
   return teacher;
 }
 
+/**
+ * রুট-হ্যান্ডলারের জন্য teacher যাচাই — **Bearer টোকেন আগে, না মিললে কুকি**।
+ *
+ * ── কেন কুকি একা যথেষ্ট নয় (২০২৬-০৯-২৮) ──
+ * `sb_access_token` কুকিটি ক্লায়েন্টে `Max-Age=3600` দিয়ে বসে। কুকি না থাকলে
+ * (মেয়াদ শেষ, অন্য ব্রাউজার/ডিভাইস, বা লগইন অন্য ডোমেইনে) অ্যাডমিন প্যানেল
+ * তবু ঠিকই খোলে — কারণ সে `verifyTeacherSession(token)` দিয়ে **টোকেন হাতেই
+ * পাঠায়**। কিন্তু কুকি-নির্ভর API রাউট হঠাৎ 401 দেয়, আর শিক্ষকের কাছে সেটা
+ * "প্যানেলের বাকি সব কাজ করে, শুধু AI-র কাজ করে না" বলে মনে হয়।
+ *
+ * ── ক্রমটা কেন এমন ──
+ * Bearer টোকেন দিয়ে চেষ্টা, ব্যর্থ হলে কুকিতে নামা — উল্টোটা করলে ক্লায়েন্টের
+ * পুরোনো/মেয়াদোত্তীর্ণ টোকেন একটি **কাজ করা কুকিকেও** নষ্ট করে দিত।
+ */
+export async function requireTeacherForRequest(req: Request): Promise<{ id: string; email?: string }> {
+  const header = req.headers.get("authorization") || "";
+  const bearer = /^Bearer\s+(.+)$/i.exec(header.trim())?.[1]?.trim() || null;
+
+  // Bearer না থাকলে getTeacherUser(null) নিজেই কুকিতে নামে
+  const teacher = (bearer ? await getTeacherUser(bearer) : null) || (await getTeacherUser(null));
+
+  if (!teacher) {
+    throw new Error("Unauthorized: teacher access required");
+  }
+  return teacher;
+}
+
 /** Non-throwing variant. Use where a read may fall back to public access. */
 export async function isTeacherSession(): Promise<boolean> {
   try {

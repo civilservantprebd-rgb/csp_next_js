@@ -25,6 +25,7 @@ import { MathText } from "@/lib/MathText";
 import { GEMINI_PHOTO_PROMPT, type AiImportPayload } from "@/lib/ai-import-prompt";
 import { shouldAutoTidy } from "@/lib/auto-tidy";
 import { resolveImportTopic, topicPathLabel } from "@/lib/import-topic";
+import { authHeaders } from "@/lib/client-auth";
 
 interface BulkQuestionImporterModalProps {
   isOpen: boolean;
@@ -343,7 +344,7 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
     try {
       const res = await fetch("/api/ai/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ text: sourceText }),
       });
       const data = (await res.json().catch(() => null)) as
@@ -364,18 +365,29 @@ export const BulkQuestionImporterModal: React.FC<BulkQuestionImporterModalProps>
       }
 
       // প্রশ্ন/অপশন/উত্তর আলাদা করা কাঠামো — এটাই এখন প্রিভিউ ও ইমপোর্ট চালায়
-              setAiPayload(data.payload);
-        setAiWarnings(data.payload.warnings || []);
-        
-        // Auto-set the topic dropdown from AI extraction
-        if (data.payload.topic) {
-          let aiFullTopic = data.payload.topic;
-          if (data.payload.subtopic) {
-            aiFullTopic += " > " + data.payload.subtopic;
-          }
-          setSelectedTopic(aiFullTopic);
-          setAllTopics(prev => prev.includes(aiFullTopic) ? prev : [...prev, aiFullTopic]);
-        }
+      setAiPayload(data.payload);
+      setAiWarnings(data.payload.warnings || []);
+
+      /**
+       * AI-র বোঝা টপিক শুধু ট্রি-তে **দেখানো** হয় (`allTopics`), কিন্তু
+       * `selectedTopic`-এ বসানো হয় না।
+       *
+       * ⚠️ এখানে আগে `setSelectedTopic(aiFullTopic)` করা হতো — সেটা এই ফাইলের
+       * নিজের নিয়মেরই পরিপন্থী ছিল ("শিক্ষকের হাতে-বাছা টপিকই সবচেয়ে জোরালো")।
+       * `selectedTopic` ভরে গেলে `resolveImportTopic` সেটাকে **manual** ধরে
+       * নেয়, ফলে শিক্ষক নিজে যে টপিক বেছেছিলেন সেটা AI-র অনুমানে চুপচাপ
+       * মুছে যেত, আর প্রিভিউতে মিথ্যা দেখাত "(আপনি বেছেছেন — এটাই ব্যবহার হবে)"।
+       *
+       * এখন AI-র টপিক `aiPayload` দিয়েই যায়; `resolveImportTopic` নিজেই
+       * হাতে-বাছা থাকলে সেটাকে জেতায়, না থাকলে AI-রটাকে "ai" সোর্স বলে
+       * ব্যবহার করে ও সৎভাবে লেখায় "(AI বুঝে নিয়েছে — চাইলে ট্রি থেকে বদলান)"।
+       */
+      if (data.payload.topic) {
+        const aiFullTopic = data.payload.subtopic
+          ? `${data.payload.topic} > ${data.payload.subtopic}`
+          : data.payload.topic;
+        setAllTopics((prev) => (prev.includes(aiFullTopic) ? prev : [...prev, aiFullTopic]));
+      }
 
       // AI-র নিজের ফলাফলে আবার কল যাতে না হয় (লুপ-প্রতিরোধ)
       aiTriedForRef.current = sourceText;

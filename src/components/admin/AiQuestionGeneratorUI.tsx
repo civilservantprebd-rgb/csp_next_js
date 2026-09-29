@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Brain, Sparkles, Settings, RefreshCw, CheckCircle2, Play } from "lucide-react";
 import { addBulkQuestionsToExam } from "@/actions/admin-actions";
+import { authHeaders } from "@/lib/client-auth";
 
 import { Exam, FullQuestion } from "@/types/exam";
 
@@ -114,7 +115,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
           setStatusText(`Generating ${batchSize} drafts with ${generatorModel}...`);
           const draftRes = await fetch("/api/ai/draft", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await authHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({
                 syllabus: syllabusText,
                 ragTopic: topic,
@@ -145,7 +146,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
           setStatusText(`Checking answers with ${validatorModel1}...`);
           const val1Res = await fetch("/api/ai/solve", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await authHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({ questions: drafts, modelName: validatorModel1 })
           });
           const val1Data = await val1Res.json();
@@ -153,7 +154,7 @@ export const AiQuestionGeneratorUI = ({ exams, topics }: Props) => {
           setStatusText(`Checking answers with ${validatorModel2}...`);
           const val2Res = await fetch("/api/ai/solve", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await authHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({ questions: drafts, modelName: validatorModel2 })
           });
           const val2Data = await val2Res.json();
