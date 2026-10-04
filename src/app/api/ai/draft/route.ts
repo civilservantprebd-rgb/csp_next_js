@@ -48,6 +48,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized: teacher access required" }, { status: 401 });
   }
 
+  // SECURITY: প্রজন্ম (generation) সবচেয়ে দামি কল — ৫০টি প্রশ্ন পর্যন্ত এক
+  // অনুরোধে চাইতে পারে। তাই সীমা আরও কড়া: প্রতি মিনিটে ১০টি ব্যাচ।
+  const { enforceRateLimit } = await import("@/lib/rate-limit");
+  const limited = enforceRateLimit(req, {
+    limit: 10,
+    scope: "ai-draft",
+    message: "এআই-প্রজন্মে খুব দ্রুত অনেকগুলো অনুরোধ যাচ্ছে। এক মিনিট অপেক্ষা করুন।",
+  });
+  if (limited) return limited;
+
   try {
     const body = await req.json().catch(() => ({} as any));
 

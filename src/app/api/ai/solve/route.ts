@@ -25,6 +25,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized: teacher access required" }, { status: 401 });
   }
 
+  // SECURITY: যাচাইয়ের পরেও সীমা দরকার — একজন শিক্ষকের অ্যাকাউন্ট হাতিয়ে
+  // নিলে বা ভুল করে লুপে পড়লে পেইড মডেলের কোটা কয়েক মিনিটেই শেষ হয়ে যেত।
+  // প্রতি মিনিটে ২০টি ব্যাচ (প্রতিটি ব্যাচে বহু প্রশ্ন থাকতে পারে)।
+  const { enforceRateLimit } = await import("@/lib/rate-limit");
+  const limited = enforceRateLimit(req, {
+    limit: 20,
+    scope: "ai-solve",
+    message: "এআই-তে খুব দ্রুত অনেকগুলো অনুরোধ যাচ্ছে। এক মিনিট অপেক্ষা করুন।",
+  });
+  if (limited) return limited;
+
   try {
     const body = await req.json().catch(() => ({} as any));
     const { questions } = body;

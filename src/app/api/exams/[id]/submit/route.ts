@@ -1,6 +1,7 @@
 import { apiFail, apiOk, readJsonBody, requireStudent, withApi } from "@/lib/api-auth";
 import { assertExamAccess, assertExamWindow, fetchExamQuestions, loadExam } from "@/lib/exam-api";
 import { submitExamAnswers } from "@/actions/exam-actions";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,25 @@ interface RouteParams {
 export const POST = withApi<RouteParams>("student", async (ctx, req, routeCtx) => {
   const identity = requireStudent(ctx);
   const examId = routeCtx.params?.id;
+
+  // SECURITY: সাবমিশনই সবচেয়ে সংবেদনশীল রাইট-এন্ডপয়েন্ট (DB unique index-ও আছে,
+  // এক শিক্ষার্থী একবারই জমা দিতে পারে)। তবু স্ক্রিপ্ট দিয়ে হাজারবার চেষ্টা করলে
+  // সার্ভার ও ডেটাবেজ অকারণে ব্যস্ত হয় — তাই uid + IP দুই বালিতেই সীমা।
+  // uid-ভিত্তিক কড়া (১০/মিনিট), IP-ভিত্তিক ঢিলা (৬০/মিনিট) — পরীক্ষা কেন্দ্রে
+  // একই NAT-এর পেছনে অনেক শিক্ষার্থী থাকতে পারে, তাদের একজনের বদলে সবার আটকে
+  // যাওয়া কাম্য নয়।
+  const limited = enforceRateLimit(req, {
+    limit: 10,
+    scope: "exam-submit-uid",
+    uid: identity.uid,
+  });
+  if (limited) return limited;
+
+  const ipLimited = enforceRateLimit(req, {
+    limit: 60,
+    scope: "exam-submit-ip",
+  });
+  if (ipLimited) return ipLimited;
 
   const exam = await loadExam(examId);
   const access = await assertExamAccess(exam, identity);

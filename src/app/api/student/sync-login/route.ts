@@ -8,6 +8,7 @@ import {
   withApi,
 } from "@/lib/api-auth";
 import { syncStudentLogin } from "@/actions/student-actions";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,16 @@ export const dynamic = "force-dynamic";
  */
 export const POST = withApi("student", async (ctx, req) => {
   const identity = requireStudent(ctx);
+
+  // SECURITY: সিঙ্ক রোস্টারে লেখে, তাই স্প্যাম-প্রুফ হওয়া দরকার — uid-ভিত্তিক
+  // প্রতি মিনিটে ১০টি (স্বাভাবিক ব্যবহারে লগইনে একবারই লাগে)।
+  const limited = enforceRateLimit(req, {
+    limit: 10,
+    scope: "sync-login",
+    uid: identity.uid,
+  });
+  if (limited) return limited;
+
   const body = await readJsonBody(req);
 
   const rawName = typeof body?.name === "string" ? body.name.trim() : "";

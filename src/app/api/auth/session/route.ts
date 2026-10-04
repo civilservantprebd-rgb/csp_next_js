@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-auth";
 import { withRequestToken } from "@/lib/request-context";
 import { syncStudentLogin } from "@/actions/student-actions";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,17 @@ export const dynamic = "force-dynamic";
  * ফলাফল `synced` ফিল্ডে জানানো হয়।
  */
 export async function POST(req: Request) {
+  // SECURITY: টোকেন-এক্সচেঞ্জ সবচেয়ে বেশি আক্রমণের মুখে (ব্রুট-ফোর্সে বৈধ
+  // টোকেন অনুমান, বা অকারণে Supabase auth কোটার অপচয়)। এখানে এখনো uid জানা
+  // যায় না, তাই IP-ভিত্তিক সীমা — প্রতি মিনিটে ২০টি লগইন-চেষ্টা।
+  const limited = enforceRateLimit(req, {
+    limit: 20,
+    scope: "auth-session",
+    message:
+      "অনেকবার লগইনের চেষ্টা করা হয়েছে। অনুগ্রহ করে এক মিনিট অপেক্ষা করে আবার চেষ্টা করুন।",
+  });
+  if (limited) return limited;
+
   const body = await readJsonBody(req);
 
   const headerToken = readBearerToken(req);

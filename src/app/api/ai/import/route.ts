@@ -23,6 +23,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "অনুমতি নেই — শিক্ষক হিসেবে লগইন করুন।" }, { status: 401 });
   }
 
+  // SECURITY: যাচাইয়ের পরেও সীমা — পেইড মডেলের কোটা রক্ষা (প্রতি মিনিটে ২০টি)
+  const { enforceRateLimit } = await import("@/lib/rate-limit");
+  const limited = enforceRateLimit(req, {
+    limit: 20,
+    scope: "ai-import",
+    message: "এআই-তে খুব দ্রুত অনেকগুলো অনুরোধ যাচ্ছে। এক মিনিট অপেক্ষা করুন।",
+  });
+  if (limited) return limited;
+
   let body: { text?: unknown };
   try {
     body = await req.json();

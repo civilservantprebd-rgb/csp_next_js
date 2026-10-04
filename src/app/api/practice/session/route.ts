@@ -1,6 +1,7 @@
 import { apiFail, apiOk, readJsonBody, requireStudent, withApi } from "@/lib/api-auth";
 import { getPracticeQuestions } from "@/actions/practice-actions";
 import { verifyStudentAccess } from "@/actions/student-actions";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,16 @@ export const dynamic = "force-dynamic";
  */
 export const POST = withApi("student", async (ctx, req) => {
   const identity = requireStudent(ctx);
+
+  // SECURITY: প্রশ্ন-পুল তৈরি প্রতিবার ডেটাবেজে ভারী কোয়েরি চালায় (এবং
+  // `count: 0` = পুরো প্রশ্নব্যাংক)। বট দিয়ে টানা টানলে Supabase ক্লান্ত হয়ে
+  // সবার জন্য ধীর হয়ে যেত — তাই uid-ভিত্তিক ৩০/মিনিট।
+  const limited = enforceRateLimit(req, {
+    limit: 30,
+    scope: "practice-session",
+    uid: identity.uid,
+  });
+  if (limited) return limited;
 
   const access = await verifyStudentAccess(identity.uid, "ALL", identity.email);
   if (!access.allowed) {
