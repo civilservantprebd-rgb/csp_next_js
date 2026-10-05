@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers, ShoppingCart, Clock, Video, Loader2 } from "lucide-react";
+import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers, ShoppingCart, Clock, Video, Loader2, Gift } from "lucide-react";
 import { getRecentNotifications, type NotifItem } from "@/actions/notification-actions";
 import { getLocalStudentUser } from "@/lib/student-auth";
 import { toBengaliDigits } from "@/lib/utils";
@@ -328,6 +328,25 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                   <Trophy className="w-4 h-4" />
                 </span>
                 লিডারবোর্ড
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenu();
+                  router.push("/portal");
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-indigo-500/10 hover:from-amber-500/20 hover:to-indigo-500/20 text-slate-800 transition text-sm font-bold text-left cursor-pointer border border-amber-200/50 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Gift className="w-4 h-4" />
+                  </span>
+                  <span>রেফার ও রিওয়ার্ড</span>
+                </div>
+                <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                  ৳৫০ অফার
+                </span>
               </button>
 
               <button

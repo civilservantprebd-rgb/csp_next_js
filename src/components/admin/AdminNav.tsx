@@ -13,7 +13,8 @@ import { Brain,
   Archive,
   Video,
   Newspaper,
-  MessageCircle
+  MessageCircle,
+  Gift
 } from "lucide-react";
 
 export type AdminTabType =
@@ -22,6 +23,7 @@ export type AdminTabType =
   | "courses"
   | "subjects"
   | "students"
+  | "referrals"
   | "questions"
   | "question_bank"
   | "videos"
@@ -46,18 +48,20 @@ interface AdminNavProps {
 export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) => {
   const tabs: { id: AdminTabType; label: string; icon: any }[] = [
     { id: "analytics", label: "অ্যানালিটিক্স", icon: BarChart3 },
-      { id: "ai_question_generator", label: "Question Generator", icon: Brain },
+    { id: "ai_question_generator", label: "Question Generator", icon: Brain },
     { id: "question_bank", label: "টপিক ও ডাটাবেজ", icon: Layers },
     { id: "exams", label: "এক্সাম সেট", icon: FileText },
     { id: "courses", label: "কোর্স", icon: GraduationCap },
     { id: "subjects", label: "সাবজেক্ট", icon: BookOpen },
     { id: "students", label: "আইডি ও রিকোয়েস্ট", icon: Users },
+    { id: "referrals", label: "রেফারেল ও রিওয়ার্ড", icon: Gift },
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
     { id: "videos", label: "কোর্স ভিডিও", icon: Video },
     { id: "news", label: "দৈনিক সংবাদ", icon: Newspaper },
     { id: "whatsapp", label: "WhatsApp গ্রুপ", icon: MessageCircle },
     { id: "attendance", label: "অ্যাটেনডেন্স", icon: Users },
-    { id: "archive", label: "আর্কাইভ", icon: Archive },];
+    { id: "archive", label: "আর্কাইভ", icon: Archive },
+  ];
 
   const visibleTabs = tabs;
 

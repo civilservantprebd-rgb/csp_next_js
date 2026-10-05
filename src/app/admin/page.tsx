@@ -27,6 +27,7 @@ const CourseVideoManager = dynamic(() => import("@/components/admin/CourseVideoM
 const NewsManager = dynamic(() => import("@/components/admin/NewsManager").then(mod => mod.NewsManager), { loading: LoadingFallback });
 const WhatsAppGroupManager = dynamic(() => import("@/components/admin/WhatsAppGroupManager").then(mod => mod.WhatsAppGroupManager), { loading: LoadingFallback });
 const AttendanceManager = dynamic(() => import("@/components/admin/AttendanceManager").then(mod => mod.AttendanceManager), { loading: LoadingFallback });
+const ReferralManager = dynamic(() => import("@/components/admin/ReferralManager").then(mod => mod.ReferralManager), { loading: LoadingFallback });
 import { fetchAdminBootstrap, fetchExamForDemo, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
 import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
@@ -68,8 +69,8 @@ export default function AdminPage() {
     if (typeof window !== "undefined") {
       const t = new URLSearchParams(window.location.search).get("tab");
       const valid: AdminTabType[] = [
-        "analytics", "exams", "courses", "subjects", "students",
-        "questions", "question_bank", "videos", "archive", "news", "whatsapp", "ai_question_generator"
+        "analytics", "exams", "courses", "subjects", "students", "referrals",
+        "questions", "question_bank", "videos", "archive", "news", "whatsapp", "ai_question_generator", "attendance"
       ];
       if (t && (valid as string[]).includes(t)) return t as AdminTabType;
     }
@@ -822,7 +823,8 @@ export default function AdminPage() {
 
 
             {activeTab === "students" && <StudentApproval courses={config.courses || []} />}
-              {activeTab === "ai_question_generator" && <AiQuestionGeneratorUI exams={config.exams || {}} topics={config.topics || []} />}
+            {activeTab === "referrals" && <ReferralManager courses={config.courses || []} />}
+            {activeTab === "ai_question_generator" && <AiQuestionGeneratorUI exams={config.exams || {}} topics={config.topics || []} />}
 
             {activeTab === "questions" && config.exams?.[selectedExamKey] && (
               examQuestions[selectedExamKey] ? (

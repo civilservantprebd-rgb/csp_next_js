@@ -28,7 +28,7 @@ import { Submission } from "@/types/submission";
 import { toBengaliDigits, shuffleArray, compareExamsByStartTime, formatBangladeshDate } from "@/lib/utils";
 import { MathText } from "@/lib/MathText";
 import { isAnswerTimeReached } from "@/lib/bangladesh-time";
-import { Exam } from "@/types/exam";
+import { Exam, AppConfigData } from "@/types/exam";
 import {
   getStudentMistakes,
   getStudentBookmarks,
@@ -47,16 +47,17 @@ import { LoadingState } from "@/components/shared/LoadingState";
 import { PracticeQuestion } from "@/lib/practice-helper";
 import { getPracticeQuestions } from "@/actions/practice-actions";
 import { getLocalStudentUser, updateLocalStudentName, logoutStudentUser, StudentUser } from "@/lib/student-auth";
-import { AppConfigData } from "@/types/exam";
 import {
   BarChart3,
   TrendingUp,
   AlertTriangle,
   Lightbulb,
-  Sparkles as SparklesIcon
+  Sparkles as SparklesIcon,
+  Gift
 } from "lucide-react";
+import { ReferralCard } from "@/components/dashboard/ReferralCard";
 
-type TabKey = "history" | "analytics" | "mistakes" | "bookmarks";
+type TabKey = "history" | "analytics" | "mistakes" | "bookmarks" | "referral";
 
 interface StudentDashboardModalProps {
   isOpen: boolean;
@@ -497,6 +498,19 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           >
             <Bookmark className="w-3.5 h-3.5" />
             <span>বুকমার্কসমূহ ({toBengaliDigits(bookmarks.length)})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("referral")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "referral"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80"
+            }`}
+          >
+            <Gift className="w-3.5 h-3.5" />
+            <span>রেফার ও রিওয়ার্ড</span>
           </button>
         </div>
         )}
@@ -1028,6 +1042,13 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Referral & Rewards Tab */}
+          {activeTab === "referral" && (
+            <div className="py-2">
+              <ReferralCard studentId={studentId} />
             </div>
           )}
 

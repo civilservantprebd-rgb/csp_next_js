@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { EnrollmentRequest } from "@/types/student";
 import { getTrueDate } from "@/lib/bangladesh-time";
 import { requireTeacher } from "@/lib/teacher-auth";
+import { trackReferralSubmission, completeReferralOnApproval } from "@/actions/referral-actions";
 
 export async function submitEnrollRequest(payload: {
   uid: string;
@@ -127,6 +128,21 @@ export async function submitEnrollRequest(payload: {
       const { error } = await supabase.from('enroll_requests').insert(toInsert);
 
     if (error) throw error;
+
+    // যদি রেফারেল কোড বা কুপন থাকে, তবে রেফারেল ট্র্যাকিং করি
+    if (coupon) {
+      try {
+        await trackReferralSubmission({
+          referralCode: coupon,
+          referredUserId: sessionUser.id,
+          referredUserName: payload.name.trim(),
+          referredUserEmail: String(sessionUser.email || cleanEmail || ""),
+          course: courseStr
+        });
+      } catch (refErr) {
+        console.error("Referral tracking error (non-fatal):", refErr);
+      }
+    }
 
     return {
       success: true,
@@ -254,6 +270,13 @@ export async function approveEnrollRequest(
         .eq("id", docId)
         .eq("student_uid", cleanId);
       if (deleteError) throw deleteError;
+    }
+
+    // রেফারেল সম্পন্ন হিসেবে মার্ক করি
+    try {
+      await completeReferralOnApproval(cleanId, newCourses);
+    } catch (refErr) {
+      console.error("Complete referral error (non-fatal):", refErr);
     }
 
     const courseSummary = newCourses.join(", ");

@@ -26,6 +26,7 @@ import { getLocalStudentUser, loginWithGoogle, logoutStudentUser, updateLocalStu
 import { updateStudentName, getCompletedExamKeys, getStudentStreak } from "@/actions/student-actions";
 import { toBengaliDigits } from "@/lib/utils";
 import { WhatsAppJoinPopup } from "@/components/dashboard/WhatsAppJoinPopup";
+import { ReferralCard } from "@/components/dashboard/ReferralCard";
 
 /**
  * স্টুডেন্ট পোর্টাল — ওভারভিউ পেজ। প্রতিটা সেকশন (পরীক্ষার ফলাফল, বিশ্লেষণ,
@@ -345,6 +346,9 @@ export default function PortalClient({
                 );
               })}
             </div>
+
+            {/* রেফারেল ও রিওয়ার্ড ড্যাশবোর্ড কার্ড */}
+            <ReferralCard studentId={googleUser.uid} />
 
           </>
         )}

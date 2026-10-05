@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, UserPlus, CheckCircle2, ShieldCheck, ArrowRight, Sparkles, LogIn, Hash, Ticket } from "lucide-react";
 import { submitEnrollRequest } from "@/actions/enroll-actions";
 import { getCoursePrices } from "@/actions/course-actions";
+import { validateReferralCode } from "@/actions/referral-actions";
 import { getLocalStudentUser, loginWithGoogle, StudentUser } from "@/lib/student-auth";
 
 interface EnrollModalProps {
@@ -28,6 +29,9 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   const [name, setName] = useState("");
   const [trxId, setTrxId] = useState("");
   const [coupon, setCoupon] = useState("");
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [couponSuccessMsg, setCouponSuccessMsg] = useState("");
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -41,9 +45,24 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
         setName(user.name);
       }
       getCoursePrices().then(setPrices).catch(console.error);
+
+      // URL query থেকে ?ref= কোড থাকলে স্বয়ংক্রিয়ভাবে কুপনে বসাই
+      if (typeof window !== "undefined") {
+        const urlParams = new URLSearchParams(window.location.search);
+        const refParam = urlParams.get("ref");
+        if (refParam) {
+          const upper = refParam.trim().toUpperCase();
+          setCoupon(upper);
+          validateReferralCode(upper).then((res) => {
+            if (res.valid) {
+              setDiscountAmount(res.discount);
+              setCouponSuccessMsg(res.message);
+            }
+          });
+        }
+      }
     }
   }, [isOpen]);
-
 
   useEffect(() => {
     if (initialCourse && courses.includes(initialCourse)) {
@@ -57,6 +76,8 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   const handleClose = () => {
     setIsSubmitted(false);
     setErrorMsg("");
+    setCouponSuccessMsg("");
+    setDiscountAmount(0);
     onClose();
   };
 
@@ -68,7 +89,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
     );
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     let total = 0;
     selectedCourses.forEach(c => {
       const p = prices[c];
@@ -79,7 +100,36 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
     return total;
   };
 
-  const totalAmount = calculateTotal();
+  const subtotal = calculateSubtotal();
+  const totalAmount = Math.max(0, subtotal - discountAmount);
+
+  const handleApplyCoupon = async () => {
+    const clean = coupon.trim().toUpperCase();
+    if (!clean) {
+      setDiscountAmount(0);
+      setCouponSuccessMsg("");
+      return;
+    }
+    setValidatingCoupon(true);
+    setErrorMsg("");
+    setCouponSuccessMsg("");
+    try {
+      const targetCourse = selectedCourses[0] || courses[0] || "";
+      const effectivePrice = subtotal > 0 ? subtotal : (prices[targetCourse]?.offerPrice ?? prices[targetCourse]?.price ?? 0);
+      const res = await validateReferralCode(clean, targetCourse, effectivePrice);
+      if (res.valid) {
+        setDiscountAmount(res.discount);
+        setCouponSuccessMsg(res.message);
+      } else {
+        setDiscountAmount(0);
+        setErrorMsg(res.message);
+      }
+    } catch {
+      setErrorMsg("কুপন কোড যাচাই করতে সমস্যা হয়েছে।");
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
 
 
   const handleGoogleLogin = async () => {
@@ -324,10 +374,10 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                         );
                       })}
                     </div>
-                    {totalAmount > 0 && (
+                    {subtotal > 0 && (
                       <div className="mt-4 pt-3 border-t border-indigo-100/50 flex items-center justify-between">
-                        <span className="text-slate-600 font-bold text-sm">সর্বমোট পেমেন্ট:</span>
-                        <span className="text-indigo-700 font-black text-lg">৳{totalAmount}</span>
+                        <span className="text-slate-600 font-bold text-sm">কোর্স ফি মোট:</span>
+                        <span className="text-indigo-700 font-black text-lg">৳{subtotal}</span>
                       </div>
                     )}
                   </div>
@@ -376,25 +426,65 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
 
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 ml-1">
-                        কুপন কোড
+                        কুপন / রেফারেল কোড
                       </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                          <Ticket className="h-4 w-4 text-emerald-400" />
+                      <div className="flex gap-1.5">
+                        <div className="relative flex-1">
+                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                            <Ticket className="h-4 w-4 text-emerald-500" />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="যেমন: BCS-XXXX"
+                            value={coupon}
+                            onChange={(e) => {
+                              setCoupon(e.target.value.toUpperCase());
+                              if (discountAmount > 0) setDiscountAmount(0);
+                              if (couponSuccessMsg) setCouponSuccessMsg("");
+                            }}
+                            className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs sm:text-sm font-mono uppercase bg-slate-50/50 hover:bg-white focus:bg-white transition-all shadow-sm"
+                          />
                         </div>
-                        <input
-                          type="text"
-                          placeholder="যেমন: AROHON50"
-                          value={coupon}
-                          onChange={(e) => setCoupon(e.target.value.toUpperCase())}
-                          className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs sm:text-sm font-mono uppercase bg-slate-50/50 hover:bg-white focus:bg-white transition-all shadow-sm"
-                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          disabled={validatingCoupon || !coupon.trim()}
+                          className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shrink-0 cursor-pointer"
+                        >
+                          {validatingCoupon ? "যাচাই..." : "প্রয়োগ"}
+                        </button>
                       </div>
-                      <p className="text-[10px] text-slate-500 ml-1 leading-tight">
-                        যদি থাকে (ঐচ্ছিক)
-                      </p>
+                      {couponSuccessMsg && (
+                        <p className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 p-1.5 rounded-lg leading-tight">
+                          {couponSuccessMsg}
+                        </p>
+                      )}
+                      {!couponSuccessMsg && (
+                        <p className="text-[10px] text-slate-500 ml-1 leading-tight">
+                          বন্ধুর রেফারেল কোড বা কুপন (ঐচ্ছিক)
+                        </p>
+                      )}
                     </div>
                   </div>
+
+                  {subtotal > 0 && (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70 text-xs space-y-1">
+                      <div className="flex justify-between text-slate-600">
+                        <span>মোট কোর্স ফি:</span>
+                        <span>৳{subtotal}</span>
+                      </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between font-bold text-emerald-600">
+                          <span>রেফারেল / কুপন ছাড়:</span>
+                          <span>-৳{discountAmount}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-black text-sm pt-1.5 border-t border-slate-200 text-indigo-900">
+                        <span>পরিশোধযোগ্য সর্বমোট:</span>
+                        <span className="text-base text-indigo-600">৳{totalAmount}</span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="pt-4">
                     <button

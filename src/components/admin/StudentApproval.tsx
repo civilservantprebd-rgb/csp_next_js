@@ -331,7 +331,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ courses }) => 
                           <>
                             <span>|</span>
                             <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-semibold">
-                              কুপন: {req.coupon}
+                              {req.coupon.toUpperCase().startsWith("BCS-") ? "রেফারেল: " : "কুপন: "}{req.coupon}
                             </span>
                           </>
                         )}
