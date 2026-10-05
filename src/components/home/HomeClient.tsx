@@ -906,7 +906,7 @@ export default function HomeClient({
               >
                 <span>এনরোল করুন</span>
               </button>
-
+              
               {/* Notifications Bell */}
               <div className="relative">
                 <button

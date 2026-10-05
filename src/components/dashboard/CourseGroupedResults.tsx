@@ -283,7 +283,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                         অংশগ্রহণকৃত পরীক্ষা: {toBengaliDigits(course.totalExamsTaken)}টি
                       </span>
                     </div>
-                    <h3 className="text-base sm:text-lg font-black text-white truncate group-hover:text-amber-300 transition-colors">
+                    <h3 className="text-sm sm:text-base font-bold text-white truncate group-hover:text-amber-300 transition-colors">
                       {course.courseName}
                     </h3>
                   </div>
