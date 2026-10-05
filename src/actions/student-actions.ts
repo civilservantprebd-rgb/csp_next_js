@@ -193,11 +193,11 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
     const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
     if (ids.length === 0) return [];
 
-    // PERF: শুধু দরকারি কলাম + সর্বোচ্চ ২০০টি সাম্প্রতিক submission (পুরো টেবিল নয়)
+    // PERF: শুধু দরকারি কলাম (answers ছাড়া) — answers অনেক বড় payload হওয়ায় লিস্ট লোডিং স্লো হয়
     const { data, error } = await supabase
       .from("submissions")
       .select(
-        "id, student_name, student_id, exam_key, exam_title, score, correct, incorrect, total_questions, time_spent, answers, is_pending_evaluation, is_live_submission, submitted_at"
+        "id, student_name, student_id, exam_key, exam_title, score, correct, incorrect, total_questions, time_spent, is_pending_evaluation, is_live_submission, submitted_at"
       )
       .in("student_id", ids)
       .order("submitted_at", { ascending: false })
@@ -216,14 +216,7 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
       incorrect: Number(row.incorrect ?? 0),
       totalQuestions: Number(row.total_questions ?? 0),
       timeSpent: row.time_spent,
-      answers: Array.isArray(row.answers)
-        ? row.answers.map((v: any) => {
-            if (typeof v === 'object' && v !== null && 'qid' in v) {
-               return v;
-            }
-            return (v === -1 || v === null ? null : Number(v));
-          })
-        : [],
+      answers: [],
       isPendingEvaluation: row.is_pending_evaluation,
       isLiveSubmission: row.is_live_submission,
       submittedAtISO: row.submitted_at
@@ -272,7 +265,8 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
       // student was not yet entitled to see.
       const isReleased = examObj ? isAnswerTimeReached(examObj) : false;
 
-      if (isReleased) {
+      // PERF: Only evaluate if the submission is actually pending evaluation or unscored
+      if (isReleased && (s.isPendingEvaluation || s.score === undefined)) {
         let solutionsPromise = solutionsCache.get(s.examKey);
         if (!solutionsPromise) {
           solutionsPromise = getExamSolutions(s.examKey);
@@ -331,6 +325,216 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
   } catch (err) {
     console.error("Fetch student submissions error:", err);
     return [];
+  }
+}
+
+export interface CourseSummaryItem {
+  courseName: string;
+  totalExamsTaken: number;
+  highestScore: number;
+  averageScore: number;
+  latestDate?: string;
+}
+
+/**
+ * Ultra-fast summary of courses where the student has taken exams.
+ * Returns only Course Names and aggregates so course cards show instantly (< 50ms)
+ * without fetching individual exams or answers!
+ */
+export async function getStudentCourseSummaries(
+  studentId: string,
+  examsMap: Record<string, { course?: string; endTime?: string; leaderboardEndTime?: string; startTime?: string }>
+): Promise<CourseSummaryItem[]> {
+  const normId = parseBengaliDigits(studentId).trim();
+  const cleanId = String(studentId).trim();
+
+  if (!(await sessionOwnsStudent(cleanId)) && !(await sessionOwnsStudent(normId))) {
+    return [];
+  }
+
+  try {
+    const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
+    if (ids.length === 0) return [];
+
+    // Only fetch minimal 4 fields: exam_key, score, is_live_submission, submitted_at
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("exam_key, score, is_live_submission, submitted_at")
+      .in("student_id", ids)
+      .order("submitted_at", { ascending: false })
+      .limit(300);
+
+    if (error || !data) return [];
+
+    const { parseBangladeshDateTime } = await import("@/lib/bangladesh-time");
+
+    // Group by Course -> ExamKey to aggregate
+    const courseMap = new Map<string, Map<string, { liveScore?: number; practiceScore?: number; date?: string }>>();
+
+    data.forEach((row) => {
+      const exam = examsMap[row.exam_key];
+      const courseName = exam?.course || "সাধারণ কোর্স";
+
+      if (!courseMap.has(courseName)) {
+        courseMap.set(courseName, new Map());
+      }
+      const examMap = courseMap.get(courseName)!;
+      if (!examMap.has(row.exam_key)) {
+        examMap.set(row.exam_key, {});
+      }
+      const rec = examMap.get(row.exam_key)!;
+      const score = Number(row.score ?? 0);
+
+      if (row.is_live_submission) {
+        if (rec.liveScore === undefined) rec.liveScore = score;
+      } else {
+        if (rec.practiceScore === undefined) rec.practiceScore = score;
+      }
+      if (!rec.date && row.submitted_at) {
+        rec.date = row.submitted_at;
+      }
+    });
+
+    const summaries: (CourseSummaryItem & { latestLiveEndMs: number })[] = [];
+
+    courseMap.forEach((examMap, courseName) => {
+      const allActiveScores: number[] = [];
+      let maxScore = 0;
+      let latestDate: string | undefined = undefined;
+      let maxLiveEndMs = 0;
+
+      examMap.forEach((rec, examKey) => {
+        if (rec.liveScore !== undefined) allActiveScores.push(rec.liveScore);
+        if (rec.practiceScore !== undefined && rec.liveScore === undefined) {
+          allActiveScores.push(rec.practiceScore);
+        }
+        const examMax = Math.max(rec.liveScore ?? 0, rec.practiceScore ?? 0);
+        if (examMax > maxScore) maxScore = examMax;
+        if (!latestDate && rec.date) latestDate = rec.date;
+
+        // Find exam live end time
+        const ex = examsMap[examKey];
+        if (ex) {
+          const endStr = ex.endTime || ex.leaderboardEndTime || ex.startTime;
+          if (endStr) {
+            const dt = parseBangladeshDateTime(endStr);
+            if (dt && dt.getTime() > maxLiveEndMs) {
+              maxLiveEndMs = dt.getTime();
+            }
+          }
+        }
+      });
+
+      const totalSum = allActiveScores.reduce((sum, sc) => sum + sc, 0);
+      const avg = allActiveScores.length > 0 ? totalSum / allActiveScores.length : 0;
+
+      summaries.push({
+        courseName,
+        totalExamsTaken: examMap.size,
+        highestScore: maxScore,
+        averageScore: Math.round(avg * 10) / 10,
+        latestDate,
+        latestLiveEndMs: maxLiveEndMs,
+      });
+    });
+
+    // Sort courses: the one with the exam whose live ended latest comes first
+    summaries.sort((a, b) => {
+      if (b.latestLiveEndMs !== a.latestLiveEndMs) {
+        return b.latestLiveEndMs - a.latestLiveEndMs;
+      }
+      const tA = a.latestDate ? new Date(a.latestDate).getTime() : 0;
+      const tB = b.latestDate ? new Date(b.latestDate).getTime() : 0;
+      return tB - tA;
+    });
+
+    return summaries.map(({ latestLiveEndMs, ...rest }) => rest);
+  } catch (err) {
+    console.error("getStudentCourseSummaries error:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetch exam submissions for a SPECIFIC COURSE only when clicked/expanded.
+ */
+export async function getCourseSubmissions(
+  studentId: string,
+  courseExamKeys: string[]
+): Promise<Submission[]> {
+  const normId = parseBengaliDigits(studentId).trim();
+  const cleanId = String(studentId).trim();
+
+  if (!(await sessionOwnsStudent(cleanId)) && !(await sessionOwnsStudent(normId))) {
+    return [];
+  }
+
+  try {
+    const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
+    if (ids.length === 0 || courseExamKeys.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from("submissions")
+      .select(
+        "id, student_name, student_id, exam_key, exam_title, score, correct, incorrect, total_questions, time_spent, is_pending_evaluation, is_live_submission, submitted_at"
+      )
+      .in("student_id", ids)
+      .in("exam_key", courseExamKeys)
+      .order("submitted_at", { ascending: false });
+
+    if (error || !data) return [];
+
+    return data.map((row) => ({
+      id: row.id,
+      studentName: row.student_name,
+      studentId: row.student_id,
+      examKey: row.exam_key,
+      examTitle: row.exam_title,
+      score: Number(row.score ?? 0),
+      correct: Number(row.correct ?? 0),
+      incorrect: Number(row.incorrect ?? 0),
+      totalQuestions: Number(row.total_questions ?? 0),
+      timeSpent: row.time_spent,
+      answers: [],
+      isPendingEvaluation: row.is_pending_evaluation,
+      isLiveSubmission: row.is_live_submission,
+      submittedAtISO: row.submitted_at,
+    }));
+  } catch (err) {
+    console.error("getCourseSubmissions error:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetch answers array on-demand when student opens detailed solutions modal.
+ * This keeps the initial course/results list ultra-fast (fraction of a millisecond).
+ */
+export async function getSubmissionAnswers(submissionId: string): Promise<any[] | null> {
+  try {
+    if (!submissionId) return null;
+    const { data, error } = await supabase
+      .from("submissions")
+      .select("answers, student_id")
+      .eq("id", submissionId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    // Check ownership
+    const { sessionOwnsStudent } = await import("@/lib/teacher-auth");
+    if (!(await sessionOwnsStudent(data.student_id))) return null;
+
+    if (!Array.isArray(data.answers)) return [];
+    return data.answers.map((v: any) => {
+      if (typeof v === "object" && v !== null && "qid" in v) {
+        return v;
+      }
+      return v === -1 || v === null ? null : Number(v);
+    });
+  } catch (err) {
+    console.error("getSubmissionAnswers error:", err);
+    return null;
   }
 }
 

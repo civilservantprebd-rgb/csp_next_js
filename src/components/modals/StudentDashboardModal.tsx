@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   X,
@@ -21,7 +21,11 @@ import {
   Edit3,
   Save,
   LogOut,
-  ListChecks
+  ListChecks,
+  Search,
+  Filter,
+  Layers,
+  ChevronDown
 } from "lucide-react";
 import { getStudentSubmissions, updateStudentName } from "@/actions/student-actions";
 import { Submission } from "@/types/submission";
@@ -95,6 +99,12 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   onSelectSubmissionDetail,
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "history");
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [courseFilter, setCourseFilter] = useState<string>("all");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [mistakes, setMistakes] = useState<MistakeQuestionItem[]>([]);
@@ -113,11 +123,76 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
 
+  // Mistake filtering & search state
+  const [mistakeSearchQuery, setMistakeSearchQuery] = useState("");
+  const [mistakeCourseFilter, setMistakeCourseFilter] = useState("all");
+  const [mistakeExamFilter, setMistakeExamFilter] = useState("all");
+
+  // Map exam titles to courses using `exams` prop
+  const examTitleToCourseMap = useMemo(() => {
+    const map = new Map<string, string>();
+    Object.values(exams || {}).forEach((ex) => {
+      if (ex.title) {
+        map.set(ex.title.trim().toLowerCase(), String(ex.course || "").trim() || "অন্যান্য কোর্স");
+      }
+    });
+    return map;
+  }, [exams]);
+
+  // Derived filtered mistakes based on course, exam, and search query
+  const filteredMistakes = useMemo(() => {
+    return mistakes.filter((m) => {
+      // Course filter
+      if (mistakeCourseFilter !== "all") {
+        const c = examTitleToCourseMap.get(m.examTitle?.trim().toLowerCase()) || "অন্যান্য কোর্স";
+        if (c !== mistakeCourseFilter) return false;
+      }
+      // Exam filter
+      if (mistakeExamFilter !== "all") {
+        if (m.examTitle?.trim() !== mistakeExamFilter) return false;
+      }
+      // Search query (question text, topic, explanation)
+      if (mistakeSearchQuery.trim()) {
+        const q = mistakeSearchQuery.trim().toLowerCase();
+        const inQ = m.q?.toLowerCase().includes(q);
+        const inTopic = m.topic?.toLowerCase().includes(q);
+        const inExp = m.exp?.toLowerCase().includes(q);
+        const inExam = m.examTitle?.toLowerCase().includes(q);
+        if (!inQ && !inTopic && !inExp && !inExam) return false;
+      }
+      return true;
+    });
+  }, [mistakes, mistakeCourseFilter, mistakeExamFilter, mistakeSearchQuery, examTitleToCourseMap]);
+
+  // Unique courses and exam titles present in mistakes
+  const mistakeAvailableCourses = useMemo(() => {
+    const courses = new Set<string>();
+    mistakes.forEach((m) => {
+      const c = examTitleToCourseMap.get(m.examTitle?.trim().toLowerCase()) || "অন্যান্য কোর্স";
+      courses.add(c);
+    });
+    return Array.from(courses);
+  }, [mistakes, examTitleToCourseMap]);
+
+  const mistakeAvailableExams = useMemo(() => {
+    const examTitles = new Set<string>();
+    mistakes.forEach((m) => {
+      if (mistakeCourseFilter !== "all") {
+        const c = examTitleToCourseMap.get(m.examTitle?.trim().toLowerCase()) || "অন্যান্য কোর্স";
+        if (c !== mistakeCourseFilter) return;
+      }
+      if (m.examTitle?.trim()) {
+        examTitles.add(m.examTitle.trim());
+      }
+    });
+    return Array.from(examTitles);
+  }, [mistakes, mistakeCourseFilter, examTitleToCourseMap]);
+
   // हज़ारো mistake/bookmark থাকলেও DOM-এ একসাথে সব না এনে পেজ-আকারে দেখাই
   const MISTAKE_PAGE_SIZE = 40;
   const [visibleMistakes, setVisibleMistakes] = useState(MISTAKE_PAGE_SIZE);
   const [visibleBookmarks, setVisibleBookmarks] = useState(MISTAKE_PAGE_SIZE);
-  const shownMistakes = mistakes.slice(0, visibleMistakes);
+  const shownMistakes = filteredMistakes.slice(0, visibleMistakes);
   const shownBookmarks = bookmarks.slice(0, visibleBookmarks);
 
   const refreshStores = () => {
@@ -256,8 +331,9 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
   // Launch Re-test quiz
   const handleStartMistakesQuiz = () => {
-    if (mistakes.length === 0) return;
-    const questionsForQuiz: PracticeQuestion[] = mistakes.map((m, idx) => ({
+    const listToQuiz = filteredMistakes.length > 0 ? filteredMistakes : mistakes;
+    if (listToQuiz.length === 0) return;
+    const questionsForQuiz: PracticeQuestion[] = listToQuiz.map((m, idx) => ({
       id: m.id || `m_${idx}`,
       q: m.q,
       opts: m.opts,
@@ -267,7 +343,11 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
       topic: m.topic
     }));
     setQuizQuestions(questionsForQuiz);
-    setQuizTitle("ভুল উত্তরের খাতা অনুশীলন");
+    setQuizTitle(
+      filteredMistakes.length !== mistakes.length
+        ? "ফিল্টারকৃত ভুলের খাতা অনুশীলন"
+        : "ভুল উত্তরের খাতা অনুশীলন"
+    );
     setIsQuizModalOpen(true);
   };
 
@@ -847,6 +927,117 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* Search and Filter Panel */}
+                  <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-rose-200/80 shadow-xs space-y-3">
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
+                      {/* Search Bar */}
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={mistakeSearchQuery}
+                          onChange={(e) => {
+                            setMistakeSearchQuery(e.target.value);
+                            setVisibleMistakes(MISTAKE_PAGE_SIZE);
+                          }}
+                          placeholder="প্রশ্ন বা বিষয় লিখে খুঁজুন..."
+                          className="w-full text-xs font-semibold pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400 focus:bg-white text-slate-800 placeholder-slate-400 transition"
+                        />
+                        {mistakeSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMistakeSearchQuery("");
+                              setVisibleMistakes(MISTAKE_PAGE_SIZE);
+                            }}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 flex items-center justify-center text-xs"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Course Filter Dropdown */}
+                      <div className="relative w-full md:w-52">
+                        <select
+                          value={mistakeCourseFilter}
+                          onChange={(e) => {
+                            setMistakeCourseFilter(e.target.value);
+                            setMistakeExamFilter("all");
+                            setVisibleMistakes(MISTAKE_PAGE_SIZE);
+                          }}
+                          className="w-full appearance-none text-xs font-bold bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-800 border border-slate-200 focus:border-rose-400 rounded-xl px-3 py-2.5 pr-8 transition cursor-pointer outline-none"
+                        >
+                          <option value="all">সব কোর্স</option>
+                          {mistakeAvailableCourses.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+
+                      {/* Exam Filter Dropdown */}
+                      <div className="relative w-full md:w-64">
+                        <select
+                          value={mistakeExamFilter}
+                          onChange={(e) => {
+                            setMistakeExamFilter(e.target.value);
+                            setVisibleMistakes(MISTAKE_PAGE_SIZE);
+                          }}
+                          className="w-full appearance-none text-xs font-bold bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-800 border border-slate-200 focus:border-rose-400 rounded-xl px-3 py-2.5 pr-8 transition cursor-pointer outline-none truncate"
+                        >
+                          <option value="all">সকল পরীক্ষা</option>
+                          {mistakeAvailableExams.map((exTitle) => (
+                            <option key={exTitle} value={exTitle}>
+                              {exTitle}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Filter Active Summary / Reset */}
+                    {(mistakeSearchQuery || mistakeCourseFilter !== "all" || mistakeExamFilter !== "all") && (
+                      <div className="flex items-center justify-between text-[11px] text-slate-600 font-bold pt-1 border-t border-slate-100">
+                        <span>
+                          খুঁজে পাওয়া গেছে: <strong className="text-rose-600">{toBengaliDigits(filteredMistakes.length)}টি</strong> প্রশ্ন
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMistakeSearchQuery("");
+                            setMistakeCourseFilter("all");
+                            setMistakeExamFilter("all");
+                            setVisibleMistakes(MISTAKE_PAGE_SIZE);
+                          }}
+                          className="text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+                        >
+                          ফিল্টার রিসেট করুন
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {filteredMistakes.length === 0 ? (
+                    <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200 text-slate-500 font-bold text-xs space-y-2">
+                      <p>এই ফিল্টারে কোনো ভুল উত্তর খুঁজে পাওয়া যায়নি।</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMistakeSearchQuery("");
+                          setMistakeCourseFilter("all");
+                          setMistakeExamFilter("all");
+                        }}
+                        className="text-rose-600 underline text-xs"
+                      >
+                        সকল প্রশ্ন দেখুন
+                      </button>
+                    </div>
+                  ) : null}
+
                   {shownMistakes.map((m, idx) => (
                     <div
                       key={m.id || idx}
@@ -924,13 +1115,13 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     </div>
                   ))}
 
-                  {shownMistakes.length < mistakes.length && (
+                  {shownMistakes.length < filteredMistakes.length && (
                     <button
                       type="button"
                       onClick={() => setVisibleMistakes((v) => v + MISTAKE_PAGE_SIZE)}
                       className="w-full py-2.5 rounded-xl border border-rose-200 bg-rose-50/60 hover:bg-rose-100 text-rose-700 font-bold text-xs transition cursor-pointer"
                     >
-                      আরও দেখুন ({toBengaliDigits(mistakes.length - shownMistakes.length)} টি বাকি)
+                      আরও দেখুন ({toBengaliDigits(filteredMistakes.length - shownMistakes.length)} টি বাকি)
                     </button>
                   )}
                 </div>

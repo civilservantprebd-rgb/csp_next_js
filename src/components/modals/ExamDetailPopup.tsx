@@ -39,8 +39,8 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
       // PERF: একটাই টার্গেটেড কল — শুধু ওই exam-এর exam-মেটা + প্রশ্ন + (রিলিজ হলে)
       // উত্তর। আগে দুটি আলাদা কল হতো (fetchExamWithQuestions + getExamSolutions)।
       import("@/actions/exam-actions")
-        .then(({ getExamResultBundle }) => getExamResultBundle(submission.examKey))
-        .then((bundle) => {
+        .then(async ({ getExamResultBundle }) => {
+          const bundle = await getExamResultBundle(submission.examKey);
           if (!bundle) {
             setExamQuestions(null);
             setSolutions(null);
@@ -52,8 +52,13 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
           setIsLoading(false);
           const qs = bundle.questions.length > 0 ? bundle.questions : exam?.questions || [];
           if (bundle.solutions && qs.length > 0 && submission.studentId) {
-            
-            let mappedAnswers = submission.answers || [];
+            let loadedAnswers = submission.answers || [];
+            if ((!loadedAnswers || loadedAnswers.length === 0) && submission.id) {
+              const { getSubmissionAnswers } = await import("@/actions/student-actions");
+              const res = await getSubmissionAnswers(submission.id);
+              if (res) loadedAnswers = res;
+            }
+            let mappedAnswers = loadedAnswers || [];
             if (mappedAnswers.length > 0 && typeof mappedAnswers[0] === "object" && mappedAnswers[0] !== null && "qid" in mappedAnswers[0]) {
                const answerMap = new Map();
                mappedAnswers.forEach((a: any) => { if (a && a.qid) answerMap.set(a.qid, Number(a.ans)); });

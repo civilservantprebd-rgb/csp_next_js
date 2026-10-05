@@ -184,55 +184,76 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
               </div>
             )}
 
-            {/* তালিকা */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5 bg-slate-50">
-              {(courseFilter ? freeExams.filter(e => e[1].course === courseFilter) : freeExams).map(([key, ex]) => {
-                const isCompleted = completedExams.has(key);
-                const qCount = ex.questions?.length || 0;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => startExam(key)}
-                    className="w-full text-left bg-white rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-sm transition p-3.5 sm:p-4 cursor-pointer group"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                          <span className="bg-slate-200 text-black text-[11px] font-black px-2 py-0.5 rounded-lg border border-slate-300">
-                            {ex.course}
-                          </span>
-                          <span className="bg-emerald-100 text-emerald-900 text-[10px] font-black px-2 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> ফ্রি
-                          </span>
-                        </div>
-                        <h4 className="font-black text-black text-sm sm:text-base group-hover:text-emerald-800 transition leading-snug flex flex-wrap items-center gap-2">
-                          <span>{ex.title}</span>
-                          {isCompleted && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300 shrink-0">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> সম্পন্ন
-                            </span>
-                          )}
-                        </h4>
-                        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-600 font-bold flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <BookOpen className="w-3.5 h-3.5 text-black" /> {ex.subject}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-emerald-600" /> {toBengaliDigits(ex.timerMinutes)} মিনিট
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <CircleHelp className="w-3.5 h-3.5 text-indigo-500" /> {toBengaliDigits(qCount)}টি প্রশ্ন
-                          </span>
-                        </div>
-                      </div>
-                      <span className="shrink-0 w-9 h-9 rounded-xl bg-emerald-500 group-hover:bg-emerald-600 text-white flex items-center justify-center transition shadow-sm">
-                        <Play className="w-4 h-4 fill-white text-white" />
+            {/* তালিকা — কোর্স অনুযায়ী সাজানো */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 bg-slate-50">
+              {visibleGroups.map(([courseName, items]) => (
+                <div key={courseName} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                  {/* কোর্স হেডার */}
+                  <div className="bg-gradient-to-r from-slate-100/80 to-emerald-50/50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-lg bg-emerald-600/10 text-emerald-700 flex items-center justify-center font-bold">
+                        <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
                       </span>
+                      <h4 className="font-black text-slate-900 text-sm">{courseName}</h4>
                     </div>
-                  </button>
-                );
-              })}
+                    <span className="text-[11px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                      {toBengaliDigits(items.length)}টি পরীক্ষা
+                    </span>
+                  </div>
+
+                  {/* কোর্সের ভেতরের পরীক্ষাসমূহ */}
+                  <div className="divide-y divide-slate-100 p-2 sm:p-3 space-y-1">
+                    {items.map(([key, ex]) => {
+                      const isCompleted = completedExams.has(key);
+                      const qCount = ex.questions?.length || 0;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => startExam(key)}
+                          className="w-full text-left rounded-xl p-3 hover:bg-emerald-50/60 hover:border-emerald-200 border border-transparent transition cursor-pointer group flex items-start justify-between gap-3"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-emerald-200">
+                                ফ্রি মডেল টেস্ট
+                              </span>
+                              {ex.subject && (
+                                <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-slate-200">
+                                  {ex.subject}
+                                </span>
+                              )}
+                            </div>
+                            <h5 className="font-black text-slate-900 text-sm group-hover:text-emerald-700 transition leading-snug">
+                              {ex.title}
+                            </h5>
+                            <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500 font-semibold flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" /> {toBengaliDigits(ex.timerMinutes)} মিনিট
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <CircleHelp className="w-3.5 h-3.5 text-slate-400" /> {toBengaliDigits(qCount)}টি প্রশ্ন
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex items-center gap-2 pt-1 sm:pt-0">
+                            {isCompleted ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> সম্পন্ন
+                              </span>
+                            ) : (
+                              <span className="w-8 h-8 rounded-xl bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition shadow-xs">
+                                <Play className="w-3.5 h-3.5 fill-white" />
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <p className="bg-slate-50 px-4 sm:px-6 py-2.5 border-t border-slate-200 text-[10px] text-slate-500 font-bold">
