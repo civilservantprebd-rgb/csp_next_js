@@ -69,6 +69,8 @@ const StudentAuthModal = dynamic(() => import("@/components/modals/StudentAuthMo
 const StudentPortalLoginModal = dynamic(() => import("@/components/modals/StudentPortalLoginModal").then((m) => m.StudentPortalLoginModal), { ssr: false });
 const StudentDashboardModal = dynamic(() => import("@/components/modals/StudentDashboardModal").then((m) => m.StudentDashboardModal), { ssr: false });
 const ExamDetailPopup = dynamic(() => import("@/components/modals/ExamDetailPopup").then((m) => m.ExamDetailPopup), { ssr: false });
+const PracticeHub = dynamic(() => import("@/components/dashboard/PracticeHub").then((m) => m.PracticeHub), { ssr: false });
+const QuestionBankView = dynamic(() => import("@/components/dashboard/QuestionBankView").then((m) => m.QuestionBankView), { ssr: false });
 
 const hasAuthTokensInUrl = () => {
   if (typeof window === "undefined") return false;
@@ -478,14 +480,6 @@ export default function HomeClient({
 
   // Switch navigation helper
   const handleNavSelect = (key: ActiveNavKey) => {
-    if (key === "practice") {
-      router.push("/practice");
-      return;
-    }
-    if (key === "question_bank") {
-      router.push("/question-bank");
-      return;
-    }
     setActiveNav(key);
     setMobileSidebarOpen(false);
   };
@@ -740,7 +734,11 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleNavSelect("practice")}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white transition-all text-left font-bold"
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-bold ${
+                  activeNav === "practice"
+                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center">
@@ -748,14 +746,18 @@ export default function HomeClient({
                   </span>
                   <span>প্রেকটিস</span>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "practice" ? "text-teal-400" : "text-slate-500"}`} />
               </button>
 
               {/* প্রশ্ন ব্যাংক */}
               <button
                 type="button"
                 onClick={() => handleNavSelect("question_bank")}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white transition-all text-left font-bold"
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-bold ${
+                  activeNav === "question_bank"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
@@ -763,7 +765,7 @@ export default function HomeClient({
                   </span>
                   <span>প্রশ্ন ব্যাংক</span>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "question_bank" ? "text-cyan-400" : "text-slate-500"}`} />
               </button>
 
               {/* কোর্স */}
@@ -1359,6 +1361,34 @@ export default function HomeClient({
                   onClose={() => {}}
                   onSelectSubmissionDetail={(sub) => setSelectedSubmissionForPopup(sub)}
                 />
+              </div>
+            )}
+
+            {/* VIEW: সেলফ প্র্যাকটিস (PRACTICE HUB VIEW) */}
+            {activeNav === "practice" && (
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-800 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0 shadow-inner">
+                      <Sparkles className="w-6 h-6 text-indigo-300" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black leading-tight">সেলফ প্র্যাকটিস</h2>
+                      <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
+                        টপিক-গ্রুপ বেছে নিন, প্রশ্নের সংখ্যা ও মোড ঠিক করুন, তারপর শুরু করুন — সাথে সঙ্গে উত্তর ও ব্যাখ্যা
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <PracticeHub onOpenEnrollModal={handleOpenEnrollModal} />
+              </div>
+            )}
+
+            {/* VIEW: প্রশ্নব্যাংক (QUESTION BANK VIEW) */}
+            {activeNav === "question_bank" && (
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <QuestionBankView onOpenEnrollModal={handleOpenEnrollModal} />
               </div>
             )}
 
