@@ -9,8 +9,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Kalpurush", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
-        bengali: ["Kalpurush", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+        sans: ["Tiempos Text", "Kalpurush", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+        bengali: ["Tiempos Text", "Kalpurush", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
       },
       /* ধাপে ধাপে বড়, পরিষ্কার টাইপোগ্রাফি স্কেল (root 20px-এর সাথে):
          লেবেল < ছোট লেখা < বডি < কার্ড টাইটেল < সেকশন হেডিং < পেজ হেডিং < হিরো */

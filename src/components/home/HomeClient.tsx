@@ -536,7 +536,7 @@ export default function HomeClient({
                 <GraduationCap className="w-5 h-5 text-slate-950" />
               </span>
               <div className="flex flex-col">
-                <span className="text-xl font-black tracking-wide text-white group-hover:text-amber-300 transition-colors">
+                <span className="text-xl font-medium tracking-wide text-white group-hover:text-amber-300 transition-colors">
                   আরোহণ
                 </span>
                 <span className="text-[10px] text-slate-400 -mt-1 font-semibold tracking-wider uppercase">
@@ -555,13 +555,13 @@ export default function HomeClient({
           </div>
 
           {/* Navigation Items */}
-          <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 text-xs font-semibold custom-scrollbar">
+          <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 text-xs font-medium custom-scrollbar">
             {/* GROUP: ড্যাশবোর্ড (Dashboard Group) */}
             <div className="space-y-1">
               <button
                 type="button"
                 onClick={() => setDashboardGroupOpen((prev) => !prev)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer font-bold ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer font-medium ${
                   activeNav === "dashboard" ||
                   activeNav === "live_exams" ||
                   activeNav === "free_exams" ||
@@ -571,14 +571,14 @@ export default function HomeClient({
                   activeNav === "bookmarks" ||
                   activeNav === "analytics"
                     ? "text-white bg-slate-800/80 border border-slate-700/60 shadow-sm"
-                    : "text-slate-300 hover:bg-slate-800/40 hover:text-white"
+                    : "text-white hover:bg-slate-800/40 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <LayoutDashboard className="w-4 h-4" />
                   </span>
-                  <span className="text-[13px] font-black tracking-wide">ড্যাশবোর্ড</span>
+                  <span className="text-[15px] font-medium tracking-wide">ড্যাশবোর্ড</span>
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
@@ -596,8 +596,8 @@ export default function HomeClient({
                     onClick={() => handleNavSelect("dashboard")}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all ${
                       activeNav === "dashboard"
-                        ? "bg-indigo-600/30 text-amber-300 font-bold border border-indigo-500/40 shadow-sm"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "bg-indigo-600/30 text-amber-300 font-medium border border-indigo-500/40 shadow-sm"
+                        : "text-white hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
@@ -610,8 +610,8 @@ export default function HomeClient({
                     onClick={() => handleNavSelect("live_exams")}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
                       activeNav === "live_exams"
-                        ? "bg-red-500/20 text-red-300 font-bold border border-red-500/40 shadow-sm"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "bg-red-500/20 text-red-300 font-medium border border-red-500/40 shadow-sm"
+                        : "text-white hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -619,7 +619,7 @@ export default function HomeClient({
                       <span>লাইভ এক্সাম</span>
                     </div>
                     {liveExamKeys.length > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse">
+                      <span className="px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-medium animate-pulse">
                         {toBengaliDigits(liveExamKeys.length)}
                       </span>
                     )}
@@ -631,8 +631,8 @@ export default function HomeClient({
                     onClick={() => handleNavSelect("free_exams")}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
                       activeNav === "free_exams"
-                        ? "bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-sm"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/40 shadow-sm"
+                        : "text-white hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -650,8 +650,8 @@ export default function HomeClient({
                     onClick={() => handleNavSelect("upcoming_exams")}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
                       activeNav === "upcoming_exams"
-                        ? "bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 shadow-sm"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "bg-rose-500/20 text-rose-300 font-medium border border-rose-500/40 shadow-sm"
+                        : "text-white hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -671,8 +671,8 @@ export default function HomeClient({
                     onClick={() => handleNavSelect("mistakes")}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
                       activeNav === "mistakes"
-                        ? "bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 shadow-sm"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "bg-rose-500/20 text-rose-300 font-medium border border-rose-500/40 shadow-sm"
+                        : "text-white hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -692,8 +692,8 @@ export default function HomeClient({
                     onClick={() => handleNavSelect("bookmarks")}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
                       activeNav === "bookmarks"
-                        ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "bg-amber-500/20 text-amber-300 font-medium border border-amber-500/40 shadow-sm"
+                        : "text-white hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -713,8 +713,8 @@ export default function HomeClient({
                     onClick={() => handleNavSelect("analytics")}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${
                       activeNav === "analytics"
-                        ? "bg-blue-600/30 text-blue-200 font-bold border border-blue-500/40 shadow-sm"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "bg-blue-600/30 text-blue-200 font-medium border border-blue-500/40 shadow-sm"
+                        : "text-white hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
@@ -726,7 +726,7 @@ export default function HomeClient({
 
             {/* DIVIDER & SUB-SECTION: নিচের সেকশনগুলো */}
             <div className="pt-2 border-t border-[#1f2c44] space-y-1">
-              <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+              <p className="px-3 text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-2">
                 অনুশীলন ও কোর্স
               </p>
 
@@ -734,10 +734,10 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleNavSelect("practice")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-bold ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${
                   activeNav === "practice"
                     ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    : "text-white hover:bg-white/5 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
@@ -753,10 +753,10 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleNavSelect("question_bank")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-bold ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${
                   activeNav === "question_bank"
                     ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    : "text-white hover:bg-white/5 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
@@ -772,10 +772,10 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleNavSelect("courses")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-bold ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${
                   activeNav === "courses"
                     ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    : "text-white hover:bg-white/5 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
@@ -793,10 +793,10 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleNavSelect("referral")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-bold ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${
                   activeNav === "referral"
                     ? "bg-gradient-to-r from-amber-500/25 to-pink-500/20 text-amber-300 border border-amber-400/40 shadow-sm"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    : "text-white hover:bg-white/5 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
@@ -805,7 +805,7 @@ export default function HomeClient({
                   </span>
                   <span>রেফারেল</span>
                 </div>
-                <span className="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-sm">
+                <span className="bg-amber-400 text-slate-950 font-medium text-[10px] px-2 py-0.5 rounded-full shadow-sm">
                   ৳৫০ অফার
                 </span>
               </button>
@@ -817,7 +817,7 @@ export default function HomeClient({
             {studentUser ? (
               <div className="flex items-center justify-between gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden ring-1 ring-white/20">
+                  <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center font-medium text-xs shrink-0 overflow-hidden ring-1 ring-white/20">
                     {studentUser.photoURL ? (
                       <Image src={studentUser.photoURL} alt="Avatar" width={32} height={32} className="w-full h-full object-cover" />
                     ) : (
@@ -825,7 +825,7 @@ export default function HomeClient({
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate leading-tight">{studentUser.name}</p>
+                    <p className="text-xs font-medium text-white truncate leading-tight">{studentUser.name}</p>
                     <p className="text-[10px] text-slate-400 truncate">স্টুডেন্ট আইডি: {studentUser.uid.slice(0, 6)}</p>
                   </div>
                 </div>
@@ -843,7 +843,7 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={handleLandingLogin}
-                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-medium text-xs flex items-center justify-center gap-2 shadow-md transition cursor-pointer"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Google দিয়ে লগইন</span>
@@ -868,7 +868,7 @@ export default function HomeClient({
               </button>
 
               <div className="min-w-0">
-                <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight truncate">
+                <h1 className="text-xl sm:text-2xl font-medium text-slate-900 leading-tight truncate">
                   {activeNav === "dashboard" && "ড্যাশবোর্ড ওভারভিউ"}
                   {activeNav === "live_exams" && "লাইভ এক্সাম সমূহ"}
                   {activeNav === "free_exams" && "ফ্রী মডেল টেস্ট সমূহ"}
@@ -880,7 +880,7 @@ export default function HomeClient({
                   {activeNav === "courses" && "আরোহণ কোর্স সমূহ"}
                   {activeNav === "referral" && "রেফারেল ও রিওয়ার্ড"}
                 </h1>
-                <p className="text-[11px] text-slate-500 font-semibold truncate hidden sm:block">
+                <p className="text-[11px] text-slate-900 font-normal truncate hidden sm:block">
                   বিসিএস ও সরকারি চাকরির প্রস্তুতিতে আরোহণ আপনার সার্বক্ষণিক সঙ্গী
                 </p>
               </div>
@@ -902,7 +902,7 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleOpenEnrollModal()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-black transition shadow-xs cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-medium transition shadow-xs cursor-pointer active:scale-95"
               >
                 <span>এনরোল করুন</span>
               </button>
@@ -917,7 +917,7 @@ export default function HomeClient({
                 >
                   <Bell className="w-4 h-4" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center shadow-xs border border-white">
+                    <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-medium flex items-center justify-center shadow-xs border border-white">
                       {toBengaliDigits(unreadCount)}
                     </span>
                   )}
@@ -930,7 +930,7 @@ export default function HomeClient({
                       <span className="flex items-center gap-2 font-bold text-xs text-slate-800">
                         <Bell className="w-3.5 h-3.5 text-indigo-600" /> নোটিফিকেশন
                         {unreadCount > 0 && (
-                          <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                          <span className="bg-rose-500 text-white text-[10px] font-medium px-1.5 py-0.2 rounded-full">
                             {toBengaliDigits(unreadCount)} নতুন
                           </span>
                         )}
@@ -1020,10 +1020,10 @@ export default function HomeClient({
                         <History className="w-4 h-4" />
                       </div>
                       <div>
-                        <h3 className="text-base font-black text-slate-900 leading-tight">
+                        <h3 className="text-xl sm:text-2xl font-medium text-slate-900 leading-tight">
                           পরীক্ষার ফলাফল
                         </h3>
-                        <p className="text-[11px] text-slate-500 font-semibold">
+                        <p className="text-[13px] text-slate-900 font-normal mt-1">
                           আপনার অংশগ্রহণকৃত কোর্স ও পরীক্ষার ফলাফল বিবরণী
                         </p>
                       </div>
@@ -1044,27 +1044,6 @@ export default function HomeClient({
             {/* VIEW 2: লাইভ এক্সাম (LIVE EXAMS DEDICATED VIEW) */}
             {activeNav === "live_exams" && (
               <div className="space-y-5 animate-in fade-in duration-200">
-                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-5 rounded-3xl shadow-sm flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-                      <Zap className="w-6 h-6 fill-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-black">লাইভ এক্সাম</h2>
-                      <p className="text-xs text-rose-100 font-semibold mt-0.5">
-                        {toBengaliDigits(liveExamKeys.length)}টি পরীক্ষা এখন চলমান — সরাসরি অংশ নিন
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEnrollModal()}
-                    className="px-3.5 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition"
-                  >
-                    এনরোল কোর্স
-                  </button>
-                </div>
-
                 {liveExamKeys.length === 0 ? (
                   <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 text-slate-500 space-y-2">
                     <Zap className="w-10 h-10 mx-auto text-slate-300" />
@@ -1089,19 +1068,19 @@ export default function HomeClient({
                             </span>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="bg-slate-100 text-slate-800 text-[11px] font-black px-2 py-0.5 rounded-lg border border-slate-200">
+                                <span className="bg-slate-100 text-slate-800 text-[11px] font-medium px-2 py-0.5 rounded-lg border border-slate-200">
                                   {ex.course}
                                 </span>
-                                <span className="bg-red-100 text-red-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-red-300 flex items-center gap-1">
+                                <span className="bg-red-100 text-red-800 text-[10px] font-medium px-2 py-0.5 rounded-md border border-red-300 flex items-center gap-1">
                                   <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping" /> Live
                                 </span>
                                 {ex.isFree && (
-                                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-emerald-300">
+                                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-medium px-2 py-0.5 rounded-md border border-emerald-300">
                                     ফ্রি
                                   </span>
                                 )}
                               </div>
-                              <h3 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-red-700 transition leading-snug">
+                              <h3 className="text-sm sm:text-base font-medium text-slate-900 group-hover:text-red-700 transition leading-snug">
                                 {ex.title}
                               </h3>
                               <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 font-semibold flex-wrap">
@@ -1118,7 +1097,7 @@ export default function HomeClient({
                                 <CheckCircle2 className="w-4 h-4" /> সম্পন্ন হয়েছে
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black shadow-sm group-hover:scale-102 transition">
+                              <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-medium shadow-sm group-hover:scale-102 transition">
                                 <Play className="w-3.5 h-3.5 fill-white" /> অংশ নিন
                               </span>
                             )}
@@ -1142,12 +1121,12 @@ export default function HomeClient({
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-xl sm:text-2xl font-black">ফ্রী মডেল টেস্ট</h2>
-                        <span className="bg-white/20 text-white text-[11px] font-black px-2.5 py-0.5 rounded-full border border-white/30 backdrop-blur-xs">
+                        <h2 className="text-xl sm:text-2xl font-normal">ফ্রী মডেল টেস্ট</h2>
+                        <span className="bg-white/20 text-white text-[11px] font-medium px-2.5 py-0.5 rounded-full border border-white/30 backdrop-blur-xs">
                           {toBengaliDigits(freeExamCourseGroups.length)}টি কোর্স
                         </span>
                       </div>
-                      <p className="text-xs sm:text-sm text-emerald-100 font-semibold mt-1">
+                      <p className="text-xs sm:text-sm text-emerald-100 font-normal mt-1">
                         মোট {toBengaliDigits(freeExamKeys.length)}টি উন্মুক্ত পরীক্ষা — কোর্স অনুযায়ী সাজানো, যেকোনো সময় যাচাই করুন আপনার প্রস্তুতি
                       </p>
                     </div>
@@ -1162,7 +1141,7 @@ export default function HomeClient({
                         <Layers className="w-4 h-4" />
                       </span>
                       <div>
-                        <h3 className="text-xs sm:text-sm font-black text-slate-800 leading-tight">
+                        <h3 className="text-xs sm:text-sm font-medium text-slate-800 leading-tight">
                           কোর্স অনুযায়ী দেখুন
                         </h3>
                         <p className="text-[11px] text-slate-500 font-semibold">
@@ -1175,7 +1154,7 @@ export default function HomeClient({
                       <select
                         value={freeExamCourseFilter}
                         onChange={(e) => setFreeExamCourseFilter(e.target.value)}
-                        className="w-full appearance-none bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 text-xs sm:text-sm font-black border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-2.5 pr-10 transition cursor-pointer outline-none shadow-xs"
+                        className="w-full appearance-none bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 text-xs sm:text-sm font-medium border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-2.5 pr-10 transition cursor-pointer outline-none shadow-xs"
                       >
                         <option value="">
                           সকল কোর্স ({toBengaliDigits(freeExamKeys.length)}টি পরীক্ষা)
@@ -1206,11 +1185,11 @@ export default function HomeClient({
                         {/* Course Group Header */}
                         <div className="bg-gradient-to-r from-slate-50 to-emerald-50/40 px-5 py-3.5 border-b border-slate-200/80 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2.5">
-                            <span className="w-8 h-8 rounded-xl bg-emerald-600/10 text-emerald-700 flex items-center justify-center font-black">
+                            <span className="w-8 h-8 rounded-xl bg-emerald-600/10 text-emerald-700 flex items-center justify-center font-medium">
                               <BookOpen className="w-4 h-4 text-emerald-700" />
                             </span>
                             <div>
-                              <h3 className="text-base font-black text-slate-900 leading-tight">
+                              <h3 className="text-base font-medium text-slate-900 leading-tight">
                                 {courseName}
                               </h3>
                               <span className="text-[11px] text-slate-500 font-bold">
@@ -1218,7 +1197,7 @@ export default function HomeClient({
                               </span>
                             </div>
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                             উন্মুক্ত
                           </span>
                         </div>
@@ -1240,16 +1219,16 @@ export default function HomeClient({
                                   </span>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-emerald-200">
+                                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-medium px-2 py-0.5 rounded-md border border-emerald-200">
                                         ফ্রি মডেল টেস্ট
                                       </span>
                                       {ex.subject && (
-                                        <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded-md border border-slate-200">
+                                        <span className="bg-slate-100 text-slate-700 text-[10px] font-medium px-2 py-0.5 rounded-md border border-slate-200">
                                           {ex.subject}
                                         </span>
                                       )}
                                     </div>
-                                    <h4 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-emerald-700 transition leading-snug">
+                                    <h4 className="text-sm sm:text-base font-medium text-slate-900 group-hover:text-emerald-700 transition leading-snug">
                                       {ex.title}
                                     </h4>
                                     <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500 font-semibold flex-wrap">
@@ -1271,7 +1250,7 @@ export default function HomeClient({
                                       <CheckCircle2 className="w-4 h-4 text-emerald-600" /> সম্পন্ন
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 group-hover:bg-emerald-700 text-white text-xs font-black shadow-sm transition">
+                                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 group-hover:bg-emerald-700 text-white text-xs font-medium shadow-sm transition">
                                       <Play className="w-3.5 h-3.5 fill-white" /> পরীক্ষা দিন
                                     </span>
                                   )}
@@ -1296,7 +1275,7 @@ export default function HomeClient({
                       <CalendarClock className="w-6 h-6" />
                     </div>
                     <div>
-                      <h2 className="text-lg sm:text-xl font-black">আসন্ন মডেল টেস্ট</h2>
+                      <h2 className="text-lg sm:text-xl font-medium">আসন্ন মডেল টেস্ট</h2>
                       <p className="text-xs text-rose-100 font-semibold mt-0.5">
                         {toBengaliDigits(upcomingExamsList.length)}টি পরীক্ষা শুরু হতে বাকি — টাইমার শেষ হতেই লাইভ হবে
                       </p>
@@ -1373,7 +1352,7 @@ export default function HomeClient({
                       <Sparkles className="w-6 h-6 text-indigo-300" />
                     </div>
                     <div>
-                      <h2 className="text-xl sm:text-2xl font-black leading-tight">সেলফ প্র্যাকটিস</h2>
+                      <h2 className="text-xl sm:text-2xl font-medium leading-tight">সেলফ প্র্যাকটিস</h2>
                       <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
                         টপিক-গ্রুপ বেছে নিন, প্রশ্নের সংখ্যা ও মোড ঠিক করুন, তারপর শুরু করুন — সাথে সঙ্গে উত্তর ও ব্যাখ্যা
                       </p>
@@ -1401,7 +1380,7 @@ export default function HomeClient({
                       <BookOpen className="w-6 h-6 text-slate-950" />
                     </div>
                     <div>
-                      <h2 className="text-lg sm:text-xl font-black">সকল কোর্স সমূহ</h2>
+                      <h2 className="text-lg sm:text-xl font-medium">সকল কোর্স সমূহ</h2>
                       <p className="text-xs text-amber-950 font-bold mt-0.5">
                         আপনার পছন্দের কোর্স বেছে নিন ও নিয়মতান্ত্রিক পরীক্ষা দিয়ে নিজেকে প্রস্তুত করুন
                       </p>
@@ -1436,7 +1415,7 @@ export default function HomeClient({
                       <Gift className="w-6 h-6" />
                     </div>
                     <div>
-                      <h2 className="text-lg sm:text-xl font-black">রেফারেল প্রোগ্রাম</h2>
+                      <h2 className="text-lg sm:text-xl font-medium">রেফারেল প্রোগ্রাম</h2>
                       <p className="text-xs text-indigo-200 font-semibold mt-0.5">
                         বন্ধুদের রেফার করে আয় করুন আকর্ষণীয় রিওয়ার্ড ও সহপাঠীদের দিন বিশেষ ছাড়
                       </p>
@@ -1452,7 +1431,7 @@ export default function HomeClient({
           </main>
 
           {/* Simple Clean Footer */}
-          <footer className="mt-auto py-5 px-6 border-t border-slate-200 bg-white text-center text-xs text-slate-500 font-semibold">
+          <footer className="mt-auto py-5 px-6 border-t border-slate-200 bg-white text-center text-xs text-slate-900 font-medium">
             © {new Date().getFullYear()} আরোহণ — বিসিএস ও সরকারি চাকরির প্রস্তুতি পোর্টাল | সর্বস্বত্ব সংরক্ষিত
           </footer>
         </div>

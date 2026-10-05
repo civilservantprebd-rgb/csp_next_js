@@ -197,14 +197,14 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
         <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-4 text-indigo-600">
           <GraduationCap className="w-8 h-8" />
         </div>
-        <h3 className="text-lg font-black text-slate-900 mb-1">আপনার পরীক্ষার ফলাফল দেখতে লগইন করুন</h3>
+        <h3 className="text-lg font-medium text-slate-900 mb-1">আপনার পরীক্ষার ফলাফল দেখতে লগইন করুন</h3>
         <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
           আপনি যে যে কোর্সের পরীক্ষায় অংশগ্রহণ করেছেন, সেই সব কোর্সের বিস্তারিত ফলাফল ও মার্কশীট দেখতে লগইন থাকা আবশ্যক।
         </p>
         <button
           type="button"
           onClick={onLoginPrompt}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-xs sm:text-sm shadow-md transition cursor-pointer active:scale-95"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-medium text-xs sm:text-sm shadow-md transition cursor-pointer active:scale-95"
         >
           <span>গুগল দিয়ে লগইন করুন</span>
           <ArrowRight className="w-4 h-4" />
@@ -230,7 +230,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
         <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center mx-auto mb-4 text-amber-600">
           <BookOpen className="w-8 h-8" />
         </div>
-        <h3 className="text-lg font-black text-slate-900 mb-1">এখনও কোনো পরীক্ষায় অংশগ্রহণ করা হয়নি</h3>
+        <h3 className="text-lg font-medium text-slate-900 mb-1">এখনও কোনো পরীক্ষায় অংশগ্রহণ করা হয়নি</h3>
         <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
           লাইভ এক্সাম কিংবা ফ্রি মডেল টেস্টে অংশগ্রহণ করে আপনার প্রস্তুতি যাচাই করুন। পরীক্ষা দেওয়া শেষ হলেই এখানে কোর্স অনুযায়ী ফলাফল সাজিয়ে দেওয়া হবে।
         </p>
@@ -238,7 +238,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
           <button
             type="button"
             onClick={() => onOpenEnrollModal()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-sm transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-medium text-xs sm:text-sm shadow-sm transition cursor-pointer"
           >
             <span>কোর্সে ভর্তি হোন ও পরীক্ষা দিন</span>
             <ChevronRight className="w-4 h-4" />
@@ -271,19 +271,16 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                 className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer select-none group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-amber-300 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-                    <GraduationCap className="w-6 h-6" />
-                  </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                      <span className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
                         কোর্স
                       </span>
-                      <span className="text-xs text-slate-300 font-semibold">
+                      <span className="text-xs text-slate-300 font-normal">
                         অংশগ্রহণকৃত পরীক্ষা: {toBengaliDigits(course.totalExamsTaken)}টি
                       </span>
                     </div>
-                    <h3 className="text-sm sm:text-base font-bold text-white truncate group-hover:text-amber-300 transition-colors">
+                    <h3 className="text-sm sm:text-base font-medium text-white truncate group-hover:text-amber-300 transition-colors">
                       {course.courseName}
                     </h3>
                   </div>
@@ -293,14 +290,14 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                 <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
                   <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-2 rounded-2xl">
                     <div className="text-left sm:text-right pr-2 border-r border-white/20">
-                      <div className="text-[10px] text-slate-300 font-bold">সর্বোচ্চ নম্বর</div>
-                      <div className="text-xs sm:text-sm font-black text-amber-300">
+                      <div className="text-[10px] text-slate-300 font-medium">সর্বোচ্চ নম্বর</div>
+                      <div className="text-xs sm:text-sm font-medium text-amber-300">
                         {toBengaliDigits(course.highestScore)}
                       </div>
                     </div>
                     <div className="text-left sm:text-right">
-                      <div className="text-[10px] text-slate-300 font-bold">গড় স্কোর</div>
-                      <div className="text-xs sm:text-sm font-black text-emerald-400">
+                      <div className="text-[10px] text-slate-300 font-medium">গড় স্কোর</div>
+                      <div className="text-xs sm:text-sm font-medium text-emerald-400">
                         {toBengaliDigits(course.averageScore)}
                       </div>
                     </div>
@@ -320,7 +317,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
               {/* Course Exams Submissions List - Lazy loaded on click */}
               {isExpanded && (
                 <div className="p-3.5 sm:p-5 bg-slate-50/70 border-t border-slate-200/80 animate-in fade-in duration-200">
-                  <div className="text-xs font-bold text-slate-500 mb-3 px-1 flex items-center justify-between">
+                  <div className="text-xs font-medium text-slate-500 mb-3 px-1 flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <Award className="w-3.5 h-3.5 text-indigo-600" />
                       <span>এই কোর্সের দেওয়া পরীক্ষাসমূহ:</span>
@@ -359,13 +356,13 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                               </div>
 
                               <div className="min-w-0 flex-1">
-                                <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug truncate">
+                                <h4 className="text-sm sm:text-base font-medium text-slate-900 leading-snug truncate">
                                   {item.examTitle}
                                 </h4>
 
-                                <div className="flex items-center gap-2.5 mt-1 text-[11px] text-slate-500 font-semibold flex-wrap">
+                                <div className="flex items-center gap-2.5 mt-1 text-xs text-slate-500 font-medium flex-wrap">
                                   {item.subject && (
-                                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[11px] font-medium">
                                       {item.subject}
                                     </span>
                                   )}
@@ -395,19 +392,19 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                                     className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-50/80 hover:bg-red-100/90 border border-red-200 text-red-950 transition cursor-pointer active:scale-95 shadow-xs"
                                     title="লাইভ পরীক্ষার মার্কশীট ও সমাধান"
                                   >
-                                    <span className="px-1.5 py-0.5 rounded-md bg-red-600 text-white font-black text-[9px] tracking-wide uppercase">
+                                    <span className="px-1.5 py-0.5 rounded-md bg-red-600 text-white font-medium text-[10px] tracking-wide uppercase">
                                       লাইভ
                                     </span>
                                     <div className="text-left">
-                                      <div className="text-[9px] text-red-600/80 font-bold leading-none">প্রাপ্ত নম্বর</div>
-                                      <div className="text-xs sm:text-sm font-black text-red-700 leading-tight">
+                                      <div className="text-[10px] text-red-600/80 font-medium leading-none">প্রাপ্ত নম্বর</div>
+                                      <div className="text-sm sm:text-base font-medium text-red-700 leading-tight">
                                         {toBengaliDigits(live.score)}
                                       </div>
                                     </div>
                                     <ChevronRight className="w-3.5 h-3.5 text-red-500 group-hover:translate-x-0.5 transition-transform" />
                                   </button>
                                 ) : (
-                                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl">
+                                  <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl">
                                     লাইভ: ফলাফল অপেক্ষমাণ
                                   </span>
                                 )
@@ -421,12 +418,12 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                                   className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200 text-emerald-950 transition cursor-pointer active:scale-95 shadow-xs"
                                   title="সর্বশেষ প্র্যাকটিস এটেম্পটের মার্কশীট ও সমাধান"
                                 >
-                                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-600 text-white font-black text-[9px] tracking-wide">
+                                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-600 text-white font-medium text-[10px] tracking-wide">
                                     প্র্যাকটিস
                                   </span>
                                   <div className="text-left">
-                                    <div className="text-[9px] text-emerald-600/80 font-bold leading-none">সর্বশেষ স্কোর</div>
-                                    <div className="text-xs sm:text-sm font-black text-emerald-700 leading-tight">
+                                    <div className="text-[10px] text-emerald-600/80 font-medium leading-none">সর্বশেষ স্কোর</div>
+                                    <div className="text-sm sm:text-base font-medium text-emerald-700 leading-tight">
                                       {toBengaliDigits(practice.score)}
                                     </div>
                                   </div>
