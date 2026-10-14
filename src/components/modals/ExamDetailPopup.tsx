@@ -28,6 +28,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
 }) => {
   const [solutions, setSolutions] = useState<QuestionSolution[] | null>(null);
   const [examQuestions, setExamQuestions] = useState<QuestionItem[] | null>(null);
+  const [studentAnswers, setStudentAnswers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // আগে সংক্ষিপ্ত (brief) ফলাফল — শিক্ষার্থী চাইলে "বিস্তারিত" চেপে প্রশ্ন-রিভিউ খোলে
   const [showDetails, setShowDetails] = useState(false);
@@ -36,6 +37,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
   useEffect(() => {
     if (isOpen && submission) {
       setIsLoading(true);
+      setStudentAnswers(submission.answers || []);
       // PERF: একটাই টার্গেটেড কল — শুধু ওই exam-এর exam-মেটা + প্রশ্ন + (রিলিজ হলে)
       // উত্তর। আগে দুটি আলাদা কল হতো (fetchExamWithQuestions + getExamSolutions)।
       import("@/actions/exam-actions")
@@ -44,20 +46,29 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
           if (!bundle) {
             setExamQuestions(null);
             setSolutions(null);
+            setStudentAnswers([]);
             setIsLoading(false);
             return;
           }
           setExamQuestions(bundle.questions);
           setSolutions(bundle.solutions);
-          setIsLoading(false);
-          const qs = bundle.questions.length > 0 ? bundle.questions : exam?.questions || [];
-          if (bundle.solutions && qs.length > 0 && submission.studentId) {
-            let loadedAnswers = submission.answers || [];
-            if ((!loadedAnswers || loadedAnswers.length === 0) && submission.id) {
+
+          // On-demand: লোড করা উত্তর না থাকলে ডেটাবেজ থেকে নিয়ে আসি
+          let loadedAnswers = submission.answers || [];
+          if ((!loadedAnswers || loadedAnswers.length === 0) && submission.id) {
+            try {
               const { getSubmissionAnswers } = await import("@/actions/student-actions");
               const res = await getSubmissionAnswers(submission.id);
-              if (res) loadedAnswers = res;
+              if (res && res.length > 0) loadedAnswers = res;
+            } catch (err) {
+              console.error("Failed to load submission answers:", err);
             }
+          }
+          setStudentAnswers(loadedAnswers || []);
+          setIsLoading(false);
+
+          const qs = bundle.questions.length > 0 ? bundle.questions : exam?.questions || [];
+          if (bundle.solutions && qs.length > 0 && submission.studentId) {
             let mappedAnswers = loadedAnswers || [];
             if (mappedAnswers.length > 0 && typeof mappedAnswers[0] === "object" && mappedAnswers[0] !== null && "qid" in mappedAnswers[0]) {
                const answerMap = new Map();
@@ -209,126 +220,153 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
             </div>
 
             {showDetails && (
-              <div className="space-y-4">
-                {displayQuestions.map((q, qIdx) => {
-                const isNewFormat = submission.answers?.length > 0 && typeof submission.answers[0] === 'object' && submission.answers[0] !== null && 'qid' in submission.answers[0];
-                let studentAnsIdx = null;
-                if (isNewFormat) {
-                   const matched: any = submission.answers.find((a: any) => a && typeof a === 'object' && a.qid === q.id);
-                   studentAnsIdx = matched && matched.ans !== -1 ? matched.ans : null;
-                } else {
-                   studentAnsIdx = submission.answers?.[qIdx] ?? null;
-                }
-                const sol = solutions?.[qIdx] || { correct: 0, exp: "" };
-                const isCorrect = studentAnsIdx !== null && studentAnsIdx === sol.correct;
-                const isSkipped = studentAnsIdx === null;
+              <div id="popup-details-section" className="space-y-4">
+                {(() => {
+                  const effectiveAnswers = studentAnswers.length > 0 ? studentAnswers : (submission.answers || []);
+                  const isNewFormat = effectiveAnswers.length > 0 && typeof effectiveAnswers[0] === 'object' && effectiveAnswers[0] !== null && 'qid' in effectiveAnswers[0];
 
-                // filter mode
-                if (filterMode === "correct" && !isCorrect) return null;
-                if (filterMode === "incorrect" && (isCorrect || isSkipped)) return null;
-                if (filterMode === "skipped" && !isSkipped) return null;
+                  const renderedItems = displayQuestions.map((q, qIdx) => {
+                    let studentAnsIdx: number | null = null;
+                    if (isNewFormat) {
+                      const matched: any = effectiveAnswers.find((a: any) => a && typeof a === 'object' && a.qid === q.id);
+                      if (matched && matched.ans !== null && matched.ans !== undefined && matched.ans !== -1 && matched.ans !== "") {
+                        studentAnsIdx = Number(matched.ans);
+                      }
+                    } else {
+                      const raw = effectiveAnswers?.[qIdx];
+                      if (raw !== null && raw !== undefined && raw !== -1 && raw !== "") {
+                        studentAnsIdx = typeof raw === "object" && "ans" in raw ? (raw.ans === -1 ? null : Number(raw.ans)) : Number(raw);
+                      }
+                    }
 
+                    const sol = solutions?.find((s: any) => s.id && s.id === q.id) || solutions?.[qIdx] || { correct: 0, exp: "" };
+                    const solCorrect = Number(sol.correct);
+                    const isCorrect = studentAnsIdx !== null && studentAnsIdx === solCorrect;
+                    const isSkipped = studentAnsIdx === null;
 
-                const statusPill = isSkipped ? (
-                  <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[11px] font-black">
-                    <MinusCircle className="w-3 h-3" /> বাদ পড়েছে
-                  </span>
-                ) : isCorrect ? (
-                  <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-lg text-[11px] font-black">
-                    <CheckCircle2 className="w-3 h-3" /> সঠিক
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 px-2 py-0.5 rounded-lg text-[11px] font-black">
-                    <XCircle className="w-3 h-3" /> ভুল
-                  </span>
-                );
+                    // filter mode
+                    if (filterMode === "correct" && !isCorrect) return null;
+                    if (filterMode === "incorrect" && (isCorrect || isSkipped)) return null;
+                    if (filterMode === "skipped" && !isSkipped) return null;
 
-                return (
-                  <div
-                    key={qIdx}
-                    className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${
-                      isSkipped ? "border-slate-200" : isCorrect ? "border-emerald-200" : "border-rose-200"
-                    }`}
-                  >
-                    {/* Question header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-black text-slate-900 text-sm sm:text-base leading-relaxed">
-                        <span className="text-indigo-600 mr-1.5">{toBengaliDigits(qIdx + 1)}.</span>
-                        <MathText text={q.q} />
-                      </h4>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <BookmarkButton
-                          size="sm"
-                          studentId={submission.studentId}
-                          question={{
-                            q: q.q,
-                            opts: q.opts,
-                            correct: sol.correct,
-                            exp: sol.exp,
-                            userAns: studentAnsIdx,
-                            examTitle: submission.examTitle,
-                            topic: q.topic,
-                            subject: exam?.subject || ""
-                          }}
-                        />
-                        {statusPill}
-                      </div>
-                    </div>
+                    const statusPill = isSkipped ? (
+                      <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[11px] font-black">
+                        <MinusCircle className="w-3 h-3" /> বাদ পড়েছে
+                      </span>
+                    ) : isCorrect ? (
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-lg text-[11px] font-black">
+                        <CheckCircle2 className="w-3 h-3" /> সঠিক
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 px-2 py-0.5 rounded-lg text-[11px] font-black">
+                        <XCircle className="w-3 h-3" /> ভুল
+                      </span>
+                    );
 
-                    {/* Options */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-                      {q.opts.map((opt, oIdx) => {
-                        const isAns = oIdx === sol.correct;
-                        const isStudent = oIdx === studentAnsIdx;
-                        let boxCls = "border-slate-200 bg-slate-50 text-slate-700";
-                        if (isAns) boxCls = "border-emerald-300 bg-emerald-50 text-emerald-950 font-bold";
-                        if (isStudent && !isAns) boxCls = "border-rose-300 bg-rose-50 text-rose-950 font-bold";
-                        if (isAns && isStudent) boxCls = "border-emerald-400 bg-emerald-100 text-emerald-950 font-bold";
-                        return (
-                          <div key={oIdx} className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs sm:text-sm ${boxCls}`}>
-                            <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0 bg-slate-800 text-white">
-                              {optLabels[oIdx]}
-                            </span>
-                            <span className="flex-1"><MathText text={opt} /></span>
-                            {isAns && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-                            {isStudent && !isAns && <XCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+                    return (
+                      <div
+                        key={qIdx}
+                        className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${
+                          isSkipped ? "border-slate-200" : isCorrect ? "border-emerald-200" : "border-rose-200"
+                        }`}
+                      >
+                        {/* Question header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-black text-slate-900 text-sm sm:text-base leading-relaxed">
+                            <span className="text-indigo-600 mr-1.5">{toBengaliDigits(qIdx + 1)}.</span>
+                            <MathText text={q.q} />
+                          </h4>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <BookmarkButton
+                              size="sm"
+                              studentId={submission.studentId}
+                              question={{
+                                q: q.q,
+                                opts: q.opts,
+                                correct: solCorrect,
+                                exp: sol.exp,
+                                userAns: studentAnsIdx,
+                                examTitle: submission.examTitle,
+                                topic: q.topic,
+                                subject: exam?.subject || ""
+                              }}
+                            />
+                            {statusPill}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
 
-                    {/* Answer summary */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs sm:text-sm">
-                      <span className="text-slate-600">
-                        আপনার উত্তর:{" "}
-                        <strong className={isCorrect ? "text-emerald-700" : isSkipped ? "text-slate-400" : "text-rose-700"}>
-                          {isSkipped ? (
-                            "দেওয়া হয়নি"
-                          ) : (
-                            <>
-                              {optLabels[studentAnsIdx!]} (<MathText text={q.opts[studentAnsIdx!] || "—"} />)
-                            </>
-                          )}
-                        </strong>
-                      </span>
-                      <span className="text-emerald-700">
-                        সঠিক উত্তর:{" "}
-                        <strong>
-                          {optLabels[sol.correct]} (<MathText text={q.opts[sol.correct] || "—"} />)
-                        </strong>
-                      </span>
-                    </div>
+                        {/* Options */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                          {q.opts.map((opt, oIdx) => {
+                            const isAns = oIdx === solCorrect;
+                            const isStudent = oIdx === studentAnsIdx;
+                            let boxCls = "border-slate-200 bg-slate-50 text-slate-700";
+                            if (isAns) boxCls = "border-emerald-300 bg-emerald-50 text-emerald-950 font-bold";
+                            if (isStudent && !isAns) boxCls = "border-rose-300 bg-rose-50 text-rose-950 font-bold";
+                            if (isAns && isStudent) boxCls = "border-emerald-400 bg-emerald-100 text-emerald-950 font-bold";
+                            return (
+                              <div key={oIdx} className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs sm:text-sm ${boxCls}`}>
+                                <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0 bg-slate-800 text-white">
+                                  {optLabels[oIdx]}
+                                </span>
+                                <span className="flex-1"><MathText text={opt} /></span>
+                                {isAns && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                                {isStudent && !isAns && <XCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+                              </div>
+                            );
+                          })}
+                        </div>
 
-                    {/* Explanation */}
-                    {sol.exp && (
-                      <div className="mt-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                        <strong className="text-amber-900 block mb-0.5">ব্যাখ্যা:</strong>
-                        <MathText text={sol.exp} />
+                        {/* Answer summary */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs sm:text-sm">
+                          <span className="text-slate-600">
+                            আপনার উত্তর:{" "}
+                            <strong className={isCorrect ? "text-emerald-700" : isSkipped ? "text-slate-400" : "text-rose-700"}>
+                              {isSkipped ? (
+                                "দেওয়া হয়নি"
+                              ) : (
+                                <>
+                                  {optLabels[studentAnsIdx!]} (<MathText text={q.opts[studentAnsIdx!] || "—"} />)
+                                </>
+                              )}
+                            </strong>
+                          </span>
+                          <span className="text-emerald-700">
+                            সঠিক উত্তর:{" "}
+                            <strong>
+                              {optLabels[solCorrect]} (<MathText text={q.opts[solCorrect] || "—"} />)
+                            </strong>
+                          </span>
+                        </div>
+
+                        {/* Explanation */}
+                        {sol.exp && (
+                          <div className="mt-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                            <strong className="text-amber-900 block mb-0.5">ব্যাখ্যা:</strong>
+                            <MathText text={sol.exp} />
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  });
+
+                  const visibleItems = renderedItems.filter(Boolean);
+                  if (visibleItems.length === 0) {
+                    return (
+                      <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl text-slate-500 font-medium">
+                        {filterMode === "incorrect"
+                          ? "এই পরীক্ষায় আপনার কোনো ভুল উত্তর নেই।"
+                          : filterMode === "correct"
+                          ? "এই ফিল্টারে কোনো সঠিক উত্তর নেই।"
+                          : filterMode === "skipped"
+                          ? "এই পরীক্ষায় আপনার কোনো বাদ পড়া প্রশ্ন নেই।"
+                          : "এই ফিল্টারে দেখানোর মতো কোনো প্রশ্ন নেই।"}
+                      </div>
+                    );
+                  }
+
+                  return visibleItems;
+                })()}
               </div>
             )}
 

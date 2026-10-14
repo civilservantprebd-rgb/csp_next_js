@@ -27,15 +27,15 @@ export default async function PracticePage() {
 
       <main className="flex-grow w-full p-3 sm:p-5 md:p-6 font-bengali space-y-5">
         {/* Page header */}
-        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-800">
+        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-5 rounded-3xl shadow-sm flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0">
-              <Sparkles className="w-6 h-6 text-indigo-300" />
+            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+              <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black leading-tight">সেলফ প্র্যাকটিস</h1>
-              <p className="text-xs sm:text-sm text-slate-400">
-                টপিক-গ্রুপ বেছে নিন, প্রশ্নের সংখ্যা ও মোড ঠিক করুন, তারপর শুরু করুন — সাথে সঙ্গে উত্তর ও ব্যাখ্যা
+              <h1 className="text-lg sm:text-xl font-medium">সেলফ প্র্যাকটিস</h1>
+              <p className="text-xs text-teal-50 font-bold mt-0.5">
+                টপিক-গ্রুপ ও মোড বেছে নিয়ে আপনার অনুশীলন শুরু করুন
               </p>
             </div>
           </div>

@@ -167,6 +167,7 @@ export async function getExamResultBundle(examKey: string): Promise<{
       ? sorted.map((l: any) => {
           const qb = Array.isArray(l.question_bank) ? l.question_bank[0] : l.question_bank;
           return {
+            id: qb?.id,
             correct: Number(qb?.correct ?? 0),
             exp: qb?.exp || ""
           };

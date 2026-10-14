@@ -29,14 +29,31 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
     });
   }
 
-  return (
-    <div className="space-y-4 font-bengali">
-      {questions.map((q, idx) => {
-        let rawAns = isNewFormat ? (q.id && answerMap.has(q.id) ? answerMap.get(q.id) : null) : studentAnswers[idx];
-        if (rawAns === -1 || rawAns === undefined) rawAns = null;
-        const ans = rawAns as number | null;
-        const sol = solutions[idx] || { correct: 0, exp: "" };
-        const isCorrect = ans === sol.correct;
+  const elements = questions.map((q, idx) => {
+        let rawAns: any = null;
+        const currentStudentAns = studentAnswers[idx];
+
+        if (isNewFormat) {
+          const expectedQid = q.id || `unknown-${idx}`;
+          if (answerMap.has(expectedQid)) {
+            rawAns = answerMap.get(expectedQid);
+          } else if (currentStudentAns && typeof currentStudentAns === "object" && "ans" in currentStudentAns) {
+            rawAns = currentStudentAns.ans;
+          }
+        } else {
+          rawAns = currentStudentAns;
+          if (rawAns && typeof rawAns === "object" && "ans" in rawAns) {
+             rawAns = rawAns.ans;
+          }
+        }
+        
+        if (rawAns === -1 || rawAns === "" || rawAns === undefined) {
+          rawAns = null;
+        }
+        const ans = rawAns !== null ? Number(rawAns) : null;
+        const sol = (q.id && solutions.find((s: any) => s.id && s.id === q.id)) || solutions[idx] || { correct: 0, exp: "" };
+        const correctNum = Number(sol.correct);
+        const isCorrect = ans === correctNum;
         const isSkipped = ans === null;
         
         if (filterMode === "correct" && !isCorrect) return null;
@@ -90,7 +107,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
               <div className="grid gap-2">
                 {q.opts.map((opt, i) => {
                   const isUserAns = ans === i;
-                  const isCorrectAns = sol.correct === i;
+                  const isCorrectAns = correctNum === i;
                   
                   let optStyle = "border-slate-200 bg-white text-slate-700";
                   let icon = <div className="w-5 h-5 rounded-full border-2 border-slate-300 flex-shrink-0" />;
@@ -147,7 +164,19 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
             )}
           </div>
         );
-      })}
+      });
+
+  const visibleElements = elements.filter(Boolean);
+
+  return (
+    <div className="space-y-4 font-bengali">
+      {visibleElements.length === 0 ? (
+        <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-2xl text-slate-500 font-medium">
+          এই ফিল্টারে দেখানোর মতো কোনো প্রশ্ন নেই। 
+        </div>
+      ) : (
+        visibleElements
+      )}
     </div>
   );
 };

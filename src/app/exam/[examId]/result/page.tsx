@@ -154,6 +154,12 @@ export default function ExamResultPage() {
       }
     }
     setShowReview(forceShow === true ? true : !showReview);
+    if (forceShow === true || !showReview) {
+      setTimeout(() => {
+        const el = document.getElementById("review-section");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
   };
 
   if (!resultData) {
@@ -333,7 +339,7 @@ export default function ExamResultPage() {
 
 
           {showReview && exam && solutions && (
-            <div className="pt-4 border-t border-slate-100 space-y-4">
+            <div id="review-section" className="pt-4 border-t border-slate-100 space-y-4">
               <h3 className="font-bold text-slate-900 text-sm sm:text-base">সকল প্রশ্নের সঠিক উত্তর ও ব্যাখ্যা:</h3>
               <ReviewCard
                 questions={exam.questions || []}

@@ -63,7 +63,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
             setEnrolledCourses(res.courses);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, []);
 
@@ -76,14 +76,11 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
 
   return (
     <section className="font-bengali rounded-3xl bg-white border border-slate-200 shadow-sm p-5 sm:p-7 transition-all duration-300 space-y-6">
+      {/* 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-indigo-100">
-        <div className="space-y-2.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100/90 text-indigo-950 border border-indigo-200 text-xs font-bold shadow-sm">
-            <Layers className="w-3.5 h-3.5 text-indigo-700" />
-            <span>আমাদের ব্যাচ</span>
-          </div>
-        </div>
+
       </div>
+      */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sortedCourses.map((courseName) => {
@@ -143,11 +140,10 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                         onOpenEnrollModal(courseName);
                       }}
                       disabled={isEnrolled}
-                      className={`mt-4 w-full sm:w-auto font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 shrink-0 ${
-                        isEnrolled
-                          ? "bg-emerald-900/40 text-emerald-100 cursor-not-allowed border border-emerald-500/30 shadow-none"
-                          : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-emerald-500/20 cursor-pointer"
-                      }`}
+                      className={`mt-4 w-full sm:w-auto font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 shrink-0 ${isEnrolled
+                        ? "bg-emerald-900/40 text-emerald-100 cursor-not-allowed border border-emerald-500/30 shadow-none"
+                        : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-emerald-500/20 cursor-pointer"
+                        }`}
                     >
                       {isEnrolled ? (
                         <>

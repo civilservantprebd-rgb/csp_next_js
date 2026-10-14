@@ -171,8 +171,10 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
 
       // Sort exams: whose live ended latest comes first
       examItems.sort((a, b) => {
-        if (b.liveEndMs !== a.liveEndMs) {
-          return b.liveEndMs - a.liveEndMs;
+        const endB = b.liveEndMs ?? 0;
+        const endA = a.liveEndMs ?? 0;
+        if (endB !== endA) {
+          return endB - endA;
         }
         const tA = a.latestSubmissionDate ? new Date(a.latestSubmissionDate).getTime() : 0;
         const tB = b.latestSubmissionDate ? new Date(b.latestSubmissionDate).getTime() : 0;

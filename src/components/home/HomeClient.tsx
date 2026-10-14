@@ -69,8 +69,8 @@ const StudentAuthModal = dynamic(() => import("@/components/modals/StudentAuthMo
 const StudentPortalLoginModal = dynamic(() => import("@/components/modals/StudentPortalLoginModal").then((m) => m.StudentPortalLoginModal), { ssr: false });
 const StudentDashboardModal = dynamic(() => import("@/components/modals/StudentDashboardModal").then((m) => m.StudentDashboardModal), { ssr: false });
 const ExamDetailPopup = dynamic(() => import("@/components/modals/ExamDetailPopup").then((m) => m.ExamDetailPopup), { ssr: false });
-const PracticeHub = dynamic(() => import("@/components/dashboard/PracticeHub").then((m) => m.PracticeHub), { ssr: false });
 const QuestionBankView = dynamic(() => import("@/components/dashboard/QuestionBankView").then((m) => m.QuestionBankView), { ssr: false });
+const LeaderboardView = dynamic(() => import("@/components/dashboard/LeaderboardView").then((m) => m.LeaderboardView), { ssr: false });
 
 const hasAuthTokensInUrl = () => {
   if (typeof window === "undefined") return false;
@@ -88,6 +88,7 @@ export type ActiveNavKey =
   | "mistakes"
   | "bookmarks"
   | "analytics"
+  | "leaderboard"
   | "practice"
   | "question_bank"
   | "courses"
@@ -222,7 +223,7 @@ export default function HomeClient({
             url.searchParams.delete("error_description");
             history.replaceState({}, "", url);
           }
-        } catch {}
+        } catch { }
       }
 
       if (cancelled || typeof window === "undefined") {
@@ -449,7 +450,7 @@ export default function HomeClient({
       const local = getLocalStudentUser();
       const list = await getRecentNotifications(local ? { id: local.uid, email: local.email } : null);
       setNotifs(list);
-    } catch {}
+    } catch { }
     setNotifLoading(false);
   };
 
@@ -525,9 +526,8 @@ export default function HomeClient({
 
         {/* ----------------- LEFT SIDEBAR ----------------- */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#141d2e] text-slate-300 flex flex-col border-r border-[#1f2c44] shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-            mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#141d2e] text-slate-300 flex flex-col border-r border-[#1f2c44] shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           {/* Logo & Brand Name */}
           <div className="h-16 px-5 border-b border-[#1f2c44] flex items-center justify-between">
@@ -561,18 +561,18 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => setDashboardGroupOpen((prev) => !prev)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer font-medium ${
-                  activeNav === "dashboard" ||
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer font-medium ${activeNav === "dashboard" ||
                   activeNav === "live_exams" ||
                   activeNav === "free_exams" ||
                   activeNav === "upcoming_exams" ||
                   activeNav === "results" ||
                   activeNav === "mistakes" ||
                   activeNav === "bookmarks" ||
-                  activeNav === "analytics"
-                    ? "text-white bg-slate-800/80 border border-slate-700/60 shadow-sm"
-                    : "text-white hover:bg-slate-800/40 hover:text-white"
-                }`}
+                  activeNav === "analytics" ||
+                  activeNav === "leaderboard"
+                  ? "text-white bg-slate-800/80 border border-slate-700/60 shadow-sm"
+                  : "text-white hover:bg-slate-800/40 hover:text-white"
+                  }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
@@ -581,9 +581,8 @@ export default function HomeClient({
                   <span className="text-[15px] font-medium tracking-wide">ড্যাশবোর্ড</span>
                 </div>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                    dashboardGroupOpen ? "rotate-0" : "-rotate-90"
-                  }`}
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${dashboardGroupOpen ? "rotate-0" : "-rotate-90"
+                    }`}
                 />
               </button>
 
@@ -594,11 +593,10 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("dashboard")}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all ${
-                      activeNav === "dashboard"
-                        ? "bg-indigo-600/30 text-amber-300 font-medium border border-indigo-500/40 shadow-sm"
-                        : "text-white hover:text-white hover:bg-white/5"
-                    }`}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all ${activeNav === "dashboard"
+                      ? "bg-indigo-600/30 text-amber-300 font-medium border border-indigo-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                     <span>ওভারভিউ</span>
@@ -608,11 +606,10 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("live_exams")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
-                      activeNav === "live_exams"
-                        ? "bg-red-500/20 text-red-300 font-medium border border-red-500/40 shadow-sm"
-                        : "text-white hover:text-white hover:bg-white/5"
-                    }`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "live_exams"
+                      ? "bg-red-500/20 text-red-300 font-medium border border-red-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <Zap className="w-3.5 h-3.5 text-red-400" />
@@ -629,11 +626,10 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("free_exams")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
-                      activeNav === "free_exams"
-                        ? "bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/40 shadow-sm"
-                        : "text-white hover:text-white hover:bg-white/5"
-                    }`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "free_exams"
+                      ? "bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
@@ -648,11 +644,10 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("upcoming_exams")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
-                      activeNav === "upcoming_exams"
-                        ? "bg-rose-500/20 text-rose-300 font-medium border border-rose-500/40 shadow-sm"
-                        : "text-white hover:text-white hover:bg-white/5"
-                    }`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "upcoming_exams"
+                      ? "bg-rose-500/20 text-rose-300 font-medium border border-rose-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <CalendarClock className="w-3.5 h-3.5 text-rose-400" />
@@ -669,11 +664,10 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("mistakes")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
-                      activeNav === "mistakes"
-                        ? "bg-rose-500/20 text-rose-300 font-medium border border-rose-500/40 shadow-sm"
-                        : "text-white hover:text-white hover:bg-white/5"
-                    }`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "mistakes"
+                      ? "bg-rose-500/20 text-rose-300 font-medium border border-rose-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <AlertOctagon className="w-3.5 h-3.5 text-rose-400" />
@@ -690,11 +684,10 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("bookmarks")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${
-                      activeNav === "bookmarks"
-                        ? "bg-amber-500/20 text-amber-300 font-medium border border-amber-500/40 shadow-sm"
-                        : "text-white hover:text-white hover:bg-white/5"
-                    }`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "bookmarks"
+                      ? "bg-amber-500/20 text-amber-300 font-medium border border-amber-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <Bookmark className="w-3.5 h-3.5 text-amber-400" />
@@ -711,14 +704,26 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("analytics")}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${
-                      activeNav === "analytics"
-                        ? "bg-blue-600/30 text-blue-200 font-medium border border-blue-500/40 shadow-sm"
-                        : "text-white hover:text-white hover:bg-white/5"
-                    }`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${activeNav === "analytics"
+                      ? "bg-blue-600/30 text-blue-200 font-medium border border-blue-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
                     <span>এনালাইসিস</span>
+                  </button>
+
+                  {/* লিডারবোর্ড */}
+                  <button
+                    type="button"
+                    onClick={() => handleNavSelect("leaderboard")}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${activeNav === "leaderboard"
+                      ? "bg-amber-500/20 text-amber-300 font-medium border border-amber-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    <span>লিডারবোর্ড</span>
                   </button>
                 </div>
               )}
@@ -730,40 +735,21 @@ export default function HomeClient({
                 অনুশীলন ও কোর্স
               </p>
 
-              {/* প্র্যাকটিস */}
-              <button
-                type="button"
-                onClick={() => handleNavSelect("practice")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${
-                  activeNav === "practice"
-                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm"
-                    : "text-white hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center">
-                    <Sparkles className="w-3.5 h-3.5" />
-                  </span>
-                  <span>প্রেকটিস</span>
-                </div>
-                <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "practice" ? "text-teal-400" : "text-slate-500"}`} />
-              </button>
 
               {/* প্রশ্ন ব্যাংক */}
               <button
                 type="button"
                 onClick={() => handleNavSelect("question_bank")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${
-                  activeNav === "question_bank"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                    : "text-white hover:bg-white/5 hover:text-white"
-                }`}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "question_bank"
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                  : "text-white hover:bg-white/5 hover:text-white"
+                  }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
                     <Layers className="w-3.5 h-3.5" />
                   </span>
-                  <span>প্রশ্ন ব্যাংক</span>
+                  <span>অনুশীলন</span>
                 </div>
                 <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "question_bank" ? "text-cyan-400" : "text-slate-500"}`} />
               </button>
@@ -772,11 +758,10 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleNavSelect("courses")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${
-                  activeNav === "courses"
-                    ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm"
-                    : "text-white hover:bg-white/5 hover:text-white"
-                }`}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "courses"
+                  ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm"
+                  : "text-white hover:bg-white/5 hover:text-white"
+                  }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
@@ -793,11 +778,10 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleNavSelect("referral")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${
-                  activeNav === "referral"
-                    ? "bg-gradient-to-r from-amber-500/25 to-pink-500/20 text-amber-300 border border-amber-400/40 shadow-sm"
-                    : "text-white hover:bg-white/5 hover:text-white"
-                }`}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "referral"
+                  ? "bg-gradient-to-r from-amber-500/25 to-pink-500/20 text-amber-300 border border-amber-400/40 shadow-sm"
+                  : "text-white hover:bg-white/5 hover:text-white"
+                  }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center shadow-sm">
@@ -877,10 +861,12 @@ export default function HomeClient({
                   {activeNav === "mistakes" && "ভুল উত্তরের খাতা"}
                   {activeNav === "bookmarks" && "বুকমার্ককৃত প্রশ্নাবলী"}
                   {activeNav === "analytics" && "শক্তি ও দুর্বলতা এনালাইসিস"}
+                  {activeNav === "leaderboard" && "মেধা তালিকা ও লিডারবোর্ড"}
+                  {activeNav === "question_bank" && "অনুশীলন"}
                   {activeNav === "courses" && "আরোহণ কোর্স সমূহ"}
                   {activeNav === "referral" && "রেফারেল ও রিওয়ার্ড"}
                 </h1>
-                <p className="text-[11px] text-slate-900 font-normal truncate hidden sm:block">
+                <p className="text-xs sm:text-sm text-slate-600 font-normal truncate hidden sm:block mt-0.5">
                   বিসিএস ও সরকারি চাকরির প্রস্তুতিতে আরোহণ আপনার সার্বক্ষণিক সঙ্গী
                 </p>
               </div>
@@ -891,7 +877,7 @@ export default function HomeClient({
               {/* Leaderboard button */}
               <button
                 type="button"
-                onClick={() => router.push(`/leaderboard/${selectedExamKey || "exam_01"}`)}
+                onClick={() => handleNavSelect("leaderboard")}
                 className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-indigo-50 border border-slate-200 text-slate-700 hover:text-indigo-700 text-xs font-bold transition shadow-xs"
               >
                 <Trophy className="w-3.5 h-3.5 text-amber-500" />
@@ -906,7 +892,7 @@ export default function HomeClient({
               >
                 <span>এনরোল করুন</span>
               </button>
-              
+
               {/* Notifications Bell */}
               <div className="relative">
                 <button
@@ -1038,6 +1024,14 @@ export default function HomeClient({
                     onLoginPrompt={() => loginWithGoogle(undefined, "/")}
                   />
                 </div>
+
+                {/* মেধা তালিকা ও লিডারবোর্ড সেকশন — সরাসরি ড্যাশবোর্ড ওভারভিউতে */}
+                <div className="pt-2">
+                  <LeaderboardView
+                    exams={examsObj}
+                    initialExamKey={selectedExamKey || "exam_01"}
+                  />
+                </div>
               </div>
             )}
 
@@ -1113,25 +1107,7 @@ export default function HomeClient({
             {/* VIEW 3: ফ্রী মডেল টেস্ট (FREE EXAMS DEDICATED VIEW) */}
             {activeNav === "free_exams" && (
               <div className="space-y-6 animate-in fade-in duration-200">
-                {/* Header Banner */}
-                <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-5 sm:p-6 rounded-3xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 shadow-inner">
-                      <Sparkles className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-xl sm:text-2xl font-normal">ফ্রী মডেল টেস্ট</h2>
-                        <span className="bg-white/20 text-white text-[11px] font-medium px-2.5 py-0.5 rounded-full border border-white/30 backdrop-blur-xs">
-                          {toBengaliDigits(freeExamCourseGroups.length)}টি কোর্স
-                        </span>
-                      </div>
-                      <p className="text-xs sm:text-sm text-emerald-100 font-normal mt-1">
-                        মোট {toBengaliDigits(freeExamKeys.length)}টি উন্মুক্ত পরীক্ষা — কোর্স অনুযায়ী সাজানো, যেকোনো সময় যাচাই করুন আপনার প্রস্তুতি
-                      </p>
-                    </div>
-                  </div>
-                </div>
+
 
                 {/* Course Filter Dropdown Box */}
                 {freeExamCourseGroups.length > 1 && (
@@ -1301,7 +1277,7 @@ export default function HomeClient({
                   studentId={activePortalStudentId}
                   exams={examsObj}
                   config={config}
-                  onClose={() => {}}
+                  onClose={() => { }}
                   onSelectSubmissionDetail={(sub) => setSelectedSubmissionForPopup(sub)}
                 />
               </div>
@@ -1319,7 +1295,7 @@ export default function HomeClient({
                   studentId={activePortalStudentId}
                   exams={examsObj}
                   config={config}
-                  onClose={() => {}}
+                  onClose={() => { }}
                   onSelectSubmissionDetail={(sub) => setSelectedSubmissionForPopup(sub)}
                 />
               </div>
@@ -1337,31 +1313,18 @@ export default function HomeClient({
                   studentId={activePortalStudentId}
                   exams={examsObj}
                   config={config}
-                  onClose={() => {}}
+                  onClose={() => { }}
                   onSelectSubmissionDetail={(sub) => setSelectedSubmissionForPopup(sub)}
                 />
               </div>
             )}
 
-            {/* VIEW: সেলফ প্র্যাকটিস (PRACTICE HUB VIEW) */}
-            {activeNav === "practice" && (
-              <div className="space-y-5 animate-in fade-in duration-200">
-                <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-800 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0 shadow-inner">
-                      <Sparkles className="w-6 h-6 text-indigo-300" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl sm:text-2xl font-medium leading-tight">সেলফ প্র্যাকটিস</h2>
-                      <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
-                        টপিক-গ্রুপ বেছে নিন, প্রশ্নের সংখ্যা ও মোড ঠিক করুন, তারপর শুরু করুন — সাথে সঙ্গে উত্তর ও ব্যাখ্যা
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <PracticeHub onOpenEnrollModal={handleOpenEnrollModal} />
-              </div>
+            {/* VIEW: লিডারবোর্ড (LEADERBOARD VIEW) */}
+            {activeNav === "leaderboard" && (
+              <LeaderboardView
+                exams={examsObj}
+                initialExamKey={selectedExamKey || "exam_01"}
+              />
             )}
 
             {/* VIEW: প্রশ্নব্যাংক (QUESTION BANK VIEW) */}
@@ -1374,6 +1337,9 @@ export default function HomeClient({
             {/* VIEW 9: কোর্স (COURSES CARD GRID VIEW) */}
             {activeNav === "courses" && (
               <div className="space-y-5 animate-in fade-in duration-200">
+
+
+                {/* 
                 <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-5 rounded-3xl shadow-sm flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-white/30 flex items-center justify-center shrink-0">
@@ -1394,7 +1360,9 @@ export default function HomeClient({
                     এনরোল করুন
                   </button>
                 </div>
+                */}
 
+                
                 <CourseCardGrid
                   courses={coursesList}
                   subjects={subjectsList}
@@ -1406,9 +1374,10 @@ export default function HomeClient({
               </div>
             )}
 
-            {/* VIEW 10: রেফারেল (REFERRAL & REWARDS VIEW) */}
+        {/* VIEW 10: রেফারেল (REFERRAL & REWARDS VIEW) */}
             {activeNav === "referral" && (
               <div className="space-y-5 animate-in fade-in duration-200">
+                {/* 
                 <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white p-5 rounded-3xl shadow-sm flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-md">
@@ -1422,6 +1391,7 @@ export default function HomeClient({
                     </div>
                   </div>
                 </div>
+                */}
 
                 <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-xs">
                   <ReferralCard studentId={activePortalStudentId} />
@@ -1435,10 +1405,10 @@ export default function HomeClient({
             © {new Date().getFullYear()} আরোহণ — বিসিএস ও সরকারি চাকরির প্রস্তুতি পোর্টাল | সর্বস্বত্ব সংরক্ষিত
           </footer>
         </div>
-      </div>
+      </div >
 
       {/* Popups & Modals */}
-      <NewNewsPopup initialNews={initialDailyNews} />
+      < NewNewsPopup initialNews={initialDailyNews} />
       <WhatsAppJoinPopup />
 
       <EnrollModal
@@ -1451,14 +1421,16 @@ export default function HomeClient({
         }}
       />
 
-      {currentExam && (
-        <StudentAuthModal
-          isOpen={isStudentAuthOpen}
-          exam={currentExam}
-          onClose={() => setIsStudentAuthOpen(false)}
-          onVerified={handleStudentVerified}
-        />
-      )}
+      {
+        currentExam && (
+          <StudentAuthModal
+            isOpen={isStudentAuthOpen}
+            exam={currentExam}
+            onClose={() => setIsStudentAuthOpen(false)}
+            onVerified={handleStudentVerified}
+          />
+        )
+      }
 
       <StudentPortalLoginModal
         isOpen={isStudentPortalLoginOpen}
@@ -1486,13 +1458,15 @@ export default function HomeClient({
         onClose={() => setSelectedSubmissionForPopup(null)}
       />
 
-      {isAuthProcessing && (
-        <div className="fixed inset-0 z-[70] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 font-bengali">
-          <div className="w-11 h-11 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
-          <p className="text-sm font-bold text-slate-800">লগইন হচ্ছে...</p>
-          <p className="text-xs text-slate-500">এক মুহূর্ত অপেক্ষা করুন — পরীক্ষা স্বয়ংক্রিয়ভাবে শুরু হবে</p>
-        </div>
-      )}
-    </div>
+      {
+        isAuthProcessing && (
+          <div className="fixed inset-0 z-[70] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 font-bengali">
+            <div className="w-11 h-11 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
+            <p className="text-sm font-bold text-slate-800">লগইন হচ্ছে...</p>
+            <p className="text-xs text-slate-500">এক মুহূর্ত অপেক্ষা করুন — পরীক্ষা স্বয়ংক্রিয়ভাবে শুরু হবে</p>
+          </div>
+        )
+      }
+    </div >
   );
 }

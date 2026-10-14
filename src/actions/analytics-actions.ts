@@ -20,46 +20,82 @@ export async function getAdminAnalytics(): Promise<AdminAnalyticsData> {
     // SECURITY: admin analytics are teacher-only
     await requireTeacher();
 
-    // 1. Fetch Students
-    const { data: studentsData } = await supabase.from("allowed_students").select("id, courses");
-    const students = studentsData || [];
-    const totalStudents = students.length;
+    // 1. Fetch Students (exact count + paginated for courseEnrollmentMap)
+    const PAGE_SIZE = 1000;
+    const { count: studentsCount } = await supabase
+      .from("allowed_students")
+      .select("*", { count: "exact", head: true });
 
     let totalEnrollments = 0;
     const courseEnrollmentMap: Record<string, number> = {};
+    let studentFrom = 0;
+    let fetchedStudentsCount = 0;
 
-    students.forEach((st) => {
-      const courses = Array.isArray(st.courses) ? st.courses : [];
-      totalEnrollments += courses.length;
-      courses.forEach((c: string) => {
-        const cName = (c || "").trim();
-        if (cName) {
-          courseEnrollmentMap[cName] = (courseEnrollmentMap[cName] || 0) + 1;
-        }
+    while (true) {
+      const { data: stBatch, error: stErr } = await supabase
+        .from("allowed_students")
+        .select("id, courses")
+        .range(studentFrom, studentFrom + PAGE_SIZE - 1);
+
+      if (stErr || !stBatch || stBatch.length === 0) break;
+      fetchedStudentsCount += stBatch.length;
+
+      stBatch.forEach((st) => {
+        const courses = Array.isArray(st.courses) ? st.courses : [];
+        totalEnrollments += courses.length;
+        courses.forEach((c: string) => {
+          const cName = (c || "").trim();
+          if (cName) {
+            courseEnrollmentMap[cName] = (courseEnrollmentMap[cName] || 0) + 1;
+          }
+        });
       });
-    });
 
-    // 2. Fetch Submissions
-    const { data: submissionsData } = await supabase.from("submissions").select("id, exam_key, exam_title");
-    const submissions = submissionsData || [];
-    const totalSubmissions = submissions.length;
+      if (stBatch.length < PAGE_SIZE) break;
+      studentFrom += PAGE_SIZE;
+    }
+    const totalStudents = studentsCount ?? fetchedStudentsCount;
 
+    // 2. Fetch Submissions (exact count directly from DB, bypassing the 1000-row limit)
+    const { count: submissionsCount } = await supabase
+      .from("submissions")
+      .select("*", { count: "exact", head: true });
+    const totalSubmissions = submissionsCount ?? 0;
+
+    // Fetch submissions with pagination to build complete examSubmissionMap
     const examSubmissionMap: Record<string, { title: string; count: number; course: string }> = {};
-    submissions.forEach((sub) => {
-      const eKey = sub.exam_key || "unknown";
-      if (!examSubmissionMap[eKey]) {
-        examSubmissionMap[eKey] = {
-          title: sub.exam_title || eKey,
-          count: 0,
-          course: "সাধারণ"
-        };
-      }
-      examSubmissionMap[eKey].count += 1;
-    });
+    let subFrom = 0;
+
+    while (true) {
+      const { data: subBatch, error: subErr } = await supabase
+        .from("submissions")
+        .select("exam_key, exam_title")
+        .range(subFrom, subFrom + PAGE_SIZE - 1);
+
+      if (subErr || !subBatch || subBatch.length === 0) break;
+
+      subBatch.forEach((sub) => {
+        const eKey = sub.exam_key || "unknown";
+        if (!examSubmissionMap[eKey]) {
+          examSubmissionMap[eKey] = {
+            title: sub.exam_title || eKey,
+            count: 0,
+            course: "সাধারণ"
+          };
+        }
+        examSubmissionMap[eKey].count += 1;
+      });
+
+      if (subBatch.length < PAGE_SIZE) break;
+      subFrom += PAGE_SIZE;
+    }
 
     // Fetch exams to attach course names to submissions
+    const { count: examsCount } = await supabase
+      .from("exams")
+      .select("*", { count: "exact", head: true });
     const { data: examsData } = await supabase.from("exams").select("id, title, course");
-    const totalExamsCount = (examsData || []).length;
+    const totalExamsCount = examsCount ?? (examsData || []).length;
     (examsData || []).forEach((ex) => {
       if (examSubmissionMap[ex.id]) {
         examSubmissionMap[ex.id].title = ex.title || examSubmissionMap[ex.id].title;
@@ -146,19 +182,28 @@ export async function getLiveExamParticipation(): Promise<LiveExamRow[]> {
       });
     });
 
-    // লাইভ সাবমিশন — প্রতি (exam_key, student_id) আলাদা করে ধরে student গুনি
-    const { data: subs, error: subsErr } = await supabase
-      .from("submissions")
-      .select("exam_key, student_id")
-      .eq("is_live_submission", true);
-    if (subsErr) throw subsErr;
-
+    // লাইভ সাবমিশন — প্রতি (exam_key, student_id) আলাদা করে ধরে student গুনি (paginated)
     const byExam = new Map<string, Set<string>>();
-    (subs || []).forEach((s) => {
-      const k = s.exam_key || "unknown";
-      if (!byExam.has(k)) byExam.set(k, new Set<string>());
-      if (s.student_id) byExam.get(k)!.add(String(s.student_id));
-    });
+    let liveSubFrom = 0;
+    while (true) {
+      const { data: subs, error: subsErr } = await supabase
+        .from("submissions")
+        .select("exam_key, student_id")
+        .eq("is_live_submission", true)
+        .range(liveSubFrom, liveSubFrom + 1000 - 1);
+
+      if (subsErr) throw subsErr;
+      if (!subs || subs.length === 0) break;
+
+      subs.forEach((s) => {
+        const k = s.exam_key || "unknown";
+        if (!byExam.has(k)) byExam.set(k, new Set<string>());
+        if (s.student_id) byExam.get(k)!.add(String(s.student_id));
+      });
+
+      if (subs.length < 1000) break;
+      liveSubFrom += 1000;
+    }
 
     const rows: LiveExamRow[] = [];
     byExam.forEach((students, examKey) => {
@@ -297,10 +342,21 @@ export async function getMissedExamsReport(
 
     const liveExamIds = new Set(exams.map(e => String(e.id)));
 
-    // 3. Fetch submissions (only live submissions for these exams)
-    const { data: subData } = await supabase.from("submissions")
-      .select("student_id, exam_key, is_live_submission");
-    const submissions = subData || [];
+    // 3. Fetch submissions (only live submissions for these exams, paginated)
+    const submissions: { student_id: string; exam_key: string; is_live_submission: boolean }[] = [];
+    let missedSubFrom = 0;
+    while (true) {
+      const { data: subBatch, error: subErr } = await supabase
+        .from("submissions")
+        .select("student_id, exam_key, is_live_submission")
+        .eq("is_live_submission", true)
+        .range(missedSubFrom, missedSubFrom + 1000 - 1);
+
+      if (subErr || !subBatch || subBatch.length === 0) break;
+      submissions.push(...(subBatch as any));
+      if (subBatch.length < 1000) break;
+      missedSubFrom += 1000;
+    }
 
     // Group live submissions by student
     const liveSubsByStudent: Record<string, Set<string>> = {};

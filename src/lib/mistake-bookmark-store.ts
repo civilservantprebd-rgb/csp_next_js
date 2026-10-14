@@ -406,7 +406,12 @@ export function saveMistakesFromSubmission(
     const added: MistakeQuestionItem[] = [];
 
     questions.forEach((q, idx) => {
-      const userAns = answers[idx] ?? null;
+      let rawAns = answers[idx];
+      if (rawAns && typeof rawAns === "object") {
+        rawAns = (rawAns as any).ans;
+      }
+      if (rawAns === -1 || rawAns === undefined) rawAns = null;
+      const userAns = rawAns as number | null;
       const sol = solutions[idx] || { correct: 0, exp: "" };
 
       // If wrong answer or skipped

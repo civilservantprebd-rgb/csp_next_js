@@ -785,6 +785,7 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
       )}
 
       {/* Header Banner */}
+      {/* 
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-800 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0">
@@ -798,6 +799,7 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
           </div>
         </div>
       </div>
+      */}
 
       {!user && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-4">
