@@ -1069,14 +1069,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                           >
                             <Bookmark className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMistake(m.id)}
-                            title="ভুলের তালিকা থেকে বাদ দিন (Mastered)"
-                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+
                         </div>
                       </div>
 

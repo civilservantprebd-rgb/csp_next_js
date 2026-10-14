@@ -834,7 +834,7 @@ export default function HomeClient({
 
               <div className="min-w-0">
                 <h1 className="text-base sm:text-2xl font-medium text-slate-900 leading-tight truncate">
-                  {activeNav === "dashboard" && "ড্যাশবোর্ড ওভারভিউ"}
+                  {activeNav === "dashboard" && "ওভারভিউ"}
                   {activeNav === "live_exams" && "লাইভ এক্সাম সমূহ"}
                   {activeNav === "free_exams" && "ফ্রী মডেল টেস্ট সমূহ"}
                   {activeNav === "upcoming_exams" && "আসন্ন মডেল টেস্ট"}
