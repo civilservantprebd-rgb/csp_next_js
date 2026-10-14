@@ -114,9 +114,9 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
 
   return (
     <div className="fixed inset-0 z-[9999] bg-slate-100 overflow-y-auto font-bengali">
-      <div className="max-w-3xl mx-auto p-3 sm:p-6 space-y-4">
+      <div className="max-w-3xl mx-auto p-2.5 sm:p-6 space-y-3 sm:space-y-4">
         {/* Top bar */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-4 py-3 flex items-center justify-between gap-3 sticky top-3 z-10">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2.5 sticky top-2 sm:top-3 z-10">
           <div className="min-w-0">
             <h3 className="text-sm sm:text-lg font-black text-slate-900 truncate">{submission.examTitle}</h3>
             <p className="text-[11px] sm:text-xs text-slate-500">
@@ -158,7 +158,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
         ) : (
           <>
             {/* সংক্ষিপ্ত ফলাফল (brief) — মোবাইল-ফ্রেন্ডলি */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-3">
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-5 space-y-3">
               {/* স্কোর হিরো */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-sm shrink-0">
@@ -266,17 +266,17 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                     return (
                       <div
                         key={qIdx}
-                        className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${
+                        className={`bg-white rounded-xl sm:rounded-2xl border shadow-sm p-3.5 sm:p-5 ${
                           isSkipped ? "border-slate-200" : isCorrect ? "border-emerald-200" : "border-rose-200"
                         }`}
                       >
                         {/* Question header */}
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-black text-slate-900 text-sm sm:text-base leading-relaxed">
+                          <h4 className="font-black text-slate-900 text-sm sm:text-base leading-relaxed flex-1 min-w-0">
                             <span className="text-indigo-600 mr-1.5">{toBengaliDigits(qIdx + 1)}.</span>
                             <MathText text={q.q} />
                           </h4>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 flex-wrap justify-end">
                             <BookmarkButton
                               size="sm"
                               studentId={submission.studentId}

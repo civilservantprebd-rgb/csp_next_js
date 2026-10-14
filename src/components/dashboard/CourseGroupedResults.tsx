@@ -270,7 +270,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
               {/* Course Card Header - Click to open/close exams */}
               <div
                 onClick={() => toggleCourse(course.courseName)}
-                className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer select-none group"
+                className="p-3.5 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer select-none group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="min-w-0">
@@ -289,8 +289,8 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                 </div>
 
                 {/* Right: Course Overall Stats Pill + Toggle Icon */}
-                <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
-                  <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-sm border border-white/15 px-3.5 py-2 rounded-2xl">
+                <div className="flex items-center justify-between sm:justify-start gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+                  <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-sm border border-white/15 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl sm:rounded-2xl flex-1 sm:flex-initial justify-around sm:justify-start">
                     <div className="text-left sm:text-right pr-2 border-r border-white/20">
                       <div className="text-[10px] text-slate-300 font-medium">সর্বোচ্চ নম্বর</div>
                       <div className="text-xs sm:text-sm font-medium text-amber-300">
@@ -306,9 +306,9 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                   </div>
 
                   {/* Expand / Collapse Button Indicator */}
-                  <div className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white border border-white/15 transition">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white border border-white/15 transition shrink-0">
                     <ChevronRight
-                      className={`w-5 h-5 transition-transform duration-200 ${
+                      className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200 ${
                         isExpanded ? "rotate-90 text-amber-400" : "rotate-0 text-slate-300"
                       }`}
                     />
@@ -384,14 +384,14 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                             </div>
 
                             {/* Submission Badges & Action Buttons */}
-                            <div className="flex items-center gap-2.5 flex-wrap md:justify-end shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+                            <div className="flex items-center gap-2 flex-wrap md:justify-end shrink-0 pt-2.5 md:pt-0 border-t md:border-t-0 border-slate-100">
                               {/* 1. LIVE SUBMISSION BUTTON / BADGE */}
                               {live && (
                                 canShowResult ? (
                                   <button
                                     type="button"
                                     onClick={() => onSelectSubmissionDetail(live)}
-                                    className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-50/80 hover:bg-red-100/90 border border-red-200 text-red-950 transition cursor-pointer active:scale-95 shadow-xs"
+                                    className="group flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-red-50/80 hover:bg-red-100/90 border border-red-200 text-red-950 transition cursor-pointer active:scale-95 shadow-xs flex-1 sm:flex-initial justify-between sm:justify-start"
                                     title="লাইভ পরীক্ষার মার্কশীট ও সমাধান"
                                   >
                                     <span className="px-1.5 py-0.5 rounded-md bg-red-600 text-white font-medium text-[10px] tracking-wide uppercase">
@@ -406,7 +406,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                                     <ChevronRight className="w-3.5 h-3.5 text-red-500 group-hover:translate-x-0.5 transition-transform" />
                                   </button>
                                 ) : (
-                                  <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl">
+                                  <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl flex-1 sm:flex-initial text-center">
                                     লাইভ: ফলাফল অপেক্ষমাণ
                                   </span>
                                 )
@@ -417,7 +417,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => onSelectSubmissionDetail(practice)}
-                                  className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200 text-emerald-950 transition cursor-pointer active:scale-95 shadow-xs"
+                                  className="group flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200 text-emerald-950 transition cursor-pointer active:scale-95 shadow-xs flex-1 sm:flex-initial justify-between sm:justify-start"
                                   title="সর্বশেষ প্র্যাকটিস এটেম্পটের মার্কশীট ও সমাধান"
                                 >
                                   <span className="px-1.5 py-0.5 rounded-md bg-emerald-600 text-white font-medium text-[10px] tracking-wide">

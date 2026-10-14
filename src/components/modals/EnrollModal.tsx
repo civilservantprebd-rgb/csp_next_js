@@ -185,7 +185,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto font-bengali animate-in fade-in duration-200">
       <div className="min-h-full flex items-center justify-center p-3 sm:p-4">
-        <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl relative border border-slate-100 flex flex-col my-auto">
+        <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full overflow-hidden shadow-2xl relative border border-slate-100 flex flex-col my-auto">
         {/* Close Button */}
         <button
           onClick={handleClose}
@@ -255,7 +255,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
           /* Enrollment / Login View */
           <>
             {/* Header */}
-            <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 p-5 sm:p-6 text-white relative">
+            <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 p-4 sm:p-6 pr-12 text-white relative">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="inline-flex items-center gap-1 bg-indigo-500/50 border border-white/20 text-white text-sm font-semibold px-2.5 py-0.5 rounded-full">
                   <ShieldCheck className="w-3 h-3" /> কোর্স এডমিশন
@@ -269,7 +269,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
               </p>
             </div>
 
-            <div className="p-5 sm:p-6 space-y-4 bg-white">
+            <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 bg-white">
               {errorMsg && (
                 <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-medium">
                   ⚠️ {errorMsg}

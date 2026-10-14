@@ -32,13 +32,13 @@ export const QuestionList: React.FC<QuestionListProps> = ({
           <article
             key={qIdx}
             id={`exam-q-${qIdx}`}
-            className="scroll-mt-32 sm:scroll-mt-36 bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6 transition"
+            className="scroll-mt-32 sm:scroll-mt-36 bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-3.5 sm:p-6 transition"
           >
             {/* প্রশ্ন শিরোনাম */}
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-2.5 sm:gap-3">
               {/* সংখ্যা-ব্যাজ: দাগানো হলে সবুজ — রঙই বোঝায় উত্তর দেওয়া হয়েছে (লেখা নয়, layout নাড়ে না) */}
               <span
-                className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-sm sm:text-base font-black shadow-md transition-colors ${
+                className={`shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-xs sm:text-base font-black shadow-md transition-colors ${
                   hasAnswered
                     ? "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-500/30"
                     : "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-600/20"
@@ -46,13 +46,13 @@ export const QuestionList: React.FC<QuestionListProps> = ({
               >
                 {toBengaliDigits(qIdx + 1)}
               </span>
-              <h3 className="font-bold text-slate-900 text-base sm:text-lg leading-relaxed flex-1 min-w-0">
+              <h3 className="font-bold text-slate-900 text-sm sm:text-lg leading-relaxed flex-1 min-w-0">
                 <MathText text={q.q} />
               </h3>
             </div>
 
             {/* অপশন */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 mt-3 sm:mt-4">
               {q.opts.map((opt, optIndex) => {
                 const isSelected = studentAnswers[qIdx] === optIndex;
                 const isOtherLocked = hasAnswered && !isSelected;
@@ -62,14 +62,14 @@ export const QuestionList: React.FC<QuestionListProps> = ({
                     key={optIndex}
                     onClick={() => onSelectOption(qIdx, optIndex)}
                     disabled={isOtherLocked}
-                    className={`group relative p-3 sm:p-3.5 rounded-2xl text-left border transition flex items-center gap-3 cursor-pointer ${
+                    className={`group relative p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-left border transition flex items-center gap-2.5 sm:gap-3 cursor-pointer ${
                       isSelected
                         ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-transparent text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-300"
                         : "bg-white text-slate-800 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40"
                     } ${isOtherLocked ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <span
-                      className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition ${
+                      className={`shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-black transition ${
                         isSelected
                           ? "bg-white text-indigo-700"
                           : "bg-slate-100 text-slate-500 border border-slate-200 group-hover:bg-indigo-100 group-hover:text-indigo-700"
@@ -77,7 +77,7 @@ export const QuestionList: React.FC<QuestionListProps> = ({
                     >
                       {bengaliOptionLetters[optIndex] || optIndex + 1}
                     </span>
-                    <span className="text-sm sm:text-base font-medium leading-snug flex-1"><MathText text={opt} /></span>
+                    <span className="text-xs sm:text-base font-medium leading-snug flex-1"><MathText text={opt} /></span>
                     {isSelected && (
                       <span className="shrink-0 w-5 h-5 rounded-full bg-white flex items-center justify-center">
                         <Check className="w-3.5 h-3.5 text-indigo-700" strokeWidth={3} />

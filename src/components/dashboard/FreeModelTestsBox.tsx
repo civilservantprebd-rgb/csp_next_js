@@ -84,7 +84,7 @@ export const FreeModelTestsBox: React.FC<FreeModelTestsBoxProps> = ({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-emerald-100 via-emerald-50 to-white border border-emerald-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995] h-full flex flex-col justify-between gap-3"
+        className="w-full text-left font-bengali rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-100 via-emerald-50 to-white border border-emerald-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-3.5 sm:p-5 active:scale-[0.995] h-full flex flex-col justify-between gap-3"
       >
         <div className="flex items-center gap-3.5 w-full">
           <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/30 shrink-0 group-hover:scale-105 transition">

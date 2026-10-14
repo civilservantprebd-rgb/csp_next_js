@@ -80,7 +80,7 @@ export const LiveExamsBox: React.FC<LiveExamsBoxProps> = ({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-red-100 via-red-50 to-white border border-red-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995] h-full flex flex-col justify-between gap-3"
+        className="w-full text-left font-bengali rounded-2xl sm:rounded-3xl bg-gradient-to-r from-red-100 via-red-50 to-white border border-red-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-3.5 sm:p-5 active:scale-[0.995] h-full flex flex-col justify-between gap-3"
       >
         <div className="flex items-center gap-3.5 w-full">
           <div className="w-11 h-11 rounded-2xl bg-red-600 text-white flex items-center justify-center shadow-md shadow-red-600/30 shrink-0 group-hover:scale-105 transition">
@@ -205,9 +205,9 @@ export const LiveExamsBox: React.FC<LiveExamsBoxProps> = ({
                       </div>
 
                       {/* ডানে লাল অংশ-নিন বাটন */}
-                      <span className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white text-[11px] sm:text-xs font-black px-3 py-2 group-hover:from-red-700 group-hover:to-red-800 transition shadow-md shadow-red-600/25">
+                      <span className="shrink-0 inline-flex items-center gap-1 sm:gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white text-[11px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 sm:py-2 group-hover:from-red-700 group-hover:to-red-800 transition shadow-md shadow-red-600/25">
                         <Play className="w-3.5 h-3.5 fill-white text-white" />
-                        <span className="hidden sm:inline">অংশ নিন</span>
+                        <span>অংশ নিন</span>
                       </span>
                     </div>
                   </button>

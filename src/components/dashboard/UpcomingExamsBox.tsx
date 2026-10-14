@@ -78,7 +78,7 @@ export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full text-left font-bengali rounded-3xl bg-gradient-to-r from-red-100 via-red-50 to-white border border-red-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-4 sm:p-5 active:scale-[0.995] h-full flex flex-col justify-between gap-3"
+        className="w-full text-left font-bengali rounded-2xl sm:rounded-3xl bg-gradient-to-r from-red-100 via-red-50 to-white border border-red-200 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer p-3.5 sm:p-5 active:scale-[0.995] h-full flex flex-col justify-between gap-3"
       >
         <div className="flex items-center gap-3.5 w-full">
           <div className="w-11 h-11 rounded-2xl bg-red-600 text-white flex items-center justify-center shadow-md shadow-red-600/30 shrink-0 group-hover:scale-105 transition">
@@ -106,11 +106,11 @@ export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => 
       {/* ---------- ২) উইন্ডো (মোডাল): কাউন্টডাউন লাল রঙে ---------- */}
       {open && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-2.5 sm:p-5 bg-black/70 backdrop-blur-sm font-bengali animate-in fade-in duration-200"
           role="dialog"
           aria-modal="true"
         >
-          <div className="relative bg-white rounded-3xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[92vh] shadow-2xl border border-slate-100">
+          <div className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[92vh] shadow-2xl border border-slate-100">
             {/* হেডার */}
             <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -173,13 +173,13 @@ export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => 
                     </div>
 
                     {/* লাল কাউন্টডাউন: "শুরু হতে আর … বাকি" */}
-                    <div className="mt-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl px-3 py-2.5 flex items-center justify-center gap-1.5 shadow-sm">
+                    <div className="mt-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl px-2.5 sm:px-3 py-2 sm:py-2.5 flex items-center justify-center gap-1.5 flex-wrap shadow-sm text-center">
                       <Hourglass className="w-4 h-4 animate-pulse shrink-0" />
-                      <span className="text-sm font-bold opacity-95">শুরু হতে আর</span>
-                      <span className="text-base sm:text-lg font-black tracking-wide tabular-nums whitespace-nowrap">
+                      <span className="text-xs sm:text-sm font-bold opacity-95">শুরু হতে আর</span>
+                      <span className="text-sm sm:text-base md:text-lg font-black tracking-wide tabular-nums">
                         {formatCountdown(remain)}
                       </span>
-                      <span className="text-sm font-bold opacity-95">বাকি</span>
+                      <span className="text-xs sm:text-sm font-bold opacity-95">বাকি</span>
                     </div>
                   </div>
                 );

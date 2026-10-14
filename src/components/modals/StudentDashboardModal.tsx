@@ -443,12 +443,12 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   const notTakenCount = filteredExamStatusList.length - takenCount;
 
   return (
-    <div className={embedded ? "font-bengali" : "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 font-bengali animate-in fade-in duration-200"}>
+    <div className={embedded ? "font-bengali" : "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2.5 sm:p-4 font-bengali animate-in fade-in duration-200"}>
       <div
         className={
           embedded
-            ? `bg-white rounded-3xl ${wide ? "max-w-5xl" : "max-w-3xl"} w-full mx-auto p-4 sm:p-6 border border-slate-200 shadow-sm`
-            : "bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100"
+            ? `bg-white rounded-2xl sm:rounded-3xl ${wide ? "max-w-5xl" : "max-w-3xl"} w-full mx-auto p-3.5 sm:p-6 border border-slate-200 shadow-sm`
+            : "bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full p-3.5 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100"
         }
       >
         
@@ -527,11 +527,11 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         {/* Navigation Tabs — portal সেকশন-পেজে hideTabs হলে ৪টি ট্যাব দেখাই না
             (শুধু initialTab-এর নির্দিষ্ট সেকশনের কনটেন্ট দেখানো হয়) */}
         {!hideTabs && (
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 border-b border-slate-100 pb-2.5 sm:pb-3 mb-2 overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab("history")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === "history"
                 ? "bg-violet-600 text-white shadow-sm"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-600"
@@ -544,7 +544,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab("analytics")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === "analytics"
                 ? "bg-indigo-600 text-white shadow-sm"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-600"
@@ -557,7 +557,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab("mistakes")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === "mistakes"
                 ? "bg-rose-600 text-white shadow-sm"
                 : "bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200/80"
@@ -570,7 +570,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab("bookmarks")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === "bookmarks"
                 ? "bg-amber-600 text-white shadow-sm"
                 : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80"
@@ -583,7 +583,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab("referral")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === "referral"
                 ? "bg-emerald-600 text-white shadow-sm"
                 : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80"
@@ -883,7 +883,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
           {/* TAB 3: MISTAKE NOTEBOOK */}
           {activeTab === "mistakes" && (
             <div className="space-y-4">
-              <div className="bg-rose-50/80 p-4 rounded-2xl border border-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              {/* <div className="bg-rose-50/80 p-4 rounded-2xl border border-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                   <h4 className="font-bold text-rose-950 text-sm flex items-center gap-1.5">
                     <AlertOctagon className="w-4 h-4 text-rose-600" /> ভুল উত্তরের খাতা (Mistake Bank)
@@ -915,7 +915,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     </>
                   )}
                 </div>
-              </div>
+              </div> */}
 
               {mistakes.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 space-y-2">

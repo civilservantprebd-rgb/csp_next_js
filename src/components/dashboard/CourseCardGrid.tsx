@@ -75,14 +75,14 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
   });
 
   return (
-    <section className="font-bengali rounded-3xl bg-white border border-slate-200 shadow-sm p-5 sm:p-7 transition-all duration-300 space-y-6">
+    <section className="font-bengali rounded-2xl sm:rounded-3xl bg-white border border-slate-200 shadow-sm p-4 sm:p-7 transition-all duration-300 space-y-4 sm:space-y-6">
       {/* 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-indigo-100">
 
       </div>
       */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {sortedCourses.map((courseName) => {
           const p = prices[courseName];
           const planned = p?.plannedExams !== undefined || p?.plannedVideos !== undefined;
@@ -90,10 +90,10 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
             <div
               key={courseName}
               onClick={() => onOpenCourse(courseName)}
-              className="group bg-white rounded-3xl border-2 border-slate-200/80 hover:border-indigo-500 shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden flex flex-col cursor-pointer active:scale-[0.99]"
+              className="group bg-white rounded-2xl sm:rounded-3xl border-2 border-slate-200/80 hover:border-indigo-500 shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden flex flex-col cursor-pointer active:scale-[0.99]"
             >
               {/* Course header — সব কার্ডে সমান উচ্চতা (নাম ৩ লাইন পর্যন্ত পুরো) */}
-              <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white p-5">
+              <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white p-4 sm:p-5">
                 <div className="flex items-center gap-3.5">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0 group-hover:scale-105 transition-transform">
                     <div className="w-full h-full bg-slate-900/90 rounded-[14px] flex items-center justify-center">
@@ -162,7 +162,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
               </div>
 
               {/* Course body — দাম/ছাড় + সাবজেক্ট (নিচের ডুপ্লিকেট কাউন্ট বাদ) */}
-              <div className="p-5 space-y-4 flex-grow">
+              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 flex-grow">
                 <div>
                   {p?.description && (
                     <p className="text-xs text-slate-600 font-medium leading-relaxed mb-3">{p.description}</p>
@@ -199,7 +199,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
               </div>
 
               {/* CTA */}
-              <div className="px-5 pb-5">
+              <div className="px-4 pb-4 sm:px-5 sm:pb-5">
                 <div className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3 px-5 rounded-2xl text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
                   <PlayCircle className="w-5 h-5" />
                   <span>কোর্স খুলুন</span>
