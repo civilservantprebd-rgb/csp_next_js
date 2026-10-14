@@ -11,9 +11,10 @@ import { toBengaliDigits } from "@/lib/utils";
 interface HeaderProps {
   onOpenStudentPortal?: () => void;
   onOpenLeaderboard?: () => void;
+  hideMenu?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeaderboard }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeaderboard, hideMenu = false }) => {
   const router = useRouter();
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollYRef = useRef(0);
@@ -244,24 +245,26 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
 
           {/* Right: menu (side panel) */}
           <div className="flex-1 flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                setIsMenuOpen(true);
-                setIsNotifOpen(false);
-              }}
-              aria-label="মেনু খুলুন"
-              aria-expanded={isMenuOpen}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 cursor-pointer transition"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+            {!hideMenu && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(true);
+                  setIsNotifOpen(false);
+                }}
+                aria-label="মেনু খুলুন"
+                aria-expanded={isMenuOpen}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 cursor-pointer transition"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Side panel (drawer) — glass, black & white */}
-      {isMenuOpen && (
+      {!hideMenu && isMenuOpen && (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
           {/* Backdrop */}
           <div

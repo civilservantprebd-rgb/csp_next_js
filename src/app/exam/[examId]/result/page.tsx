@@ -174,7 +174,7 @@ export default function ExamResultPage() {
   if (recordMissing) {
     return (
       <>
-        <Header />
+        <Header hideMenu={true} />
         <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-6">
           <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-sm border border-slate-200/90 text-center space-y-4">
             <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
@@ -200,7 +200,7 @@ export default function ExamResultPage() {
 
   return (
     <>
-      <Header />
+      <Header hideMenu={true} />
 
       <main className="flex-grow max-w-5xl w-full mx-auto p-3 sm:p-5 md:p-6 font-bengali space-y-6">
         <div className="bg-white rounded-3xl p-5 sm:p-8 shadow-sm border border-slate-200/90 space-y-5">
