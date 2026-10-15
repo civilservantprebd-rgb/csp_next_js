@@ -29,6 +29,40 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/portal/results",
+        destination: "/?nav=results",
+        permanent: false,
+      },
+      {
+        source: "/portal/analytics",
+        destination: "/?nav=analytics",
+        permanent: false,
+      },
+      {
+        source: "/portal/mistakes",
+        destination: "/?nav=mistakes",
+        permanent: false,
+      },
+      {
+        source: "/portal/bookmarks",
+        destination: "/?nav=bookmarks",
+        permanent: false,
+      },
+      {
+        source: "/portal/:path*",
+        destination: "/",
+        permanent: false,
+      },
+      {
+        source: "/portal",
+        destination: "/",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

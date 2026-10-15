@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Contact, Trophy, Menu, X, Bell, Sparkles, Layers, ShoppingCart, Clock, Video, Loader2, Gift } from "lucide-react";
+import { GraduationCap, Trophy, Menu, X, Bell, Sparkles, Layers, ShoppingCart, Clock, Video, Loader2, Gift } from "lucide-react";
 import { getRecentNotifications, type NotifItem } from "@/actions/notification-actions";
 import { getLocalStudentUser } from "@/lib/student-auth";
 import { toBengaliDigits } from "@/lib/utils";
@@ -68,15 +68,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
 
   const closeMenu = () => setIsMenuOpen(false);
 
-  const openStudentPortal = (e: React.MouseEvent) => {
-    if (isTeacher) {
-      e.preventDefault();
-      alert("⚠️ আপনি শিক্ষক প্যানেলে লগইন করে আছেন। স্টুডেন্ট পোর্টাল ব্যবহার করতে চাইলে প্রথমে শিক্ষক প্যানেল থেকে লগআউট করুন।");
-      return;
-    }
+  const openStudentPortal = () => {
     closeMenu();
     if (onOpenStudentPortal) onOpenStudentPortal();
-    else router.push("/portal");
+    else router.push("/");
   };
 
   const openLeaderboard = () => {
@@ -337,7 +332,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                 type="button"
                 onClick={() => {
                   closeMenu();
-                  router.push("/portal");
+                  router.push("/?nav=referral");
                 }}
                 className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-indigo-500/10 hover:from-amber-500/20 hover:to-indigo-500/20 text-slate-800 transition text-sm font-bold text-left cursor-pointer border border-amber-200/50 shadow-sm"
               >
@@ -350,17 +345,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                 <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full">
                   ৳৫০ অফার
                 </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={openStudentPortal}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/60 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-900 transition text-sm font-semibold text-left cursor-pointer border border-white/80 hover:border-indigo-200 shadow-sm"
-              >
-                <span className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                  <Contact className="w-4 h-4" />
-                </span>
-                Student Portal
               </button>
 
 

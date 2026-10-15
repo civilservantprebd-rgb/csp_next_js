@@ -27,8 +27,8 @@ export const StudentPortalLoginModal: React.FC<StudentPortalLoginModalProps> = (
     setErrorMsg("");
     try {
       // loginWithGoogle will trigger browser redirection to Google login;
-      // after login the student returns to /portal
-      await loginWithGoogle(undefined, "/portal");
+      // after login the student returns to home
+      await loginWithGoogle(undefined, "/");
       // We don't turn off isLoading or set user successful login state here
       // since the page will redirect.
     } catch (err) {

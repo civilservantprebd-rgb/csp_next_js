@@ -619,7 +619,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
               type="button"
               onClick={async () => {
                 const { loginWithGoogle } = await import("@/lib/student-auth");
-                await loginWithGoogle(undefined, "/portal");
+                await loginWithGoogle(undefined, typeof window !== "undefined" ? window.location.pathname + window.location.search : "/");
               }}
               className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2 rounded-xl cursor-pointer shrink-0"
             >
