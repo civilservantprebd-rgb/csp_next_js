@@ -193,11 +193,11 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
     const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
     if (ids.length === 0) return [];
 
-    // PERF: শুধু দরকারি কলাম (answers ছাড়া) — answers অনেক বড় payload হওয়ায় লিস্ট লোডিং স্লো হয়
+    // Fetch submission columns including answers for accurate scoring
     const { data, error } = await supabase
       .from("submissions")
       .select(
-        "id, student_name, student_id, exam_key, exam_title, score, correct, incorrect, total_questions, time_spent, is_pending_evaluation, is_live_submission, submitted_at"
+        "id, student_name, student_id, exam_key, exam_title, score, correct, incorrect, total_questions, time_spent, is_pending_evaluation, is_live_submission, submitted_at, answers"
       )
       .in("student_id", ids)
       .order("submitted_at", { ascending: false })
@@ -216,7 +216,14 @@ export async function getStudentSubmissions(studentId: string): Promise<Submissi
       incorrect: Number(row.incorrect ?? 0),
       totalQuestions: Number(row.total_questions ?? 0),
       timeSpent: row.time_spent,
-      answers: [],
+      answers: Array.isArray(row.answers)
+        ? row.answers.map((v: any) => {
+            if (typeof v === "object" && v !== null && "qid" in v) {
+              return v;
+            }
+            return v === -1 || v === null ? null : Number(v);
+          })
+        : [],
       isPendingEvaluation: row.is_pending_evaluation,
       isLiveSubmission: row.is_live_submission,
       submittedAtISO: row.submitted_at
@@ -356,17 +363,92 @@ export async function getStudentCourseSummaries(
     const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
     if (ids.length === 0) return [];
 
-    // Only fetch minimal 4 fields: exam_key, score, is_live_submission, submitted_at
+    // Fetch lightweight summary fields WITHOUT heavy answers JSON for blazing speed
     const { data, error } = await supabase
       .from("submissions")
-      .select("exam_key, score, is_live_submission, submitted_at")
+      .select("id, exam_key, score, correct, incorrect, is_live_submission, submitted_at, is_pending_evaluation")
       .in("student_id", ids)
       .order("submitted_at", { ascending: false })
       .limit(300);
 
     if (error || !data) return [];
 
-    const { parseBangladeshDateTime } = await import("@/lib/bangladesh-time");
+    const { parseBangladeshDateTime, isAnswerTimeReached } = await import("@/lib/bangladesh-time");
+
+    // Auto-evaluate any pending submissions whose exam answer time has been reached
+    const pendingSubs = data.filter((row) => row.is_pending_evaluation);
+    if (pendingSubs.length > 0) {
+      const pendingIds = pendingSubs.map((r) => r.id);
+      const { data: answersData } = await supabase
+        .from("submissions")
+        .select("id, answers")
+        .in("id", pendingIds);
+      const answersMap = new Map((answersData || []).map((r) => [r.id, r.answers]));
+
+      const solutionsCache = new Map<string, Promise<QuestionSolution[] | null>>();
+      await Promise.all(
+        pendingSubs.map(async (row) => {
+          const ex = examsMap[row.exam_key];
+          const released = ex ? isAnswerTimeReached(ex as any) : true;
+          if (!released) return;
+
+          const rowAnswers = answersMap.get(row.id);
+          if (!rowAnswers || !Array.isArray(rowAnswers) || rowAnswers.length === 0) return;
+
+          let solutionsPromise = solutionsCache.get(row.exam_key);
+          if (!solutionsPromise) {
+            solutionsPromise = getExamSolutions(row.exam_key);
+            solutionsCache.set(row.exam_key, solutionsPromise);
+          }
+          const solutions = await solutionsPromise;
+          if (!solutions) return;
+
+          let cor = 0;
+          let incor = 0;
+          const isNewFormat = typeof rowAnswers[0] === "object" && rowAnswers[0] !== null && "qid" in rowAnswers[0];
+          if (isNewFormat) {
+            const answerMap = new Map<string, number>();
+            rowAnswers.forEach((a: any) => {
+              if (a && a.qid) answerMap.set(a.qid, Number(a.ans));
+            });
+            solutions.forEach((sol) => {
+              const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+              if (ans !== undefined && ans !== -1 && sol) {
+                if (ans === sol.correct) cor++;
+                else incor++;
+              }
+            });
+          } else {
+            rowAnswers.forEach((ans: any, idx: number) => {
+              const sol = solutions[idx];
+              if (ans !== null && ans !== -1 && ans !== undefined && sol) {
+                if (Number(ans) === sol.correct) cor++;
+                else incor++;
+              }
+            });
+          }
+          const calculatedScore = Math.max(0, cor - incor * 0.5);
+          row.score = calculatedScore;
+          row.correct = cor;
+          row.incorrect = incor;
+          row.is_pending_evaluation = false;
+
+          try {
+            await supabase
+              .from("submissions")
+              .update({
+                score: calculatedScore,
+                correct: cor,
+                incorrect: incor,
+                is_pending_evaluation: false,
+              })
+              .eq("id", row.id);
+          } catch (e) {
+            console.error("Auto evaluate summary update error:", e);
+          }
+        })
+      );
+    }
 
     // Group by Course -> ExamKey to aggregate
     const courseMap = new Map<string, Map<string, { liveScore?: number; practiceScore?: number; date?: string }>>();
@@ -483,6 +565,76 @@ export async function getCourseSubmissions(
       .order("submitted_at", { ascending: false });
 
     if (error || !data) return [];
+
+    const pendingSubs = data.filter((row) => row.is_pending_evaluation);
+    if (pendingSubs.length > 0) {
+      const pendingIds = pendingSubs.map((r) => r.id);
+      const { data: answersData } = await supabase
+        .from("submissions")
+        .select("id, answers")
+        .in("id", pendingIds);
+      const answersMap = new Map((answersData || []).map((r) => [r.id, r.answers]));
+
+      const solutionsCache = new Map<string, Promise<QuestionSolution[] | null>>();
+      await Promise.all(
+        pendingSubs.map(async (row) => {
+          const rowAnswers = answersMap.get(row.id);
+          if (!rowAnswers || !Array.isArray(rowAnswers) || rowAnswers.length === 0) return;
+
+          let solutionsPromise = solutionsCache.get(row.exam_key);
+          if (!solutionsPromise) {
+            solutionsPromise = getExamSolutions(row.exam_key);
+            solutionsCache.set(row.exam_key, solutionsPromise);
+          }
+          const solutions = await solutionsPromise;
+          if (!solutions) return;
+
+          let cor = 0;
+          let incor = 0;
+          const isNewFormat = typeof rowAnswers[0] === "object" && rowAnswers[0] !== null && "qid" in rowAnswers[0];
+          if (isNewFormat) {
+            const answerMap = new Map<string, number>();
+            rowAnswers.forEach((a: any) => {
+              if (a && a.qid) answerMap.set(a.qid, Number(a.ans));
+            });
+            solutions.forEach((sol) => {
+              const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+              if (ans !== undefined && ans !== -1 && sol) {
+                if (ans === sol.correct) cor++;
+                else incor++;
+              }
+            });
+          } else {
+            rowAnswers.forEach((ans: any, idx: number) => {
+              const sol = solutions[idx];
+              if (ans !== null && ans !== -1 && ans !== undefined && sol) {
+                if (Number(ans) === sol.correct) cor++;
+                else incor++;
+              }
+            });
+          }
+          const calculatedScore = Math.max(0, cor - incor * 0.5);
+          row.score = calculatedScore;
+          row.correct = cor;
+          row.incorrect = incor;
+          row.is_pending_evaluation = false;
+
+          try {
+            await supabase
+              .from("submissions")
+              .update({
+                score: calculatedScore,
+                correct: cor,
+                incorrect: incor,
+                is_pending_evaluation: false,
+              })
+              .eq("id", row.id);
+          } catch (e) {
+            console.error("Auto evaluate course submission update error:", e);
+          }
+        })
+      );
+    }
 
     return data.map((row) => ({
       id: row.id,

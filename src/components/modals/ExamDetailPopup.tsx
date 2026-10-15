@@ -107,8 +107,42 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
         : [];
 
   const total = displayQuestions.length || submission.totalQuestions || 0;
-  const correct = Number(submission.correct ?? 0);
-  const incorrect = Number(submission.incorrect ?? 0);
+  let correct = Number(submission.correct ?? 0);
+  let incorrect = Number(submission.incorrect ?? 0);
+  let score = Number(submission.score ?? 0);
+
+  if (solutions && displayQuestions.length > 0 && studentAnswers.length > 0) {
+    let c = 0;
+    let ic = 0;
+    const isNewFormat = typeof studentAnswers[0] === "object" && studentAnswers[0] !== null && "qid" in studentAnswers[0];
+    if (isNewFormat) {
+      const answerMap = new Map();
+      studentAnswers.forEach((a: any) => {
+        if (a && a.qid) answerMap.set(a.qid, Number(a.ans));
+      });
+      solutions.forEach((sol: any) => {
+        const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+        if (ans !== undefined && ans !== -1 && sol) {
+          if (ans === sol.correct) c++;
+          else ic++;
+        }
+      });
+    } else {
+      studentAnswers.forEach((ans: any, idx: number) => {
+        const sol = solutions[idx];
+        if (ans !== null && ans !== -1 && ans !== undefined && sol) {
+          if (Number(ans) === sol.correct) c++;
+          else ic++;
+        }
+      });
+    }
+    if (submission.isPendingEvaluation || (correct === 0 && incorrect === 0 && (c > 0 || ic > 0))) {
+      correct = c;
+      incorrect = ic;
+      score = Math.max(0, c - ic * 0.5);
+    }
+  }
+
   const skipped = Math.max(0, total - correct - incorrect);
   const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
 
@@ -167,7 +201,7 @@ export const ExamDetailPopup: React.FC<ExamDetailPopupProps> = ({
                 <div className="min-w-0">
                   <p className="text-[11px] text-slate-500 font-bold">চূড়ান্ত স্কোর</p>
                   <p className="text-2xl font-black text-slate-900 leading-tight">
-                    {toBengaliDigits(submission.score ?? 0)}
+                    {toBengaliDigits(score ?? 0)}
                     <span className="text-sm text-slate-400 font-bold"> / {toBengaliDigits(total)}</span>
                   </p>
                 </div>

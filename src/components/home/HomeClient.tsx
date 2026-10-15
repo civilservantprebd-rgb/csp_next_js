@@ -143,7 +143,7 @@ export default function HomeClient({
   const [nowMs, setNowMs] = useState<number>(() => getTrueNowMs());
   const completedExams = useCompletedExams();
 
-  const examsObj = config.exams || {};
+  const examsObj = useMemo(() => config.exams || {}, [config.exams]);
   const coursesList = config.courses || ["সাধারণ কোর্স"];
   const subjectsList = config.subjects || [];
   const currentExam: Exam | undefined = examsObj[selectedExamKey];
@@ -349,11 +349,33 @@ export default function HomeClient({
     if (isAuthProcessing) return;
     const id = window.setTimeout(() => {
       const isTeacherNow = !!sessionStorage.getItem("teacher_user");
-      const isStudent = !!getLocalStudentUser();
-      setGate(isTeacherNow || isStudent ? "user" : "guest");
+      const u = getLocalStudentUser();
+      setGate(isTeacherNow || !!u ? "user" : "guest");
+      if (u) {
+        setStudentUser(u);
+        setActivePortalStudentId(u.uid);
+      }
     }, 0);
     return () => window.clearTimeout(id);
   }, [isAuthProcessing, config]);
+
+  useEffect(() => {
+    const syncUser = () => {
+      const u = getLocalStudentUser();
+      if (u) {
+        setStudentUser(u);
+        setActivePortalStudentId(u.uid);
+      } else {
+        setStudentUser(null);
+        setActivePortalStudentId("");
+      }
+      const isTeacherNow = !!sessionStorage.getItem("teacher_user");
+      setGate(isTeacherNow || !!u ? "user" : "guest");
+    };
+
+    window.addEventListener("storage", syncUser);
+    return () => window.removeEventListener("storage", syncUser);
+  }, []);
 
   const handleLandingLogin = async () => {
     const { loginWithGoogle } = await import("@/lib/student-auth");
@@ -658,6 +680,19 @@ export default function HomeClient({
                         {toBengaliDigits(upcomingExamsList.length)}
                       </span>
                     )}
+                  </button>
+
+                  {/* ফলাফল */}
+                  <button
+                    type="button"
+                    onClick={() => handleNavSelect("results")}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${activeNav === "results"
+                      ? "bg-purple-600/30 text-purple-200 font-medium border border-purple-500/40 shadow-sm"
+                      : "text-white hover:text-white hover:bg-white/5"
+                      }`}
+                  >
+                    <History className="w-3.5 h-3.5 text-purple-400" />
+                    <span>ফলাফল</span>
                   </button>
 
                   {/* ভুল উত্তরের খাতা */}
@@ -1246,6 +1281,19 @@ export default function HomeClient({
               </div>
             )}
 
+            {/* VIEW 5: পরীক্ষার ফলাফল (RESULTS DEDICATED VIEW) */}
+            {activeNav === "results" && (
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <CourseGroupedResults
+                  exams={examsObj}
+                  studentId={activePortalStudentId || studentUser?.uid || ""}
+                  onSelectSubmissionDetail={(sub) => setSelectedSubmissionForPopup(sub)}
+                  onOpenEnrollModal={() => handleOpenEnrollModal()}
+                  onLoginPrompt={() => loginWithGoogle(undefined, "/")}
+                />
+              </div>
+            )}
+
             {/* VIEW 6: ভুল উত্তরের খাতা (MISTAKES BANK VIEW) */}
             {activeNav === "mistakes" && (
               <div className="space-y-5 animate-in fade-in duration-200">
@@ -1255,7 +1303,7 @@ export default function HomeClient({
                   wide={true}
                   initialTab="mistakes"
                   hideTabs={true}
-                  studentId={activePortalStudentId}
+                  studentId={activePortalStudentId || studentUser?.uid || ""}
                   exams={examsObj}
                   config={config}
                   onClose={() => { }}
@@ -1273,7 +1321,7 @@ export default function HomeClient({
                   wide={true}
                   initialTab="bookmarks"
                   hideTabs={true}
-                  studentId={activePortalStudentId}
+                  studentId={activePortalStudentId || studentUser?.uid || ""}
                   exams={examsObj}
                   config={config}
                   onClose={() => { }}
@@ -1291,7 +1339,7 @@ export default function HomeClient({
                   wide={true}
                   initialTab="analytics"
                   hideTabs={true}
-                  studentId={activePortalStudentId}
+                  studentId={activePortalStudentId || studentUser?.uid || ""}
                   exams={examsObj}
                   config={config}
                   onClose={() => { }}
@@ -1375,7 +1423,7 @@ export default function HomeClient({
                 */}
 
                 <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-xs">
-                  <ReferralCard studentId={activePortalStudentId} />
+                  <ReferralCard studentId={activePortalStudentId || studentUser?.uid || ""} />
                 </div>
               </div>
             )}

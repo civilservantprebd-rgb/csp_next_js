@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   GraduationCap,
   BookOpen,
@@ -20,6 +20,7 @@ import {
   getCourseSubmissions,
   CourseSummaryItem
 } from "@/actions/student-actions";
+import { getLocalStudentUser } from "@/lib/student-auth";
 
 interface CourseGroupedResultsProps {
   exams: Record<string, Exam>;
@@ -49,6 +50,11 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
   onLoginPrompt,
   studentId,
 }) => {
+  // Resolve effectiveStudentId from prop or localStorage
+  const localUser = typeof window !== "undefined" ? getLocalStudentUser() : null;
+  const effectiveStudentId = (studentId && studentId.trim()) ? studentId.trim() : (localUser?.uid || "");
+  const isTeacher = typeof window !== "undefined" && !!sessionStorage.getItem("teacher_user");
+
   // Course summaries (lightweight list: courseName, totalExamsTaken, highestScore, avgScore)
   const [courseSummaries, setCourseSummaries] = useState<CourseSummaryItem[]>([]);
   const [loadingSummaries, setLoadingSummaries] = useState(false);
@@ -60,17 +66,23 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
   const [courseExamsCache, setCourseExamsCache] = useState<Record<string, ExamResultItem[]>>({});
   const [loadingExamsForCourse, setLoadingExamsForCourse] = useState<string | null>(null);
 
+  const hasLoadedRef = useRef(false);
+
   // 1. Fetch lightweight course summaries immediately (Ultra Fast)
   useEffect(() => {
-    if (!studentId) {
+    if (!effectiveStudentId) {
       setCourseSummaries([]);
+      hasLoadedRef.current = false;
       return;
     }
 
-    setLoadingSummaries(true);
-    getStudentCourseSummaries(studentId, exams)
+    if (!hasLoadedRef.current) {
+      setLoadingSummaries(true);
+    }
+    getStudentCourseSummaries(effectiveStudentId, exams)
       .then((summaries) => {
         setCourseSummaries(summaries || []);
+        hasLoadedRef.current = true;
       })
       .catch((err) => {
         console.error("Failed to load course summaries:", err);
@@ -78,7 +90,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
       .finally(() => {
         setLoadingSummaries(false);
       });
-  }, [studentId, exams]);
+  }, [effectiveStudentId, exams]);
 
   // 2. Fetch submissions for a course ON DEMAND only when the user clicks a course card!
   const toggleCourse = async (courseName: string) => {
@@ -94,16 +106,17 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
       return;
     }
 
-    if (!studentId) return;
+    if (!effectiveStudentId) return;
 
     setLoadingExamsForCourse(courseName);
     try {
       // Find all exam keys that belong to this course
+      const targetCourse = (courseName || "সাধারণ কোর্স").trim();
       const courseExamKeys = Object.entries(exams)
-        .filter(([_, ex]) => (ex.course || "সাধারণ কোর্স") === courseName)
+        .filter(([_, ex]) => (ex?.course || "সাধারণ কোর্স").trim() === targetCourse)
         .map(([k]) => k);
 
-      const subs = await getCourseSubmissions(studentId, courseExamKeys);
+      const subs = await getCourseSubmissions(effectiveStudentId, courseExamKeys);
 
       // Group submissions by examKey:
       // Live is kept permanently; Practice keeps only the latest attempt!
@@ -193,7 +206,28 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
   };
 
   // If student is not logged in / no studentId
-  if (!studentId) {
+  if (!effectiveStudentId) {
+    if (isTeacher) {
+      return (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center mx-auto mb-4 text-amber-600">
+            <GraduationCap className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-medium text-slate-900 mb-1">শিক্ষক অ্যাকাউন্টে লগইন করা আছেন</h3>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
+            এটি শিক্ষার্থীদের ব্যক্তিগত ফলাফল ও মার্কশীট দেখার সেকশন। শিক্ষক হিসেবে সকল শিক্ষার্থীর ফলাফল ও রেকর্ড দেখতে অ্যাডমিন ড্যাশবোর্ডে যান।
+          </p>
+          <a
+            href="/admin"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs sm:text-sm shadow-sm transition"
+          >
+            <span>শিক্ষক ড্যাশবোর্ডে যান</span>
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm text-center">
         <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-4 text-indigo-600">
