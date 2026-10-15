@@ -505,79 +505,88 @@ export default function CourseClient({
       {!embedded && <Header />}
 
       <div className={embedded ? "font-bengali space-y-4 sm:space-y-5" : "flex-grow max-w-7xl w-full mx-auto p-2.5 sm:p-5 md:p-6 font-bengali space-y-4 sm:space-y-5"}>
-        {/* Course header */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 text-white rounded-2xl p-3.5 sm:p-5 shadow-sm border border-slate-800">
-          <button
-            onClick={() => (onBack ? onBack() : router.push("/"))}
-            className="inline-flex items-center gap-1.5 text-xs text-indigo-200 hover:text-white transition cursor-pointer font-bold mb-2.5 sm:mb-3 active:scale-95"
-          >
-            <ChevronLeft className="w-4 h-4" /> সকল কোর্সে ফিরে যান
-          </button>
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
-            <div className="space-y-2 min-w-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0">
-                  <div className="w-full h-full bg-slate-900/90 rounded-[10px] flex items-center justify-center">
-                    <GraduationCap className="w-4 h-4 text-amber-300" />
+        {selectedDetailExamKey ? (
+          <CourseExamDetailView
+            examKey={selectedDetailExamKey}
+            courseName={courseName}
+            onBack={() => setSelectedDetailExamKey(null)}
+            onStartExam={(k) => handleStartExam(k)}
+          />
+        ) : (
+          <>
+            {/* Course header */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 text-white rounded-2xl p-3.5 sm:p-5 shadow-sm border border-slate-800">
+              <button
+                onClick={() => (onBack ? onBack() : router.push("/"))}
+                className="inline-flex items-center gap-1.5 text-xs text-indigo-200 hover:text-white transition cursor-pointer font-bold mb-2.5 sm:mb-3 active:scale-95"
+              >
+                <ChevronLeft className="w-4 h-4" /> সকল কোর্সে ফিরে যান
+              </button>
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
+                <div className="space-y-2 min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0">
+                      <div className="w-full h-full bg-slate-900/90 rounded-[10px] flex items-center justify-center">
+                        <GraduationCap className="w-4 h-4 text-amber-300" />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <h1 className="text-base sm:text-xl font-black text-white leading-tight truncate">{courseName}</h1>
+                      <p className="text-[11px] text-indigo-200 font-semibold mt-0.5 truncate">
+                        {toBengaliDigits(courseSubjects.length)}টি বিষয় · {toBengaliDigits(examCount)}টি পরীক্ষা
+                        {isUnlocked && <> · {toBengaliDigits(playlists.length)}টি ভিডিও প্লেলিস্ট</>}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="min-w-0">
-                  <h1 className="text-base sm:text-xl font-black text-white leading-tight truncate">{courseName}</h1>
-                  <p className="text-[11px] text-indigo-200 font-semibold mt-0.5 truncate">
-                    {toBengaliDigits(courseSubjects.length)}টি বিষয় · {toBengaliDigits(examCount)}টি পরীক্ষা
-                    {isUnlocked && <> · {toBengaliDigits(playlists.length)}টি ভিডিও প্লেলিস্ট</>}
-                  </p>
-                </div>
-              </div>
 
-              {courseSubjects.length > 0 && (
-                <div className="flex flex-wrap gap-1 sm:gap-1.5 pt-0.5">
-                  {courseSubjects.slice(0, 8).map((s) => (
-                    <span key={s.name} className="bg-white/10 border border-white/20 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md">
-                      {s.name}
-                    </span>
-                  ))}
-                  {courseSubjects.length > 8 && (
-                    <span className="bg-white/5 text-indigo-200 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md">
-                      +{toBengaliDigits(courseSubjects.length - 8)}টি আরও
-                    </span>
+                  {courseSubjects.length > 0 && (
+                    <div className="flex flex-wrap gap-1 sm:gap-1.5 pt-0.5">
+                      {courseSubjects.slice(0, 8).map((s) => (
+                        <span key={s.name} className="bg-white/10 border border-white/20 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md">
+                          {s.name}
+                        </span>
+                      ))}
+                      {courseSubjects.length > 8 && (
+                        <span className="bg-white/5 text-indigo-200 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                          +{toBengaliDigits(courseSubjects.length - 8)}টি আরও
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
+
+                {checking ? (
+                  <div className="w-full sm:w-[100px] flex items-center justify-center py-2 shrink-0">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-300" />
+                  </div>
+                ) : (
+                  <button
+                    disabled={isUnlocked}
+                    onClick={() => !isUnlocked && setEnrollOpen(true)}
+                    className={`w-full sm:w-auto font-bold px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-1.5 shrink-0 ${
+                      isUnlocked
+                        ? "bg-emerald-900/40 text-emerald-100 cursor-not-allowed border border-emerald-500/30 shadow-none"
+                        : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-emerald-500/20 cursor-pointer active:scale-[0.98]"
+                    }`}
+                  >
+                    {isUnlocked ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Enrolled</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Enroll Now</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {checking ? (
-              <div className="w-full sm:w-[100px] flex items-center justify-center py-2 shrink-0">
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-300" />
-              </div>
-            ) : (
-              <button
-                disabled={isUnlocked}
-                onClick={() => !isUnlocked && setEnrollOpen(true)}
-                className={`w-full sm:w-auto font-bold px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-1.5 shrink-0 ${
-                  isUnlocked
-                    ? "bg-emerald-900/40 text-emerald-100 cursor-not-allowed border border-emerald-500/30 shadow-none"
-                    : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-emerald-500/20 cursor-pointer active:scale-[0.98]"
-                }`}
-              >
-                {isUnlocked ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Enrolled</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Enroll Now</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* প্রধান ৩টি বাটন: ভিডিও | পিডিএফ | পরীক্ষা */}
-        <section className="bg-white rounded-2xl sm:rounded-3xl p-1.5 sm:p-2.5 border border-slate-200 shadow-sm">
+            {/* প্রধান ৩টি বাটন: ভিডিও | পিডিএফ | পরীক্ষা */}
+            <section className="bg-white rounded-2xl sm:rounded-3xl p-1.5 sm:p-2.5 border border-slate-200 shadow-sm">
           <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             <button
               type="button"
@@ -687,15 +696,7 @@ export default function CourseClient({
 
             {/* Exams section — পরীক্ষা ট্যাবের অধীনে */}
             {activeCourseTab === "exam" && (
-              selectedDetailExamKey ? (
-                <CourseExamDetailView
-                  examKey={selectedDetailExamKey}
-                  courseName={courseName}
-                  onBack={() => setSelectedDetailExamKey(null)}
-                  onStartExam={(k) => handleStartExam(k)}
-                />
-              ) : (
-                <section className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 shadow-sm space-y-3.5 sm:space-y-4">
+              <section className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 shadow-sm space-y-3.5 sm:space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-2">
                   <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" /> পরীক্ষাসমূহ
@@ -813,7 +814,6 @@ export default function CourseClient({
                 </div>
               )}
             </section>
-            )
           )}
 
           {/* ২. ভিডিও ক্লাস সেকশন — ভিডিও ট্যাবের অধীনে */}
@@ -1187,6 +1187,8 @@ export default function CourseClient({
             </section>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {!embedded && <Footer />}

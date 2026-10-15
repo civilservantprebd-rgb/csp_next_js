@@ -139,10 +139,11 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-indigo-700 hover:text-indigo-900 transition py-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/60 cursor-pointer active:scale-95"
+          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-indigo-700 hover:text-indigo-900 transition py-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/60 cursor-pointer active:scale-95 max-w-full"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{courseName ? `${courseName}-এর পরীক্ষাসমূহে ফিরে যান` : "পরীক্ষার তালিকায় ফিরে যান"}</span>
+          <ArrowLeft className="w-4 h-4 shrink-0" />
+          <span className="sm:hidden truncate">পরীক্ষাসমূহে ফিরে যান</span>
+          <span className="hidden sm:inline truncate">{courseName ? `${courseName}-এর পরীক্ষাসমূহে ফিরে যান` : "পরীক্ষার তালিকায় ফিরে যান"}</span>
         </button>
       </div>
 
@@ -173,26 +174,26 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
               )}
             </div>
 
-            <h2 className="text-base sm:text-2xl font-black text-slate-900 leading-snug">
+            <h2 className="text-base sm:text-2xl font-black text-slate-900 leading-snug break-words">
               {exam.title}
             </h2>
 
             {/* Meta stats pills */}
-            <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap text-[11px] sm:text-xs font-bold text-slate-600 pt-0.5 sm:pt-1">
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-slate-200/80">
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
+            <div className="grid grid-cols-2 min-[520px]:flex min-[520px]:flex-wrap items-center gap-1.5 sm:gap-2.5 text-[11px] sm:text-xs font-bold text-slate-600 pt-0.5 sm:pt-1">
+              <span className="inline-flex items-center justify-center min-[520px]:justify-start gap-1 bg-slate-100 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-xl border border-slate-200/80">
+                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>{toBengaliDigits(exam.timerMinutes)} মিনিট</span>
               </span>
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-slate-200/80">
-                <CircleHelp className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="inline-flex items-center justify-center min-[520px]:justify-start gap-1 bg-slate-100 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-xl border border-slate-200/80">
+                <CircleHelp className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                 <span>{toBengaliDigits(qCount)}টি প্রশ্ন</span>
               </span>
-              <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-rose-200/60">
+              <span className="inline-flex items-center justify-center min-[520px]:justify-start gap-1 bg-rose-50 text-rose-800 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-xl border border-rose-200/60">
                 <span>প্রতি ভুলে -০.৫</span>
               </span>
               {!!exam.passMark && (
-                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-amber-200/60">
-                  <span>পাস মার্ক: {toBengaliDigits(exam.passMark)}</span>
+                <span className="inline-flex items-center justify-center min-[520px]:justify-start gap-1 bg-amber-50 text-amber-800 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-xl border border-amber-200/60">
+                  <span>পাস: {toBengaliDigits(exam.passMark)}</span>
                 </span>
               )}
             </div>
@@ -489,11 +490,11 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                     </div>
 
                     {/* Filter chips */}
-                    <div className="flex flex-wrap gap-1 sm:gap-1.5">
+                    <div className="grid grid-cols-2 min-[520px]:flex min-[520px]:flex-wrap gap-1.5 w-full sm:w-auto">
                       <button
                         type="button"
                         onClick={() => setFilterMode("all")}
-                        className={`px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border ${
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border text-center justify-center flex items-center ${
                           filterMode === "all"
                             ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
                             : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
@@ -504,7 +505,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setFilterMode("correct")}
-                        className={`px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border ${
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border text-center justify-center flex items-center ${
                           filterMode === "correct"
                             ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                             : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
@@ -515,7 +516,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setFilterMode("incorrect")}
-                        className={`px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border ${
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border text-center justify-center flex items-center ${
                           filterMode === "incorrect"
                             ? "bg-rose-600 text-white border-rose-600 shadow-2xs"
                             : "bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100"
@@ -526,7 +527,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setFilterMode("skipped")}
-                        className={`px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border ${
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border text-center justify-center flex items-center ${
                           filterMode === "skipped"
                             ? "bg-slate-600 text-white border-slate-600 shadow-2xs"
                             : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
@@ -589,7 +590,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                         return (
                           <div
                             key={q.id || qIdx}
-                            className={`bg-white rounded-2xl border p-3 sm:p-5 shadow-xs space-y-2.5 sm:space-y-3 ${
+                            className={`bg-white rounded-2xl border p-3 sm:p-5 shadow-xs space-y-3 ${
                               isSkipped
                                 ? "border-slate-200"
                                 : isCorrect
@@ -597,48 +598,50 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                                 : "border-rose-200 bg-rose-50/15"
                             }`}
                           >
-                            {/* Header & Badges */}
-                            <div className="flex items-start justify-between gap-2.5 sm:gap-3">
-                              <h4 className="font-bold text-sm sm:text-base text-slate-900 leading-relaxed flex-1">
-                                <span className="text-indigo-600 mr-2 font-black">
-                                  {toBengaliDigits(qIdx + 1)}.
+                            {/* Question Meta Bar */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="inline-flex items-center justify-center font-black text-xs px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                  প্রশ্ন {toBengaliDigits(qIdx + 1)}
                                 </span>
-                                <MathText text={q.q} />
-                              </h4>
-
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <BookmarkButton
-                                  size="sm"
-                                  studentId={activeSubmission?.studentId}
-                                  question={{
-                                    q: q.q,
-                                    opts: q.opts,
-                                    correct: solCorrect,
-                                    exp: sol.exp,
-                                    userAns: studentAnsIdx,
-                                    examTitle: exam.title,
-                                    topic: q.topic,
-                                    subject: exam.subject || ""
-                                  }}
-                                />
                                 {isSkipped ? (
-                                  <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-lg text-[11px] font-bold">
+                                  <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[11px] font-bold">
                                     <MinusCircle className="w-3 h-3" /> দাগানো হয়নি
                                   </span>
                                 ) : isCorrect ? (
-                                  <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-lg text-[11px] font-bold">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> সঠিক
+                                  <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-lg text-[11px] font-bold">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> সঠিক (+১)
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-lg text-[11px] font-bold">
-                                    <XCircle className="w-3 h-3 text-rose-600" /> ভুল
+                                  <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 px-2 py-0.5 rounded-lg text-[11px] font-bold">
+                                    <XCircle className="w-3 h-3 text-rose-600" /> ভুল (-০.৫)
                                   </span>
                                 )}
                               </div>
+
+                              <BookmarkButton
+                                size="sm"
+                                studentId={activeSubmission?.studentId}
+                                question={{
+                                  q: q.q,
+                                  opts: q.opts,
+                                  correct: solCorrect,
+                                  exp: sol.exp,
+                                  userAns: studentAnsIdx,
+                                  examTitle: exam.title,
+                                  topic: q.topic,
+                                  subject: exam.subject || ""
+                                }}
+                              />
                             </div>
 
+                            {/* Question Statement */}
+                            <h4 className="font-bold text-sm sm:text-base text-slate-900 leading-relaxed break-words">
+                              <MathText text={q.q} />
+                            </h4>
+
                             {/* Options 4-Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                               {q.opts.map((opt, oIdx) => {
                                 const isAns = oIdx === solCorrect;
                                 const isStudent = oIdx === studentAnsIdx;
@@ -655,7 +658,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                                     <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0 bg-slate-800 text-white">
                                       {optLabels[oIdx]}
                                     </span>
-                                    <span className="flex-1"><MathText text={opt} /></span>
+                                    <span className="flex-1 min-w-0 break-words"><MathText text={opt} /></span>
                                     {isAns && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                                     {isStudent && !isAns && <XCircle className="w-4 h-4 text-rose-600 shrink-0" />}
                                   </div>
@@ -664,9 +667,9 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                             </div>
 
                             {/* Answer Summary Line */}
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs sm:text-sm">
-                              <span className="text-slate-600">
-                                আপনার দাগানো উত্তর:{" "}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3 pt-1 text-xs sm:text-sm bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-slate-500 font-medium">আপনার উত্তর:</span>
                                 <strong className={isCorrect ? "text-emerald-700" : isSkipped ? "text-slate-400" : "text-rose-700"}>
                                   {isSkipped ? (
                                     "দাগানো হয়নি"
@@ -676,18 +679,18 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                                     </>
                                   )}
                                 </strong>
-                              </span>
-                              <span className="text-emerald-700">
-                                সঠিক উত্তর:{" "}
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap text-emerald-800">
+                                <span className="text-slate-500 font-medium">সঠিক উত্তর:</span>
                                 <strong>
                                   {optLabels[solCorrect]} (<MathText text={q.opts[solCorrect] || "—"} />)
                                 </strong>
-                              </span>
+                              </div>
                             </div>
 
                             {/* Explanation */}
                             {sol.exp && (
-                              <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                              <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
                                 <strong className="text-amber-900 block mb-0.5">ব্যাখ্যা:</strong>
                                 <MathText text={sol.exp} />
                               </div>
@@ -719,27 +722,27 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
         <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
           {/* Student Rank Highlight Banner (if student is ranked) */}
           {studentLeaderboardRank && (
-            <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/40 flex items-center justify-center shrink-0">
+            <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 p-3.5 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between gap-2.5 sm:gap-3">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/40 flex items-center justify-center shrink-0">
                   <Trophy className="w-5 h-5 text-slate-950" />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-amber-950 uppercase tracking-wider">আপনার অবস্থান</p>
-                  <h3 className="text-lg sm:text-xl font-black">
+                <div className="min-w-0">
+                  <p className="text-[11px] sm:text-xs font-bold text-amber-950 uppercase tracking-wider">আপনার অবস্থান</p>
+                  <h3 className="text-base sm:text-xl font-black truncate">
                     মেধা তালিকায় আপনি {toBengaliDigits(studentLeaderboardRank.rank)} তম
                   </h3>
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <span className="text-xs font-bold text-amber-950 block">অর্জিত স্কোর</span>
-                <span className="text-xl font-black">{toBengaliDigits(studentLeaderboardRank.item.score)}</span>
+                <span className="text-[11px] sm:text-xs font-bold text-amber-950 block">অর্জিত স্কোর</span>
+                <span className="text-lg sm:text-xl font-black">{toBengaliDigits(studentLeaderboardRank.item.score)}</span>
               </div>
             </div>
           )}
 
           {/* Standard Leaderboard Table */}
-          <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-xs">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 border border-slate-200 shadow-xs">
             <LeaderboardTable
               title={`${exam.title} - মেধা তালিকা`}
               items={leaderboard}
