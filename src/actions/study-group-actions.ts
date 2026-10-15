@@ -3,7 +3,7 @@
 import { supabase } from "@/lib/supabase";
 import { requireTeacher, getSessionUserFromCookies } from "@/lib/teacher-auth";
 import { parseBengaliDigits } from "@/lib/utils";
-import { StudyGroup, StudyGroupMember, GroupExamAttendance, GroupDailyRanking } from "@/types/study-group";
+import { StudyGroup, StudyGroupMember, GroupExamAttendance, GroupDailyRanking, GroupPeriodRankingResponse } from "@/types/study-group";
 
 /**
  * শিক্ষক: সকল স্টাডি গ্রুপের তালিকা আনা (কোর্স অনুযায়ী ফিল্টারসহ)
@@ -628,35 +628,47 @@ export async function getExamsForGroupCourse(
 }
 
 /**
- * শিক্ষক: নির্দিষ্ট তারিখে পরীক্ষা দেওয়ার হারের ভিত্তিতে গ্রুপ র‍্যাংকিং / লিডারবোর্ড
+ * শিক্ষক: নির্দিষ্ট সময়সীমায় (Time Period / Date Range) লাইভ পরীক্ষায় অংশগ্রহণের হারের ভিত্তিতে গ্রুপ র‍্যাংকিং
  */
-export async function getGroupDailyLeaderboard(
-  targetDateStr?: string,
-  courseFilter?: string
-): Promise<{ date: string; rankings: GroupDailyRanking[] }> {
+export async function getGroupPeriodLeaderboard(
+  startDateStr?: string,
+  endDateStr?: string,
+  courseFilter?: string,
+  specificExamKey?: string
+): Promise<GroupPeriodRankingResponse> {
   try {
     await requireTeacher();
 
-    // আজকের তারিখ ডিফল্ট (বাংলাদেশ সময়)
-    let dateStr = targetDateStr?.trim();
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      const now = new Date();
-      const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
-      dateStr = bdTime.toISOString().slice(0, 10);
+    // বর্তমান বাংলাদেশ তারিখ বের করা
+    const now = new Date();
+    const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    const todayStr = bdTime.toISOString().slice(0, 10);
+
+    let sDate = startDateStr?.trim() || todayStr;
+    let eDate = endDateStr?.trim() || sDate;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sDate)) sDate = todayStr;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(eDate)) eDate = sDate;
+
+    // শুরু ও শেষের ক্রম ঠিক করা (যদি sDate > eDate হয়)
+    if (sDate > eDate) {
+      const temp = sDate;
+      sDate = eDate;
+      eDate = temp;
     }
 
-    // বাংলাদেশ দিনের শুরু ও শেষ
-    const startIso = new Date(`${dateStr}T00:00:00+06:00`).toISOString();
-    const endIso = new Date(`${dateStr}T23:59:59.999+06:00`).toISOString();
+    // বাংলাদেশ সময়ের শুরু ও শেষ টাইমস্ট্যাম্প (ISO)
+    const startIso = new Date(`${sDate}T00:00:00+06:00`).toISOString();
+    const endIso = new Date(`${eDate}T23:59:59.999+06:00`).toISOString();
 
-    // ১. গ্রুপগুলো আনা
+    // ১. গ্রুপসমূহ আনা
     let groupQuery = supabase.from("study_groups").select("id, name, course").order("name", { ascending: true });
     if (courseFilter && courseFilter !== "all") {
       groupQuery = groupQuery.eq("course", courseFilter);
     }
     const { data: groups, error: gErr } = await groupQuery;
     if (gErr || !groups || groups.length === 0) {
-      return { date: dateStr, rankings: [] };
+      return { startDate: sDate, endDate: eDate, rankings: [], availableLiveExams: [] };
     }
 
     const groupIds = groups.map((g) => g.id);
@@ -664,12 +676,13 @@ export async function getGroupDailyLeaderboard(
     // ২. গ্রুপের সকল মেম্বার আনা
     const { data: allMembers, error: mErr } = await supabase
       .from("study_group_members")
-      .select("group_id, student_id, student_email")
+      .select("group_id, student_id, student_name, student_email")
       .in("group_id", groupIds);
 
     if (mErr || !allMembers || allMembers.length === 0) {
       return {
-        date: dateStr,
+        startDate: sDate,
+        endDate: eDate,
         rankings: groups.map((g, idx) => ({
           groupId: g.id,
           groupName: g.name,
@@ -678,13 +691,15 @@ export async function getGroupDailyLeaderboard(
           activeCount: 0,
           participationRate: 0,
           submissionsCount: 0,
+          liveExamsCount: 0,
           averageScore: 0,
           rank: idx + 1
-        }))
+        })),
+        availableLiveExams: []
       };
     }
 
-    // মেম্বারদের বিকল্প আইডি (ফোন বা ইউআইডি বা ইমেইল) মেলানো
+    // মেম্বারদের বিকল্প আইডি (ফোন / ইমেইল / ইউআইডি) মেলানো
     const memberIds = allMembers.map((m) => m.student_id);
     const emails = allMembers.map((m) => m.student_email).filter(Boolean);
 
@@ -698,7 +713,6 @@ export async function getGroupDailyLeaderboard(
       .select("id, email")
       .or(allowedFilter);
 
-    // প্রতিটি মেম্বারের জন্য সম্ভাব্য আইডিসমূহ
     const memberToPossibleIds = new Map<string, string[]>();
     const allQueryIds = new Set<string>();
 
@@ -713,17 +727,75 @@ export async function getGroupDailyLeaderboard(
       ids.forEach((id) => allQueryIds.add(id));
     });
 
-    // ৩. নির্দিষ্ট তারিখে হওয়া সাবমিশন আনা
-    const { data: submissions, error: subErr } = await supabase
+    // ৩. এই সময়সীমায় অনুষ্ঠিত বা সংশ্লিষ্ট লাইভ পরীক্ষাসমূহ খুঁজে বের করা
+    // exams টেবিল থেকে শিডিউলড উইন্ডো চেক
+    const { data: scheduledExams } = await supabase
+      .from("exams")
+      .select("id, title, course, start_time, end_time")
+      .or(`and(start_time.gte.${startIso},start_time.lte.${endIso}),and(end_time.gte.${startIso},end_time.lte.${endIso})`);
+
+    const liveExamMap = new Map<string, { id: string; title: string; course: string }>();
+
+    (scheduledExams || []).forEach((ex) => {
+      if (ex.id) {
+        liveExamMap.set(String(ex.id), {
+          id: String(ex.id),
+          title: String(ex.title || ex.id),
+          course: String(ex.course || "সাধারণ")
+        });
+      }
+    });
+
+    // ৪. এই সময়সীমায় মেম্বারদের লাইভ সাবমিশন (is_live_submission = true) আনা
+    let subQuery = supabase
       .from("submissions")
-      .select("student_id, score, submitted_at")
+      .select("id, student_id, exam_key, exam_title, score, submitted_at, is_live_submission")
+      .eq("is_live_submission", true)
       .gte("submitted_at", startIso)
       .lte("submitted_at", endIso)
       .in("student_id", Array.from(allQueryIds));
 
+    if (specificExamKey && specificExamKey !== "all") {
+      subQuery = subQuery.eq("exam_key", specificExamKey);
+    }
+
+    const { data: submissions, error: subErr } = await subQuery;
     if (subErr) throw subErr;
 
-    // গ্রুপ অনুযায়ী মেম্বার ও সাবমিশন ম্যাপ করা
+    // সাবমিশন থেকেও কোনো মিসিং লাইভ পরীক্ষা liveExamMap-এ যোগ করা
+    const missingExamKeys: string[] = [];
+    (submissions || []).forEach((s) => {
+      const key = String(s.exam_key || "");
+      if (key && !liveExamMap.has(key)) {
+        liveExamMap.set(key, {
+          id: key,
+          title: String(s.exam_title || key),
+          course: "সাধারণ"
+        });
+        missingExamKeys.push(key);
+      }
+    });
+
+    if (missingExamKeys.length > 0) {
+      const { data: metaExams } = await supabase
+        .from("exams")
+        .select("id, title, course")
+        .in("id", missingExamKeys);
+
+      (metaExams || []).forEach((ex) => {
+        if (liveExamMap.has(String(ex.id))) {
+          liveExamMap.set(String(ex.id), {
+            id: String(ex.id),
+            title: String(ex.title || ex.id),
+            course: String(ex.course || "সাধারণ")
+          });
+        }
+      });
+    }
+
+    const availableLiveExams = Array.from(liveExamMap.values());
+
+    // ৫. গ্রুপ অনুযায়ী মেম্বার ও সাবমিশন ক্যালকুলেশন
     const groupMemberMap = new Map<string, typeof allMembers>();
     allMembers.forEach((m) => {
       const list = groupMemberMap.get(m.group_id) || [];
@@ -731,29 +803,75 @@ export async function getGroupDailyLeaderboard(
       groupMemberMap.set(m.group_id, list);
     });
 
+    const isSpecific = specificExamKey && specificExamKey !== "all";
+
     const rankings: GroupDailyRanking[] = groups.map((g) => {
       const members = groupMemberMap.get(g.id) || [];
       const totalMembers = members.length;
 
-      let activeCount = 0;
-      let submissionsCount = 0;
+      // এই গ্রুপের জন্য প্রযোজ্য লাইভ পরীক্ষাগুলো নির্ধারণ করা
+      let applicableLiveExamIds: string[] = [];
+      if (isSpecific) {
+        applicableLiveExamIds = [specificExamKey!];
+      } else {
+        applicableLiveExamIds = availableLiveExams
+          .filter((ex) => !ex.course || ex.course === "সাধারণ" || ex.course === g.course)
+          .map((ex) => ex.id);
+      }
+
+      // গ্রুপের সম্ভাব্য সকল আইডি সেট
+      const groupPossibleIds = new Set<string>();
+      members.forEach((m) => {
+        (memberToPossibleIds.get(m.student_id) || [m.student_id]).forEach((id) => groupPossibleIds.add(id));
+      });
+
+      const groupSubs = (submissions || []).filter((s) => groupPossibleIds.has(String(s.student_id)));
+
+      if (!isSpecific && applicableLiveExamIds.length === 0) {
+        const examsTaken = Array.from(new Set(groupSubs.map((s) => s.exam_key).filter(Boolean)));
+        applicableLiveExamIds = examsTaken;
+      }
+
+      const liveExamsCount = applicableLiveExamIds.length;
+
+      let activeCount = 0; // কতজন মেম্বার অন্তত ১টি লাইভ পরীক্ষা দিয়েছে
+      let uniqueAttendancesCount = 0; // মোট কতটি অনন্য (মেম্বার + পরীক্ষা) লাইভ সাবমিশন সম্পন্ন হয়েছে
       let totalScore = 0;
+      let totalSubmissionsCount = groupSubs.length;
 
       members.forEach((m) => {
         const possibleIds = memberToPossibleIds.get(m.student_id) || [m.student_id];
-        const studentSubs = (submissions || []).filter((s) => possibleIds.includes(String(s.student_id)));
+        const mSubs = groupSubs.filter((s) => possibleIds.includes(String(s.student_id)));
 
-        if (studentSubs.length > 0) {
+        if (mSubs.length > 0) {
           activeCount++;
-          submissionsCount += studentSubs.length;
-          studentSubs.forEach((s) => {
-            totalScore += typeof s.score === "number" ? s.score : Number(s.score) || 0;
-          });
         }
+
+        const attendedExamKeys = new Set(
+          mSubs
+            .map((s) => s.exam_key)
+            .filter((k) => applicableLiveExamIds.length === 0 || applicableLiveExamIds.includes(k))
+        );
+        uniqueAttendancesCount += attendedExamKeys.size;
       });
 
-      const participationRate = totalMembers > 0 ? Math.round((activeCount / totalMembers) * 100) : 0;
-      const averageScore = submissionsCount > 0 ? Number((totalScore / submissionsCount).toFixed(1)) : 0;
+      groupSubs.forEach((s) => {
+        totalScore += typeof s.score === "number" ? s.score : Number(s.score) || 0;
+      });
+
+      // পারসেন্টেজ হিসাব:
+      // লাইভ পরীক্ষায় অংশগ্রহণের সার্বিক হার (%)
+      let participationRate = 0;
+      if (totalMembers > 0) {
+        if (liveExamsCount > 0) {
+          const totalPossibleEntries = totalMembers * liveExamsCount;
+          participationRate = Math.min(100, Math.round((uniqueAttendancesCount / totalPossibleEntries) * 100));
+        } else {
+          participationRate = Math.min(100, Math.round((activeCount / totalMembers) * 100));
+        }
+      }
+
+      const averageScore = totalSubmissionsCount > 0 ? Number((totalScore / totalSubmissionsCount).toFixed(1)) : 0;
 
       return {
         groupId: g.id,
@@ -762,28 +880,51 @@ export async function getGroupDailyLeaderboard(
         totalMembers,
         activeCount,
         participationRate,
-        submissionsCount,
+        submissionsCount: totalSubmissionsCount,
+        liveExamsCount,
         averageScore,
         rank: 0
       };
     });
 
-    // সর্টিং: ১. অংশগ্রহণের হার (বেশি আগে) ২. মোট সাবমিশন সংখ্যা ৩. গড় স্কোর
+    // সর্টিং: ১. লাইভ পরীক্ষার অংশগ্রহণের হার (%) ২. সক্রিয় সদস্য সংখ্যা ৩. মোট সাবমিশন ৪. গড় স্কোর
     rankings.sort((a, b) => {
       if (b.participationRate !== a.participationRate) return b.participationRate - a.participationRate;
+      if (b.activeCount !== a.activeCount) return b.activeCount - a.activeCount;
       if (b.submissionsCount !== a.submissionsCount) return b.submissionsCount - a.submissionsCount;
       return b.averageScore - a.averageScore;
     });
 
-    // র‍্যাংক নম্বর বসানো
+    // র‍্যাংক বসানো
     rankings.forEach((r, idx) => {
       r.rank = idx + 1;
     });
 
-    return { date: dateStr, rankings };
+    return {
+      startDate: sDate,
+      endDate: eDate,
+      rankings,
+      availableLiveExams
+    };
   } catch (err) {
-    console.error("getGroupDailyLeaderboard error:", err);
-    return { date: targetDateStr || "", rankings: [] };
+    console.error("getGroupPeriodLeaderboard error:", err);
+    return {
+      startDate: startDateStr || "",
+      endDate: endDateStr || "",
+      rankings: [],
+      availableLiveExams: []
+    };
   }
+}
+
+/**
+ * পূর্ববর্তী কোডের সাথে সামঞ্জস্য রাখার জন্য একক দিনের র‍্যাংকিং ফাংশন
+ */
+export async function getGroupDailyLeaderboard(
+  targetDateStr?: string,
+  courseFilter?: string
+): Promise<{ date: string; rankings: GroupDailyRanking[] }> {
+  const res = await getGroupPeriodLeaderboard(targetDateStr, targetDateStr, courseFilter);
+  return { date: res.startDate, rankings: res.rankings };
 }
 

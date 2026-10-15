@@ -49,6 +49,14 @@ export interface GroupDailyRanking {
   activeCount: number;
   participationRate: number;
   submissionsCount: number;
+  liveExamsCount?: number;
   averageScore: number;
   rank: number;
+}
+
+export interface GroupPeriodRankingResponse {
+  startDate: string;
+  endDate: string;
+  rankings: GroupDailyRanking[];
+  availableLiveExams: { id: string; title: string; course: string }[];
 }

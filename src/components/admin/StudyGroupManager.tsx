@@ -36,7 +36,8 @@ import {
   addMembersBulk,
   getExamsForGroupCourse,
   getGroupExamAttendance,
-  getGroupDailyLeaderboard
+  getGroupDailyLeaderboard,
+  getGroupPeriodLeaderboard
 } from "@/actions/study-group-actions";
 import { StudyGroup, StudyGroupMember, GroupExamAttendance, GroupDailyRanking } from "@/types/study-group";
 import { toBengaliDigits } from "@/lib/utils";
@@ -79,13 +80,18 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [copiedReminder, setCopiedReminder] = useState(false);
 
-  // Daily Leaderboard State
+  // Period Leaderboard State
   const [mainView, setMainView] = useState<"groups" | "leaderboard">("groups");
-  const [leaderboardDate, setLeaderboardDate] = useState<string>(() => {
+  const getTodayBD = () => {
     const now = new Date();
     const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
     return bdTime.toISOString().slice(0, 10);
-  });
+  };
+  const [startDate, setStartDate] = useState<string>(getTodayBD);
+  const [endDate, setEndDate] = useState<string>(getTodayBD);
+  const [periodPreset, setPeriodPreset] = useState<"today" | "yesterday" | "3days" | "7days" | "month" | "custom">("today");
+  const [selectedLiveExam, setSelectedLiveExam] = useState<string>("all");
+  const [availableLiveExams, setAvailableLiveExams] = useState<{ id: string; title: string; course: string }[]>([]);
   const [rankings, setRankings] = useState<GroupDailyRanking[]>([]);
   const [loadingRankings, setLoadingRankings] = useState(false);
 
@@ -97,12 +103,50 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
     setLoading(false);
   };
 
-  const loadRankings = async (targetDate?: string) => {
+  const loadRankings = async (s?: string, e?: string, examKey?: string) => {
     setLoadingRankings(true);
-    const dateToQuery = targetDate || leaderboardDate;
-    const res = await getGroupDailyLeaderboard(dateToQuery, courseFilter);
+    const startQ = s || startDate;
+    const endQ = e || endDate;
+    const keyQ = examKey !== undefined ? examKey : selectedLiveExam;
+    const res = await getGroupPeriodLeaderboard(startQ, endQ, courseFilter, keyQ);
     setRankings(res.rankings || []);
+    setAvailableLiveExams(res.availableLiveExams || []);
     setLoadingRankings(false);
+  };
+
+  const handleApplyPreset = (preset: "today" | "yesterday" | "3days" | "7days" | "month") => {
+    setPeriodPreset(preset);
+    const now = new Date();
+    const bd = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    const today = bd.toISOString().slice(0, 10);
+
+    let s = today;
+    let e = today;
+
+    if (preset === "today") {
+      s = today;
+      e = today;
+    } else if (preset === "yesterday") {
+      const y = new Date(bd.getTime() - 86400000).toISOString().slice(0, 10);
+      s = y;
+      e = y;
+    } else if (preset === "3days") {
+      const d3 = new Date(bd.getTime() - 2 * 86400000).toISOString().slice(0, 10);
+      s = d3;
+      e = today;
+    } else if (preset === "7days") {
+      const d7 = new Date(bd.getTime() - 6 * 86400000).toISOString().slice(0, 10);
+      s = d7;
+      e = today;
+    } else if (preset === "month") {
+      const firstDay = `${today.slice(0, 7)}-01`;
+      s = firstDay;
+      e = today;
+    }
+
+    setStartDate(s);
+    setEndDate(e);
+    loadRankings(s, e, selectedLiveExam);
   };
 
   useEffect(() => {
@@ -115,7 +159,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
       loadRankings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leaderboardDate, courseFilter, mainView]);
+  }, [startDate, endDate, courseFilter, selectedLiveExam, mainView]);
 
   // Open details view for a group
   const handleOpenGroup = async (group: StudyGroup) => {
@@ -753,7 +797,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                     : "border-transparent text-slate-500 hover:text-slate-800"
                 }`}
               >
-                <Trophy className="w-4 h-4 text-amber-500" /> দৈনিক গ্রুপ র‍্যাংকিং (শীর্ষ গ্রুপ)
+                <Trophy className="w-4 h-4 text-amber-500" /> লাইভ পরীক্ষা র‍্যাংকিং (শীর্ষ গ্রুপ)
               </button>
             </div>
           </div>
@@ -761,63 +805,151 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
           {/* Main View: Leaderboard vs Groups List */}
           {mainView === "leaderboard" ? (
             <div className="space-y-6">
-              {/* Date Filter & Controls */}
+              {/* Date Period Filter & Controls */}
               <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                       <Trophy className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">তারিখ অনুযায়ী গ্রুপ প্রতিযোগিতা ও র‍্যাংকিং</h4>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        লাইভ পরীক্ষা অংশগ্রহণের ভিত্তিতে গ্রুপ প্রতিযোগিতা ও র‍্যাংকিং
+                      </h4>
                       <p className="text-[11px] text-slate-500">
-                        যে গ্রুপের সদস্যরা নির্দিষ্ট তারিখে সবচেয়ে বেশি হারে পরীক্ষা সম্পন্ন করবে, সেই গ্রুপ শীর্ষে (Top) থাকবে
+                        নির্দিষ্ট সময়সীমায় (Time Period) যে গ্রুপের সদস্যরা সবচেয়ে বেশি হারে লাইভ পরীক্ষায় অংশ নেবে, সেই গ্রুপ শীর্ষে (Top) থাকবে
                       </p>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Shortcut Buttons */}
+                    {/* Quick Preset Buttons */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const now = new Date();
-                        const bd = new Date(now.getTime() + 6 * 60 * 60 * 1000);
-                        const t = bd.toISOString().slice(0, 10);
-                        setLeaderboardDate(t);
-                        loadRankings(t);
-                      }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      onClick={() => handleApplyPreset("today")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        periodPreset === "today"
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      }`}
                     >
                       ⚡ আজ
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const now = new Date();
-                        const bd = new Date(now.getTime() + 6 * 60 * 60 * 1000 - 86400000);
-                        const y = bd.toISOString().slice(0, 10);
-                        setLeaderboardDate(y);
-                        loadRankings(y);
-                      }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      onClick={() => handleApplyPreset("yesterday")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        periodPreset === "yesterday"
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      }`}
                     >
                       📅 গতকাল
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPreset("3days")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        periodPreset === "3days"
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      🗓️ গত ৩ দিন
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPreset("7days")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        periodPreset === "7days"
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      📊 গত ৭ দিন
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPreset("month")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        periodPreset === "month"
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      📆 চলতি মাস
+                    </button>
+                  </div>
+                </div>
 
-                    {/* Date Picker Input */}
+                {/* Second Row: Custom Date Range Inputs + Live Exam Selector + Refresh */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-slate-400 font-bold flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" /> সময়সীমা:
+                    </span>
+
+                    {/* Start Date */}
                     <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1">
-                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <span className="text-[10px] font-bold text-slate-400">হতে:</span>
                       <input
                         type="date"
-                        value={leaderboardDate}
+                        value={startDate}
                         onChange={(e) => {
-                          setLeaderboardDate(e.target.value);
-                          if (e.target.value) loadRankings(e.target.value);
+                          setPeriodPreset("custom");
+                          setStartDate(e.target.value);
+                          if (e.target.value) loadRankings(e.target.value, endDate);
                         }}
                         className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
                       />
                     </div>
+
+                    {/* End Date */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1">
+                      <span className="text-[10px] font-bold text-slate-400">পর্যন্ত:</span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => {
+                          setPeriodPreset("custom");
+                          setEndDate(e.target.value);
+                          if (e.target.value) loadRankings(startDate, e.target.value);
+                        }}
+                        className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Live Exam Dropdown Filter */}
+                    {availableLiveExams.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={selectedLiveExam}
+                          onChange={(e) => {
+                            setSelectedLiveExam(e.target.value);
+                            loadRankings(startDate, endDate, e.target.value);
+                          }}
+                          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer max-w-xs truncate"
+                        >
+                          <option value="all">
+                            🎯 সকল লাইভ পরীক্ষা ({toBengaliDigits(availableLiveExams.length)} টি)
+                          </option>
+                          {availableLiveExams.map((ex) => (
+                            <option key={ex.id} value={ex.id}>
+                              {ex.title} {ex.course ? `(${ex.course})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 ml-auto">
+                    {/* Period Summary Tag */}
+                    <span className="px-2.5 py-1 bg-amber-50 text-amber-700 font-bold rounded-lg text-[11px] border border-amber-200/60">
+                      {startDate === endDate
+                        ? `তারিখ: ${startDate}`
+                        : `${startDate} হতে ${endDate}`}
+                    </span>
 
                     {/* Refresh Button */}
                     <button
@@ -836,7 +968,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
               {loadingRankings ? (
                 <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
                   <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
-                  <span className="text-xs font-bold">গ্রুপ র‍্যাংকিং হিসাব হচ্ছে...</span>
+                  <span className="text-xs font-bold">গ্রুপ লাইভ র‍্যাংকিং হিসাব হচ্ছে...</span>
                 </div>
               ) : rankings.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-6 space-y-2">
@@ -856,29 +988,37 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
                         <div className="space-y-1">
                           <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-white/20 backdrop-blur-xs rounded-full border border-white/30 text-white">
-                            👑 আজকের শীর্ষ গ্রুপ (Rank #1)
+                            👑 এই সময়সীমার শীর্ষ গ্রুপ (Rank #1 Champion)
                           </span>
                           <h3 className="text-2xl font-black">{rankings[0].groupName}</h3>
                           <p className="text-xs text-amber-100 font-semibold">{rankings[0].course}</p>
                         </div>
 
                         <div className="text-left sm:text-right bg-white/10 backdrop-blur-xs border border-white/20 p-4 rounded-2xl shrink-0">
-                          <span className="text-[11px] font-bold text-amber-100 block">পরীক্ষা দেওয়ার হার</span>
+                          <span className="text-[11px] font-bold text-amber-100 block">
+                            লাইভ পরীক্ষা অংশগ্রহণের হার
+                          </span>
                           <span className="text-3xl font-black">{toBengaliDigits(rankings[0].participationRate)}%</span>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3 pt-2 relative z-10 text-center border-t border-white/20">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 relative z-10 text-center border-t border-white/20">
                         <div className="bg-white/10 rounded-xl p-2.5">
-                          <span className="text-[10px] text-amber-100 font-bold block">পরীক্ষার্থী সংখ্যা</span>
+                          <span className="text-[10px] text-amber-100 font-bold block">সক্রিয় পরীক্ষার্থী</span>
                           <span className="text-sm sm:text-base font-black">
                             {toBengaliDigits(rankings[0].activeCount)} / {toBengaliDigits(rankings[0].totalMembers)} জন
                           </span>
                         </div>
                         <div className="bg-white/10 rounded-xl p-2.5">
-                          <span className="text-[10px] text-amber-100 font-bold block">মোট পরীক্ষা জমা</span>
+                          <span className="text-[10px] text-amber-100 font-bold block">মোট লাইভ পরীক্ষা সম্পন্ন</span>
                           <span className="text-sm sm:text-base font-black">
                             {toBengaliDigits(rankings[0].submissionsCount)} টি
+                          </span>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-2.5">
+                          <span className="text-[10px] text-amber-100 font-bold block">অনুষ্ঠিত লাইভ পরীক্ষা</span>
+                          <span className="text-sm sm:text-base font-black">
+                            {toBengaliDigits(rankings[0].liveExamsCount || 0)} টি
                           </span>
                         </div>
                         <div className="bg-white/10 rounded-xl p-2.5">
@@ -891,7 +1031,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                     </div>
                   ) : (
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center text-slate-500 text-xs font-semibold">
-                      📅 {leaderboardDate} তারিখে কোনো গ্রুপের সদস্য এখনো কোনো পরীক্ষা সম্পন্ন করেনি।
+                      📅 {startDate === endDate ? startDate : `${startDate} হতে ${endDate}`} সময়সীমায় কোনো গ্রুপের সদস্য এখনো কোনো লাইভ পরীক্ষা সম্পন্ন করেনি।
                     </div>
                   )}
 
@@ -900,10 +1040,12 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
                         <Trophy className="w-4 h-4 text-amber-500" />
-                        সকল গ্রুপের অবস্থান ও পারফরম্যান্স ({leaderboardDate})
+                        সকল গ্রুপের লাইভ অবস্থান ও পারফরম্যান্স (
+                        {startDate === endDate ? startDate : `${startDate} হতে ${endDate}`}
+                        )
                       </h4>
                       <span className="text-[11px] text-slate-400 font-semibold">
-                        অংশগ্রহণের হারের ভিত্তিতে সাজানো
+                        লাইভ অংশগ্রহণের হারের ভিত্তিতে সাজানো
                       </span>
                     </div>
 
@@ -913,9 +1055,9 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                           <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                             <th className="py-3 px-4 text-center">র‍্যাংক</th>
                             <th className="py-3 px-4">গ্রুপের নাম ও কোর্স</th>
-                            <th className="py-3 px-4">পরীক্ষার হার (%)</th>
-                            <th className="py-3 px-4 text-center">অংশগ্রহণকারী</th>
-                            <th className="py-3 px-4 text-center">মোট পরীক্ষা জমা</th>
+                            <th className="py-3 px-4">লাইভ পরীক্ষার হার (%)</th>
+                            <th className="py-3 px-4 text-center">সক্রিয় সদস্য</th>
+                            <th className="py-3 px-4 text-center">লাইভ পরীক্ষা সম্পন্ন</th>
                             <th className="py-3 px-4 text-center">গড় স্কোর</th>
                             <th className="py-3 px-4 text-right">অ্যাকশন</th>
                           </tr>
