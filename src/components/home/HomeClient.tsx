@@ -22,6 +22,8 @@ import {
   ChevronDown,
   ChevronRight,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   X,
   Play,
   Clock,
@@ -118,6 +120,26 @@ export default function HomeClient({
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [dashboardGroupOpen, setDashboardGroupOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopSidebarHidden, setDesktopSidebarHidden] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("aarohon_desktop_sidebar_hidden");
+      if (saved === "true") {
+        setDesktopSidebarHidden(true);
+      }
+    }
+  }, []);
+
+  const toggleDesktopSidebar = () => {
+    setDesktopSidebarHidden((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("aarohon_desktop_sidebar_hidden", String(next));
+      }
+      return next;
+    });
+  };
 
   // Student auth & portal
   const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
@@ -626,8 +648,9 @@ export default function HomeClient({
 
         {/* ----------------- LEFT SIDEBAR ----------------- */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#141d2e] text-slate-300 flex flex-col border-r border-[#1f2c44] shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
+          className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#141d2e] text-slate-300 flex flex-col border-r border-[#1f2c44] shadow-2xl transition-transform duration-300 ease-in-out ${
+            desktopSidebarHidden ? "lg:-translate-x-full" : "lg:translate-x-0"
+          } ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           {/* Logo & Brand Name */}
           <div className="h-16 px-5 border-b border-[#1f2c44] flex items-center justify-between">
@@ -645,6 +668,18 @@ export default function HomeClient({
               </div>
             </Link>
 
+            {/* Desktop hide button */}
+            <button
+              type="button"
+              onClick={toggleDesktopSidebar}
+              className="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer active:scale-95"
+              title="সাইডবার লুকান (ফুলস্ক্রিন)"
+              aria-label="সাইডবার লুকান"
+            >
+              <PanelLeftClose className="w-5 h-5" />
+            </button>
+
+            {/* Mobile close button */}
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(false)}
@@ -931,10 +966,14 @@ export default function HomeClient({
         </aside>
 
         {/* ----------------- RIGHT WORKSPACE AREA ----------------- */}
-        <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
+        <div
+          className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-300 ease-in-out ${
+            desktopSidebarHidden ? "lg:pl-0" : "lg:pl-64"
+          }`}
+        >
           {/* Top Bar matching Tablet UI mockup */}
           <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
-            {/* Left: Mobile hamburger & Active Title */}
+            {/* Left: Mobile hamburger, Desktop sidebar toggle & Active Title */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 type="button"
@@ -943,6 +982,21 @@ export default function HomeClient({
                 aria-label="মেনু খুলুন"
               >
                 <Menu className="w-5 h-5" />
+              </button>
+
+              {/* Desktop sidebar toggle button */}
+              <button
+                type="button"
+                onClick={toggleDesktopSidebar}
+                className="hidden lg:inline-flex p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-indigo-600 transition shrink-0 active:scale-95 cursor-pointer items-center justify-center border border-slate-200/80 shadow-2xs"
+                title={desktopSidebarHidden ? "সাইডবার দেখান" : "সাইডবার লুকান (ফুলস্ক্রিন)"}
+                aria-label={desktopSidebarHidden ? "সাইডবার দেখান" : "সাইডবার লুকান"}
+              >
+                {desktopSidebarHidden ? (
+                  <PanelLeftOpen className="w-5 h-5 text-indigo-600" />
+                ) : (
+                  <PanelLeftClose className="w-5 h-5" />
+                )}
               </button>
 
               <div className="min-w-0">
@@ -954,10 +1008,10 @@ export default function HomeClient({
                   {activeNav === "results" && "পরীক্ষার ফলাফল"}
                   {activeNav === "mistakes" && "ভুল উত্তরের খাতা"}
                   {activeNav === "bookmarks" && "বুকমার্ককৃত প্রশ্নাবলী"}
-                  {activeNav === "analytics" && "শক্তি ও দুর্বলতা এনালাইসিস"}
+                  {activeNav === "analytics" && "শক্তি ও দুর্বলতা"}
                   {activeNav === "leaderboard" && "লিডারবোর্ড"}
                   {activeNav === "question_bank" && "অনুশীলন"}
-                  {activeNav === "courses" && (selectedCourse ? selectedCourse : "আরোহণ কোর্স সমূহ")}
+                  {activeNav === "courses" && (selectedCourse ? selectedCourse : "কোর্স সমূহ")}
                   {activeNav === "referral" && "রেফারেল ও রিওয়ার্ড"}
                 </h1>
                 {/* <p className="text-xs sm:text-sm text-slate-600 font-normal truncate hidden sm:block mt-0.5">

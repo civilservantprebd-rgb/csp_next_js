@@ -3,8 +3,8 @@
 import { supabase } from "@/lib/supabase";
 import { Exam, QuestionSolution } from "@/types/exam";
 import { Submission, LeaderboardItem } from "@/types/submission";
-import { parseBangladeshDateTime, getTrueDate, LIVE_GRACE_MS } from "@/lib/bangladesh-time";
-import { parseTimeSpentToSeconds, parseBengaliDigits } from "@/lib/utils";
+import { parseBangladeshDateTime, getTrueDate, LIVE_GRACE_MS, isAnswerTimeReached } from "@/lib/bangladesh-time";
+import { parseTimeSpentToSeconds, parseBengaliDigits, formatBangladeshDate, formatBangladeshClock } from "@/lib/utils";
 import { loadAnswerLockState, isQuestionLocked } from "@/lib/answer-lock";
 
 export async function getExamSolutions(examKey: string): Promise<QuestionSolution[] | null> {
@@ -1318,3 +1318,171 @@ export async function getQuestionLiveStats(
     return zero;
   }
 }
+
+export interface ExamDetailedHubBundle {
+  exam: Exam | null;
+  questions: { id?: string; q: string; opts: string[]; topic?: string }[];
+  solutions: QuestionSolution[] | null;
+  submissions: Submission[];
+  leaderboard: LeaderboardItem[];
+  isLocked: boolean;
+  isScheduled: boolean;
+  hasNoLeaderboard: boolean;
+  releaseDateText: string;
+}
+
+export async function getExamDetailedHubData(
+  examKey: string,
+  studentId?: string
+): Promise<ExamDetailedHubBundle> {
+  const empty: ExamDetailedHubBundle = {
+    exam: null,
+    questions: [],
+    solutions: null,
+    submissions: [],
+    leaderboard: [],
+    isLocked: false,
+    isScheduled: false,
+    hasNoLeaderboard: false,
+    releaseDateText: "",
+  };
+
+  try {
+    const key = String(examKey || "").trim();
+    if (!key) return empty;
+
+    // 1. Fetch exam
+    const { data: ex, error: exError } = await supabase
+      .from("exams")
+      .select("*")
+      .eq("id", key)
+      .maybeSingle();
+
+    if (exError || !ex) return empty;
+
+    const exam: Exam = {
+      id: ex.id,
+      course: ex.course,
+      subject: ex.subject,
+      title: ex.title,
+      timerMinutes: ex.timer_minutes,
+      isFree: ex.is_free,
+      passMark: Number(ex.pass_mark ?? 0),
+      startTime: ex.start_time,
+      endTime: ex.end_time,
+      isResultPublished: ex.is_result_published,
+      leaderboardStartTime: ex.leaderboard_start_time,
+      leaderboardEndTime: ex.leaderboard_end_time,
+    };
+
+    const isScheduled = !!(exam.startTime && (exam.endTime || exam.leaderboardEndTime));
+    const hasNoLeaderboard = !isScheduled;
+    const isLocked = isScheduled && !isAnswerTimeReached(exam);
+    const endDate = exam.endTime ? parseBangladeshDateTime(exam.endTime) : null;
+    const releaseDateText = endDate
+      ? `পরীক্ষা সমাপ্তি: ${formatBangladeshDate(endDate)} — ${formatBangladeshClock(endDate)}`
+      : isScheduled
+      ? "শিক্ষক রিলিজ করার পর"
+      : "অনুশীলন (প্র্যাকটিস) মেধা তালিকা";
+
+    // 2. Questions & solutions
+    const { data: links } = await supabase
+      .from("exam_questions_link")
+      .select("order_index, question_bank(id, q, opts, topic, correct, exp)")
+      .eq("exam_id", key);
+
+    const sorted = (links || []).sort(
+      (a: any, b: any) => Number(a.order_index) - Number(b.order_index)
+    );
+
+    const questions = sorted.map((l: any) => {
+      const qb = Array.isArray(l.question_bank) ? l.question_bank[0] : l.question_bank;
+      return {
+        id: qb?.id,
+        q: qb?.q || "",
+        opts: qb?.opts || [],
+        topic: qb?.topic || undefined,
+      };
+    });
+
+    const { isTeacherSession } = await import("@/lib/teacher-auth");
+    const teacher = await isTeacherSession();
+    const released = teacher || isAnswerTimeReached(exam);
+
+    const solutions: QuestionSolution[] | null = released
+      ? sorted.map((l: any) => {
+          const qb = Array.isArray(l.question_bank) ? l.question_bank[0] : l.question_bank;
+          return {
+            id: qb?.id,
+            correct: Number(qb?.correct ?? 0),
+            exp: qb?.exp || "",
+          };
+        })
+      : null;
+
+    // 3. Leaderboard
+    let leaderboard: LeaderboardItem[] = [];
+    try {
+      leaderboard = await fetchLeaderboard(key);
+    } catch {
+      // ignore
+    }
+
+    // 4. Submissions of this student for this exam
+    let submissions: Submission[] = [];
+    if (studentId) {
+      const cleanId = String(studentId).trim();
+      const normId = parseBengaliDigits(cleanId).trim();
+      const ids = Array.from(new Set([cleanId, normId])).filter(Boolean);
+
+      const { data: subRows } = await supabase
+        .from("submissions")
+        .select(
+          "id, student_name, student_id, exam_key, exam_title, score, correct, incorrect, total_questions, time_spent, is_pending_evaluation, is_live_submission, submitted_at, answers"
+        )
+        .eq("exam_key", key)
+        .in("student_id", ids)
+        .order("submitted_at", { ascending: false });
+
+      if (subRows && subRows.length > 0) {
+        submissions = subRows.map((row: any) => ({
+          id: row.id,
+          studentName: row.student_name,
+          studentId: row.student_id,
+          examKey: row.exam_key,
+          examTitle: row.exam_title,
+          score: Number(row.score ?? 0),
+          correct: Number(row.correct ?? 0),
+          incorrect: Number(row.incorrect ?? 0),
+          totalQuestions: Number(row.total_questions ?? 0),
+          timeSpent: row.time_spent,
+          answers: Array.isArray(row.answers)
+            ? row.answers.map((v: any) => {
+                if (typeof v === "object" && v !== null && "qid" in v) return v;
+                return v === -1 || v === null ? null : Number(v);
+              })
+            : [],
+          isPendingEvaluation: row.is_pending_evaluation,
+          isLiveSubmission: row.is_live_submission,
+          submittedAtISO: row.submitted_at,
+        }));
+      }
+    }
+
+    return {
+      exam,
+      questions,
+      solutions,
+      submissions,
+      leaderboard,
+      isLocked,
+      isScheduled,
+      hasNoLeaderboard,
+      releaseDateText,
+    };
+  } catch (err) {
+    console.error("getExamDetailedHubData error:", err);
+    return empty;
+  }
+}
+

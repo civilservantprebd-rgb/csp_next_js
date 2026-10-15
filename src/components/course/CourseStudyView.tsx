@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { VideoPlayerModal } from "@/components/course/VideoPlayerModal";
+import { CourseExamDetailView } from "@/components/course/CourseExamDetailView";
 import { fetchAppConfigLite } from "@/actions/admin-actions";
 import { getCoursePdfsAndRoutines } from "@/actions/pdf-actions";
 import { getCourseVideosForStudent, StudentVideoAccess } from "@/actions/video-actions";
@@ -41,7 +42,8 @@ import {
   LogIn,
   MessageCircle,
   Calendar,
-  Sparkles
+  Sparkles,
+  Info
 } from "lucide-react";
 
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
@@ -91,6 +93,7 @@ export default function CourseClient({
 
   // কোর্স সেকশনের ৩টি বাটন: ভিডিও | পিডিএফ | পরীক্ষা (ডিফল্ট: পরীক্ষা)
   const [activeCourseTab, setActiveCourseTab] = useState<"video" | "pdf" | "exam">("exam");
+  const [selectedDetailExamKey, setSelectedDetailExamKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!config) {
@@ -437,12 +440,21 @@ export default function CourseClient({
             </span>
           </div>
         </div>
-        <button
-          onClick={() => handleStartExam(eKey)}
-          className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-[0.98] shadow-sm"
-        >
-          <PlayCircle className="w-4 h-4" /> পরীক্ষা শুরু করুন
-        </button>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={() => setSelectedDetailExamKey(eKey)}
+            className="px-3.5 py-2.5 rounded-xl border border-indigo-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/70 text-indigo-700 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98] shadow-2xs"
+          >
+            <Info className="w-4 h-4 text-indigo-600" /> বিস্তারিত
+          </button>
+          <button
+            onClick={() => handleStartExam(eKey)}
+            className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-[0.98] shadow-sm"
+          >
+            <PlayCircle className="w-4 h-4" /> {completedExams.has(eKey) ? "আবার দিন" : "পরীক্ষা দিন"}
+          </button>
+        </div>
       </div>
     );
   };
@@ -655,7 +667,15 @@ export default function CourseClient({
 
             {/* Exams section — পরীক্ষা ট্যাবের অধীনে */}
             {activeCourseTab === "exam" && (
-              <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+              selectedDetailExamKey ? (
+                <CourseExamDetailView
+                  examKey={selectedDetailExamKey}
+                  courseName={courseName}
+                  onBack={() => setSelectedDetailExamKey(null)}
+                  onStartExam={(k) => handleStartExam(k)}
+                />
+              ) : (
+                <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-indigo-600" /> পরীক্ষাসমূহ
@@ -773,6 +793,7 @@ export default function CourseClient({
                 </div>
               )}
             </section>
+            )
           )}
 
           {/* ২. ভিডিও ক্লাস সেকশন — ভিডিও ট্যাবের অধীনে */}
