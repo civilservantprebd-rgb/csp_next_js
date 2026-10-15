@@ -54,9 +54,6 @@ export default function LeaderboardClient({
           <div className="space-y-3">
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-900">মেধা তালিকা দেখুন</h2>
-              <p className="text-xs text-slate-500 font-semibold">
-                আগে কোর্স বেছে নিন, তারপর পরীক্ষার নাম দিয়ে খুঁজুন — বিষয় দিয়েও খোঁজা যায়
-              </p>
             </div>
             <LeaderboardExamSearch
               exams={allExams}

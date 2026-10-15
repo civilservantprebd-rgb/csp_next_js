@@ -7,7 +7,7 @@ import { LeaderboardExamSearch } from "@/components/leaderboard/LeaderboardExamS
 import { LeaderboardTable } from "@/components/leaderboard/LeaderboardTable";
 import { fetchLeaderboard } from "@/actions/exam-actions";
 import { parseBangladeshDateTime, isAnswerTimeReached } from "@/lib/bangladesh-time";
-import { formatBangladeshDate, formatBangladeshClock } from "@/lib/utils";
+import { formatBangladeshDate, formatBangladeshClock, getLatestPublishedExamKey } from "@/lib/utils";
 
 interface LeaderboardViewProps {
   exams: Record<string, Exam>;
@@ -15,11 +15,23 @@ interface LeaderboardViewProps {
 }
 
 export function LeaderboardView({ exams, initialExamKey }: LeaderboardViewProps) {
-  const examKeys = Object.keys(exams);
-  const defaultKey = initialExamKey && exams[initialExamKey] ? initialExamKey : examKeys[0] || "";
-  const [activeExamKey, setActiveExamKey] = useState<string>(defaultKey);
+  const [activeExamKey, setActiveExamKey] = useState<string>(() => {
+    if (initialExamKey && exams[initialExamKey]) return initialExamKey;
+    return getLatestPublishedExamKey(exams);
+  });
   const [items, setItems] = useState<LeaderboardItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!activeExamKey || !exams[activeExamKey]) {
+      const best = initialExamKey && exams[initialExamKey]
+        ? initialExamKey
+        : getLatestPublishedExamKey(exams);
+      if (best) {
+        setActiveExamKey(best);
+      }
+    }
+  }, [exams, initialExamKey, activeExamKey]);
 
   const exam = exams[activeExamKey] || null;
 
@@ -60,12 +72,7 @@ export function LeaderboardView({ exams, initialExamKey }: LeaderboardViewProps)
     <div className="space-y-5 animate-in fade-in duration-200 font-bengali">
       <div className="bg-white rounded-3xl p-5 sm:p-8 shadow-sm border border-slate-200 space-y-5">
         <div className="space-y-3">
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-slate-900">মেধা তালিকা দেখুন</h2>
-            <p className="text-xs text-slate-500 font-semibold">
-              আগে কোর্স বেছে নিন, তারপর পরীক্ষার নাম দিয়ে খুঁজুন — বিষয় দিয়েও খোঁজা যায়
-            </p>
-          </div>
+
           <LeaderboardExamSearch
             exams={exams}
             activeExamKey={activeExamKey}

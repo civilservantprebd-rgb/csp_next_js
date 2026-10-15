@@ -362,10 +362,16 @@ function pushNewMistakes(studentId: string, items: MistakeQuestionItem[]): void 
 export function getStudentMistakes(studentId: string): MistakeQuestionItem[] {
   if (typeof window === "undefined" || !studentId) return [];
   try {
+    const isValidMistake = (m: MistakeQuestionItem) =>
+      m.userAns !== null &&
+      m.userAns !== undefined &&
+      m.userAns !== -1 &&
+      m.userAns !== m.correct;
+
     const mem = memStates.get(studentId);
-    if (mem) return mem.mistakes;
+    if (mem) return mem.mistakes.filter(isValidMistake);
     const parsed = readLocalList("mistakes", studentId);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.filter(isValidMistake) : [];
   } catch (err) {
     console.error("Error loading student mistakes:", err);
     return [];
@@ -414,8 +420,8 @@ export function saveMistakesFromSubmission(
       const userAns = rawAns as number | null;
       const sol = solutions[idx] || { correct: 0, exp: "" };
 
-      // If wrong answer or skipped
-      if (userAns !== sol.correct) {
+      // শুধু দাগানো এবং ভুল উত্তরগুলোই সেভ হবে (স্কিপ বা উত্তর না দেওয়া প্রশ্ন ভুল খাতার অংশ নয়)
+      if (userAns !== null && userAns !== -1 && userAns !== sol.correct) {
         const qKey = q.q.trim().toLowerCase();
         if (!existingQTexts.has(qKey)) {
           const item: MistakeQuestionItem = {

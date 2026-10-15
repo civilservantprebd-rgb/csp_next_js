@@ -139,9 +139,20 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
     return map;
   }, [exams]);
 
+  // শুধু প্রকৃত দাগানো ভুল উত্তরগুলো রাখা হবে (স্কিপ বা উত্তর না দেওয়া প্রশ্ন বাদ)
+  const actualMistakes = useMemo(() => {
+    return mistakes.filter(
+      (m) =>
+        m.userAns !== null &&
+        m.userAns !== undefined &&
+        m.userAns !== -1 &&
+        m.userAns !== m.correct
+    );
+  }, [mistakes]);
+
   // Derived filtered mistakes based on course, exam, and search query
   const filteredMistakes = useMemo(() => {
-    return mistakes.filter((m) => {
+    return actualMistakes.filter((m) => {
       // Course filter
       if (mistakeCourseFilter !== "all") {
         const c = examTitleToCourseMap.get(m.examTitle?.trim().toLowerCase()) || "অন্যান্য কোর্স";
@@ -162,21 +173,21 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
       }
       return true;
     });
-  }, [mistakes, mistakeCourseFilter, mistakeExamFilter, mistakeSearchQuery, examTitleToCourseMap]);
+  }, [actualMistakes, mistakeCourseFilter, mistakeExamFilter, mistakeSearchQuery, examTitleToCourseMap]);
 
   // Unique courses and exam titles present in mistakes
   const mistakeAvailableCourses = useMemo(() => {
     const courses = new Set<string>();
-    mistakes.forEach((m) => {
+    actualMistakes.forEach((m) => {
       const c = examTitleToCourseMap.get(m.examTitle?.trim().toLowerCase()) || "অন্যান্য কোর্স";
       courses.add(c);
     });
     return Array.from(courses);
-  }, [mistakes, examTitleToCourseMap]);
+  }, [actualMistakes, examTitleToCourseMap]);
 
   const mistakeAvailableExams = useMemo(() => {
     const examTitles = new Set<string>();
-    mistakes.forEach((m) => {
+    actualMistakes.forEach((m) => {
       if (mistakeCourseFilter !== "all") {
         const c = examTitleToCourseMap.get(m.examTitle?.trim().toLowerCase()) || "অন্যান্য কোর্স";
         if (c !== mistakeCourseFilter) return;
@@ -186,7 +197,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
       }
     });
     return Array.from(examTitles);
-  }, [mistakes, mistakeCourseFilter, examTitleToCourseMap]);
+  }, [actualMistakes, mistakeCourseFilter, examTitleToCourseMap]);
 
   // हज़ारো mistake/bookmark থাকলেও DOM-এ একসাথে সব না এনে পেজ-আকারে দেখাই
   const MISTAKE_PAGE_SIZE = 40;
@@ -331,7 +342,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
 
   // Launch Re-test quiz
   const handleStartMistakesQuiz = () => {
-    const listToQuiz = filteredMistakes.length > 0 ? filteredMistakes : mistakes;
+    const listToQuiz = filteredMistakes.length > 0 ? filteredMistakes : actualMistakes;
     if (listToQuiz.length === 0) return;
     const questionsForQuiz: PracticeQuestion[] = listToQuiz.map((m, idx) => ({
       id: m.id || `m_${idx}`,
@@ -344,7 +355,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
     }));
     setQuizQuestions(questionsForQuiz);
     setQuizTitle(
-      filteredMistakes.length !== mistakes.length
+      filteredMistakes.length !== actualMistakes.length
         ? "ফিল্টারকৃত ভুলের খাতা অনুশীলন"
         : "ভুল উত্তরের খাতা অনুশীলন"
     );
@@ -434,7 +445,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
   const alsoTaken = Object.entries(exams).filter(([id]) => submittedKeys.has(id) && !mineIds.has(id));
   const examStatusList = [...myCourseExams, ...alsoTaken].sort((a, b) => compareExamsByStartTime(b[1], a[1]));
   const uniqueCourses = Array.from(new Set(examStatusList.map(([, ex]) => String(ex.course || "").trim()).filter(Boolean)));
-  
+
   const filteredExamStatusList = examStatusList.filter(([, ex]) => {
     if (courseFilter === "all") return true;
     return String(ex.course || "").trim() === courseFilter;
@@ -451,7 +462,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
             : "bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full p-3.5 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col relative border border-slate-100"
         }
       >
-        
+
         {/* Header - hide when embedded since the page has its own header */}
         {!embedded && (
           <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
@@ -527,72 +538,67 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
         {/* Navigation Tabs — portal সেকশন-পেজে hideTabs হলে ৪টি ট্যাব দেখাই না
             (শুধু initialTab-এর নির্দিষ্ট সেকশনের কনটেন্ট দেখানো হয়) */}
         {!hideTabs && (
-        <div className="flex items-center gap-1.5 sm:gap-2 border-b border-slate-100 pb-2.5 sm:pb-3 mb-2 overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap">
-          <button
-            type="button"
-            onClick={() => setActiveTab("history")}
-            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
-              activeTab === "history"
-                ? "bg-violet-600 text-white shadow-sm"
-                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
-            }`}
-          >
-            <History className="w-3.5 h-3.5" />
-            <span>পরীক্ষার ফলাফল ({toBengaliDigits(submissions.length)})</span>
-          </button>
+          <div className="flex items-center gap-1.5 sm:gap-2 border-b border-slate-100 pb-2.5 sm:pb-3 mb-2 overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveTab("history")}
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === "history"
+                  ? "bg-violet-600 text-white shadow-sm"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>পরীক্ষার ফলাফল ({toBengaliDigits(submissions.length)})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("analytics")}
-            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
-              activeTab === "analytics"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>শক্তি ও দুর্বলতা বিশ্লেষণ</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("analytics")}
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === "analytics"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>শক্তি ও দুর্বলতা বিশ্লেষণ</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("mistakes")}
-            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
-              activeTab === "mistakes"
-                ? "bg-rose-600 text-white shadow-sm"
-                : "bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200/80"
-            }`}
-          >
-            <AlertOctagon className="w-3.5 h-3.5" />
-            <span>ভুল উত্তরের খাতা ({toBengaliDigits(mistakes.length)})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("mistakes")}
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === "mistakes"
+                  ? "bg-rose-600 text-white shadow-sm"
+                  : "bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200/80"
+                }`}
+            >
+              <AlertOctagon className="w-3.5 h-3.5" />
+              <span>ভুল উত্তরের খাতা ({toBengaliDigits(actualMistakes.length)})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("bookmarks")}
-            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
-              activeTab === "bookmarks"
-                ? "bg-amber-600 text-white shadow-sm"
-                : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80"
-            }`}
-          >
-            <Bookmark className="w-3.5 h-3.5" />
-            <span>বুকমার্কসমূহ ({toBengaliDigits(bookmarks.length)})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("bookmarks")}
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === "bookmarks"
+                  ? "bg-amber-600 text-white shadow-sm"
+                  : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80"
+                }`}
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>বুকমার্কসমূহ ({toBengaliDigits(bookmarks.length)})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("referral")}
-            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
-              activeTab === "referral"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80"
-            }`}
-          >
-            <Gift className="w-3.5 h-3.5" />
-            <span>রেফার ও রিওয়ার্ড</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("referral")}
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${activeTab === "referral"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80"
+                }`}
+            >
+              <Gift className="w-3.5 h-3.5" />
+              <span>রেফার ও রিওয়ার্ড</span>
+            </button>
+          </div>
         )}
 
         {/* Access denied banner (IDOR protection) */}
@@ -667,9 +673,8 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       return (
                         <div
                           key={examKey}
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border p-3.5 transition-colors ${
-                            taken ? "bg-indigo-50/30 border-indigo-100 hover:bg-indigo-50/70" : "bg-slate-50 border-slate-200 hover:bg-slate-100"
-                          }`}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border p-3.5 transition-colors ${taken ? "bg-indigo-50/30 border-indigo-100 hover:bg-indigo-50/70" : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                            }`}
                         >
                           <div className="flex items-start gap-2.5 min-w-0 flex-1">
                             <span className="text-sm shrink-0 mt-0.5">{taken ? "✅" : "◻️"}</span>
@@ -683,7 +688,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                               </p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-2 flex-wrap pl-6 sm:pl-0 shrink-0">
                             {taken ? (
                               canShowResult ? (
@@ -740,9 +745,9 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
               {!analytics || analytics.totalExams === 0 ? (
                 <div className="text-center py-12 text-slate-400 space-y-2 bg-slate-50 rounded-2xl border border-slate-200">
                   <BarChart3 className="w-10 h-10 mx-auto text-indigo-400" />
-                  <h4 className="font-bold text-slate-700 text-sm">পর্যাপ্ত ডেটা নেই</h4>
+                  <h4 className="font-bold text-slate-700 text-sm">পর্যাপ্ত লাইভ পরীক্ষার ডেটা নেই</h4>
                   <p className="text-xs max-w-sm mx-auto">
-                    কমপক্ষে ১টি পরীক্ষায় অংশগ্রহণ করলে আপনার শক্তি ও দুর্বলতার স্বয়ংক্রিয় অ্যানালিটিক্স রিপোর্ট এখানে তৈরি হবে।
+                    কমপক্ষে ১টি লাইভ পরীক্ষায় অংশ নিয়ে প্রশ্ন দাগালে আপনার শক্তি ও দুর্বলতার স্বয়ংক্রিয় এনালাইসিস রিপোর্ট এখানে তৈরি হবে।
                   </p>
                 </div>
               ) : (
@@ -780,21 +785,12 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                         {toBengaliDigits(analytics.overallAccuracy)}%
                       </h4>
                       <p className="text-xs text-indigo-700">
-                        মোট {toBengaliDigits(analytics.totalAttemptedQuestions)}টি প্রশ্নের বিশ্লেষণে
+                        লাইভ পরীক্ষায় দাগানো {toBengaliDigits(analytics.totalAttemptedQuestions)}টি প্রশ্নের বিশ্লেষণে
                       </p>
                     </div>
                   </div>
 
-                  {/* Smart Prep Recommendation Box */}
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-slate-50 to-purple-50 border border-indigo-100 flex items-start gap-3 shadow-sm">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
-                      <Lightbulb className="w-4 h-4 text-indigo-600" />
-                    </div>
-                    <div className="space-y-0.5">
-                      <h5 className="text-xs font-bold text-indigo-950">স্মার্ট প্রস্তুতি পরামর্শ (AI Recommendation):</h5>
-                      <p className="text-xs text-slate-600 leading-relaxed">{analytics.recommendation}</p>
-                    </div>
-                  </div>
+
 
                   {/* Subject Breakdown List */}
                   <div className="space-y-3 pt-1">
@@ -811,20 +807,20 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                         const barColor = isStrong
                           ? "bg-emerald-500"
                           : isWeak
-                          ? "bg-rose-500"
-                          : "bg-amber-500";
+                            ? "bg-rose-500"
+                            : "bg-amber-500";
 
                         const badgeClass = isStrong
                           ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                           : isWeak
-                          ? "bg-rose-100 text-rose-800 border-rose-200"
-                          : "bg-amber-100 text-amber-800 border-amber-200";
+                            ? "bg-rose-100 text-rose-800 border-rose-200"
+                            : "bg-amber-100 text-amber-800 border-amber-200";
 
                         const statusText = isStrong
                           ? "🟢 শক্তিশালী প্রস্তুতি"
                           : isWeak
-                          ? "🔴 দুর্বলতা চিহ্নিত"
-                          : "🟡 সন্তোষজনক";
+                            ? "🔴 দুর্বলতা চিহ্নিত"
+                            : "🟡 সন্তোষজনক";
 
                         return (
                           <div
@@ -842,7 +838,7 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                                   </span>
                                 </div>
                                 <p className="text-sm text-slate-500 mt-0.5">
-                                  মোট প্রশ্ন: <strong>{toBengaliDigits(item.totalQuestions)}টি</strong> • সঠিক:{" "}
+                                  দাগানো প্রশ্ন: <strong>{toBengaliDigits(item.totalAttempted)}টি</strong> • সঠিক:{" "}
                                   <strong className="text-emerald-700">{toBengaliDigits(item.correct)}টি</strong> • ভুল:{" "}
                                   <strong className="text-rose-600">{toBengaliDigits(item.incorrect)}টি</strong>
                                 </p>
@@ -1038,75 +1034,142 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                     </div>
                   ) : null}
 
-                  {shownMistakes.map((m, idx) => (
-                    <div
-                      key={m.id || idx}
-                      className="p-4 rounded-2xl border border-rose-200 bg-white space-y-3 shadow-sm text-xs"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                              {m.examTitle}
-                            </span>
-                            {m.topic && (
-                              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
-                                টপিক: {m.topic}
+                  {shownMistakes.map((m, idx) => {
+                    const userAnsIdx =
+                      m.userAns !== null &&
+                      m.userAns !== undefined &&
+                      m.userAns !== -1 &&
+                      !isNaN(Number(m.userAns))
+                        ? Number(m.userAns)
+                        : null;
+                    const correctIdx = Number(m.correct ?? 0);
+
+                    return (
+                      <div
+                        key={m.id || idx}
+                        className="p-4 rounded-2xl border border-rose-200 bg-white space-y-3.5 shadow-sm text-xs"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                                {m.examTitle}
+                              </span>
+                              {m.topic && (
+                                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
+                                  টপিক: {m.topic}
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
+                              {toBengaliDigits(idx + 1)}. <MathText text={m.q} />
+                            </h4>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleBookmark(m)}
+                              title="বুকমার্ক"
+                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200 cursor-pointer"
+                            >
+                              <Bookmark className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Options with Wrong vs Right Highlight & Labels */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {m.opts.map((opt, optIdx) => {
+                            const isCorrect = optIdx === correctIdx;
+                            const isUserWrong = userAnsIdx === optIdx && !isCorrect;
+
+                            return (
+                              <div
+                                key={optIdx}
+                                className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition ${
+                                  isCorrect
+                                    ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs"
+                                    : isUserWrong
+                                    ? "bg-rose-50 border-rose-400 text-rose-950 font-bold shadow-xs"
+                                    : "bg-slate-50/70 border-slate-200 text-slate-700 font-medium"
+                                }`}
+                              >
+                                <span className="flex items-center gap-1.5 min-w-0">
+                                  <span
+                                    className={`w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                                      isCorrect
+                                        ? "bg-emerald-600 text-white"
+                                        : isUserWrong
+                                        ? "bg-rose-600 text-white"
+                                        : "bg-slate-200 text-slate-700"
+                                    }`}
+                                  >
+                                    {optLabels[optIdx] || optIdx + 1}
+                                  </span>
+                                  <span className="truncate sm:whitespace-normal">
+                                    <MathText text={opt} />
+                                  </span>
+                                </span>
+
+                                <div className="shrink-0 flex items-center gap-1">
+                                  {isCorrect && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-black text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                      <span>সঠিক উত্তর</span>
+                                    </span>
+                                  )}
+                                  {isUserWrong && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-black text-rose-700 bg-rose-100/90 border border-rose-300 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                      <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                                      <span>আপনার ভুল উত্তর</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* স্পষ্ট উত্তর সামারি (দাগানো ভুল উত্তর ও সঠিক উত্তর) */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-200/90 text-xs">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-500">আপনার দাগানো উত্তর:</span>
+                            {userAnsIdx !== null && userAnsIdx >= 0 && userAnsIdx < m.opts.length ? (
+                              <span className="inline-flex items-center gap-1.5 font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                                <span className="w-4 h-4 rounded bg-rose-600 text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                                  {optLabels[userAnsIdx] || userAnsIdx + 1}
+                                </span>
+                                <span><MathText text={m.opts[userAnsIdx]} /></span>
+                                <span className="text-[10px] font-black text-rose-600 bg-rose-100 px-1.5 py-0.2 rounded border border-rose-200">ভুল</span>
+                              </span>
+                            ) : (
+                              <span className="font-semibold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-md text-[11px]">
+                                দাগানো হয়নি (Skipped)
                               </span>
                             )}
                           </div>
-                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-relaxed">
-                            {toBengaliDigits(idx + 1)}. <MathText text={m.q} />
-                          </h4>
-                        </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleBookmark(m)}
-                            title="বুকমার্ক"
-                            className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
-                          >
-                            <Bookmark className="w-3.5 h-3.5" />
-                          </button>
-
-                        </div>
-                      </div>
-
-                      {/* Options with Wrong vs Right Highlight */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {m.opts.map((opt, optIdx) => {
-                          const isCorrect = optIdx === m.correct;
-                          const isUserWrong = m.userAns === optIdx;
-
-                          return (
-                            <div
-                              key={optIdx}
-                              className={`p-2 rounded-lg border flex items-center justify-between ${
-                                isCorrect
-                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-bold"
-                                  : isUserWrong
-                                  ? "bg-rose-50 border-rose-300 text-rose-950 font-semibold"
-                                  : "bg-slate-50 border-slate-200 text-slate-600"
-                              }`}
-                            >
-                              <span>
-                                ({optLabels[optIdx]}) <MathText text={opt} />
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-500">সঠিক উত্তর:</span>
+                            <span className="inline-flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                              <span className="w-4 h-4 rounded bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                                {optLabels[correctIdx] || correctIdx + 1}
                               </span>
-                              {isCorrect && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-                              {isUserWrong && <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {m.exp && (
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                          <strong>ব্যাখ্যা:</strong> <MathText text={m.exp} />
+                              <span><MathText text={m.opts[correctIdx]} /></span>
+                              <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-200">সঠিক</span>
+                            </span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {m.exp && (
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                            <strong>ব্যাখ্যা:</strong> <MathText text={m.exp} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   {shownMistakes.length < filteredMistakes.length && (
                     <button
@@ -1185,23 +1248,37 @@ export const StudentDashboardModal: React.FC<StudentDashboardModalProps> = ({
                       </div>
 
                       {/* Options with Correct Highlight */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {b.opts.map((opt, optIdx) => {
-                          const isCorrect = optIdx === b.correct;
+                          const isCorrect = optIdx === Number(b.correct ?? 0);
 
                           return (
                             <div
                               key={optIdx}
-                              className={`p-2 rounded-lg border flex items-center justify-between ${
+                              className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition ${
                                 isCorrect
-                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-bold"
-                                  : "bg-slate-50 border-slate-200 text-slate-600"
+                                  ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs"
+                                  : "bg-slate-50/70 border-slate-200 text-slate-700 font-medium"
                               }`}
                             >
-                              <span>
-                                ({optLabels[optIdx]}) <MathText text={opt} />
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span
+                                  className={`w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                                    isCorrect ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
+                                  }`}
+                                >
+                                  {optLabels[optIdx] || optIdx + 1}
+                                </span>
+                                <span className="truncate sm:whitespace-normal">
+                                  <MathText text={opt} />
+                                </span>
                               </span>
-                              {isCorrect && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                              {isCorrect && (
+                                <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-black text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-md whitespace-nowrap shrink-0">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                  <span>সঠিক উত্তর</span>
+                                </span>
+                              )}
                             </div>
                           );
                         })}

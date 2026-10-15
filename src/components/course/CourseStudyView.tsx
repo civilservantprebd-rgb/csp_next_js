@@ -938,16 +938,7 @@ export default function CourseClient({
           {/* ৩. পিডিএফ ও রুটিন ট্যাব — গুগল ড্রাইভ লিংক ওপেন */}
           {activeCourseTab === "pdf" && (
             <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-6">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <h3 className="font-black text-slate-900 text-base sm:text-lg flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-amber-600" /> কোর্স রুটিন ও পিডিএফ শিট
-                  {(coursePdfs.length + courseRoutines.length) > 0 && (
-                    <span className="bg-amber-50 text-amber-700 text-xs font-black px-2.5 py-0.5 rounded-md border border-amber-200">
-                      {toBengaliDigits(coursePdfs.length + courseRoutines.length)}টি ফাইল
-                    </span>
-                  )}
-                </h3>
-              </div>
+              
 
               {loadingPdfs ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-slate-400 text-xs font-bold">
@@ -973,16 +964,14 @@ export default function CourseClient({
                           </span>
                           <div>
                             <h4 className="font-black text-slate-900 text-sm sm:text-base">
-                              কোর্স রুটিন (সাপ্তাহিক ও নিয়মিত আপডেট)
+                              কোর্স রুটিন
                             </h4>
                             <p className="text-[11px] text-slate-500 font-semibold">
                               বর্তমান ও পূর্ববর্তী সকল সপ্তাহের গুগল ড্রাইভ রুটিন
                             </p>
                           </div>
                         </div>
-                        <span className="text-[11px] font-bold text-indigo-700 bg-indigo-100/80 border border-indigo-200 px-2.5 py-0.5 rounded-full">
-                          {toBengaliDigits(courseRoutines.length)}টি রুটিন সংরক্ষিত
-                        </span>
+          
                       </div>
 
                       {/* সর্বশেষ রুটিন — প্রধান হাইলাইট কার্ড */}
@@ -1018,29 +1007,36 @@ export default function CourseClient({
 
                       {/* পূর্ববর্তী সপ্তাহের রুটিনসমূহ (পুরাতন রুটিনও থাকা লাগবে) */}
                       {courseRoutines.length > 1 && (
-                        <div className="pt-2 space-y-2">
+                        <div className="pt-2 space-y-2.5">
                           <p className="text-xs font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
                             <Clock className="w-3.5 h-3.5 text-slate-400" /> পূর্ববর্তী সপ্তাহের রুটিনসমূহ ({toBengaliDigits(courseRoutines.length - 1)}টি)
                           </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="space-y-2.5">
                             {courseRoutines.slice(1).map((r, rIdx) => (
                               <div
                                 key={r.id || rIdx}
-                                className="p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-indigo-300 transition flex items-center justify-between gap-2 shadow-2xs"
+                                className="w-full bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-indigo-300 hover:shadow-sm transition"
                               >
-                                <div className="min-w-0">
-                                  <p className="text-xs font-bold text-slate-800 truncate">{r.title}</p>
-                                  <p className="text-[10px] text-slate-400 font-semibold">
-                                    {formatBangladeshDate(r.createdAt)}
-                                  </p>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                                    <Calendar className="w-4 h-4 text-slate-500" />
+                                  </span>
+                                  <div className="min-w-0 space-y-0.5">
+                                    <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">
+                                      {r.title}
+                                    </p>
+                                    <p className="text-[11px] text-slate-400 font-semibold">
+                                      {formatBangladeshDate(r.createdAt)}
+                                    </p>
+                                  </div>
                                 </div>
                                 <a
                                   href={r.driveLink}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-2.5 py-1.5 rounded-lg text-xs transition shrink-0"
+                                  className="inline-flex items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm transition shrink-0 active:scale-95"
                                 >
-                                  <ExternalLink className="w-3 h-3" /> দেখুন
+                                  <ExternalLink className="w-3.5 h-3.5" /> দেখুন
                                 </a>
                               </div>
                             ))}

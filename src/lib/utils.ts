@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { getTrueDate, parseBangladeshDateTime } from "@/lib/bangladesh-time";
+import { getTrueDate, parseBangladeshDateTime, isAnswerTimeReached } from "@/lib/bangladesh-time";
 import type { Exam } from "@/types/exam";
 
 export function cn(...inputs: ClassValue[]) {
@@ -161,5 +161,52 @@ export function sortExamsForStudents(a: [string, Exam], b: [string, Exam]): numb
   if (ta === null) return 0;
   if (tb === null) return 0;
   return ta - tb;
+}
+
+/**
+ * লিডারবোর্ডের জন্য সর্বশেষ প্রকাশিত রেজাল্ট থাকা পরীক্ষার Key বের করে।
+ * 
+ * অগ্রাধিকার ক্রম:
+ * ১. যেসব নির্ধারিত (শিডিউলড) পরীক্ষার রেজাল্ট ইতিমধ্যে প্রকাশিত হয়েছে (isAnswerTimeReached সত্য),
+ *    সেগুলোর মধ্যে যেটি সবশেষে শেষ হয়েছে (newest ended first)।
+ * ২. যেকোনো পরীক্ষা যার রেজাল্ট ইতিমধ্যে প্রকাশ হয়েছে।
+ * ৩. ফলব্যাক: সময় অনুযায়ী সবচেয়ে নতুন পরীক্ষা বা প্রথম কি।
+ */
+export function getLatestPublishedExamKey(exams: Record<string, Exam>): string {
+  const entries = Object.entries(exams || {});
+  if (entries.length === 0) return "";
+
+  const getExamTime = (ex: Exam): number => {
+    const t = ex.endTime || ex.leaderboardEndTime || ex.startTime;
+    if (!t) return 0;
+    const parsed = parseBangladeshDateTime(t);
+    return parsed ? parsed.getTime() : 0;
+  };
+
+  // ১. শিডিউলড পরীক্ষা যার রেজাল্ট ইতিমধ্যে প্রকাশিত হয়েছে (isAnswerTimeReached)
+  const publishedScheduled = entries.filter(([, ex]) => {
+    const isScheduled = !!(ex.startTime || ex.endTime || ex.leaderboardEndTime);
+    return isScheduled && isAnswerTimeReached(ex);
+  });
+
+  if (publishedScheduled.length > 0) {
+    publishedScheduled.sort((a, b) => {
+      const diff = getExamTime(b[1]) - getExamTime(a[1]);
+      if (diff !== 0) return diff;
+      return (b[1].title || "").localeCompare(a[1].title || "", "bn");
+    });
+    return publishedScheduled[0][0];
+  }
+
+  // ২. যেকোনো পরীক্ষা যার রেজাল্ট রিলিজ হয়েছে
+  const anyPublished = entries.filter(([, ex]) => isAnswerTimeReached(ex));
+  if (anyPublished.length > 0) {
+    anyPublished.sort((a, b) => getExamTime(b[1]) - getExamTime(a[1]));
+    return anyPublished[0][0];
+  }
+
+  // ৩. ফলব্যাক: সময় অনুযায়ী সবচেয়ে নতুন পরীক্ষা
+  const sortedAll = [...entries].sort((a, b) => getExamTime(b[1]) - getExamTime(a[1]));
+  return sortedAll[0]?.[0] || entries[0][0];
 }
 

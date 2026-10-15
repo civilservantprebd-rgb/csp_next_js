@@ -135,8 +135,12 @@ export async function fetchStudentMistakeData(
         .limit(500)
     ]);
     if (mRes.error || bRes.error) return null;
+    const rawMistakes = (mRes.data || []).map(rowToItem);
+    const mistakes = rawMistakes.filter(
+      (m) => m.userAns !== null && m.userAns !== undefined && m.userAns !== -1 && m.userAns !== m.correct
+    );
     return {
-      mistakes: (mRes.data || []).map(rowToItem),
+      mistakes,
       bookmarks: (bRes.data || []).map(rowToItem)
     };
   } catch {
@@ -184,6 +188,12 @@ export async function addMistakeItems(
   if (!ids) return false;
   if (!items || items.length === 0) return true;
 
+  // শুধু দাগানো এবং ভুল হওয়া উত্তরগুলোই সেভ হবে (স্কিপ বা ফাঁকা প্রশ্ন কখনোই নয়)
+  const validItems = items.filter(
+    (it) => it && it.userAns !== null && it.userAns !== undefined && it.userAns !== -1 && it.userAns !== it.correct
+  );
+  if (validItems.length === 0) return true;
+
   try {
     // কোন প্রশ্নগুলো ইতিমধ্যে আছে — শুধু নতুনগুলোই insert হবে
     const { data: existing } = await supabase
@@ -193,7 +203,7 @@ export async function addMistakeItems(
     if (existing === null) return false;
 
     const have = new Set((existing || []).map((r) => qKey(r.q)));
-    const fresh = items.filter((it) => it && !have.has(qKey(it.q)));
+    const fresh = validItems.filter((it) => it && !have.has(qKey(it.q)));
 
     if (fresh.length === 0) return true;
     const { error } = await supabase

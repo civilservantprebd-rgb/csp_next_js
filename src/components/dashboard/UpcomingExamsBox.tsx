@@ -8,7 +8,8 @@ import {
   BookOpen,
   X,
   ChevronRight,
-  AlarmClock
+  AlarmClock,
+  Sparkles
 } from "lucide-react";
 import { Exam } from "@/types/exam";
 import { toBengaliDigits } from "@/lib/utils";
@@ -16,6 +17,8 @@ import { parseBangladeshDateTime, getTrueNowMs, syncBangladeshNetworkTime } from
 
 interface UpcomingExamsBoxProps {
   exams: Record<string, Exam>;
+  showEmptyGreetings?: boolean;
+  onNavigate?: (tab: string) => void;
 }
 
 const BD_OFFSET_MS = 6 * 3600 * 1000;
@@ -46,7 +49,7 @@ function formatStartTime(d: Date): string {
   return `${days[bd.getUTCDay()]}, ${date}, ${time}`;
 }
 
-export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => {
+export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams, showEmptyGreetings = false, onNavigate }) => {
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState<number>(() => getTrueNowMs());
 
@@ -70,7 +73,74 @@ export const UpcomingExamsBox: React.FC<UpcomingExamsBoxProps> = ({ exams }) => 
     [exams, now]
   );
 
-  if (upcoming.length === 0) return null;
+  if (upcoming.length === 0) {
+    if (!showEmptyGreetings) return null;
+    return (
+      <div className="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50 rounded-3xl p-6 sm:p-10 border border-indigo-100/80 shadow-xs text-center space-y-6 font-bengali animate-in fade-in duration-200">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-3xl bg-gradient-to-tr from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse text-amber-200" />
+        </div>
+
+        <div className="max-w-md mx-auto space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100/80 text-indigo-700 text-xs font-bold">
+            <span>✨</span>
+            <span>প্রস্তুতির অগ্রযাত্রা শুভ হোক</span>
+          </div>
+          <h3 className="text-xl sm:text-2xl font-bold text-slate-800 leading-tight">
+            আপাতত কোনো আসন্ন পরীক্ষা নেই!
+          </h3>
+          <p className="text-sm text-slate-600 leading-relaxed font-normal">
+            পরবর্তী পরীক্ষার সময়সূচী নির্ধারিত হলে এখানে স্বয়ংক্রিয়ভাবে কাউন্টডাউন টাইমার চালু হবে। এই অবসরে নিজের প্রস্তুতিকে আরও শাণিত করতে প্রশ্নব্যাংক ও বিগত বছরের প্রশ্ন অনুশীলন করে নিতে পারেন।
+          </p>
+        </div>
+
+        {/* কুইক অ্যাকশন বাটন */}
+        {onNavigate && (
+          <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={() => onNavigate("question_bank")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/20 transition active:scale-95"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>প্রশ্নব্যাংক অনুশীলন করুন</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate("free_exams")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm font-bold shadow-xs transition active:scale-95"
+            >
+              <Clock className="w-4 h-4 text-emerald-600" />
+              <span>ফ্রী মডেল টেস্ট দিন</span>
+            </button>
+          </div>
+        )}
+
+        {/* অনুপ্রেরণাদায়ক কার্ডসমূহ */}
+        <div className="max-w-lg mx-auto grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <div className="bg-white/90 p-4 rounded-2xl border border-indigo-50 text-left flex items-start gap-3 shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5 font-bold text-sm">
+              💡
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-800">দুর্বলতা কাটান</h4>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">ভুল উত্তরের খাতা থেকে দুর্বল বিষয়গুলো নিয়মিত রিভিশন দিয়ে রাখুন।</p>
+            </div>
+          </div>
+
+          <div className="bg-white/90 p-4 rounded-2xl border border-indigo-50 text-left flex items-start gap-3 shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 font-bold text-sm">
+              🎯
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-800">ধারাবাহিকতা বজায় রাখুন</h4>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">প্রতিদিনের নিয়মিত ছোট ছোট অনুশীলন চূড়ান্ত পরীক্ষায় সেরা ফল এনে দেয়।</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

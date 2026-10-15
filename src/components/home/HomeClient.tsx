@@ -955,16 +955,16 @@ export default function HomeClient({
                   {activeNav === "mistakes" && "ভুল উত্তরের খাতা"}
                   {activeNav === "bookmarks" && "বুকমার্ককৃত প্রশ্নাবলী"}
                   {activeNav === "analytics" && "শক্তি ও দুর্বলতা এনালাইসিস"}
-                  {activeNav === "leaderboard" && "মেধা তালিকা ও লিডারবোর্ড"}
+                  {activeNav === "leaderboard" && "লিডারবোর্ড"}
                   {activeNav === "question_bank" && "অনুশীলন"}
                   {activeNav === "courses" && (selectedCourse ? selectedCourse : "আরোহণ কোর্স সমূহ")}
                   {activeNav === "referral" && "রেফারেল ও রিওয়ার্ড"}
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-600 font-normal truncate hidden sm:block mt-0.5">
+                {/* <p className="text-xs sm:text-sm text-slate-600 font-normal truncate hidden sm:block mt-0.5">
                   {activeNav === "courses" && selectedCourse
                     ? "কোর্সের পরীক্ষাসমূহ ও ভিডিও ক্লাস"
                     : "বিসিএস ও সরকারি চাকরির প্রস্তুতিতে আরোহণ আপনার সার্বক্ষণিক সঙ্গী"}
-                </p>
+                </p> */}
               </div>
             </div>
 
@@ -1105,9 +1105,6 @@ export default function HomeClient({
                         <h3 className="text-xl sm:text-2xl font-medium text-slate-900 leading-tight">
                           পরীক্ষার ফলাফল
                         </h3>
-                        <p className="text-[13px] text-slate-900 font-normal mt-1">
-                          আপনার অংশগ্রহণকৃত কোর্স ও পরীক্ষার ফলাফল বিবরণী
-                        </p>
                       </div>
                     </div>
                   </div>
@@ -1125,7 +1122,6 @@ export default function HomeClient({
                 <div className="pt-2">
                   <LeaderboardView
                     exams={examsObj}
-                    initialExamKey={selectedExamKey || "exam_01"}
                   />
                 </div>
               </div>
@@ -1355,9 +1351,11 @@ export default function HomeClient({
                   </div>
                 </div> */}
 
-                <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200">
-                  <UpcomingExamsBox exams={examsObj} />
-                </div>
+                <UpcomingExamsBox
+                  exams={examsObj}
+                  showEmptyGreetings={true}
+                  onNavigate={(tab) => handleNavSelect(tab as any)}
+                />
               </div>
             )}
 
@@ -1432,7 +1430,6 @@ export default function HomeClient({
             {activeNav === "leaderboard" && (
               <LeaderboardView
                 exams={examsObj}
-                initialExamKey={selectedExamKey || "exam_01"}
               />
             )}
 
@@ -1471,7 +1468,7 @@ export default function HomeClient({
                 </div>
                 */}
 
-                
+
                 {selectedCourse ? (
                   <CourseClient
                     courseNameProp={selectedCourse}
@@ -1492,7 +1489,7 @@ export default function HomeClient({
               </div>
             )}
 
-        {/* VIEW 10: রেফারেল (REFERRAL & REWARDS VIEW) */}
+            {/* VIEW 10: রেফারেল (REFERRAL & REWARDS VIEW) */}
             {activeNav === "referral" && (
               <div className="space-y-5 animate-in fade-in duration-200">
                 {/* 
@@ -1532,11 +1529,10 @@ export default function HomeClient({
             <button
               type="button"
               onClick={() => handleNavSelect("dashboard")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${
-                activeNav === "dashboard"
-                  ? "text-indigo-600 font-bold"
-                  : "text-slate-500 hover:text-slate-800 font-medium"
-              }`}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${activeNav === "dashboard"
+                ? "text-indigo-600 font-bold"
+                : "text-slate-500 hover:text-slate-800 font-medium"
+                }`}
             >
               <div className={`p-1 rounded-xl transition-all ${activeNav === "dashboard" ? "bg-indigo-50 text-indigo-600" : ""}`}>
                 <LayoutDashboard className="w-5 h-5" />
@@ -1548,11 +1544,10 @@ export default function HomeClient({
             <button
               type="button"
               onClick={() => handleNavSelect("live_exams")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl relative active:scale-95 ${
-                activeNav === "live_exams"
-                  ? "text-red-600 font-bold"
-                  : "text-slate-500 hover:text-slate-800 font-medium"
-              }`}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl relative active:scale-95 ${activeNav === "live_exams"
+                ? "text-red-600 font-bold"
+                : "text-slate-500 hover:text-slate-800 font-medium"
+                }`}
             >
               <div className={`p-1 rounded-xl transition-all relative ${activeNav === "live_exams" ? "bg-red-50 text-red-600" : ""}`}>
                 <Zap className="w-5 h-5" />
@@ -1569,11 +1564,10 @@ export default function HomeClient({
             <button
               type="button"
               onClick={() => handleNavSelect("question_bank")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${
-                activeNav === "question_bank"
-                  ? "text-cyan-600 font-bold"
-                  : "text-slate-500 hover:text-slate-800 font-medium"
-              }`}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${activeNav === "question_bank"
+                ? "text-cyan-600 font-bold"
+                : "text-slate-500 hover:text-slate-800 font-medium"
+                }`}
             >
               <div className={`p-1 rounded-xl transition-all ${activeNav === "question_bank" ? "bg-cyan-50 text-cyan-600" : ""}`}>
                 <Layers className="w-5 h-5" />
@@ -1585,11 +1579,10 @@ export default function HomeClient({
             <button
               type="button"
               onClick={() => handleNavSelect("leaderboard")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${
-                activeNav === "leaderboard"
-                  ? "text-amber-600 font-bold"
-                  : "text-slate-500 hover:text-slate-800 font-medium"
-              }`}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${activeNav === "leaderboard"
+                ? "text-amber-600 font-bold"
+                : "text-slate-500 hover:text-slate-800 font-medium"
+                }`}
             >
               <div className={`p-1 rounded-xl transition-all ${activeNav === "leaderboard" ? "bg-amber-50 text-amber-600" : ""}`}>
                 <Trophy className="w-5 h-5" />

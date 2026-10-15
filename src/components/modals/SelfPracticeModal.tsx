@@ -430,22 +430,50 @@ export const SelfPracticeModal: React.FC<SelfPracticeModalProps> = ({
                       <span className="bg-slate-200 text-slate-700 text-xs font-bold px-2 py-0.5 rounded shrink-0">ফাঁকা</span>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     {q.opts.map((opt, optIdx) => {
                       const isOptCorrect = optIdx === q.correct;
                       const isOptChosen = studentAns === optIdx;
                       return (
                         <div
                           key={optIdx}
-                          className={`p-2 rounded-lg border ${
+                          className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition ${
                             isOptCorrect
-                              ? "bg-emerald-100 border-emerald-300 text-emerald-950 font-bold"
+                              ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs"
                               : isOptChosen
-                              ? "bg-rose-100 border-rose-300 text-rose-950 font-bold"
+                              ? "bg-rose-50 border-rose-400 text-rose-950 font-bold shadow-xs"
                               : "bg-white border-slate-200/80 text-slate-700"
                           }`}
                         >
-                          ({optLabels[optIdx]}) <MathText text={opt} />
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className={`w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                                isOptCorrect
+                                  ? "bg-emerald-600 text-white"
+                                  : isOptChosen
+                                  ? "bg-rose-600 text-white"
+                                  : "bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {optLabels[optIdx] || optIdx + 1}
+                            </span>
+                            <span className="truncate sm:whitespace-normal">
+                              <MathText text={opt} />
+                            </span>
+                          </span>
+
+                          <div className="shrink-0 flex items-center gap-1">
+                            {isOptCorrect && (
+                              <span className="text-[10px] font-black text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                সঠিক উত্তর
+                              </span>
+                            )}
+                            {isOptChosen && !isOptCorrect && (
+                              <span className="text-[10px] font-black text-rose-700 bg-rose-100/90 border border-rose-300 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                আপনার ভুল উত্তর
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
