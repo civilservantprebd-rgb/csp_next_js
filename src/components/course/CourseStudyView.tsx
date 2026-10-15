@@ -7,12 +7,13 @@ import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
 import { VideoPlayerModal } from "@/components/course/VideoPlayerModal";
 import { fetchAppConfigLite } from "@/actions/admin-actions";
-import { fetchCourseDetails } from "@/actions/course-actions";
+import { getCoursePdfs } from "@/actions/pdf-actions";
 import { getCourseVideosForStudent, StudentVideoAccess } from "@/actions/video-actions";
 import { verifyStudentAccess } from "@/actions/student-actions";
 import { getCourseWhatsAppForStudent } from "@/actions/whatsapp-actions";
 import { AppConfigData, Exam } from "@/types/exam";
 import { CourseVideo } from "@/types/video";
+import { CoursePdfItem } from "@/types/pdf";
 import { toBengaliDigits, sortExamsForStudents } from "@/lib/utils";
 import { isExamCurrentlyLive, parseBangladeshDateTime, getTrueNowMs } from "@/lib/bangladesh-time";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
@@ -30,6 +31,7 @@ import {
   BookOpen,
   Video,
   FileText,
+  ExternalLink,
   GraduationCap,
   UserPlus,
   Loader2,
@@ -77,10 +79,10 @@ export default function CourseClient({
   const [checking, setChecking] = useState(true);
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [examSearch, setExamSearch] = useState("");
-  const [courseDetails, setCourseDetails] = useState(initialCourseDetails);
+  const [coursePdfs, setCoursePdfs] = useState<CoursePdfItem[]>([]);
+  const [loadingPdfs, setLoadingPdfs] = useState(false);
+  const [pdfSubjectFilter, setPdfSubjectFilter] = useState("ALL");
   const completedExams = useCompletedExams();
-  // "কোর্সের বিস্তারিত" অ্যাকর্ডিয়ন — বিস্তারিত থাকলে ডিফল্ট খোলা
-  const [detailsOpen, setDetailsOpen] = useState(true);
   // এনরোল্ড স্টুডেন্টের জন্য কোর্সের WhatsApp গ্রুপ লিংক (খালি = দেখানো হবে না)
   const [waLink, setWaLink] = useState("");
 
@@ -94,10 +96,14 @@ export default function CourseClient({
   }, [config]);
 
   useEffect(() => {
-    if (courseName && !courseDetails) {
-      fetchCourseDetails(courseName).then((d) => setCourseDetails(d || "")).catch(() => {});
+    if (courseName) {
+      setLoadingPdfs(true);
+      getCoursePdfs(courseName)
+        .then((pdfs) => setCoursePdfs(pdfs || []))
+        .catch(() => {})
+        .finally(() => setLoadingPdfs(false));
     }
-  }, [courseName, courseDetails]);
+  }, [courseName]);
 
   // Modal player — ভিডিওতে ট্যাপ করলেই খোলে
   const [playingVideo, setPlayingVideo] = useState<CourseVideo | null>(null);
@@ -150,7 +156,6 @@ export default function CourseClient({
 
   useEffect(() => {
     if (!courseName) return;
-    setDetailsOpen(true);
     setLoadError("");
 
     // WhatsApp লিংক — শুধু লোকাল পরিচয় থাকলেই fetch (অননুমোদিত/অ্যানন → সার্ভার খালি দেয়)
@@ -436,6 +441,19 @@ export default function CourseClient({
     );
   };
 
+  const pdfSubjects = useMemo(() => {
+    const set = new Set<string>();
+    coursePdfs.forEach((p) => {
+      set.add(p.subject || "সাধারণ");
+    });
+    return Array.from(set);
+  }, [coursePdfs]);
+
+  const filteredPdfs = useMemo(() => {
+    if (pdfSubjectFilter === "ALL") return coursePdfs;
+    return coursePdfs.filter((p) => (p.subject || "সাধারণ") === pdfSubjectFilter);
+  }, [coursePdfs, pdfSubjectFilter]);
+
   const examCount = courseExams.length;
 
   if (!config) {
@@ -558,6 +576,17 @@ export default function CourseClient({
             >
               <FileText className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
               <span>পিডিএফ</span>
+              {coursePdfs.length > 0 && (
+                <span
+                  className={`text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full ${
+                    activeCourseTab === "pdf"
+                      ? "bg-white/20 text-white"
+                      : "bg-amber-100 text-amber-700"
+                  }`}
+                >
+                  {toBengaliDigits(coursePdfs.length)}
+                </span>
+              )}
             </button>
 
             <button
@@ -583,48 +612,6 @@ export default function CourseClient({
                 </span>
               )}
             </button>
-          </div>
-        </section>
-
-        {/* কোর্সের বিস্তারিত — শিক্ষক প্যানেল থেকে লেখা; এখানে শিক্ষার্থীরা "কোর্সের বিস্তারিত"
-            অপশনে ট্যাপ করে পড়তে পারে (খুলে/বন্ধ করে) */}
-        <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setDetailsOpen((v) => !v)}
-            aria-expanded={detailsOpen}
-            className="w-full flex items-center justify-between gap-3 px-4 sm:px-6 py-4 hover:bg-slate-50 transition cursor-pointer"
-          >
-            <span className="flex items-center gap-2.5 min-w-0">
-              <span className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                <BookOpen className="w-4 h-4" />
-              </span>
-              <span className="min-w-0 text-left">
-                <h3 className="font-black text-slate-900 text-sm sm:text-base">কোর্সের বিস্তারিত</h3>
-                <span className="block text-[11px] text-slate-400 font-semibold truncate">
-                  {courseDetails ? (detailsOpen ? "বন্ধ করতে ট্যাপ করুন" : "বিস্তারিত পড়তে ট্যাপ করুন") : "এই কোর্সের বিস্তারিত শীঘ্রই যোগ হবে"}
-                </span>
-              </span>
-            </span>
-            <ChevronDown
-              className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${
-                detailsOpen && courseDetails ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-
-          <div
-            className={`grid transition-all duration-300 ease-in-out ${
-              detailsOpen && courseDetails ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-            }`}
-          >
-            <div className="overflow-hidden">
-              <div className="px-4 sm:px-6 pb-5">
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line border-t border-slate-100 pt-4">
-                  {courseDetails}
-                </p>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -942,18 +929,117 @@ export default function CourseClient({
             </section>
           )}
 
-          {/* ৩. পিডিএফ লেকচার ও শিট ট্যাব — পরবর্তীতে বিস্তারিত ডিজাইন করা হবে */}
+          {/* ৩. পিডিএফ লেকচার ও শিট ট্যাব — গুগল ড্রাইভ লিংক ওপেন */}
           {activeCourseTab === "pdf" && (
-            <section className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-sm text-center space-y-4">
-              <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
-                <FileText className="w-8 h-8" />
+            <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-amber-600" /> পিডিএফ ও লেকচার শিট
+                  {coursePdfs.length > 0 && (
+                    <span className="bg-amber-50 text-amber-700 text-xs font-black px-2 py-0.5 rounded-md border border-amber-200">
+                      {toBengaliDigits(coursePdfs.length)}টি ফাইল
+                    </span>
+                  )}
+                </h3>
               </div>
-              <div className="space-y-1">
-                <h3 className="font-black text-slate-900 text-base sm:text-lg">পিডিএফ লেকচার ও শিট</h3>
-                <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-                  এই কোর্সের প্রয়োজনীয় লেকচার শিট, হ্যান্ডনোট ও স্টাডি মেটেরিয়াল পিডিএফ আকারে শীঘ্রই এখানে যুক্ত করা হবে।
-                </p>
-              </div>
+
+              {loadingPdfs ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-slate-400 text-xs font-bold">
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-600" /> পিডিএফ লোড হচ্ছে...
+                </div>
+              ) : coursePdfs.length === 0 ? (
+                <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <FileText className="w-10 h-10 text-slate-300 mx-auto mb-1" />
+                  <p className="text-sm font-bold text-slate-700">এই কোর্সে এখনো কোনো পিডিএফ যুক্ত হয়নি</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    শিক্ষক প্যানেল থেকে এক্সাম সেটে পিডিএফ ড্রাইভ লিংক যুক্ত করা হলে এখানে বিষয় অনুযায়ী দেখা যাবে।
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* বিষয় ফিল্টার চিপ (যদি একাধিক বিষয় থাকে) */}
+                  {pdfSubjects.length > 1 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setPdfSubjectFilter("ALL")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                          pdfSubjectFilter === "ALL"
+                            ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                            : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                        }`}
+                      >
+                        সব বিষয় ({toBengaliDigits(coursePdfs.length)})
+                      </button>
+                      {pdfSubjects.map((subj) => {
+                        const count = coursePdfs.filter((p) => (p.subject || "সাধারণ") === subj).length;
+                        return (
+                          <button
+                            key={subj}
+                            type="button"
+                            onClick={() => setPdfSubjectFilter(subj)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                              pdfSubjectFilter === subj
+                                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                            }`}
+                          >
+                            {subj} ({toBengaliDigits(count)})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* পিডিএফ ফাইল তালিকা */}
+                  <div className="space-y-2.5">
+                    {filteredPdfs.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-6">
+                        এই বিষয়ে কোনো পিডিএফ ফাইল পাওয়া যায়নি।
+                      </p>
+                    ) : (
+                      filteredPdfs.map((pdf, idx) => (
+                        <div
+                          key={pdf.id || `${pdf.examId}_${idx}`}
+                          onClick={() => window.open(pdf.driveLink, "_blank", "noopener,noreferrer")}
+                          className="group p-3.5 sm:p-4 rounded-2xl border border-slate-200 hover:border-amber-400 bg-white hover:bg-amber-50/20 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer shadow-xs active:scale-[0.99]"
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <span className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                              <FileText className="w-5 h-5" />
+                            </span>
+                            <div className="min-w-0 space-y-1">
+                              <h4 className="font-black text-sm text-slate-900 group-hover:text-amber-900 transition leading-snug">
+                                {pdf.title}
+                              </h4>
+                              <div className="flex items-center gap-2 flex-wrap text-xs">
+                                {pdf.subject && (
+                                  <span className="inline-flex items-center gap-1 font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                                    {pdf.subject}
+                                  </span>
+                                )}
+                                <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                  Google Drive
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <a
+                            href={pdf.driveLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm active:scale-[0.98] cursor-pointer shrink-0"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> ড্রাইভ ওপেন করুন
+                          </a>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
           )}
         </div>
