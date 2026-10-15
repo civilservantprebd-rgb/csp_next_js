@@ -1,19 +1,29 @@
 "use server";
 
 import { supabase } from "@/lib/supabase";
-import { CoursePdfItem } from "@/types/pdf";
+import { CoursePdfItem, CourseRoutineItem } from "@/types/pdf";
 import { requireTeacher } from "@/lib/teacher-auth";
 
-function parsePdfsFromDetails(rawDetails: any): CoursePdfItem[] {
-  if (!rawDetails) return [];
+function parseDetailsPayload(rawDetails: any): { pdfs: CoursePdfItem[]; routines: CourseRoutineItem[] } {
+  if (!rawDetails) return { pdfs: [], routines: [] };
   try {
     const parsed = typeof rawDetails === "string" ? JSON.parse(rawDetails) : rawDetails;
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed && Array.isArray(parsed.pdfs)) return parsed.pdfs;
-    return [];
+    if (Array.isArray(parsed)) {
+      return { pdfs: parsed, routines: [] };
+    }
+    if (parsed && typeof parsed === "object") {
+      const pdfs = Array.isArray(parsed.pdfs) ? parsed.pdfs : [];
+      const routines = Array.isArray(parsed.routines) ? parsed.routines : [];
+      return { pdfs, routines };
+    }
+    return { pdfs: [], routines: [] };
   } catch {
-    return [];
+    return { pdfs: [], routines: [] };
   }
+}
+
+function parsePdfsFromDetails(rawDetails: any): CoursePdfItem[] {
+  return parseDetailsPayload(rawDetails).pdfs;
 }
 
 /**
@@ -35,10 +45,64 @@ export async function getCoursePdfs(course: string): Promise<CoursePdfItem[]> {
       return [];
     }
 
-    return parsePdfsFromDetails(data?.details);
+    return parseDetailsPayload(data?.details).pdfs;
   } catch (err) {
     console.error("getCoursePdfs unexpected error:", err);
     return [];
+  }
+}
+
+/**
+ * নির্দিষ্ট কোর্সের সমস্ত রুটিন তালিকা (পাবলিক / স্টুডেন্ট)
+ */
+export async function getCourseRoutines(course: string): Promise<CourseRoutineItem[]> {
+  const cleanCourse = String(course || "").trim();
+  if (!cleanCourse) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from("course_prices")
+      .select("details")
+      .eq("course", cleanCourse)
+      .maybeSingle();
+
+    if (error) {
+      console.error("getCourseRoutines error:", error);
+      return [];
+    }
+
+    return parseDetailsPayload(data?.details).routines;
+  } catch (err) {
+    console.error("getCourseRoutines unexpected error:", err);
+    return [];
+  }
+}
+
+/**
+ * নির্দিষ্ট কোর্সের সমস্ত পিডিএফ ও রুটিন একসাথে লোড (পাবলিক / স্টুডেন্ট)
+ */
+export async function getCoursePdfsAndRoutines(
+  course: string
+): Promise<{ pdfs: CoursePdfItem[]; routines: CourseRoutineItem[] }> {
+  const cleanCourse = String(course || "").trim();
+  if (!cleanCourse) return { pdfs: [], routines: [] };
+
+  try {
+    const { data, error } = await supabase
+      .from("course_prices")
+      .select("details")
+      .eq("course", cleanCourse)
+      .maybeSingle();
+
+    if (error) {
+      console.error("getCoursePdfsAndRoutines error:", error);
+      return { pdfs: [], routines: [] };
+    }
+
+    return parseDetailsPayload(data?.details);
+  } catch (err) {
+    console.error("getCoursePdfsAndRoutines unexpected error:", err);
+    return { pdfs: [], routines: [] };
   }
 }
 
@@ -60,7 +124,7 @@ export async function getAllCoursePdfsMap(): Promise<Record<string, CoursePdfIte
 
     const map: Record<string, CoursePdfItem> = {};
     (data || []).forEach((row) => {
-      const pdfs = parsePdfsFromDetails(row.details);
+      const { pdfs } = parseDetailsPayload(row.details);
       pdfs.forEach((p) => {
         if (p.examId) {
           map[p.examId] = p;
@@ -118,7 +182,7 @@ export async function saveExamPdf(
       console.warn("saveExamPdf fetch existing warning:", selErr);
     }
 
-    const currentPdfs = parsePdfsFromDetails(existingRow?.details);
+    const { pdfs: currentPdfs, routines: currentRoutines } = parseDetailsPayload(existingRow?.details);
     const filtered = currentPdfs.filter((p) => p.examId !== cleanExamId);
 
     const newPdf: CoursePdfItem = {
@@ -138,7 +202,7 @@ export async function saveExamPdf(
       .upsert(
         {
           course: cleanCourse,
-          details: JSON.stringify({ type: "course_pdfs", pdfs: updatedPdfs })
+          details: JSON.stringify({ type: "course_pdfs", pdfs: updatedPdfs, routines: currentRoutines })
         },
         { onConflict: "course" }
       );
@@ -182,15 +246,18 @@ export async function deleteExamPdf(
       return { success: false, message: `ডাটা লোড ত্রুটি: ${selErr.message}` };
     }
 
-    const currentPdfs = parsePdfsFromDetails(existingRow?.details);
+    const { pdfs: currentPdfs, routines: currentRoutines } = parseDetailsPayload(existingRow?.details);
     const updatedPdfs = currentPdfs.filter((p) => p.examId !== cleanExamId);
 
     const { error: upErr } = await supabase
       .from("course_prices")
-      .update({
-        details: JSON.stringify({ type: "course_pdfs", pdfs: updatedPdfs })
-      })
-      .eq("course", cleanCourse);
+      .upsert(
+        {
+          course: cleanCourse,
+          details: JSON.stringify({ type: "course_pdfs", pdfs: updatedPdfs, routines: currentRoutines })
+        },
+        { onConflict: "course" }
+      );
 
     if (upErr) {
       return { success: false, message: `মুছতে ব্যর্থ হয়েছে: ${upErr.message}` };
@@ -202,3 +269,121 @@ export async function deleteExamPdf(
     return { success: false, message: err?.message || "সার্ভার ত্রুটি।" };
   }
 }
+
+/**
+ * কোর্সে রুটিন (Google Drive লিংক) যোগ করা (শিক্ষক-অনলি)
+ * সাপ্তাহিক বা নতুন রুটিন যোগ করলে নতুনটি সবার উপরে থাকবে এবং পুরাতনগুলোও সংরক্ষিত থাকবে।
+ */
+export async function addCourseRoutine(
+  course: string,
+  title: string,
+  driveLink: string
+): Promise<{ success: boolean; message: string; routine?: CourseRoutineItem }> {
+  try {
+    await requireTeacher();
+    const cleanCourse = String(course || "").trim();
+    const cleanTitle = String(title || "").trim();
+    let cleanLink = String(driveLink || "").trim();
+
+    if (!cleanCourse) return { success: false, message: "কোর্সের নাম পাওয়া যায়নি।" };
+    if (!cleanTitle) return { success: false, message: "রুটিনের টাইটেল দিন (যেমন: ৩য় সপ্তাহের রুটিন)।" };
+    if (!cleanLink) return { success: false, message: "গুগল ড্রাইভ লিংক দিন।" };
+
+    if (!cleanLink.startsWith("http://") && !cleanLink.startsWith("https://")) {
+      cleanLink = `https://${cleanLink}`;
+    }
+
+    const { data: existingRow, error: selErr } = await supabase
+      .from("course_prices")
+      .select("details")
+      .eq("course", cleanCourse)
+      .maybeSingle();
+
+    if (selErr) {
+      console.warn("addCourseRoutine fetch warning:", selErr);
+    }
+
+    const { pdfs: currentPdfs, routines: currentRoutines } = parseDetailsPayload(existingRow?.details);
+
+    const newRoutine: CourseRoutineItem = {
+      id: `routine_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      course: cleanCourse,
+      title: cleanTitle,
+      driveLink: cleanLink,
+      createdAt: new Date().toISOString()
+    };
+
+    // নতুন রুটিন শীর্ষে (latest first)
+    const updatedRoutines = [newRoutine, ...currentRoutines];
+
+    const { error: upsertErr } = await supabase
+      .from("course_prices")
+      .upsert(
+        {
+          course: cleanCourse,
+          details: JSON.stringify({ type: "course_pdfs", pdfs: currentPdfs, routines: updatedRoutines })
+        },
+        { onConflict: "course" }
+      );
+
+    if (upsertErr) {
+      return { success: false, message: `সংরক্ষণ ব্যর্থ হয়েছে: ${upsertErr.message}` };
+    }
+
+    return { success: true, message: "রুটিন সফলভাবে যুক্ত হয়েছে!", routine: newRoutine };
+  } catch (err: any) {
+    console.error("addCourseRoutine error:", err);
+    return { success: false, message: err?.message || "সার্ভার ত্রুটি।" };
+  }
+}
+
+/**
+ * কোর্স থেকে রুটিন মুছে ফেলা (শিক্ষক-অনলি)
+ */
+export async function deleteCourseRoutine(
+  course: string,
+  routineId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await requireTeacher();
+    const cleanCourse = String(course || "").trim();
+    const cleanId = String(routineId || "").trim();
+
+    if (!cleanCourse || !cleanId) {
+      return { success: false, message: "কোর্স বা রুটিন আইডি পাওয়া যায়নি।" };
+    }
+
+    const { data: existingRow, error: selErr } = await supabase
+      .from("course_prices")
+      .select("details")
+      .eq("course", cleanCourse)
+      .maybeSingle();
+
+    if (selErr) {
+      return { success: false, message: `ডাটা লোড ত্রুটি: ${selErr.message}` };
+    }
+
+    const { pdfs: currentPdfs, routines: currentRoutines } = parseDetailsPayload(existingRow?.details);
+    const updatedRoutines = currentRoutines.filter((r) => r.id !== cleanId);
+
+    const { error: upErr } = await supabase
+      .from("course_prices")
+      .upsert(
+        {
+          course: cleanCourse,
+          details: JSON.stringify({ type: "course_pdfs", pdfs: currentPdfs, routines: updatedRoutines })
+        },
+        { onConflict: "course" }
+      );
+
+    if (upErr) {
+      return { success: false, message: `মুছতে ব্যর্থ হয়েছে: ${upErr.message}` };
+    }
+
+    return { success: true, message: "রুটিন মুছে ফেলা হয়েছে।" };
+  } catch (err: any) {
+    console.error("deleteCourseRoutine error:", err);
+    return { success: false, message: err?.message || "সার্ভার ত্রুটি।" };
+  }
+}
+

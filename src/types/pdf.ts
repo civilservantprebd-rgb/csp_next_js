@@ -7,3 +7,11 @@ export interface CoursePdfItem {
   driveLink: string;
   createdAt: string;
 }
+
+export interface CourseRoutineItem {
+  id: string;
+  course: string;
+  title: string;
+  driveLink: string;
+  createdAt: string;
+}

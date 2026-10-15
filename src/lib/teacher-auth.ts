@@ -65,7 +65,7 @@ export async function getUserFromToken(token?: string | null) {
   try {
     const { data, error } = await Promise.race([
       supabase.auth.getUser(token),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Auth timeout")), 4000))
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Auth timeout")), 8000))
     ]);
     if (error || !data.user) return null;
 

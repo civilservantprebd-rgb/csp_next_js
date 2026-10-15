@@ -147,6 +147,10 @@ export default function AdminPage() {
       setAuthState("login");
       return;
     }
+    sessionStorage.setItem(
+      "teacher_user",
+      JSON.stringify({ email: verified.email, role: "admin" })
+    );
     setTeacherUser({ email: verified.email });
     setAuthState("panel");
 
@@ -193,6 +197,26 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadData(true);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.access_token) {
+        document.cookie = `sb_access_token=${session.access_token}; path=/; SameSite=Lax; Max-Age=3600${window.location.protocol === "https:" ? "; Secure" : ""}`;
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          const { verifyTeacherSession } = await import("@/actions/admin-actions");
+          const verified = await verifyTeacherSession(session.access_token);
+          if (verified.ok && verified.email) {
+            sessionStorage.setItem("teacher_user", JSON.stringify({ email: verified.email, role: "admin" }));
+            setTeacherUser({ email: verified.email });
+            setAuthState("panel");
+            void loadData(false);
+          }
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
@@ -206,7 +230,15 @@ export default function AdminPage() {
 
   // লগইন ল্যান্ডিং — শিক্ষক নন বা সেশন নেই
   if (authState === "login") {
-    return <AdminLogin />;
+    return (
+      <AdminLogin
+        onSuccess={(teacher) => {
+          setTeacherUser(teacher);
+          setAuthState("panel");
+          void loadData(false);
+        }}
+      />
+    );
   }
 
   // যাচাই চলছে / ডেটা লোড হচ্ছে
