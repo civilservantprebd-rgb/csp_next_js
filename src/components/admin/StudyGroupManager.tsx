@@ -25,7 +25,9 @@ import {
   RotateCw,
   Trophy,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Download,
+  Printer
 } from "lucide-react";
 import {
   getStudyGroups,
@@ -160,6 +162,13 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, courseFilter, selectedLiveExam, mainView]);
+
+  // Download / Print PDF report
+  const handleDownloadPdf = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
 
   // Open details view for a group
   const handleOpenGroup = async (group: StudyGroup) => {
@@ -730,7 +739,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
         /* VIEW 2: ALL GROUPS OVERVIEW & CREATION */
         <div className="space-y-6">
           {/* Header Card */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4 print:hidden">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
@@ -806,7 +815,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
           {mainView === "leaderboard" ? (
             <div className="space-y-6">
               {/* Date Period Filter & Controls */}
-              <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
+              <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4 print:hidden">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
@@ -882,7 +891,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                   </div>
                 </div>
 
-                {/* Second Row: Custom Date Range Inputs + Live Exam Selector + Refresh */}
+                {/* Second Row: Custom Date Range Inputs + Live Exam Selector + PDF Download + Refresh */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-slate-400 font-bold flex items-center gap-1">
@@ -951,6 +960,18 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                         : `${startDate} হতে ${endDate}`}
                     </span>
 
+                    {/* PDF Download Button */}
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      disabled={loadingRankings || rankings.length === 0}
+                      title="র‍্যাংকিং রিপোর্ট পিডিএফ আকারে ডাউনলোড বা প্রিন্ট করুন"
+                      className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>PDF ডাউনলোড</span>
+                    </button>
+
                     {/* Refresh Button */}
                     <button
                       type="button"
@@ -964,7 +985,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                 </div>
               </div>
 
-              {/* Champion Top Card (Rank 1 Highlight) */}
+              {/* Champion Top Card & Leaderboard Table */}
               {loadingRankings ? (
                 <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
                   <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
@@ -977,53 +998,79 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                   <p className="text-xs text-slate-400">প্রথমে কিছু স্টাডি গ্রুপ তৈরি করুন।</p>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div id="printable-group-rankings" className="space-y-6">
+                  {/* Print-Only Official Report Header */}
+                  <div className="hidden print:block text-center border-b-2 border-slate-300 pb-5 mb-6 pt-2">
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">আরোহণ</h1>
+                    <p className="text-xs font-semibold text-slate-600 mt-1">
+                      হেল্পলাইন / হোয়াটসঅ্যাপ: 01577301529 | www.aarohon.com
+                    </p>
+                    <div className="mt-3 inline-block bg-slate-100 px-4 py-1.5 rounded-xl border border-slate-300">
+                      <h2 className="text-base font-black text-slate-800">
+                        স্টাডি গ্রুপ লাইভ পরীক্ষা পারফরম্যান্স ও র‍্যাংকিং রিপোর্ট
+                      </h2>
+                    </div>
+                    <div className="flex justify-center items-center gap-3 text-xs font-semibold text-slate-600 mt-2.5 flex-wrap">
+                      <span><strong>সময়সীমা:</strong> {startDate === endDate ? startDate : `${startDate} হতে ${endDate}`}</span>
+                      <span>•</span>
+                      <span><strong>কোর্স:</strong> {courseFilter === "all" ? "সকল কোর্স" : courseFilter}</span>
+                      {selectedLiveExam !== "all" && (
+                        <>
+                          <span>•</span>
+                          <span><strong>পরীক্ষা:</strong> {availableLiveExams.find((e) => e.id === selectedLiveExam)?.title || selectedLiveExam}</span>
+                        </>
+                      )}
+                      <span>•</span>
+                      <span><strong>রিপোর্ট তৈরির তারিখ:</strong> {new Date().toLocaleDateString("bn-BD", { year: "numeric", month: "long", day: "numeric" })}</span>
+                    </div>
+                  </div>
+
                   {/* Top 1 Highlight Card */}
                   {rankings[0] && rankings[0].participationRate > 0 ? (
-                    <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 text-white rounded-3xl p-6 sm:p-7 shadow-lg shadow-amber-200/50 space-y-4">
-                      <div className="absolute right-4 -bottom-6 opacity-15 pointer-events-none">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 text-white rounded-3xl p-6 sm:p-7 shadow-lg shadow-amber-200/50 space-y-4 print:bg-amber-50 print:text-slate-900 print:border print:border-amber-300 print:shadow-none">
+                      <div className="absolute right-4 -bottom-6 opacity-15 pointer-events-none print:hidden">
                         <Trophy className="w-48 h-48 text-white" />
                       </div>
 
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
                         <div className="space-y-1">
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-white/20 backdrop-blur-xs rounded-full border border-white/30 text-white">
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-white/20 backdrop-blur-xs rounded-full border border-white/30 text-white print:text-slate-900 print:border-slate-300 print:bg-white">
                             👑 এই সময়সীমার শীর্ষ গ্রুপ (Rank #1 Champion)
                           </span>
-                          <h3 className="text-2xl font-black">{rankings[0].groupName}</h3>
-                          <p className="text-xs text-amber-100 font-semibold">{rankings[0].course}</p>
+                          <h3 className="text-2xl font-black print:text-slate-900">{rankings[0].groupName}</h3>
+                          <p className="text-xs text-amber-100 font-semibold print:text-slate-600">{rankings[0].course}</p>
                         </div>
 
-                        <div className="text-left sm:text-right bg-white/10 backdrop-blur-xs border border-white/20 p-4 rounded-2xl shrink-0">
-                          <span className="text-[11px] font-bold text-amber-100 block">
+                        <div className="text-left sm:text-right bg-white/10 backdrop-blur-xs border border-white/20 p-4 rounded-2xl shrink-0 print:bg-white print:border-slate-300">
+                          <span className="text-[11px] font-bold text-amber-100 block print:text-slate-600">
                             লাইভ পরীক্ষা অংশগ্রহণের হার
                           </span>
-                          <span className="text-3xl font-black">{toBengaliDigits(rankings[0].participationRate)}%</span>
+                          <span className="text-3xl font-black print:text-slate-900">{toBengaliDigits(rankings[0].participationRate)}%</span>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 relative z-10 text-center border-t border-white/20">
-                        <div className="bg-white/10 rounded-xl p-2.5">
-                          <span className="text-[10px] text-amber-100 font-bold block">সক্রিয় পরীক্ষার্থী</span>
-                          <span className="text-sm sm:text-base font-black">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 relative z-10 text-center border-t border-white/20 print:border-slate-300">
+                        <div className="bg-white/10 rounded-xl p-2.5 print:bg-white print:border print:border-slate-200">
+                          <span className="text-[10px] text-amber-100 font-bold block print:text-slate-500">সক্রিয় পরীক্ষার্থী</span>
+                          <span className="text-sm sm:text-base font-black print:text-slate-900">
                             {toBengaliDigits(rankings[0].activeCount)} / {toBengaliDigits(rankings[0].totalMembers)} জন
                           </span>
                         </div>
-                        <div className="bg-white/10 rounded-xl p-2.5">
-                          <span className="text-[10px] text-amber-100 font-bold block">মোট লাইভ পরীক্ষা সম্পন্ন</span>
-                          <span className="text-sm sm:text-base font-black">
+                        <div className="bg-white/10 rounded-xl p-2.5 print:bg-white print:border print:border-slate-200">
+                          <span className="text-[10px] text-amber-100 font-bold block print:text-slate-500">মোট লাইভ পরীক্ষা সম্পন্ন</span>
+                          <span className="text-sm sm:text-base font-black print:text-slate-900">
                             {toBengaliDigits(rankings[0].submissionsCount)} টি
                           </span>
                         </div>
-                        <div className="bg-white/10 rounded-xl p-2.5">
-                          <span className="text-[10px] text-amber-100 font-bold block">অনুষ্ঠিত লাইভ পরীক্ষা</span>
-                          <span className="text-sm sm:text-base font-black">
+                        <div className="bg-white/10 rounded-xl p-2.5 print:bg-white print:border print:border-slate-200">
+                          <span className="text-[10px] text-amber-100 font-bold block print:text-slate-500">অনুষ্ঠিত লাইভ পরীক্ষা</span>
+                          <span className="text-sm sm:text-base font-black print:text-slate-900">
                             {toBengaliDigits(rankings[0].liveExamsCount || 0)} টি
                           </span>
                         </div>
-                        <div className="bg-white/10 rounded-xl p-2.5">
-                          <span className="text-[10px] text-amber-100 font-bold block">গড় স্কোর</span>
-                          <span className="text-sm sm:text-base font-black">
+                        <div className="bg-white/10 rounded-xl p-2.5 print:bg-white print:border print:border-slate-200">
+                          <span className="text-[10px] text-amber-100 font-bold block print:text-slate-500">গড় স্কোর</span>
+                          <span className="text-sm sm:text-base font-black print:text-slate-900">
                             {toBengaliDigits(rankings[0].averageScore)}
                           </span>
                         </div>
@@ -1036,7 +1083,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                   )}
 
                   {/* Leaderboard Table */}
-                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-5 sm:p-6 space-y-4">
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-5 sm:p-6 space-y-4 print:border-none print:shadow-none print:p-0">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
                         <Trophy className="w-4 h-4 text-amber-500" />
@@ -1044,37 +1091,49 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                         {startDate === endDate ? startDate : `${startDate} হতে ${endDate}`}
                         )
                       </h4>
-                      <span className="text-[11px] text-slate-400 font-semibold">
-                        লাইভ অংশগ্রহণের হারের ভিত্তিতে সাজানো
-                      </span>
+                      <div className="flex items-center gap-3 print:hidden">
+                        <span className="text-[11px] text-slate-400 font-semibold hidden sm:inline">
+                          লাইভ অংশগ্রহণের হারের ভিত্তিতে সাজানো
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleDownloadPdf}
+                          disabled={loadingRankings || rankings.length === 0}
+                          title="পিডিএফ আকারে সংরক্ষণ বা প্রিন্ট করুন"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>PDF রিপোর্ট</span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="overflow-x-auto border border-slate-100 rounded-2xl">
-                      <table className="w-full text-left text-xs">
+                    <div className="overflow-x-auto border border-slate-100 rounded-2xl print:border-slate-300">
+                      <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold print:bg-slate-100 print:text-slate-800">
                             <th className="py-3 px-4 text-center">র‍্যাংক</th>
                             <th className="py-3 px-4">গ্রুপের নাম ও কোর্স</th>
                             <th className="py-3 px-4">লাইভ পরীক্ষার হার (%)</th>
                             <th className="py-3 px-4 text-center">সক্রিয় সদস্য</th>
                             <th className="py-3 px-4 text-center">লাইভ পরীক্ষা সম্পন্ন</th>
                             <th className="py-3 px-4 text-center">গড় স্কোর</th>
-                            <th className="py-3 px-4 text-right">অ্যাকশন</th>
+                            <th className="py-3 px-4 text-right print:hidden">অ্যাকশন</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 print:divide-slate-200">
                           {rankings.map((r) => {
                             const isTop = r.rank === 1 && r.participationRate > 0;
                             return (
                               <tr
                                 key={r.groupId}
                                 className={`hover:bg-slate-50/70 transition ${
-                                  isTop ? "bg-amber-50/40 font-semibold" : ""
+                                  isTop ? "bg-amber-50/40 font-semibold print:bg-amber-50/30" : ""
                                 }`}
                               >
                                 <td className="py-3 px-4 text-center">
                                   {r.rank === 1 ? (
-                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-800 font-black text-xs shadow-xs">
+                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-800 font-black text-xs shadow-xs print:border print:border-amber-300">
                                       🥇
                                     </span>
                                   ) : r.rank === 2 ? (
@@ -1095,16 +1154,16 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                                   <div className="font-bold text-slate-800 flex items-center gap-1.5">
                                     {r.groupName}
                                     {isTop && (
-                                      <span className="text-[9px] font-black uppercase bg-amber-500 text-white px-1.5 py-0.5 rounded-sm">
+                                      <span className="text-[9px] font-black uppercase bg-amber-500 text-white px-1.5 py-0.5 rounded-sm print:border print:border-amber-600 print:text-amber-800 print:bg-amber-100">
                                         TOP
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-[11px] text-slate-400">{r.course}</div>
+                                  <div className="text-[11px] text-slate-400 print:text-slate-600">{r.course}</div>
                                 </td>
                                 <td className="py-3 px-4">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                    <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden print:border print:border-slate-300">
                                       <div
                                         className={`h-full rounded-full transition-all duration-500 ${
                                           r.participationRate >= 70
@@ -1127,7 +1186,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-center">
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-100 text-slate-700">
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-100 text-slate-700 print:border print:border-slate-200">
                                     {toBengaliDigits(r.submissionsCount)} টি
                                   </span>
                                 </td>
@@ -1136,7 +1195,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                                     {toBengaliDigits(r.averageScore)}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-right">
+                                <td className="py-3 px-4 text-right print:hidden">
                                   <button
                                     onClick={() => {
                                       const found = groups.find((g) => g.id === r.groupId);
@@ -1153,6 +1212,12 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                         </tbody>
                       </table>
                     </div>
+                  </div>
+
+                  {/* Print-Only Official Report Footer */}
+                  <div className="hidden print:flex justify-between items-center mt-8 pt-4 border-t border-slate-300 text-[11px] text-slate-500 font-medium">
+                    <span>আরোহণ — স্টাডি গ্রুপ লিডারবোর্ড ও মনিটরিং সিস্টেম</span>
+                    <span>www.aarohon.com</span>
                   </div>
                 </div>
               )}

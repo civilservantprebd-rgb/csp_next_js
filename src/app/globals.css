@@ -55,13 +55,16 @@ html {
   #printable-marksheet,
   #printable-marksheet *,
   #printable-attendance,
-  #printable-attendance * {
+  #printable-attendance *,
+  #printable-group-rankings,
+  #printable-group-rankings * {
     visibility: visible;
   }
 
   #printable-leaderboard,
   #printable-marksheet,
-  #printable-attendance {
+  #printable-attendance,
+  #printable-group-rankings {
     position: absolute;
     left: 0;
     top: 0;
@@ -76,6 +79,7 @@ html {
   /* Never slice a row / cell / card between two pages — keep blocks whole */
   #printable-leaderboard tr,
   #printable-attendance tr,
+  #printable-group-rankings tr,
   #printable-marksheet .grid > div {
     break-inside: avoid;
     page-break-inside: avoid;
@@ -84,7 +88,9 @@ html {
   /* Don't leave section headings dangling at the bottom of a page */
   #printable-marksheet h4,
   #printable-leaderboard h4,
-  #printable-attendance h4 {
+  #printable-attendance h4,
+  #printable-group-rankings h4,
+  #printable-group-rankings h3 {
     break-after: avoid;
     page-break-after: avoid;
   }
