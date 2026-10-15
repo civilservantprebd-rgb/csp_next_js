@@ -22,7 +22,10 @@ import {
   Award,
   Layers,
   GraduationCap,
-  RotateCw
+  RotateCw,
+  Trophy,
+  Calendar,
+  TrendingUp
 } from "lucide-react";
 import {
   getStudyGroups,
@@ -32,9 +35,10 @@ import {
   removeMemberFromGroup,
   addMembersBulk,
   getExamsForGroupCourse,
-  getGroupExamAttendance
+  getGroupExamAttendance,
+  getGroupDailyLeaderboard
 } from "@/actions/study-group-actions";
-import { StudyGroup, StudyGroupMember, GroupExamAttendance } from "@/types/study-group";
+import { StudyGroup, StudyGroupMember, GroupExamAttendance, GroupDailyRanking } from "@/types/study-group";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface StudyGroupManagerProps {
@@ -75,6 +79,16 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [copiedReminder, setCopiedReminder] = useState(false);
 
+  // Daily Leaderboard State
+  const [mainView, setMainView] = useState<"groups" | "leaderboard">("groups");
+  const [leaderboardDate, setLeaderboardDate] = useState<string>(() => {
+    const now = new Date();
+    const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    return bdTime.toISOString().slice(0, 10);
+  });
+  const [rankings, setRankings] = useState<GroupDailyRanking[]>([]);
+  const [loadingRankings, setLoadingRankings] = useState(false);
+
   // Fetch groups
   const loadGroups = async () => {
     setLoading(true);
@@ -83,10 +97,25 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
     setLoading(false);
   };
 
+  const loadRankings = async (targetDate?: string) => {
+    setLoadingRankings(true);
+    const dateToQuery = targetDate || leaderboardDate;
+    const res = await getGroupDailyLeaderboard(dateToQuery, courseFilter);
+    setRankings(res.rankings || []);
+    setLoadingRankings(false);
+  };
+
   useEffect(() => {
     loadGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseFilter]);
+
+  useEffect(() => {
+    if (mainView === "leaderboard") {
+      loadRankings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaderboardDate, courseFilter, mainView]);
 
   // Open details view for a group
   const handleOpenGroup = async (group: StudyGroup) => {
@@ -657,45 +686,338 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
         /* VIEW 2: ALL GROUPS OVERVIEW & CREATION */
         <div className="space-y-6">
           {/* Header Card */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                <Users className="w-6 h-6" />
+          <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Users className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">স্টাডি গ্রুপ মনিটর</h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    কোর্স অনুযায়ী একাধিক হোয়াটসঅ্যাপ গ্রুপের শিক্ষার্থীদের আলাদাভাবে ট্র্যাকিং ও মনিটরিং
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-lg">স্টাডি গ্রুপ মনিটর</h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  কোর্স অনুযায়ী একাধিক হোয়াটসঅ্যাপ গ্রুপের শিক্ষার্থীদের আলাদাভাবে ট্র্যাকিং ও মনিটরিং
-                </p>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Course Filter Dropdown */}
+                <select
+                  value={courseFilter}
+                  onChange={(e) => setCourseFilter(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="all">সকল কোর্স ({toBengaliDigits(groups.length)} টি গ্রুপ)</option>
+                  {courses.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Create Group Button */}
+                <button
+                  onClick={() => {
+                    setMainView("groups");
+                    setIsCreating(true);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> নতুন স্টাডি গ্রুপ
+                </button>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Course Filter Dropdown */}
-              <select
-                value={courseFilter}
-                onChange={(e) => setCourseFilter(e.target.value)}
-                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
-              >
-                <option value="all">সকল কোর্স ({toBengaliDigits(groups.length)} টি গ্রুপ)</option>
-                {courses.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-
-              {/* Create Group Button */}
+            {/* View Switcher: "গ্রুপ তালিকা" vs "🏆 দৈনিক গ্রুপ র‍্যাংকিং" */}
+            <div className="flex border-b border-slate-200 gap-6 pt-1">
               <button
-                onClick={() => setIsCreating(true)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                type="button"
+                onClick={() => setMainView("groups")}
+                className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
+                  mainView === "groups"
+                    ? "border-indigo-600 text-indigo-600"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
               >
-                <Plus className="w-4 h-4" /> নতুন স্টাডি গ্রুপ
+                <Layers className="w-4 h-4" /> গ্রুপ তালিকা ({toBengaliDigits(groups.length)})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMainView("leaderboard");
+                  loadRankings();
+                }}
+                className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
+                  mainView === "leaderboard"
+                    ? "border-amber-500 text-amber-600"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Trophy className="w-4 h-4 text-amber-500" /> দৈনিক গ্রুপ র‍্যাংকিং (শীর্ষ গ্রুপ)
               </button>
             </div>
           </div>
 
-          {/* Create Group Modal */}
+          {/* Main View: Leaderboard vs Groups List */}
+          {mainView === "leaderboard" ? (
+            <div className="space-y-6">
+              {/* Date Filter & Controls */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                      <Trophy className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">তারিখ অনুযায়ী গ্রুপ প্রতিযোগিতা ও র‍্যাংকিং</h4>
+                      <p className="text-[11px] text-slate-500">
+                        যে গ্রুপের সদস্যরা নির্দিষ্ট তারিখে সবচেয়ে বেশি হারে পরীক্ষা সম্পন্ন করবে, সেই গ্রুপ শীর্ষে (Top) থাকবে
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Shortcut Buttons */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const bd = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+                        const t = bd.toISOString().slice(0, 10);
+                        setLeaderboardDate(t);
+                        loadRankings(t);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700"
+                    >
+                      ⚡ আজ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const bd = new Date(now.getTime() + 6 * 60 * 60 * 1000 - 86400000);
+                        const y = bd.toISOString().slice(0, 10);
+                        setLeaderboardDate(y);
+                        loadRankings(y);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700"
+                    >
+                      📅 গতকাল
+                    </button>
+
+                    {/* Date Picker Input */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1">
+                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <input
+                        type="date"
+                        value={leaderboardDate}
+                        onChange={(e) => {
+                          setLeaderboardDate(e.target.value);
+                          if (e.target.value) loadRankings(e.target.value);
+                        }}
+                        className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Refresh Button */}
+                    <button
+                      type="button"
+                      onClick={() => loadRankings()}
+                      title="রিফ্রেশ করুন"
+                      className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl transition cursor-pointer"
+                    >
+                      <RotateCw className={`w-4 h-4 ${loadingRankings ? "animate-spin text-amber-600" : ""}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Champion Top Card (Rank 1 Highlight) */}
+              {loadingRankings ? (
+                <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
+                  <span className="text-xs font-bold">গ্রুপ র‍্যাংকিং হিসাব হচ্ছে...</span>
+                </div>
+              ) : rankings.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-6 space-y-2">
+                  <Trophy className="w-10 h-10 text-slate-300 mx-auto" />
+                  <h4 className="text-sm font-bold text-slate-700">কোনো গ্রুপ পাওয়া যায়নি</h4>
+                  <p className="text-xs text-slate-400">প্রথমে কিছু স্টাডি গ্রুপ তৈরি করুন।</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Top 1 Highlight Card */}
+                  {rankings[0] && rankings[0].participationRate > 0 ? (
+                    <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 text-white rounded-3xl p-6 sm:p-7 shadow-lg shadow-amber-200/50 space-y-4">
+                      <div className="absolute right-4 -bottom-6 opacity-15 pointer-events-none">
+                        <Trophy className="w-48 h-48 text-white" />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-white/20 backdrop-blur-xs rounded-full border border-white/30 text-white">
+                            👑 আজকের শীর্ষ গ্রুপ (Rank #1)
+                          </span>
+                          <h3 className="text-2xl font-black">{rankings[0].groupName}</h3>
+                          <p className="text-xs text-amber-100 font-semibold">{rankings[0].course}</p>
+                        </div>
+
+                        <div className="text-left sm:text-right bg-white/10 backdrop-blur-xs border border-white/20 p-4 rounded-2xl shrink-0">
+                          <span className="text-[11px] font-bold text-amber-100 block">পরীক্ষা দেওয়ার হার</span>
+                          <span className="text-3xl font-black">{toBengaliDigits(rankings[0].participationRate)}%</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3 pt-2 relative z-10 text-center border-t border-white/20">
+                        <div className="bg-white/10 rounded-xl p-2.5">
+                          <span className="text-[10px] text-amber-100 font-bold block">পরীক্ষার্থী সংখ্যা</span>
+                          <span className="text-sm sm:text-base font-black">
+                            {toBengaliDigits(rankings[0].activeCount)} / {toBengaliDigits(rankings[0].totalMembers)} জন
+                          </span>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-2.5">
+                          <span className="text-[10px] text-amber-100 font-bold block">মোট পরীক্ষা জমা</span>
+                          <span className="text-sm sm:text-base font-black">
+                            {toBengaliDigits(rankings[0].submissionsCount)} টি
+                          </span>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-2.5">
+                          <span className="text-[10px] text-amber-100 font-bold block">গড় স্কোর</span>
+                          <span className="text-sm sm:text-base font-black">
+                            {toBengaliDigits(rankings[0].averageScore)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center text-slate-500 text-xs font-semibold">
+                      📅 {leaderboardDate} তারিখে কোনো গ্রুপের সদস্য এখনো কোনো পরীক্ষা সম্পন্ন করেনি।
+                    </div>
+                  )}
+
+                  {/* Leaderboard Table */}
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-5 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-amber-500" />
+                        সকল গ্রুপের অবস্থান ও পারফরম্যান্স ({leaderboardDate})
+                      </h4>
+                      <span className="text-[11px] text-slate-400 font-semibold">
+                        অংশগ্রহণের হারের ভিত্তিতে সাজানো
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                            <th className="py-3 px-4 text-center">র‍্যাংক</th>
+                            <th className="py-3 px-4">গ্রুপের নাম ও কোর্স</th>
+                            <th className="py-3 px-4">পরীক্ষার হার (%)</th>
+                            <th className="py-3 px-4 text-center">অংশগ্রহণকারী</th>
+                            <th className="py-3 px-4 text-center">মোট পরীক্ষা জমা</th>
+                            <th className="py-3 px-4 text-center">গড় স্কোর</th>
+                            <th className="py-3 px-4 text-right">অ্যাকশন</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {rankings.map((r) => {
+                            const isTop = r.rank === 1 && r.participationRate > 0;
+                            return (
+                              <tr
+                                key={r.groupId}
+                                className={`hover:bg-slate-50/70 transition ${
+                                  isTop ? "bg-amber-50/40 font-semibold" : ""
+                                }`}
+                              >
+                                <td className="py-3 px-4 text-center">
+                                  {r.rank === 1 ? (
+                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-800 font-black text-xs shadow-xs">
+                                      🥇
+                                    </span>
+                                  ) : r.rank === 2 ? (
+                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-black text-xs">
+                                      🥈
+                                    </span>
+                                  ) : r.rank === 3 ? (
+                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-800 font-black text-xs">
+                                      🥉
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 font-bold">
+                                      #{toBengaliDigits(r.rank)}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                                    {r.groupName}
+                                    {isTop && (
+                                      <span className="text-[9px] font-black uppercase bg-amber-500 text-white px-1.5 py-0.5 rounded-sm">
+                                        TOP
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-400">{r.course}</div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-500 ${
+                                          r.participationRate >= 70
+                                            ? "bg-emerald-500"
+                                            : r.participationRate >= 40
+                                            ? "bg-amber-500"
+                                            : "bg-indigo-500"
+                                        }`}
+                                        style={{ width: `${Math.min(100, r.participationRate)}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="font-bold text-slate-700 text-xs">
+                                      {toBengaliDigits(r.participationRate)}%
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className="font-medium text-slate-700">
+                                    {toBengaliDigits(r.activeCount)} / {toBengaliDigits(r.totalMembers)} জন
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-100 text-slate-700">
+                                    {toBengaliDigits(r.submissionsCount)} টি
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className="font-bold text-slate-700">
+                                    {toBengaliDigits(r.averageScore)}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <button
+                                    onClick={() => {
+                                      const found = groups.find((g) => g.id === r.groupId);
+                                      if (found) handleOpenGroup(found);
+                                    }}
+                                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-[11px] transition cursor-pointer"
+                                  >
+                                    মনিটর দেখুন
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Create Group Modal */}
           {isCreating && (
             <div className="bg-white rounded-3xl border-2 border-indigo-200 p-5 sm:p-6 shadow-md space-y-4 animate-fade-in">
               <div className="flex items-center justify-between">
@@ -865,8 +1187,10 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
               })}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
+  )}
+</div>
   );
 };

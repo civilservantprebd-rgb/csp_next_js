@@ -40,3 +40,15 @@ export interface GroupExamAttendance {
     email?: string;
   }[];
 }
+
+export interface GroupDailyRanking {
+  groupId: string;
+  groupName: string;
+  course: string;
+  totalMembers: number;
+  activeCount: number;
+  participationRate: number;
+  submissionsCount: number;
+  averageScore: number;
+  rank: number;
+}

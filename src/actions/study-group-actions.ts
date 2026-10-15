@@ -3,7 +3,7 @@
 import { supabase } from "@/lib/supabase";
 import { requireTeacher, getSessionUserFromCookies } from "@/lib/teacher-auth";
 import { parseBengaliDigits } from "@/lib/utils";
-import { StudyGroup, StudyGroupMember, GroupExamAttendance } from "@/types/study-group";
+import { StudyGroup, StudyGroupMember, GroupExamAttendance, GroupDailyRanking } from "@/types/study-group";
 
 /**
  * শিক্ষক: সকল স্টাডি গ্রুপের তালিকা আনা (কোর্স অনুযায়ী ফিল্টারসহ)
@@ -626,3 +626,164 @@ export async function getExamsForGroupCourse(
     return [];
   }
 }
+
+/**
+ * শিক্ষক: নির্দিষ্ট তারিখে পরীক্ষা দেওয়ার হারের ভিত্তিতে গ্রুপ র‍্যাংকিং / লিডারবোর্ড
+ */
+export async function getGroupDailyLeaderboard(
+  targetDateStr?: string,
+  courseFilter?: string
+): Promise<{ date: string; rankings: GroupDailyRanking[] }> {
+  try {
+    await requireTeacher();
+
+    // আজকের তারিখ ডিফল্ট (বাংলাদেশ সময়)
+    let dateStr = targetDateStr?.trim();
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const now = new Date();
+      const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+      dateStr = bdTime.toISOString().slice(0, 10);
+    }
+
+    // বাংলাদেশ দিনের শুরু ও শেষ
+    const startIso = new Date(`${dateStr}T00:00:00+06:00`).toISOString();
+    const endIso = new Date(`${dateStr}T23:59:59.999+06:00`).toISOString();
+
+    // ১. গ্রুপগুলো আনা
+    let groupQuery = supabase.from("study_groups").select("id, name, course").order("name", { ascending: true });
+    if (courseFilter && courseFilter !== "all") {
+      groupQuery = groupQuery.eq("course", courseFilter);
+    }
+    const { data: groups, error: gErr } = await groupQuery;
+    if (gErr || !groups || groups.length === 0) {
+      return { date: dateStr, rankings: [] };
+    }
+
+    const groupIds = groups.map((g) => g.id);
+
+    // ২. গ্রুপের সকল মেম্বার আনা
+    const { data: allMembers, error: mErr } = await supabase
+      .from("study_group_members")
+      .select("group_id, student_id, student_email")
+      .in("group_id", groupIds);
+
+    if (mErr || !allMembers || allMembers.length === 0) {
+      return {
+        date: dateStr,
+        rankings: groups.map((g, idx) => ({
+          groupId: g.id,
+          groupName: g.name,
+          course: g.course,
+          totalMembers: 0,
+          activeCount: 0,
+          participationRate: 0,
+          submissionsCount: 0,
+          averageScore: 0,
+          rank: idx + 1
+        }))
+      };
+    }
+
+    // মেম্বারদের বিকল্প আইডি (ফোন বা ইউআইডি বা ইমেইল) মেলানো
+    const memberIds = allMembers.map((m) => m.student_id);
+    const emails = allMembers.map((m) => m.student_email).filter(Boolean);
+
+    let allowedFilter = `id.in.(${memberIds.join(",")})`;
+    if (emails.length > 0) {
+      allowedFilter += `,email.in.(${emails.join(",")})`;
+    }
+
+    const { data: allowedList } = await supabase
+      .from("allowed_students")
+      .select("id, email")
+      .or(allowedFilter);
+
+    // প্রতিটি মেম্বারের জন্য সম্ভাব্য আইডিসমূহ
+    const memberToPossibleIds = new Map<string, string[]>();
+    const allQueryIds = new Set<string>();
+
+    allMembers.forEach((m) => {
+      const ids = new Set<string>([m.student_id]);
+      (allowedList || []).forEach((st) => {
+        if (st.id === m.student_id || (m.student_email && st.email?.toLowerCase() === m.student_email.toLowerCase())) {
+          ids.add(st.id);
+        }
+      });
+      memberToPossibleIds.set(m.student_id, Array.from(ids));
+      ids.forEach((id) => allQueryIds.add(id));
+    });
+
+    // ৩. নির্দিষ্ট তারিখে হওয়া সাবমিশন আনা
+    const { data: submissions, error: subErr } = await supabase
+      .from("submissions")
+      .select("student_id, score, submitted_at")
+      .gte("submitted_at", startIso)
+      .lte("submitted_at", endIso)
+      .in("student_id", Array.from(allQueryIds));
+
+    if (subErr) throw subErr;
+
+    // গ্রুপ অনুযায়ী মেম্বার ও সাবমিশন ম্যাপ করা
+    const groupMemberMap = new Map<string, typeof allMembers>();
+    allMembers.forEach((m) => {
+      const list = groupMemberMap.get(m.group_id) || [];
+      list.push(m);
+      groupMemberMap.set(m.group_id, list);
+    });
+
+    const rankings: GroupDailyRanking[] = groups.map((g) => {
+      const members = groupMemberMap.get(g.id) || [];
+      const totalMembers = members.length;
+
+      let activeCount = 0;
+      let submissionsCount = 0;
+      let totalScore = 0;
+
+      members.forEach((m) => {
+        const possibleIds = memberToPossibleIds.get(m.student_id) || [m.student_id];
+        const studentSubs = (submissions || []).filter((s) => possibleIds.includes(String(s.student_id)));
+
+        if (studentSubs.length > 0) {
+          activeCount++;
+          submissionsCount += studentSubs.length;
+          studentSubs.forEach((s) => {
+            totalScore += typeof s.score === "number" ? s.score : Number(s.score) || 0;
+          });
+        }
+      });
+
+      const participationRate = totalMembers > 0 ? Math.round((activeCount / totalMembers) * 100) : 0;
+      const averageScore = submissionsCount > 0 ? Number((totalScore / submissionsCount).toFixed(1)) : 0;
+
+      return {
+        groupId: g.id,
+        groupName: g.name,
+        course: g.course,
+        totalMembers,
+        activeCount,
+        participationRate,
+        submissionsCount,
+        averageScore,
+        rank: 0
+      };
+    });
+
+    // সর্টিং: ১. অংশগ্রহণের হার (বেশি আগে) ২. মোট সাবমিশন সংখ্যা ৩. গড় স্কোর
+    rankings.sort((a, b) => {
+      if (b.participationRate !== a.participationRate) return b.participationRate - a.participationRate;
+      if (b.submissionsCount !== a.submissionsCount) return b.submissionsCount - a.submissionsCount;
+      return b.averageScore - a.averageScore;
+    });
+
+    // র‍্যাংক নম্বর বসানো
+    rankings.forEach((r, idx) => {
+      r.rank = idx + 1;
+    });
+
+    return { date: dateStr, rankings };
+  } catch (err) {
+    console.error("getGroupDailyLeaderboard error:", err);
+    return { date: targetDateStr || "", rankings: [] };
+  }
+}
+
