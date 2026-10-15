@@ -35,7 +35,8 @@ import {
   User,
   ShieldCheck,
   Compass,
-  Trophy
+  Trophy,
+  Loader2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -71,6 +72,15 @@ const StudentDashboardModal = dynamic(() => import("@/components/modals/StudentD
 const ExamDetailPopup = dynamic(() => import("@/components/modals/ExamDetailPopup").then((m) => m.ExamDetailPopup), { ssr: false });
 const QuestionBankView = dynamic(() => import("@/components/dashboard/QuestionBankView").then((m) => m.QuestionBankView), { ssr: false });
 const LeaderboardView = dynamic(() => import("@/components/dashboard/LeaderboardView").then((m) => m.LeaderboardView), { ssr: false });
+const CourseClient = dynamic(() => import("@/components/course/CourseStudyView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-20 text-indigo-600 gap-2">
+      <Loader2 className="w-6 h-6 animate-spin" />
+      <span className="text-xs font-bold text-slate-500">কোর্স লোড হচ্ছে...</span>
+    </div>
+  )
+});
 
 const hasAuthTokensInUrl = () => {
   if (typeof window === "undefined") return false;
@@ -105,6 +115,7 @@ export default function HomeClient({
 
   // Active navigation section
   const [activeNav, setActiveNav] = useState<ActiveNavKey>("dashboard");
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [dashboardGroupOpen, setDashboardGroupOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -178,6 +189,32 @@ export default function HomeClient({
       sessionStorage.removeItem("open_enroll");
       setIsEnrollOpen(true);
     }
+
+    const p = new URLSearchParams(window.location.search);
+    const n = p.get("nav") as ActiveNavKey | null;
+    const c = p.get("course");
+    if (c) {
+      setActiveNav("courses");
+      setSelectedCourse(c);
+    } else if (n) {
+      setActiveNav(n);
+    }
+
+    const onPop = () => {
+      const params = new URLSearchParams(window.location.search);
+      const navP = params.get("nav") as ActiveNavKey | null;
+      const courseP = params.get("course");
+      if (courseP) {
+        setActiveNav("courses");
+        setSelectedCourse(courseP);
+      } else {
+        setSelectedCourse(null);
+        if (navP) setActiveNav(navP);
+        else setActiveNav("dashboard");
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   useLayoutEffect(() => {
@@ -505,6 +542,47 @@ export default function HomeClient({
   const handleNavSelect = (key: ActiveNavKey) => {
     setActiveNav(key);
     setMobileSidebarOpen(false);
+    if (key !== "courses") {
+      setSelectedCourse(null);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("course");
+        if (key === "dashboard") {
+          url.searchParams.delete("nav");
+        } else {
+          url.searchParams.set("nav", key);
+        }
+        history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
+      }
+    } else {
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("nav", "courses");
+        if (!selectedCourse) url.searchParams.delete("course");
+        history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
+      }
+    }
+  };
+
+  const handleOpenCourse = (course: string) => {
+    setSelectedCourse(course);
+    setActiveNav("courses");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("nav", "courses");
+      url.searchParams.set("course", course);
+      history.pushState({}, "", url.pathname + url.search);
+    }
+  };
+
+  const handleBackToCourses = () => {
+    setSelectedCourse(null);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("course");
+      url.searchParams.set("nav", "courses");
+      history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
+    }
   };
 
   // If gate is guest, render LandingPage
@@ -879,11 +957,13 @@ export default function HomeClient({
                   {activeNav === "analytics" && "শক্তি ও দুর্বলতা এনালাইসিস"}
                   {activeNav === "leaderboard" && "মেধা তালিকা ও লিডারবোর্ড"}
                   {activeNav === "question_bank" && "অনুশীলন"}
-                  {activeNav === "courses" && "আরোহণ কোর্স সমূহ"}
+                  {activeNav === "courses" && (selectedCourse ? selectedCourse : "আরোহণ কোর্স সমূহ")}
                   {activeNav === "referral" && "রেফারেল ও রিওয়ার্ড"}
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600 font-normal truncate hidden sm:block mt-0.5">
-                  বিসিএস ও সরকারি চাকরির প্রস্তুতিতে আরোহণ আপনার সার্বক্ষণিক সঙ্গী
+                  {activeNav === "courses" && selectedCourse
+                    ? "কোর্সের পরীক্ষাসমূহ ও ভিডিও ক্লাস"
+                    : "বিসিএস ও সরকারি চাকরির প্রস্তুতিতে আরোহণ আপনার সার্বক্ষণিক সঙ্গী"}
                 </p>
               </div>
             </div>
@@ -1392,14 +1472,23 @@ export default function HomeClient({
                 */}
 
                 
-                <CourseCardGrid
-                  courses={coursesList}
-                  subjects={subjectsList}
-                  exams={examsObj}
-                  pinnedCourses={config.pinnedCourses || []}
-                  onOpenCourse={(course) => router.push(`/course/${encodeURIComponent(course)}`)}
-                  onOpenEnrollModal={handleOpenEnrollModal}
-                />
+                {selectedCourse ? (
+                  <CourseClient
+                    courseNameProp={selectedCourse}
+                    initialConfig={config}
+                    onBack={handleBackToCourses}
+                    embedded={true}
+                  />
+                ) : (
+                  <CourseCardGrid
+                    courses={coursesList}
+                    subjects={subjectsList}
+                    exams={examsObj}
+                    pinnedCourses={config.pinnedCourses || []}
+                    onOpenCourse={handleOpenCourse}
+                    onOpenEnrollModal={handleOpenEnrollModal}
+                  />
+                )}
               </div>
             )}
 

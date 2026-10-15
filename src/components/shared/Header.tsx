@@ -140,8 +140,45 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
         isVisible ? "translate-y-0" : "-translate-y-full"
       }`}>
         <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2 flex items-center justify-between gap-2 relative">
-          {/* Left: notification bell */}
-          <div className="flex-1 flex justify-start relative">
+          {/* Left: menu (side panel) */}
+          <div className="flex-1 flex justify-start">
+            {!hideMenu && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(true);
+                  setIsNotifOpen(false);
+                }}
+                aria-label="মেনু খুলুন"
+                aria-expanded={isMenuOpen}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 cursor-pointer transition"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+
+          {/* Center: brand name */}
+          <Link
+            href="/"
+            onClick={(e) => {
+              if (isTeacher) {
+                e.preventDefault();
+                router.push("/admin");
+              }
+            }}
+            className="flex items-center gap-2 cursor-pointer group min-w-0"
+          >
+            <span className="bg-gradient-to-tr from-amber-400 to-indigo-500 p-1.5 rounded-xl shadow-sm group-hover:scale-105 transition-transform duration-200 shrink-0">
+              <GraduationCap className="w-5 h-5 text-slate-900" />
+            </span>
+            <span className="text-lg sm:text-xl font-black tracking-wide text-indigo-900 whitespace-nowrap">
+              আরোহণ
+            </span>
+          </Link>
+
+          {/* Right: notification bell */}
+          <div className="flex-1 flex justify-end relative">
             <button
               type="button"
               onClick={toggleBell}
@@ -159,7 +196,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
 
             {/* Notification dropdown */}
             {isNotifOpen && (
-              <div className="absolute left-0 top-full mt-2 w-80 max-w-[88vw] bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50 font-bengali">
+              <div className="absolute right-0 top-full mt-2 w-80 max-w-[88vw] bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50 font-bengali">
                 <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
                   <span className="flex items-center gap-2 font-bold text-sm text-slate-800">
                     <Bell className="w-4 h-4 text-indigo-600" /> নোটিফিকেশন
@@ -223,43 +260,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
               </div>
             )}
           </div>
-
-          {/* Center: brand name */}
-          <Link
-            href="/"
-            onClick={(e) => {
-              if (isTeacher) {
-                e.preventDefault();
-                router.push("/admin");
-              }
-            }}
-            className="flex items-center gap-2 cursor-pointer group min-w-0"
-          >
-            <span className="bg-gradient-to-tr from-amber-400 to-indigo-500 p-1.5 rounded-xl shadow-sm group-hover:scale-105 transition-transform duration-200 shrink-0">
-              <GraduationCap className="w-5 h-5 text-slate-900" />
-            </span>
-            <span className="text-lg sm:text-xl font-black tracking-wide text-indigo-900 whitespace-nowrap">
-              আরোহণ
-            </span>
-          </Link>
-
-          {/* Right: menu (side panel) */}
-          <div className="flex-1 flex justify-end">
-            {!hideMenu && (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen(true);
-                  setIsNotifOpen(false);
-                }}
-                aria-label="মেনু খুলুন"
-                aria-expanded={isMenuOpen}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 cursor-pointer transition"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-            )}
-          </div>
         </div>
       </header>
 
@@ -273,8 +273,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
             aria-hidden="true"
           />
 
-          {/* Panel — slides in from the right */}
-          <div className="absolute right-0 top-0 h-full w-72 max-w-[85%] bg-white/75 backdrop-blur-2xl text-slate-800 shadow-2xl shadow-slate-900/20 flex flex-col border-l border-white/60">
+          {/* Panel — slides in from the left */}
+          <div className="absolute left-0 top-0 h-full w-72 max-w-[85%] bg-white/75 backdrop-blur-2xl text-slate-800 shadow-2xl shadow-slate-900/20 flex flex-col border-r border-white/60 animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-900/5">
               <span className="flex items-center gap-2 font-black text-base text-indigo-900">
                 <span className="bg-indigo-50 border border-indigo-100 text-indigo-600 p-1.5 rounded-lg">
