@@ -29,10 +29,6 @@ export default function JoinGroupPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [studentUser, setStudentUser] = useState<StudentUser | null>(null);
 
-  // Manual fallback inputs
-  const [manualId, setManualId] = useState("");
-  const [manualName, setManualName] = useState("");
-
   const [joining, setJoining] = useState(false);
   const [joinSuccess, setJoinSuccess] = useState(false);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
@@ -43,8 +39,6 @@ export default function JoinGroupPage() {
     const user = getLocalStudentUser();
     if (user) {
       setStudentUser(user);
-      setManualName(user.name || "");
-      setManualId(user.uid || "");
     }
 
     if (code) {
@@ -64,18 +58,19 @@ export default function JoinGroupPage() {
 
   const handleJoin = async () => {
     if (!group) return;
+    if (!studentUser?.uid) {
+      setStatusMessage("গ্রুপে যুক্ত হতে দয়া করে প্রথমে Google দিয়ে সাইন ইন করুন।");
+      return;
+    }
+
     setJoining(true);
     setStatusMessage("");
 
-    const clientStudent = studentUser
-      ? { id: studentUser.uid, name: studentUser.name, email: studentUser.email }
-      : { id: manualId.trim(), name: manualName.trim() || manualId.trim() };
-
-    if (!clientStudent.id) {
-      setJoining(false);
-      setStatusMessage("দয়া করে লগইন করুন অথবা আপনার আইডি/ফোন নম্বর দিন।");
-      return;
-    }
+    const clientStudent = {
+      id: studentUser.uid,
+      name: studentUser.name || "শিক্ষার্থী",
+      email: studentUser.email || ""
+    };
 
     const res = await joinStudyGroupByCode(code, clientStudent);
     setJoining(false);
@@ -222,16 +217,22 @@ export default function JoinGroupPage() {
                 </button>
               </div>
             ) : (
-              /* Not Logged In */
+              /* Not Logged In - Only Google Sign In allowed */
               <div className="space-y-4">
-                <p className="text-xs text-slate-600 text-center font-medium">
-                  গ্রুপে যুক্ত হতে আপনার Google অ্যাকাউন্ট দিয়ে সাইন ইন করুন:
-                </p>
+                <div className="p-4 bg-amber-50 border border-amber-200/90 rounded-2xl space-y-1.5 text-left">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Google অ্যাকাউন্ট আবশ্যক</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                    গ্রুপে যুক্ত হতে এবং পরীক্ষার ফলাফল ট্র্যাক করতে আপনার Google অ্যাকাউন্ট দিয়ে সাইন ইন করতে হবে।
+                  </p>
+                </div>
 
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  className="w-full py-3.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-2xl text-xs sm:text-sm font-bold shadow-sm flex items-center justify-center gap-2.5 transition cursor-pointer"
+                  className="w-full py-3.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-2xl text-xs sm:text-sm font-bold shadow-sm flex items-center justify-center gap-2.5 transition cursor-pointer hover:border-slate-400"
                 >
                   <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                     <path
@@ -251,56 +252,8 @@ export default function JoinGroupPage() {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                     />
                   </svg>
-                  Google দিয়ে লগইন করে যুক্ত হোন
+                  Google দিয়ে সাইন ইন করে যুক্ত হোন
                 </button>
-
-                <div className="relative flex items-center justify-center py-2">
-                  <div className="border-t border-slate-200 w-full"></div>
-                  <span className="bg-white px-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider absolute">
-                    অথবা
-                  </span>
-                </div>
-
-                {/* Manual Phone/ID fallback */}
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      আপনার নাম:
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="যেমন: সাকিব আহমেদ"
-                      value={manualName}
-                      onChange={(e) => setManualName(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      মোবাইল নম্বর / স্টুডেন্ট আইডি:
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="যেমন: 017XXXXXXXX"
-                      value={manualId}
-                      onChange={(e) => setManualId(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={handleJoin}
-                    disabled={joining || !manualId.trim()}
-                    className="w-full mt-2 py-3 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    {joining ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> যুক্ত হচ্ছে...
-                      </>
-                    ) : (
-                      "নম্বর দিয়ে যুক্ত হোন"
-                    )}
-                  </button>
-                </div>
               </div>
             )}
           </div>
