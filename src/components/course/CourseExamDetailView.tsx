@@ -29,7 +29,8 @@ import {
   BookOpenCheck,
   Zap,
   ListFilter,
-  Check
+  Check,
+  Calendar
 } from "lucide-react";
 
 const optLabels = ["ক", "খ", "গ", "ঘ"];
@@ -131,6 +132,8 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
   const hasSubmissions = submissions.length > 0;
   const isCompleted = hasSubmissions;
   const answersReleased = !!solutions && solutions.length > 0;
+  const dateSource = exam.endTime || exam.leaderboardEndTime || exam.startTime;
+  const endDateFormatted = dateSource ? formatBangladeshDate(dateSource) : null;
 
   return (
     <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200 font-bengali">
@@ -160,6 +163,11 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
               {exam.subject && (
                 <span className="bg-slate-100 text-slate-700 text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded-md border border-slate-200">
                   {exam.subject}
+                </span>
+              )}
+              {endDateFormatted && (
+                <span className="bg-slate-100 text-slate-700 text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-md border border-slate-200 inline-flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-slate-500" /> শেষ: {endDateFormatted}
                 </span>
               )}
               {exam.isFree && (
@@ -194,6 +202,12 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
               {!!exam.passMark && (
                 <span className="inline-flex items-center justify-center min-[520px]:justify-start gap-1 bg-amber-50 text-amber-800 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-xl border border-amber-200/60">
                   <span>পাস: {toBengaliDigits(exam.passMark)}</span>
+                </span>
+              )}
+              {endDateFormatted && (
+                <span className="inline-flex items-center justify-center min-[520px]:justify-start gap-1 bg-slate-100 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-xl border border-slate-200/80">
+                  <Calendar className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  <span>সমাপ্তি: {endDateFormatted}</span>
                 </span>
               )}
             </div>

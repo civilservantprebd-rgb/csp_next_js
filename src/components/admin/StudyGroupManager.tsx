@@ -35,7 +35,6 @@ import {
   deleteStudyGroup,
   getGroupDetails,
   removeMemberFromGroup,
-  addMembersBulk,
   getExamsForGroupCourse,
   getGroupExamAttendance,
   getGroupDailyLeaderboard,
@@ -70,10 +69,6 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
   const [memberSearch, setMemberSearch] = useState("");
   const [activeSubTab, setActiveSubTab] = useState<"members" | "attendance">("members");
 
-  // Bulk add members state
-  const [showBulkAdd, setShowBulkAdd] = useState(false);
-  const [bulkInput, setBulkInput] = useState("");
-  const [bulkAdding, setBulkAdding] = useState(false);
 
   // Exam Attendance State
   const [groupExams, setGroupExams] = useState<{ id: string; title: string; course: string }[]>([]);
@@ -176,7 +171,6 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
     setLoadingDetails(true);
     setActiveSubTab("members");
     setMemberSearch("");
-    setShowBulkAdd(false);
 
     const res = await getGroupDetails(group.id);
     setGroupMembers(res.members);
@@ -265,26 +259,6 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
     }
   };
 
-  const handleBulkAdd = async () => {
-    if (!selectedGroup || !bulkInput.trim()) return;
-    setBulkAdding(true);
-    setErrorMsg("");
-
-    const res = await addMembersBulk(selectedGroup.id, bulkInput);
-    setBulkAdding(false);
-
-    if (res.success) {
-      setNotice(res.message);
-      setBulkInput("");
-      setShowBulkAdd(false);
-      // রিলোড মেম্বার
-      const details = await getGroupDetails(selectedGroup.id);
-      setGroupMembers(details.members);
-      setTimeout(() => setNotice(""), 3500);
-    } else {
-      setErrorMsg(res.message);
-    }
-  };
 
   const copyInviteLink = (inviteCode: string) => {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://aarohon.com";
@@ -428,9 +402,9 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
           {/* SUB-TAB 1: MEMBERS LIST */}
           {activeSubTab === "members" && (
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-5 sm:p-6 space-y-4">
-              {/* Controls: Search & Bulk Add */}
+              {/* Controls: Search */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-72">
+                <div className="relative w-full sm:w-80">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
@@ -440,48 +414,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </div>
-
-                <button
-                  onClick={() => setShowBulkAdd(!showBulkAdd)}
-                  className="w-full sm:w-auto px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" /> {showBulkAdd ? "ফর্ম বন্ধ করুন" : "একসাথে মেম্বার যোগ (Bulk)"}
-                </button>
               </div>
-
-              {/* Bulk Add Form Drawer */}
-              {showBulkAdd && (
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-indigo-600" /> একবারে একাধিক সদস্য যোগ করুন
-                    </h4>
-                    <span className="text-[11px] text-slate-500">কমা (,) বা নতুন লাইনে ফোন নম্বর/আইডি দিন</span>
-                  </div>
-                  <textarea
-                    rows={4}
-                    placeholder="017XXXXXXXX&#10;018XXXXXXXX&#10;019XXXXXXXX"
-                    value={bulkInput}
-                    onChange={(e) => setBulkInput(e.target.value)}
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
-                  ></textarea>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setShowBulkAdd(false)}
-                      className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100"
-                    >
-                      বাতিল
-                    </button>
-                    <button
-                      onClick={handleBulkAdd}
-                      disabled={bulkAdding || !bulkInput.trim()}
-                      className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
-                    >
-                      {bulkAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} যোগ করুন
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Member Table */}
               {loadingDetails ? (
@@ -494,7 +427,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                   <UserX className="w-8 h-8 text-slate-300 mx-auto" />
                   <p className="text-xs font-bold text-slate-600">কোনো সদস্য পাওয়া যায়নি</p>
                   <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-                    ইনভাইট লিংক হোয়াটসঅ্যাপ গ্রুপে শেয়ার করুন অথবা উপরের &ldquo;বাল্ক মেম্বার যোগ&rdquo; দিয়ে নম্বর পেস্ট করুন।
+                    শিক্ষার্থীদের যুক্ত করতে ইনভাইট লিংক হোয়াটসঅ্যাপ বা মেসেঞ্জারে শেয়ার করুন।
                   </p>
                 </div>
               ) : (

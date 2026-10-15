@@ -253,8 +253,14 @@ export default function CourseClient({
     const q = examSearch.trim().toLowerCase();
     if (!q) return courseExams;
     return courseExams.filter(
-      ([_, ex]) =>
-        ex.title.toLowerCase().includes(q) || (ex.subject || "").toLowerCase().includes(q)
+      ([_, ex]) => {
+        const titleMatch = ex.title.toLowerCase().includes(q);
+        const subjectMatch = (ex.subject || "").toLowerCase().includes(q);
+        const dateSource = ex.endTime || ex.leaderboardEndTime || ex.startTime;
+        const dateFormatted = dateSource ? formatBangladeshDate(dateSource) : "";
+        const dateMatch = dateFormatted.toLowerCase().includes(q);
+        return titleMatch || subjectMatch || dateMatch;
+      }
     );
   }, [courseExams, examSearch]);
 
@@ -398,6 +404,8 @@ export default function CourseClient({
   const renderExamRow = (eKey: string, ex: Exam) => {
     const qCount = ex.questions?.length || 0;
     const live = isExamCurrentlyLive(ex);
+    const dateSource = ex.endTime || ex.leaderboardEndTime || ex.startTime;
+    const endDateFormatted = dateSource ? formatBangladeshDate(dateSource) : null;
     return (
       <div
         key={eKey}
@@ -416,6 +424,16 @@ export default function CourseClient({
             )}
             <h4 className={`font-black text-sm flex flex-wrap items-center gap-2 ${live ? "text-rose-900" : "text-slate-900"}`}>
               <span>{ex.title}</span>
+              {endDateFormatted && (
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border shrink-0 ${
+                  live
+                    ? "bg-rose-100 text-rose-800 border-rose-300"
+                    : "bg-slate-100 text-slate-600 border-slate-200"
+                }`}>
+                  <Calendar className="w-3 h-3 text-slate-400" />
+                  <span>{live ? `শেষ: ${endDateFormatted}` : `শেষ: ${endDateFormatted}`}</span>
+                </span>
+              )}
               {completedExams.has(eKey) && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300 shrink-0">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" /> সম্পন্ন
