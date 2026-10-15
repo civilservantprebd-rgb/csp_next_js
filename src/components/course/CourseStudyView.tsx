@@ -440,19 +440,21 @@ export default function CourseClient({
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+        <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
           <button
             type="button"
             onClick={() => setSelectedDetailExamKey(eKey)}
-            className="px-3.5 py-2.5 rounded-xl border border-indigo-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/70 text-indigo-700 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98] shadow-2xs"
+            className="w-full sm:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-indigo-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/70 text-indigo-700 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98] shadow-2xs whitespace-nowrap"
           >
-            <Info className="w-4 h-4 text-indigo-600" /> বিস্তারিত
+            <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 shrink-0" />
+            <span>বিস্তারিত</span>
           </button>
           <button
             onClick={() => handleStartExam(eKey)}
-            className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-[0.98] shadow-sm"
+            className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-[0.98] shadow-sm whitespace-nowrap"
           >
-            <PlayCircle className="w-4 h-4" /> {completedExams.has(eKey) ? "আবার দিন" : "পরীক্ষা দিন"}
+            <PlayCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>{completedExams.has(eKey) ? "আবার দিন" : "পরীক্ষা দিন"}</span>
           </button>
         </div>
       </div>
@@ -568,35 +570,46 @@ export default function CourseClient({
         </div>
 
         {/* প্রধান ৩টি বাটন: ভিডিও | পিডিএফ | পরীক্ষা */}
-        <section className="bg-white rounded-3xl p-2 sm:p-2.5 border border-slate-200 shadow-sm">
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <section className="bg-white rounded-2xl sm:rounded-3xl p-1.5 sm:p-2.5 border border-slate-200 shadow-sm">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             <button
               type="button"
               onClick={() => setActiveCourseTab("video")}
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-3.5 px-2 sm:px-3 rounded-2xl font-black text-xs sm:text-base transition cursor-pointer active:scale-[0.98] ${
+              className={`flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3.5 px-1 sm:px-3 rounded-xl sm:rounded-2xl font-black text-[11px] min-[390px]:text-xs sm:text-base whitespace-nowrap transition cursor-pointer active:scale-[0.98] select-none min-w-0 ${
                 activeCourseTab === "video"
                   ? "bg-rose-600 text-white shadow-md shadow-rose-600/25 border border-rose-600"
                   : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
               }`}
             >
-              <Video className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-              <span>ভিডিও</span>
+              <Video className="w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />
+              <span className="truncate">ভিডিও</span>
+              {videos.length > 0 && (
+                <span
+                  className={`text-[9px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 leading-none ${
+                    activeCourseTab === "video"
+                      ? "bg-white/20 text-white"
+                      : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  {toBengaliDigits(videos.length)}
+                </span>
+              )}
             </button>
 
             <button
               type="button"
               onClick={() => setActiveCourseTab("pdf")}
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-3.5 px-2 sm:px-3 rounded-2xl font-black text-xs sm:text-base transition cursor-pointer active:scale-[0.98] ${
+              className={`flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3.5 px-1 sm:px-3 rounded-xl sm:rounded-2xl font-black text-[11px] min-[390px]:text-xs sm:text-base whitespace-nowrap transition cursor-pointer active:scale-[0.98] select-none min-w-0 ${
                 activeCourseTab === "pdf"
                   ? "bg-amber-600 text-white shadow-md shadow-amber-600/25 border border-amber-600"
                   : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
               }`}
             >
-              <FileText className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-              <span>পিডিএফ</span>
+              <FileText className="w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />
+              <span className="truncate">পিডিএফ</span>
               {(coursePdfs.length + courseRoutines.length) > 0 && (
                 <span
-                  className={`text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full ${
+                  className={`text-[9px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 leading-none ${
                     activeCourseTab === "pdf"
                       ? "bg-white/20 text-white"
                       : "bg-amber-100 text-amber-700"
@@ -610,17 +623,17 @@ export default function CourseClient({
             <button
               type="button"
               onClick={() => setActiveCourseTab("exam")}
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-3.5 px-2 sm:px-3 rounded-2xl font-black text-xs sm:text-base transition cursor-pointer active:scale-[0.98] ${
+              className={`flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3.5 px-1 sm:px-3 rounded-xl sm:rounded-2xl font-black text-[11px] min-[390px]:text-xs sm:text-base whitespace-nowrap transition cursor-pointer active:scale-[0.98] select-none min-w-0 ${
                 activeCourseTab === "exam"
                   ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 border border-indigo-600"
                   : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
               }`}
             >
-              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-              <span>পরীক্ষা</span>
+              <BookOpen className="w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />
+              <span className="truncate">পরীক্ষা</span>
               {examCount > 0 && (
                 <span
-                  className={`text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full ${
+                  className={`text-[9px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 leading-none ${
                     activeCourseTab === "exam"
                       ? "bg-white/20 text-white"
                       : "bg-indigo-100 text-indigo-700"
@@ -699,11 +712,11 @@ export default function CourseClient({
 
               {/* দৃশ্য টগল: বিষয় অনুযায়ী / সম্পূর্ণ তালিকা (serial) */}
               <div className="flex flex-col gap-2.5">
-                <div className="inline-flex self-start rounded-xl border border-slate-200 bg-slate-100 p-1">
+                <div className="grid grid-cols-2 sm:inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setExamView("subject")}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-bold transition cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer text-center whitespace-nowrap ${
                       examView === "subject"
                         ? "bg-white text-indigo-700 shadow-sm border border-slate-200"
                         : "text-slate-500 hover:text-slate-700"
@@ -714,13 +727,13 @@ export default function CourseClient({
                   <button
                     type="button"
                     onClick={() => setExamView("serial")}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-bold transition cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer text-center whitespace-nowrap ${
                       examView === "serial"
                         ? "bg-white text-indigo-700 shadow-sm border border-slate-200"
                         : "text-slate-500 hover:text-slate-700"
                     }`}
                   >
-                    সম্পূর্ণ তালিকা (লাইভ আগে)
+                    সম্পূর্ণ তালিকা<span className="hidden sm:inline"> (লাইভ আগে)</span>
                   </button>
                 </div>
 
