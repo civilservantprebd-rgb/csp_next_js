@@ -26,6 +26,7 @@ const ArchiveManager = dynamic(() => import("@/components/admin/ArchiveManager")
 const CourseVideoManager = dynamic(() => import("@/components/admin/CourseVideoManager").then(mod => mod.CourseVideoManager), { loading: LoadingFallback });
 const NewsManager = dynamic(() => import("@/components/admin/NewsManager").then(mod => mod.NewsManager), { loading: LoadingFallback });
 const WhatsAppGroupManager = dynamic(() => import("@/components/admin/WhatsAppGroupManager").then(mod => mod.WhatsAppGroupManager), { loading: LoadingFallback });
+const StudyGroupManager = dynamic(() => import("@/components/admin/StudyGroupManager").then(mod => mod.StudyGroupManager), { loading: LoadingFallback });
 const AttendanceManager = dynamic(() => import("@/components/admin/AttendanceManager").then(mod => mod.AttendanceManager), { loading: LoadingFallback });
 const ReferralManager = dynamic(() => import("@/components/admin/ReferralManager").then(mod => mod.ReferralManager), { loading: LoadingFallback });
 import { fetchAdminBootstrap, fetchExamForDemo, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
@@ -70,7 +71,7 @@ export default function AdminPage() {
       const t = new URLSearchParams(window.location.search).get("tab");
       const valid: AdminTabType[] = [
         "analytics", "exams", "courses", "subjects", "students", "referrals",
-        "questions", "question_bank", "videos", "archive", "news", "whatsapp", "ai_question_generator", "attendance"
+        "questions", "question_bank", "videos", "archive", "news", "whatsapp", "study_groups", "ai_question_generator", "attendance"
       ];
       if (t && (valid as string[]).includes(t)) return t as AdminTabType;
     }
@@ -883,6 +884,8 @@ export default function AdminPage() {
             {activeTab === "news" && <NewsManager />}
 
             {activeTab === "whatsapp" && <WhatsAppGroupManager courses={config.courses || []} />}
+
+            {activeTab === "study_groups" && <StudyGroupManager courses={config.courses || []} />}
 
             {activeTab === "attendance" && <AttendanceManager courses={config.courses || []} />}
 

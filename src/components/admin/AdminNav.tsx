@@ -30,6 +30,7 @@ export type AdminTabType =
   | "archive"
   | "news"
   | "whatsapp"
+  | "study_groups"
   | "ai_question_generator"
   | "attendance";
 
@@ -58,7 +59,8 @@ export const AdminNav: React.FC<AdminNavProps> = ({ activeTab, onTabChange }) =>
     { id: "questions", label: "প্রশ্ন যোগ/এডিট", icon: PlusCircle },
     { id: "videos", label: "কোর্স ভিডিও", icon: Video },
     { id: "news", label: "দৈনিক সংবাদ", icon: Newspaper },
-    { id: "whatsapp", label: "WhatsApp গ্রুপ", icon: MessageCircle },
+    { id: "whatsapp", label: "WhatsApp লিংক", icon: MessageCircle },
+    { id: "study_groups", label: "স্টাডি গ্রুপ মনিটর", icon: Users },
     { id: "attendance", label: "অ্যাটেনডেন্স", icon: Users },
     { id: "archive", label: "আর্কাইভ", icon: Archive },
   ];

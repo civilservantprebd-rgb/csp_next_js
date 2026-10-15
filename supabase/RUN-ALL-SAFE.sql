@@ -296,6 +296,63 @@ end $$;
 
 
 -- ============================================================================
+--  ধাপ ১০খ — স্টাডি গ্রুপ টেবিল তৈরি (study_groups, study_group_members)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.study_groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course TEXT NOT NULL,
+  name TEXT NOT NULL,
+  invite_code TEXT NOT NULL UNIQUE,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_study_groups_course ON public.study_groups(course);
+CREATE INDEX IF NOT EXISTS idx_study_groups_invite_code ON public.study_groups(invite_code);
+
+CREATE TABLE IF NOT EXISTS public.study_group_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES public.study_groups(id) ON DELETE CASCADE,
+  student_id TEXT NOT NULL,
+  student_name TEXT,
+  student_email TEXT,
+  joined_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(group_id, student_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_study_group_members_group_id ON public.study_group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_study_group_members_student_id ON public.study_group_members(student_id);
+
+ALTER TABLE public.study_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.study_group_members ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'study_groups' AND policyname = 'Allow public read of study_groups'
+  ) THEN
+    CREATE POLICY "Allow public read of study_groups" ON public.study_groups FOR SELECT USING (true);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'study_group_members' AND policyname = 'Allow authenticated insert to study_group_members'
+  ) THEN
+    CREATE POLICY "Allow authenticated insert to study_group_members" ON public.study_group_members FOR INSERT WITH CHECK (true);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'study_group_members' AND policyname = 'Allow public read of study_group_members'
+  ) THEN
+    CREATE POLICY "Allow public read of study_group_members" ON public.study_group_members FOR SELECT USING (true);
+  END IF;
+END $$;
+
+
+-- ============================================================================
 --  ধাপ ১১ — চূড়ান্ত রিপোর্ট
 -- ============================================================================
 
@@ -327,6 +384,6 @@ select t.name as expected_table,
           ('enroll_requests'), ('subjects'), ('exam_questions'),
           ('course_videos'), ('course_prices'), ('course_whatsapp'), ('daily_news'),
           ('student_mistakes'), ('student_bookmarks'), ('student_read_questions'),
-          ('exam_attempt_starts')
+          ('exam_attempt_starts'), ('study_groups'), ('study_group_members')
        ) as t(name)
  order by present nulls first, t.name;
