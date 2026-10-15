@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   BookOpen,
   Video,
+  FileText,
   GraduationCap,
   UserPlus,
   Loader2,
@@ -82,6 +83,9 @@ export default function CourseClient({
   const [detailsOpen, setDetailsOpen] = useState(true);
   // এনরোল্ড স্টুডেন্টের জন্য কোর্সের WhatsApp গ্রুপ লিংক (খালি = দেখানো হবে না)
   const [waLink, setWaLink] = useState("");
+
+  // কোর্স সেকশনের ৩টি বাটন: ভিডিও | পিডিএফ | পরীক্ষা (ডিফল্ট: পরীক্ষা)
+  const [activeCourseTab, setActiveCourseTab] = useState<"video" | "pdf" | "exam">("exam");
 
   useEffect(() => {
     if (!config) {
@@ -527,6 +531,61 @@ export default function CourseClient({
           </div>
         </div>
 
+        {/* প্রধান ৩টি বাটন: ভিডিও | পিডিএফ | পরীক্ষা */}
+        <section className="bg-white rounded-3xl p-2 sm:p-2.5 border border-slate-200 shadow-sm">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveCourseTab("video")}
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-3.5 px-2 sm:px-3 rounded-2xl font-black text-xs sm:text-base transition cursor-pointer active:scale-[0.98] ${
+                activeCourseTab === "video"
+                  ? "bg-rose-600 text-white shadow-md shadow-rose-600/25 border border-rose-600"
+                  : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
+              }`}
+            >
+              <Video className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+              <span>ভিডিও</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveCourseTab("pdf")}
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-3.5 px-2 sm:px-3 rounded-2xl font-black text-xs sm:text-base transition cursor-pointer active:scale-[0.98] ${
+                activeCourseTab === "pdf"
+                  ? "bg-amber-600 text-white shadow-md shadow-amber-600/25 border border-amber-600"
+                  : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
+              }`}
+            >
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+              <span>পিডিএফ</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveCourseTab("exam")}
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-3.5 px-2 sm:px-3 rounded-2xl font-black text-xs sm:text-base transition cursor-pointer active:scale-[0.98] ${
+                activeCourseTab === "exam"
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 border border-indigo-600"
+                  : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
+              }`}
+            >
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+              <span>পরীক্ষা</span>
+              {examCount > 0 && (
+                <span
+                  className={`text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full ${
+                    activeCourseTab === "exam"
+                      ? "bg-white/20 text-white"
+                      : "bg-indigo-100 text-indigo-700"
+                  }`}
+                >
+                  {toBengaliDigits(examCount)}
+                </span>
+              )}
+            </button>
+          </div>
+        </section>
+
         {/* কোর্সের বিস্তারিত — শিক্ষক প্যানেল থেকে লেখা; এখানে শিক্ষার্থীরা "কোর্সের বিস্তারিত"
             অপশনে ট্যাপ করে পড়তে পারে (খুলে/বন্ধ করে) */}
         <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -601,8 +660,9 @@ export default function CourseClient({
               </section>
             )}
 
-            {/* Exams section — সবার উপরে, যাতে পরীক্ষা সহজে পাওয়া যায় */}
-            <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+            {/* Exams section — পরীক্ষা ট্যাবের অধীনে */}
+            {activeCourseTab === "exam" && (
+              <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-indigo-600" /> পরীক্ষাসমূহ
@@ -720,8 +780,10 @@ export default function CourseClient({
                 </div>
               )}
             </section>
+          )}
 
-            {/* ভিডিও ক্লাস সেকশন — বড় প্লেয়ার নেই, ট্যাপ করলেই মোডালে শুরু */}
+          {/* ২. ভিডিও ক্লাস সেকশন — ভিডিও ট্যাবের অধীনে */}
+          {activeCourseTab === "video" && (
             <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
@@ -878,6 +940,22 @@ export default function CourseClient({
                 </div>
               )}
             </section>
+          )}
+
+          {/* ৩. পিডিএফ লেকচার ও শিট ট্যাব — পরবর্তীতে বিস্তারিত ডিজাইন করা হবে */}
+          {activeCourseTab === "pdf" && (
+            <section className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-sm text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
+                <FileText className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-black text-slate-900 text-base sm:text-lg">পিডিএফ লেকচার ও শিট</h3>
+                <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+                  এই কোর্সের প্রয়োজনীয় লেকচার শিট, হ্যান্ডনোট ও স্টাডি মেটেরিয়াল পিডিএফ আকারে শীঘ্রই এখানে যুক্ত করা হবে।
+                </p>
+              </div>
+            </section>
+          )}
         </div>
       </div>
 
