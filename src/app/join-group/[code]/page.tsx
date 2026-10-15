@@ -10,7 +10,7 @@ import {
   AlertCircle,
   Loader2,
   BookOpen,
-  ArrowRight,
+  Home,
   ShieldCheck,
   User
 } from "lucide-react";
@@ -169,18 +169,13 @@ export default function JoinGroupPage() {
                 এখন থেকে আপনার দেওয়া পরীক্ষাগুলো এই স্টাডি গ্রুপের আওতায় শিক্ষকের কাছে ট্র্যাকিং হিসেবে জমা হবে।
               </p>
             </div>
-            <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
-              <Link
-                href="/portal"
-                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition flex items-center justify-center gap-1.5"
-              >
-                স্টুডেন্ট পোর্টাল দেখুন <ArrowRight className="w-4 h-4" />
-              </Link>
+            <div className="pt-2 flex justify-center">
               <Link
                 href="/"
-                className="px-5 py-2.5 bg-white border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold hover:bg-emerald-50 transition"
+                className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shadow-emerald-200"
               >
-                হোমে যান
+                <Home className="w-4 h-4" />
+                হোম পেজে যান
               </Link>
             </div>
           </div>
