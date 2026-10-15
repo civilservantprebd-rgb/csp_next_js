@@ -23,6 +23,7 @@ import type { TopicOption } from "@/lib/practice-helper";
 import { buildDeepTopicTree, TreeNode } from "@/lib/topic-hierarchy";
 import { toBengaliDigits } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { TopicIcon } from "@/components/shared/TopicIcon";
 
 
 interface SelfPracticeCardProps {
@@ -133,7 +134,7 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
             title={node.fullPath}
           >
             {depth === 0 ? (
-              <span className="text-xs">📂</span>
+              <TopicIcon name={node.name} className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-white" : "text-emerald-700"}`} />
             ) : hasChildren ? (
               <Folder className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-white" : "text-amber-500"}`} />
             ) : (

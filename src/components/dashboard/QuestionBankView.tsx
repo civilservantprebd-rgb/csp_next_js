@@ -25,7 +25,7 @@ import { verifyTeacherSession } from "@/actions/admin-actions";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
 import { toBengaliDigits } from "@/lib/utils";
 import { MathText } from "@/lib/MathText";
-import { buildTopicGroupTree, colorFor, pruneEmptyNodes, type HubNode } from "@/lib/topic-group";
+import { buildTopicGroupTree, colorFor, pruneEmptyNodes, TopicIcon, type HubNode } from "@/lib/topic-group";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { BookmarkButton } from "@/components/shared/BookmarkButton";
 import { getStudentBookmarks, syncStudentMistakeData } from "@/lib/mistake-bookmark-store";
@@ -947,7 +947,7 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
                   {tree.map((group, gi) => {
                     const isActive = activeGroupPath === group.fullPath;
-                    const tile = isActive ? "bg-white/25" : `bg-gradient-to-br ${colorFor(gi)}`;
+                    const tile = isActive ? "bg-white/25" : `bg-gradient-to-br ${colorFor(gi, group.name)}`;
                     return (
                       <button
                         key={group.fullPath}
@@ -958,9 +958,9 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div
-                            className={`w-10 h-10 rounded-xl text-white flex items-center justify-center font-black text-base shadow-sm shrink-0 ${tile}`}
+                            className={`w-10 h-10 rounded-xl text-white flex items-center justify-center shadow-sm shrink-0 ${tile}`}
                           >
-                            {group.name.trim().charAt(0)}
+                            <TopicIcon name={group.name} className="w-5 h-5 text-white" />
                           </div>
                           {group.count > 0 ? (
                             <span className="text-[11px] font-black bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full shrink-0">
@@ -1001,6 +1001,9 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
                       >
                         <ChevronRight className="w-4 h-4 rotate-180" />
                       </button>
+                      <div className={`w-9 h-9 rounded-xl text-white flex items-center justify-center shadow-xs shrink-0 bg-gradient-to-br ${colorFor(0, activeGroupNode.name)}`}>
+                        <TopicIcon name={activeGroupNode.name} className="w-4.5 h-4.5 text-white" />
+                      </div>
                       <div className="min-w-0">
                         <h2 className="text-sm font-black text-slate-900 leading-snug truncate">{activeGroupNode.name}</h2>
                         <p className="text-[11px] text-slate-400 font-semibold">

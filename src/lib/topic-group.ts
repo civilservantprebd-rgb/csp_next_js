@@ -24,7 +24,14 @@ export const TILE_COLORS = [
   "from-blue-500 to-indigo-600"
 ];
 
-export const colorFor = (index: number) => TILE_COLORS[index % TILE_COLORS.length];
+import { getTopicGradientClass, TopicIcon, getTopicIconComponent } from "@/components/shared/TopicIcon";
+
+export { TopicIcon, getTopicIconComponent, getTopicGradientClass };
+
+export const colorFor = (index: number, topicName?: string) => {
+  if (topicName) return getTopicGradientClass(topicName, index);
+  return TILE_COLORS[index % TILE_COLORS.length];
+};
 
 /**
  * টপিক-পাথের তালিকা ({name: "বাংলা > ব্যাকরণ > ক্রিয়াপদ", count}) →

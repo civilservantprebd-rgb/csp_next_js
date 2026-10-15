@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { TreeNode } from "@/lib/topic-hierarchy";
 import { toBengaliDigits } from "@/lib/utils";
+import { TopicIcon } from "@/components/shared/TopicIcon";
 
 interface TopicTreeViewerProps {
   tree: TreeNode[];
@@ -73,7 +74,7 @@ export const TopicTreeViewer: React.FC<TopicTreeViewerProps> = ({
         <span className="shrink-0 flex items-center">
           {isTop ? (
             <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
-              📖
+              <TopicIcon name={node.name} className="w-3.5 h-3.5 text-indigo-700" />
             </span>
           ) : hasChildren ? (
             <Folder className="w-4 h-4 text-amber-500" />
