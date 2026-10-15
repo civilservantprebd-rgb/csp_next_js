@@ -21,7 +21,8 @@ import {
   Share2,
   Award,
   Layers,
-  GraduationCap
+  GraduationCap,
+  RotateCw
 } from "lucide-react";
 import {
   getStudyGroups,
@@ -325,7 +326,12 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                 <Users className="w-4 h-4" /> গ্রুপ সদস্য তালিকা ({toBengaliDigits(groupMembers.length)})
               </button>
               <button
-                onClick={() => setActiveSubTab("attendance")}
+                onClick={() => {
+                  setActiveSubTab("attendance");
+                  if (selectedGroup && selectedExamKey) {
+                    loadExamAttendance(selectedGroup.id, selectedExamKey);
+                  }
+                }}
                 className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
                   activeSubTab === "attendance"
                     ? "border-indigo-600 text-indigo-600"
@@ -474,14 +480,14 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                   </div>
                 </div>
 
-                <div className="w-full sm:w-80">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <select
                     value={selectedExamKey}
                     onChange={(e) => {
                       setSelectedExamKey(e.target.value);
                       if (selectedGroup) loadExamAttendance(selectedGroup.id, e.target.value);
                     }}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full sm:w-80 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
                     {groupExams.length === 0 ? (
                       <option value="">কোনো পরীক্ষা পাওয়া যায়নি</option>
@@ -493,6 +499,18 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                       ))
                     )}
                   </select>
+
+                  <button
+                    onClick={() => {
+                      if (selectedGroup && selectedExamKey) {
+                        loadExamAttendance(selectedGroup.id, selectedExamKey);
+                      }
+                    }}
+                    title="উপস্থিতির তথ্য রিফ্রেশ করুন"
+                    className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl transition cursor-pointer shrink-0 shadow-xs"
+                  >
+                    <RotateCw className={`w-4 h-4 ${loadingAttendance ? "animate-spin text-indigo-600" : ""}`} />
+                  </button>
                 </div>
               </div>
 

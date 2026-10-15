@@ -180,19 +180,44 @@ export async function getGroupDetails(groupId: string): Promise<{
 
     // মেম্বারদের allowed_students থেকে অতিরিক্ত তথ্য (যেমন Enrolled Courses) মেলানো
     const studentIds = memberRows.map((m) => m.student_id);
+    const emails = memberRows.map((m) => m.student_email).filter(Boolean);
+
+    let allowedFilter = `id.in.(${studentIds.join(",")})`;
+    if (emails.length > 0) {
+      allowedFilter += `,email.in.(${emails.join(",")})`;
+    }
+
     const { data: allowedList } = await supabase
       .from("allowed_students")
       .select("id, name, email, courses")
-      .in("id", studentIds);
+      .or(allowedFilter);
+
+    // Map each member to all their possible student_ids
+    const memberToPossibleIds = new Map<string, string[]>();
+    const allQueryIds = new Set<string>();
+
+    memberRows.forEach((m) => {
+      const ids = new Set<string>([m.student_id]);
+      (allowedList || []).forEach((st) => {
+        if (st.id === m.student_id || (m.student_email && st.email?.toLowerCase() === m.student_email.toLowerCase())) {
+          ids.add(st.id);
+        }
+      });
+      memberToPossibleIds.set(m.student_id, Array.from(ids));
+      ids.forEach((id) => allQueryIds.add(id));
+    });
 
     const allowedMap = new Map<string, any>();
-    (allowedList || []).forEach((st) => allowedMap.set(st.id, st));
+    (allowedList || []).forEach((st) => {
+      allowedMap.set(st.id, st);
+      if (st.email) allowedMap.set(st.email.toLowerCase(), st);
+    });
 
     // প্রতিটি মেম্বারের মোট পরীক্ষা দেওয়ার সংখ্যা (submissions থেকে)
     const { data: submissions } = await supabase
       .from("submissions")
       .select("student_id")
-      .in("student_id", studentIds);
+      .in("student_id", Array.from(allQueryIds));
 
     const submissionCountMap: Record<string, number> = {};
     (submissions || []).forEach((s) => {
@@ -201,7 +226,13 @@ export async function getGroupDetails(groupId: string): Promise<{
     });
 
     const members: StudyGroupMember[] = memberRows.map((m) => {
-      const allowed = allowedMap.get(m.student_id);
+      const allowed = allowedMap.get(m.student_id) || (m.student_email ? allowedMap.get(m.student_email.toLowerCase()) : null);
+      const possibleIds = memberToPossibleIds.get(m.student_id) || [m.student_id];
+      let memberSubCount = 0;
+      possibleIds.forEach((pid) => {
+        memberSubCount += submissionCountMap[pid] || 0;
+      });
+
       return {
         id: m.id,
         groupId: m.group_id,
@@ -210,7 +241,7 @@ export async function getGroupDetails(groupId: string): Promise<{
         studentEmail: m.student_email || allowed?.email || "",
         joinedAt: m.joined_at,
         courses: allowed?.courses || [],
-        totalExamsCount: submissionCountMap[m.student_id] || 0
+        totalExamsCount: memberSubCount
       };
     });
 
@@ -481,25 +512,47 @@ export async function getGroupExamAttendance(
 
     const examTitle = examData?.title || examKey;
     const memberIds = members.map((m) => m.student_id);
+    const emails = members.map((m) => m.student_email).filter(Boolean);
 
-    // এই সদস্যদের সাবমিশন আনা
+    let allowedFilter = `id.in.(${memberIds.join(",")})`;
+    if (emails.length > 0) {
+      allowedFilter += `,email.in.(${emails.join(",")})`;
+    }
+
+    const { data: allowedList } = await supabase
+      .from("allowed_students")
+      .select("id, email")
+      .or(allowedFilter);
+
+    // Map each member to all their possible student_ids
+    const memberToPossibleIds = new Map<string, string[]>();
+    const allQueryIds = new Set<string>();
+
+    members.forEach((m) => {
+      const ids = new Set<string>([m.student_id]);
+      (allowedList || []).forEach((st) => {
+        if (st.id === m.student_id || (m.student_email && st.email?.toLowerCase() === m.student_email.toLowerCase())) {
+          ids.add(st.id);
+        }
+      });
+      memberToPossibleIds.set(m.student_id, Array.from(ids));
+      ids.forEach((id) => allQueryIds.add(id));
+    });
+
+    // এই সদস্যদের সাবমিশন আনা (সঠিক কলাম: submitted_at)
     const { data: submissions } = await supabase
       .from("submissions")
-      .select("student_id, student_name, score, submitted_at_iso, timestamp")
+      .select("student_id, student_name, score, submitted_at")
       .eq("exam_key", examKey)
-      .in("student_id", memberIds);
-
-    const submissionMap = new Map<string, any>();
-    (submissions || []).forEach((s) => {
-      submissionMap.set(String(s.student_id), s);
-    });
+      .in("student_id", Array.from(allQueryIds));
 
     const attendedMembers: GroupExamAttendance["attendedMembers"] = [];
     const missedMembers: GroupExamAttendance["missedMembers"] = [];
     let totalScore = 0;
 
     members.forEach((m) => {
-      const sub = submissionMap.get(m.student_id);
+      const possibleIds = memberToPossibleIds.get(m.student_id) || [m.student_id];
+      const sub = (submissions || []).find((s) => possibleIds.includes(String(s.student_id)));
       if (sub) {
         const score = typeof sub.score === "number" ? sub.score : Number(sub.score) || 0;
         totalScore += score;
@@ -507,7 +560,7 @@ export async function getGroupExamAttendance(
           studentId: m.student_id,
           studentName: m.student_name || sub.student_name || m.student_id,
           score,
-          submittedAt: sub.submitted_at_iso || sub.timestamp
+          submittedAt: sub.submitted_at
         });
       } else {
         missedMembers.push({
