@@ -156,6 +156,7 @@ export default function HomeClient({
   const [isStudentPortalLoginOpen, setIsStudentPortalLoginOpen] = useState(false);
   const [isStudentDashOpen, setIsStudentDashOpen] = useState(false);
   const [activePortalStudentId, setActivePortalStudentId] = useState("");
+  const [selectedLeaderboardExam, setSelectedLeaderboardExam] = useState<string | null>(null);
   const [selectedSubmissionForPopup, setSelectedSubmissionForPopup] = useState<Submission | null>(null);
   const [isAuthProcessing, setIsAuthProcessing] = useState(false);
 
@@ -215,6 +216,10 @@ export default function HomeClient({
     const p = new URLSearchParams(window.location.search);
     const n = p.get("nav") as ActiveNavKey | null;
     const c = p.get("course");
+    const ex = p.get("exam") || p.get("examId") || p.get("examKey");
+    if (ex) {
+      setSelectedLeaderboardExam(ex);
+    }
     if (c) {
       setActiveNav("courses");
       setSelectedCourse(c);
@@ -226,6 +231,8 @@ export default function HomeClient({
       const params = new URLSearchParams(window.location.search);
       const navP = params.get("nav") as ActiveNavKey | null;
       const courseP = params.get("course");
+      const examP = params.get("exam") || params.get("examId") || params.get("examKey");
+      if (examP) setSelectedLeaderboardExam(examP);
       if (courseP) {
         setActiveNav("courses");
         setSelectedCourse(courseP);
@@ -1176,6 +1183,7 @@ export default function HomeClient({
                 <div className="pt-2">
                   <LeaderboardView
                     exams={examsObj}
+                    initialExamKey={selectedLeaderboardExam || undefined}
                   />
                 </div>
               </div>
@@ -1484,6 +1492,7 @@ export default function HomeClient({
             {activeNav === "leaderboard" && (
               <LeaderboardView
                 exams={examsObj}
+                initialExamKey={selectedLeaderboardExam || undefined}
               />
             )}
 

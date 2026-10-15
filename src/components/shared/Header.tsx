@@ -77,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
   const openLeaderboard = () => {
     closeMenu();
     if (onOpenLeaderboard) onOpenLeaderboard();
-    else router.push("/leaderboard");
+    else router.push("/?nav=leaderboard");
   };
 
   const goHome = () => {

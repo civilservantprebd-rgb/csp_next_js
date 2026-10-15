@@ -323,7 +323,7 @@ export default function ExamResultPage() {
 
 
             <button
-              onClick={() => router.push(`/leaderboard/${examId}`)}
+              onClick={() => router.push(`/?nav=leaderboard&exam=${examId}`)}
               className="bg-white hover:bg-slate-50 text-slate-800 font-bold border border-slate-200 px-5 py-3.5 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
             >
               <Trophy className="w-4 h-4 text-amber-500" /> লিডারবোর্ড
@@ -387,7 +387,7 @@ export default function ExamResultPage() {
 
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <button
-                  onClick={() => router.push(`/leaderboard/${examId}`)}
+                  onClick={() => router.push(`/?nav=leaderboard&exam=${examId}`)}
                   className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Trophy className="w-4 h-4" /> লিডারবোর্ড দেখুন

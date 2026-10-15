@@ -14,19 +14,30 @@ interface LeaderboardViewProps {
   initialExamKey?: string;
 }
 
+function resolveExamKey(exams: Record<string, Exam>, idOrKey?: string): string | null {
+  if (!idOrKey) return null;
+  if (exams[idOrKey]) return idOrKey;
+  for (const [k, ex] of Object.entries(exams)) {
+    if (ex.id === idOrKey || k === idOrKey) return k;
+  }
+  return null;
+}
+
 export function LeaderboardView({ exams, initialExamKey }: LeaderboardViewProps) {
   const [activeExamKey, setActiveExamKey] = useState<string>(() => {
-    if (initialExamKey && exams[initialExamKey]) return initialExamKey;
+    const matched = resolveExamKey(exams, initialExamKey);
+    if (matched) return matched;
     return getLatestPublishedExamKey(exams);
   });
   const [items, setItems] = useState<LeaderboardItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!activeExamKey || !exams[activeExamKey]) {
-      const best = initialExamKey && exams[initialExamKey]
-        ? initialExamKey
-        : getLatestPublishedExamKey(exams);
+    const matched = resolveExamKey(exams, initialExamKey);
+    if (matched && matched !== activeExamKey) {
+      setActiveExamKey(matched);
+    } else if (!activeExamKey || !exams[activeExamKey]) {
+      const best = matched || getLatestPublishedExamKey(exams);
       if (best) {
         setActiveExamKey(best);
       }
