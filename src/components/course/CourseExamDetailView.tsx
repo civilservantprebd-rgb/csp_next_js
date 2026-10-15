@@ -147,51 +147,51 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
       </div>
 
       {/* ===================== HERO EXAM SUMMARY CARD ===================== */}
-      <section className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="space-y-2 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
+      <section className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 shadow-xs space-y-3.5 sm:space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+          <div className="space-y-1.5 sm:space-y-2 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               {exam.course && (
-                <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-0.5 rounded-md border border-indigo-200/60">
+                <span className="bg-indigo-50 text-indigo-700 text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-md border border-indigo-200/60">
                   {exam.course}
                 </span>
               )}
               {exam.subject && (
-                <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-0.5 rounded-md border border-slate-200">
+                <span className="bg-slate-100 text-slate-700 text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded-md border border-slate-200">
                   {exam.subject}
                 </span>
               )}
               {exam.isFree && (
-                <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-md border border-emerald-200">
+                <span className="bg-emerald-50 text-emerald-700 text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-md border border-emerald-200">
                   সম্পূর্ণ ফ্রি
                 </span>
               )}
               {isCompleted && (
-                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-md">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" /> অংশগ্রহণ করা হয়েছে
                 </span>
               )}
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
+            <h2 className="text-base sm:text-2xl font-black text-slate-900 leading-snug">
               {exam.title}
             </h2>
 
             {/* Meta stats pills */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-xs font-bold text-slate-600 pt-1">
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200/80">
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap text-[11px] sm:text-xs font-bold text-slate-600 pt-0.5 sm:pt-1">
+              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-slate-200/80">
                 <Clock className="w-3.5 h-3.5 text-amber-600" />
                 <span>{toBengaliDigits(exam.timerMinutes)} মিনিট</span>
               </span>
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200/80">
+              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-slate-200/80">
                 <CircleHelp className="w-3.5 h-3.5 text-indigo-600" />
                 <span>{toBengaliDigits(qCount)}টি প্রশ্ন</span>
               </span>
-              <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-800 px-2.5 py-1 rounded-xl border border-rose-200/60">
+              <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-rose-200/60">
                 <span>প্রতি ভুলে -০.৫</span>
               </span>
               {!!exam.passMark && (
-                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 px-2.5 py-1 rounded-xl border border-amber-200/60">
+                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-amber-200/60">
                   <span>পাস মার্ক: {toBengaliDigits(exam.passMark)}</span>
                 </span>
               )}
@@ -199,11 +199,11 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
           </div>
 
           {/* Action CTA Button */}
-          <div className="shrink-0 pt-1 sm:pt-0">
+          <div className="shrink-0 pt-1 sm:pt-0 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => onStartExam(examKey)}
-              className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-500 hover:to-violet-600 text-white font-bold px-5 py-3 rounded-2xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-500 hover:to-violet-600 text-white font-bold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
             >
               <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>{isCompleted ? "পুনরায় প্র্যাকটিস করুন" : "পরীক্ষা শুরু করুন"}</span>
@@ -213,21 +213,22 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
       </section>
 
       {/* ===================== TAB NAVIGATION BAR ===================== */}
-      <div className="bg-white rounded-2xl p-1.5 border border-slate-200 shadow-xs flex gap-1.5">
+      <div className="bg-white rounded-xl sm:rounded-2xl p-1 sm:p-1.5 border border-slate-200 shadow-xs flex gap-1 sm:gap-1.5">
         <button
           type="button"
           onClick={() => setActiveTab("result")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-1.5 sm:px-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap min-w-0 ${
             activeTab === "result"
               ? "bg-indigo-600 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
           }`}
         >
-          <Award className="w-4 h-4" />
-          <span>আমার ফলাফল ও উত্তরপত্র</span>
+          <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="hidden sm:inline">আমার ফলাফল ও উত্তরপত্র</span>
+          <span className="sm:hidden truncate">ফলাফল ও সমাধান</span>
           {hasSubmissions && (
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              className={`text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded-full font-black leading-none shrink-0 ${
                 activeTab === "result" ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-700"
               }`}
             >
@@ -239,17 +240,18 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab("leaderboard")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-1.5 sm:px-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap min-w-0 ${
             activeTab === "leaderboard"
               ? "bg-amber-600 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
           }`}
         >
-          <Trophy className="w-4 h-4" />
-          <span>মেধা তালিকা ও লিডারবোর্ড</span>
+          <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="hidden sm:inline">মেধা তালিকা ও লিডারবোর্ড</span>
+          <span className="sm:hidden truncate">লিডারবোর্ড</span>
           {leaderboard.length > 0 && (
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              className={`text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded-full font-black leading-none shrink-0 ${
                 activeTab === "leaderboard" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800"
               }`}
             >
@@ -487,11 +489,11 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                     </div>
 
                     {/* Filter chips */}
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1 sm:gap-1.5">
                       <button
                         type="button"
                         onClick={() => setFilterMode("all")}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                        className={`px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border ${
                           filterMode === "all"
                             ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
                             : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
@@ -502,7 +504,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setFilterMode("correct")}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                        className={`px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border ${
                           filterMode === "correct"
                             ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                             : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
@@ -513,7 +515,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setFilterMode("incorrect")}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                        className={`px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border ${
                           filterMode === "incorrect"
                             ? "bg-rose-600 text-white border-rose-600 shadow-2xs"
                             : "bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100"
@@ -524,7 +526,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setFilterMode("skipped")}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                        className={`px-2.5 sm:px-3 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer border ${
                           filterMode === "skipped"
                             ? "bg-slate-600 text-white border-slate-600 shadow-2xs"
                             : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
@@ -587,7 +589,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                         return (
                           <div
                             key={q.id || qIdx}
-                            className={`bg-white rounded-2xl border p-4 sm:p-5 shadow-xs space-y-3 ${
+                            className={`bg-white rounded-2xl border p-3 sm:p-5 shadow-xs space-y-2.5 sm:space-y-3 ${
                               isSkipped
                                 ? "border-slate-200"
                                 : isCorrect
@@ -596,7 +598,7 @@ export const CourseExamDetailView: React.FC<CourseExamDetailViewProps> = ({
                             }`}
                           >
                             {/* Header & Badges */}
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start justify-between gap-2.5 sm:gap-3">
                               <h4 className="font-bold text-sm sm:text-base text-slate-900 leading-relaxed flex-1">
                                 <span className="text-indigo-600 mr-2 font-black">
                                   {toBengaliDigits(qIdx + 1)}.
