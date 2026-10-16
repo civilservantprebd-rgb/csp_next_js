@@ -308,14 +308,9 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                 className="p-3.5 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer select-none group"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-white text-base sm:text-lg leading-tight truncate group-hover:text-amber-300 transition-colors">
-                      {course.courseName}
-                    </h3>
-                    <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                      কোর্স
-                    </span>
-                  </div>
+                  <h3 className="font-bold text-white text-base sm:text-lg leading-tight truncate group-hover:text-amber-300 transition-colors">
+                    {course.courseName}
+                  </h3>
                   <p className="text-xs text-slate-300 font-normal mt-1 truncate">
                     অংশগ্রহণকৃত পরীক্ষা: {toBengaliDigits(course.totalExamsTaken)}টি
                   </p>
