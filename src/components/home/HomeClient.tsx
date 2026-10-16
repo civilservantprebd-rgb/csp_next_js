@@ -1738,19 +1738,25 @@ export default function HomeClient({
               <span className="text-[10px] leading-tight mt-0.5">অনুশীলন</span>
             </button>
 
-            {/* Leaderboard */}
+            {/* Courses */}
             <button
               type="button"
-              onClick={() => handleNavSelect("leaderboard")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${activeNav === "leaderboard"
+              onClick={() => {
+                if (activeNav === "courses" && selectedCourse) {
+                  handleBackToCourses();
+                } else {
+                  handleNavSelect("courses");
+                }
+              }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${activeNav === "courses"
                 ? "text-amber-600 font-bold"
                 : "text-slate-500 hover:text-slate-800 font-medium"
                 }`}
             >
-              <div className={`p-1 rounded-xl transition-all ${activeNav === "leaderboard" ? "bg-amber-50 text-amber-600" : ""}`}>
-                <Trophy className="w-5 h-5" />
+              <div className={`p-1 rounded-xl transition-all ${activeNav === "courses" ? "bg-amber-50 text-amber-600" : ""}`}>
+                <BookOpen className="w-5 h-5" />
               </div>
-              <span className="text-[10px] leading-tight mt-0.5">লিডারবোর্ড</span>
+              <span className="text-[10px] leading-tight mt-0.5">কোর্স</span>
             </button>
 
             {/* Menu Drawer Toggle */}
