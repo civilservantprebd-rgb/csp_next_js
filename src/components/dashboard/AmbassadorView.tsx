@@ -112,22 +112,29 @@ export function AmbassadorView() {
   const loadInitialStatus = async (user: StudentUser | null) => {
     setLoadingStatus(true);
     try {
-      const [groupsList, statusRes] = await Promise.all([
-        getPublicStudyGroupsForAmbassador(),
-        user ? getMyAmbassadorStatus(user.uid, user.email) : Promise.resolve({ application: null })
-      ]);
-      setAvailableGroups(groupsList);
-      if (groupsList.length > 0 && !selectedGroupId) {
-        setSelectedGroupId(groupsList[0].id);
+      if (!user) {
+        setLoadingStatus(false);
+        return;
       }
-      setMyApplication(statusRes.application);
 
-      if (statusRes.application?.status === "approved" && user) {
-        await loadApprovedDashboard(statusRes.application.groupId, user);
+      // Fast check: is this user an ambassador or applicant?
+      const statusRes = await getMyAmbassadorStatus(user.uid, user.email);
+      setMyApplication(statusRes.application);
+      setLoadingStatus(false); // Unblock view immediately!
+
+      if (statusRes.application?.status === "approved") {
+        // Load approved dashboard in background
+        loadApprovedDashboard(statusRes.application.groupId, user);
+      } else if (!statusRes.application) {
+        // Only load available public groups if user hasn't applied yet
+        const groupsList = await getPublicStudyGroupsForAmbassador();
+        setAvailableGroups(groupsList);
+        if (groupsList.length > 0 && !selectedGroupId) {
+          setSelectedGroupId(groupsList[0].id);
+        }
       }
     } catch (err) {
       console.error("Failed to load ambassador status:", err);
-    } finally {
       setLoadingStatus(false);
     }
   };
@@ -147,12 +154,18 @@ export function AmbassadorView() {
         setGroupMembers(res.members);
         setCoAmbassadors(res.ambassadors);
         setGroupExams(res.exams);
+        setLoadingDashboard(false);
+
         if (res.exams.length > 0) {
-          setSelectedExamKey(res.exams[0].id);
-          loadExamAttendance(groupId, res.exams[0].id, user);
+          const firstExamId = res.exams[0].id;
+          setSelectedExamKey(firstExamId);
+          loadExamAttendance(groupId, firstExamId, user);
         }
+      } else {
+        setLoadingDashboard(false);
       }
-    } finally {
+    } catch (e) {
+      console.error("Failed to load approved dashboard:", e);
       setLoadingDashboard(false);
     }
   };
@@ -458,34 +471,34 @@ export function AmbassadorView() {
     return (
       <div className="space-y-6 font-bengali animate-in fade-in duration-200">
         {/* Top Ambassador Header Banner (Hidden on Print) */}
-        <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white rounded-3xl p-5 sm:p-6 shadow-md space-y-4 print:hidden">
+        <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-md space-y-4 print:hidden">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black uppercase">
-                  <Award className="w-3.5 h-3.5" /> অফিশিয়াল গ্রুপ অ্যাম্বাসেডর
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] sm:text-[11px] font-black uppercase">
+                  <Award className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> অফিশিয়াল গ্রুপ অ্যাম্বাসেডর
                 </span>
-                <span className="text-xs font-bold text-indigo-200 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15">
+                <span className="text-[11px] sm:text-xs font-bold text-indigo-200 bg-white/10 px-2 py-0.5 rounded-full border border-white/15">
                   {groupData?.course || myApplication.course}
                 </span>
-                <span className="text-xs font-bold text-emerald-300 bg-emerald-500/20 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
+                <span className="text-[11px] sm:text-xs font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
                   {toBengaliDigits(groupMembers.length)} জন সদস্য
                 </span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white">
+              <h2 className="text-lg sm:text-2xl font-black text-white leading-tight">
                 {groupData?.name || myApplication.groupName}
               </h2>
-              <p className="text-xs text-indigo-200">
+              <p className="text-[11px] sm:text-xs text-indigo-200">
                 অ্যাম্বাসেডর: <strong className="text-white">{myApplication.studentName}</strong> ({myApplication.university}, সেশন: {myApplication.session})
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="grid grid-cols-1 sm:flex sm:items-center gap-2 sm:gap-2.5">
               {groupData?.inviteCode && (
                 <button
                   type="button"
                   onClick={copyInviteLink}
-                  className="px-3.5 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  className="w-full sm:w-auto px-3.5 py-2.5 sm:py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                 >
                   {copiedCode ? (
                     <>
@@ -502,7 +515,7 @@ export function AmbassadorView() {
               <button
                 type="button"
                 onClick={handlePrintReport}
-                className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-black shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-black shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>PDF রিপোর্ট ডাউনলোড</span>
@@ -527,11 +540,11 @@ export function AmbassadorView() {
           )}
 
           {/* Navigation Sub-Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pt-2 pb-1">
+          <div className="flex items-center gap-2 overflow-x-auto pt-2 pb-1 scrollbar-none">
             <button
               type="button"
               onClick={() => setActiveTab("members")}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 whitespace-nowrap ${
                 activeTab === "members"
                   ? "bg-white text-indigo-950 shadow-sm"
                   : "bg-white/10 text-indigo-100 hover:bg-white/20"
@@ -544,7 +557,7 @@ export function AmbassadorView() {
             <button
               type="button"
               onClick={() => setActiveTab("attendance")}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 whitespace-nowrap ${
                 activeTab === "attendance"
                   ? "bg-white text-indigo-950 shadow-sm"
                   : "bg-white/10 text-indigo-100 hover:bg-white/20"
@@ -557,7 +570,7 @@ export function AmbassadorView() {
             <button
               type="button"
               onClick={() => setActiveTab("period_activity")}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 whitespace-nowrap ${
                 activeTab === "period_activity"
                   ? "bg-white text-indigo-950 shadow-sm"
                   : "bg-white/10 text-indigo-100 hover:bg-white/20"
@@ -570,7 +583,7 @@ export function AmbassadorView() {
             <button
               type="button"
               onClick={() => setActiveTab("rankings")}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 whitespace-nowrap ${
                 activeTab === "rankings"
                   ? "bg-amber-400 text-slate-950 shadow-sm"
                   : "bg-white/10 text-indigo-100 hover:bg-white/20"
@@ -631,52 +644,99 @@ export function AmbassadorView() {
                 <p className="text-xs font-bold text-slate-600">কোনো সদস্য পাওয়া যায়নি</p>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-slate-100 rounded-2xl">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                      <th className="py-3 px-4">#</th>
-                      <th className="py-3 px-4">শিক্ষার্থীর নাম</th>
-                      <th className="py-3 px-4 text-center">মোট পরীক্ষা দিয়েছে</th>
-                      <th className="py-3 px-4 text-right">যুক্ত হওয়ার তারিখ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredMembers.map((m, idx) => {
-                      const isAmb = coAmbassadors.some(
-                        (a) =>
-                          a.studentId === m.studentId ||
-                          (a.studentEmail && m.studentEmail && a.studentEmail.toLowerCase() === m.studentEmail.toLowerCase())
-                      );
-                      return (
-                        <tr key={m.id} className="hover:bg-slate-50/70 transition">
-                          <td className="py-3 px-4 text-slate-400 font-medium">
-                            {toBengaliDigits(idx + 1)}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
-                              <span>{m.studentName}</span>
-                              {isAmb && (
-                                <span className="text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.2 rounded-full">
-                                  অ্যাম্বাসেডর
-                                </span>
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto border border-slate-100 rounded-2xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                        <th className="py-3 px-4">#</th>
+                        <th className="py-3 px-4">শিক্ষার্থীর নাম</th>
+                        <th className="py-3 px-4 text-center">মোট পরীক্ষা দিয়েছে</th>
+                        <th className="py-3 px-4 text-right">যুক্ত হওয়ার তারিখ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredMembers.map((m, idx) => {
+                        const isAmb = coAmbassadors.some(
+                          (a) =>
+                            a.studentId === m.studentId ||
+                            (a.studentEmail && m.studentEmail && a.studentEmail.toLowerCase() === m.studentEmail.toLowerCase())
+                        );
+                        return (
+                          <tr key={m.id} className="hover:bg-slate-50/70 transition">
+                            <td className="py-3 px-4 text-slate-400 font-medium">
+                              {toBengaliDigits(idx + 1)}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                                <span>{m.studentName}</span>
+                                {isAmb && (
+                                  <span className="text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.2 rounded-full">
+                                    অ্যাম্বাসেডর
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                {toBengaliDigits(m.totalExamsCount || 0)} টি পরীক্ষা
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right text-slate-500 text-[11px]">
+                              {m.joinedAt ? new Date(m.joinedAt).toLocaleDateString("bn-BD") : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card List View */}
+                <div className="sm:hidden space-y-2.5">
+                  {filteredMembers.map((m, idx) => {
+                    const isAmb = coAmbassadors.some(
+                      (a) =>
+                        a.studentId === m.studentId ||
+                        (a.studentEmail && m.studentEmail && a.studentEmail.toLowerCase() === m.studentEmail.toLowerCase())
+                    );
+                    return (
+                      <div
+                        key={m.id}
+                        className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2 shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-black flex items-center justify-center shrink-0">
+                              {toBengaliDigits(idx + 1)}
+                            </span>
+                            <div>
+                              <p className="text-xs font-bold text-slate-900 leading-tight">{m.studentName}</p>
+                              {m.joinedAt && (
+                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                  যুক্ত হয়েছেন: {new Date(m.joinedAt).toLocaleDateString("bn-BD")}
+                                </p>
                               )}
                             </div>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700 border border-indigo-100">
-                              {toBengaliDigits(m.totalExamsCount || 0)} টি পরীক্ষা
+                          </div>
+                          {isAmb && (
+                            <span className="text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full shrink-0">
+                              অ্যাম্বাসেডর
                             </span>
-                          </td>
-                          <td className="py-3 px-4 text-right text-slate-500 text-[11px]">
-                            {m.joinedAt ? new Date(m.joinedAt).toLocaleDateString("bn-BD") : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-[11px]">
+                          <span className="text-slate-500 font-medium">অংশগ্রহণ:</span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            {toBengaliDigits(m.totalExamsCount || 0)} টি পরীক্ষা দিয়েছে
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -739,28 +799,28 @@ export function AmbassadorView() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl text-center">
-                    <p className="text-[11px] font-bold text-slate-500">মোট সদস্য</p>
-                    <p className="text-xl font-black text-slate-800 mt-1">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                  <div className="bg-slate-50 border border-slate-200 p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">
+                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500">মোট সদস্য</p>
+                    <p className="text-base sm:text-xl font-black text-slate-800 mt-0.5 sm:mt-1">
                       {toBengaliDigits(attendanceData.totalMembers)} জন
                     </p>
                   </div>
-                  <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl text-center">
-                    <p className="text-[11px] font-bold text-emerald-700">অংশ নিয়েছে</p>
-                    <p className="text-xl font-black text-emerald-800 mt-1">
+                  <div className="bg-emerald-50 border border-emerald-200 p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">
+                    <p className="text-[10px] sm:text-[11px] font-bold text-emerald-700">অংশ নিয়েছে</p>
+                    <p className="text-base sm:text-xl font-black text-emerald-800 mt-0.5 sm:mt-1">
                       {toBengaliDigits(attendanceData.attendedCount)} জন ({toBengaliDigits(attendanceData.attendanceRate)}%)
                     </p>
                   </div>
-                  <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl text-center">
-                    <p className="text-[11px] font-bold text-rose-700">এখনো দেয়নি</p>
-                    <p className="text-xl font-black text-rose-800 mt-1">
+                  <div className="bg-rose-50 border border-rose-200 p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">
+                    <p className="text-[10px] sm:text-[11px] font-bold text-rose-700">এখনো দেয়নি</p>
+                    <p className="text-base sm:text-xl font-black text-rose-800 mt-0.5 sm:mt-1">
                       {toBengaliDigits(attendanceData.missedCount)} জন
                     </p>
                   </div>
-                  <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-2xl text-center">
-                    <p className="text-[11px] font-bold text-indigo-700">গ্রুপের গড় স্কোর</p>
-                    <p className="text-xl font-black text-indigo-800 mt-1">
+                  <div className="bg-indigo-50 border border-indigo-200 p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center">
+                    <p className="text-[10px] sm:text-[11px] font-bold text-indigo-700">গ্রুপের গড় স্কোর</p>
+                    <p className="text-base sm:text-xl font-black text-indigo-800 mt-0.5 sm:mt-1">
                       {toBengaliDigits(attendanceData.averageScore)}
                     </p>
                   </div>
@@ -783,7 +843,7 @@ export function AmbassadorView() {
                       type="button"
                       onClick={copyWhatsAppReminder}
                       disabled={attendanceData.missedCount === 0}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0 print:hidden"
+                      className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0 print:hidden active:scale-95"
                     >
                       {copiedReminder ? (
                         <>
@@ -798,11 +858,11 @@ export function AmbassadorView() {
                   </div>
 
                   {attendanceData.missedMembers.length > 0 ? (
-                    <div className="flex flex-wrap gap-2 pt-1">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-1">
                       {attendanceData.missedMembers.map((m) => (
                         <span
                           key={m.studentId}
-                          className="bg-white border border-rose-200 text-rose-800 text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-xs"
+                          className="bg-white border border-rose-200 text-rose-800 text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-2xs"
                         >
                           {m.studentName}
                         </span>
@@ -815,7 +875,7 @@ export function AmbassadorView() {
                   )}
                 </div>
 
-                {/* Attended Students Table */}
+                {/* Attended Students Table & Mobile List */}
                 <div className="space-y-3">
                   <h4 className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
                     <Award className="w-4 h-4 text-amber-500" /> অংশগ্রহণকারী সদস্যদের ফলাফল ({toBengaliDigits(attendanceData.attendedCount)} জন)
@@ -826,41 +886,74 @@ export function AmbassadorView() {
                       এখনো কোনো সদস্য এই পরীক্ষাটি সম্পন্ন করেনি।
                     </div>
                   ) : (
-                    <div className="overflow-x-auto border border-slate-200 rounded-2xl">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                            <th className="py-2.5 px-4">র‍্যাংক</th>
-                            <th className="py-2.5 px-4">শিক্ষার্থী</th>
-                            <th className="py-2.5 px-4 text-center">স্কোর</th>
-                            <th className="py-2.5 px-4 text-right">জমা দেওয়ার সময়</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {attendanceData.attendedMembers.map((m, idx) => (
-                            <tr key={m.studentId} className="hover:bg-slate-50/70">
-                              <td className="py-2.5 px-4 font-bold text-slate-500">
-                                #{toBengaliDigits(idx + 1)}
-                              </td>
-                              <td className="py-2.5 px-4 font-bold text-slate-800">{m.studentName}</td>
-                              <td className="py-2.5 px-4 text-center">
-                                <span className="font-black text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">
-                                  {toBengaliDigits(m.score)}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-4 text-right text-slate-500 text-[11px]">
-                                {m.submittedAt
-                                  ? new Date(m.submittedAt).toLocaleTimeString("bn-BD", {
-                                      hour: "2-digit",
-                                      minute: "2-digit"
-                                    })
-                                  : "—"}
-                              </td>
+                    <>
+                      {/* Desktop Table */}
+                      <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-2xl">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                              <th className="py-2.5 px-4">র‍্যাংক</th>
+                              <th className="py-2.5 px-4">শিক্ষার্থী</th>
+                              <th className="py-2.5 px-4 text-center">স্কোর</th>
+                              <th className="py-2.5 px-4 text-right">জমা দেওয়ার সময়</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {attendanceData.attendedMembers.map((m, idx) => (
+                              <tr key={m.studentId} className="hover:bg-slate-50/70">
+                                <td className="py-2.5 px-4 font-bold text-slate-500">
+                                  #{toBengaliDigits(idx + 1)}
+                                </td>
+                                <td className="py-2.5 px-4 font-bold text-slate-800">{m.studentName}</td>
+                                <td className="py-2.5 px-4 text-center">
+                                  <span className="font-black text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+                                    {toBengaliDigits(m.score)}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-4 text-right text-slate-500 text-[11px]">
+                                  {m.submittedAt
+                                    ? new Date(m.submittedAt).toLocaleTimeString("bn-BD", {
+                                        hour: "2-digit",
+                                        minute: "2-digit"
+                                      })
+                                    : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile Card List View */}
+                      <div className="sm:hidden space-y-2">
+                        {attendanceData.attendedMembers.map((m, idx) => (
+                          <div
+                            key={m.studentId}
+                            className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="font-black text-slate-500 text-xs shrink-0 w-6">
+                                #{toBengaliDigits(idx + 1)}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-800 truncate">{m.studentName}</p>
+                                <p className="text-[10px] text-slate-400">
+                                  {m.submittedAt
+                                    ? new Date(m.submittedAt).toLocaleTimeString("bn-BD", {
+                                        hour: "2-digit",
+                                        minute: "2-digit"
+                                      })
+                                    : "—"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg shrink-0">
+                              {toBengaliDigits(m.score)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -998,61 +1091,125 @@ export function AmbassadorView() {
                       এই সময়সীমায় গ্রুপের কোনো সদস্য পরীক্ষা দেয়নি।
                     </div>
                   ) : (
-                    <div className="overflow-x-auto border border-slate-200 rounded-2xl">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                            <th className="py-3 px-4">#</th>
-                            <th className="py-3 px-4">সদস্যের নাম</th>
-                            <th className="py-3 px-4 text-center">মোট পরীক্ষা</th>
-                            <th className="py-3 px-4 text-center">লাইভ পরীক্ষা</th>
-                            <th className="py-3 px-4 text-center">গড় স্কোর</th>
-                            <th className="py-3 px-4">অংশ নেওয়া পরীক্ষাসমূহ</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {activePeriodMembers.map((m, idx) => (
-                            <tr key={m.studentId} className="hover:bg-slate-50/70">
-                              <td className="py-3 px-4 font-bold text-slate-400">
-                                {toBengaliDigits(idx + 1)}
-                              </td>
-                              <td className="py-3 px-4 font-bold text-slate-800">{m.studentName}</td>
-                              <td className="py-3 px-4 text-center">
-                                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-black">
+                    <>
+                      {/* Desktop Table View */}
+                      <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-2xl">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                              <th className="py-3 px-4">#</th>
+                              <th className="py-3 px-4">সদস্যের নাম</th>
+                              <th className="py-3 px-4 text-center">মোট পরীক্ষা</th>
+                              <th className="py-3 px-4 text-center">লাইভ পরীক্ষা</th>
+                              <th className="py-3 px-4 text-center">গড় স্কোর</th>
+                              <th className="py-3 px-4">অংশ নেওয়া পরীক্ষাসমূহ</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {activePeriodMembers.map((m, idx) => (
+                              <tr key={m.studentId} className="hover:bg-slate-50/70">
+                                <td className="py-3 px-4 font-bold text-slate-400">
+                                  {toBengaliDigits(idx + 1)}
+                                </td>
+                                <td className="py-3 px-4 font-bold text-slate-800">{m.studentName}</td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-black">
+                                    {toBengaliDigits(m.examsTakenCount)} টি
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 font-black">
+                                    {toBengaliDigits(m.liveExamsTakenCount)} টি
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-center font-black text-emerald-700">
+                                  {toBengaliDigits(m.averageScore)}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {m.submissions.slice(0, 4).map((s, sIdx) => (
+                                      <span
+                                        key={`${s.examKey}_${sIdx}`}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] text-slate-700 font-medium"
+                                      >
+                                        <span>{s.examTitle}</span>
+                                        <strong className="text-indigo-700">({toBengaliDigits(s.score)})</strong>
+                                      </span>
+                                    ))}
+                                    {m.submissions.length > 4 && (
+                                      <span className="text-[10px] font-bold text-slate-400">
+                                        +{toBengaliDigits(m.submissions.length - 4)}টি আরও
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile Card List View */}
+                      <div className="sm:hidden space-y-2.5">
+                        {activePeriodMembers.map((m, idx) => (
+                          <div
+                            key={m.studentId}
+                            className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 shadow-2xs"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-black flex items-center justify-center shrink-0">
+                                  {toBengaliDigits(idx + 1)}
+                                </span>
+                                <span className="font-bold text-xs text-slate-800 truncate">
+                                  {m.studentName}
+                                </span>
+                              </div>
+                              <span className="font-black text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-lg shrink-0">
+                                গড় {toBengaliDigits(m.averageScore)}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200/60">
+                              <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-xl border border-slate-100">
+                                <span className="text-slate-500 font-medium">মোট পরীক্ষা:</span>
+                                <span className="font-black text-indigo-700">
                                   {toBengaliDigits(m.examsTakenCount)} টি
                                 </span>
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 font-black">
+                              </div>
+                              <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-xl border border-slate-100">
+                                <span className="text-slate-500 font-medium">লাইভ পরীক্ষা:</span>
+                                <span className="font-black text-amber-700">
                                   {toBengaliDigits(m.liveExamsTakenCount)} টি
                                 </span>
-                              </td>
-                              <td className="py-3 px-4 text-center font-black text-emerald-700">
-                                {toBengaliDigits(m.averageScore)}
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex flex-wrap gap-1.5">
-                                  {m.submissions.slice(0, 4).map((s, sIdx) => (
+                              </div>
+                            </div>
+
+                            {m.submissions.length > 0 && (
+                              <div className="pt-1 border-t border-slate-200/60">
+                                <p className="text-[10px] font-bold text-slate-400 mb-1">অংশ নেওয়া পরীক্ষাসমূহ:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {m.submissions.slice(0, 3).map((s, sIdx) => (
                                     <span
                                       key={`${s.examKey}_${sIdx}`}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] text-slate-700 font-medium"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] text-slate-700 font-medium"
                                     >
-                                      <span>{s.examTitle}</span>
-                                      <strong className="text-indigo-700">({toBengaliDigits(s.score)})</strong>
+                                      <span className="truncate max-w-[120px]">{s.examTitle}</span>
+                                      <strong className="text-indigo-700 shrink-0">({toBengaliDigits(s.score)})</strong>
                                     </span>
                                   ))}
-                                  {m.submissions.length > 4 && (
-                                    <span className="text-[10px] font-bold text-slate-400">
-                                      +{toBengaliDigits(m.submissions.length - 4)}টি আরও
+                                  {m.submissions.length > 3 && (
+                                    <span className="text-[10px] font-bold text-slate-400 self-center">
+                                      +{toBengaliDigits(m.submissions.length - 3)}টি আরও
                                     </span>
                                   )}
                                 </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -1222,7 +1379,8 @@ export function AmbassadorView() {
                   সকল গ্রুপের লিডারবোর্ড ({startDate === endDate ? startDate : `${startDate} হতে ${endDate}`})
                 </h4>
 
-                <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto border border-slate-100 rounded-2xl">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
@@ -1311,6 +1469,101 @@ export function AmbassadorView() {
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card List View */}
+                <div className="sm:hidden space-y-3">
+                  {rankings.map((r) => {
+                    const isMine = r.groupId === myApplication.groupId;
+                    return (
+                      <div
+                        key={r.groupId}
+                        className={`rounded-2xl p-4 border transition ${
+                          isMine
+                            ? "bg-indigo-50/80 border-indigo-300 shadow-sm"
+                            : "bg-slate-50 border-slate-200/80"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {r.rank === 1 ? (
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-800 font-black text-sm shrink-0">
+                                🥇
+                              </span>
+                            ) : r.rank === 2 ? (
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-black text-sm shrink-0">
+                                🥈
+                              </span>
+                            ) : r.rank === 3 ? (
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-800 font-black text-sm shrink-0">
+                                🥉
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200/70 text-slate-600 font-black text-xs shrink-0">
+                                #{toBengaliDigits(r.rank)}
+                              </span>
+                            )}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h5 className="font-bold text-xs text-slate-900 truncate">
+                                  {r.groupName}
+                                </h5>
+                                {isMine && (
+                                  <span className="text-[9px] font-black bg-indigo-600 text-white px-1.5 py-0.5 rounded-full shrink-0">
+                                    আপনার গ্রুপ
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5">{r.course}</p>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span className="text-[10px] font-bold text-slate-400 block">হার</span>
+                            <span className="text-sm font-black text-indigo-700">
+                              {toBengaliDigits(r.participationRate)}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="w-full bg-slate-200/70 rounded-full h-1.5 overflow-hidden my-2.5">
+                          <div
+                            className={`h-full rounded-full ${
+                              r.participationRate >= 70
+                                ? "bg-emerald-500"
+                                : r.participationRate >= 40
+                                ? "bg-amber-500"
+                                : "bg-indigo-500"
+                            }`}
+                            style={{ width: `${Math.min(100, r.participationRate)}%` }}
+                          />
+                        </div>
+
+                        {/* Mini Stat Badges */}
+                        <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] pt-1">
+                          <div className="bg-white/80 border border-slate-200/60 rounded-xl p-1.5">
+                            <span className="text-slate-400 block">সক্রিয় সদস্য</span>
+                            <span className="font-black text-slate-800">
+                              {toBengaliDigits(r.activeCount)}/{toBengaliDigits(r.totalMembers)}
+                            </span>
+                          </div>
+                          <div className="bg-white/80 border border-slate-200/60 rounded-xl p-1.5">
+                            <span className="text-slate-400 block">সাবমিশন</span>
+                            <span className="font-black text-slate-800">
+                              {toBengaliDigits(r.submissionsCount)} টি
+                            </span>
+                          </div>
+                          <div className="bg-white/80 border border-slate-200/60 rounded-xl p-1.5">
+                            <span className="text-slate-400 block">গড় স্কোর</span>
+                            <span className="font-black text-emerald-700">
+                              {toBengaliDigits(r.averageScore)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
