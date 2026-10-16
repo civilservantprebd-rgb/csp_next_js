@@ -147,6 +147,73 @@ export async function deleteStudyGroup(groupId: string): Promise<{ success: bool
 }
 
 /**
+ * শিক্ষক: স্টাডি গ্রুপের নাম ও বিবরণ রিনেম/আপডেট করা
+ * (আইডি ও ইনভাইট কোড অপরিবর্তিত থাকে, ফলে মেম্বার, রেজাল্ট বা লিংকে কোনো প্রভাব পড়বে না)
+ */
+export async function updateStudyGroup(
+  groupId: string,
+  name: string,
+  description?: string
+): Promise<{ success: boolean; message: string; group?: StudyGroup }> {
+  try {
+    await requireTeacher();
+
+    const cleanName = String(name || "").trim();
+    if (!cleanName) {
+      return { success: false, message: "গ্রুপের নাম ফাঁকা রাখা যাবে না।" };
+    }
+
+    const { data, error } = await supabase
+      .from("study_groups")
+      .update({
+        name: cleanName,
+        description: description !== undefined ? String(description || "").trim() : undefined
+      })
+      .eq("id", groupId)
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      throw error || new Error("গ্রুপ রিনেম করতে ব্যর্থ হয়েছে।");
+    }
+
+    // অ্যাম্বাসেডর অ্যাপ্লিকেশনের গ্রুপ নেইম সিঙ্ক করা যেন ড্যাশবোর্ডে নতুন নাম শো করে
+    try {
+      const list = await readAmbassadorsFromDb();
+      let changed = false;
+      const updatedList = list.map((a) => {
+        if (a.groupId === groupId && a.groupName !== cleanName) {
+          changed = true;
+          return { ...a, groupName: cleanName };
+        }
+        return a;
+      });
+      if (changed) {
+        await writeAmbassadorsToDb(updatedList);
+      }
+    } catch (e) {
+      console.warn("Syncing ambassador group names warning:", e);
+    }
+
+    return {
+      success: true,
+      message: "গ্রুপ সফলভাবে রিনেম করা হয়েছে।",
+      group: {
+        id: data.id,
+        course: data.course,
+        name: data.name,
+        inviteCode: data.invite_code,
+        description: data.description || "",
+        createdAt: data.created_at
+      }
+    };
+  } catch (err: any) {
+    console.error("updateStudyGroup error:", err);
+    return { success: false, message: err?.message || "গ্রুপ রিনেম করতে সমস্যা হয়েছে।" };
+  }
+}
+
+/**
  * শিক্ষক: একটি গ্রুপের বিস্তারিত তথ্য ও সকল সদস্য আনা
  */
 export async function getGroupDetails(groupId: string): Promise<{

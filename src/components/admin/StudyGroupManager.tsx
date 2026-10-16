@@ -30,11 +30,13 @@ import {
   Printer,
   ShieldCheck,
   Building2,
-  Mail
+  Mail,
+  Pencil
 } from "lucide-react";
 import {
   getStudyGroups,
   createStudyGroup,
+  updateStudyGroup,
   deleteStudyGroup,
   getGroupDetails,
   removeMemberFromGroup,
@@ -65,6 +67,12 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
   const [ambassadorApps, setAmbassadorApps] = useState<AmbassadorApplication[]>([]);
   const [loadingAmbassadors, setLoadingAmbassadors] = useState(false);
   const [processingAppId, setProcessingAppId] = useState<string | null>(null);
+
+  // Rename / Edit Group State
+  const [editingGroup, setEditingGroup] = useState<StudyGroup | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [updatingGroup, setUpdatingGroup] = useState(false);
 
   // New Group Form
   const [isCreating, setIsCreating] = useState(false);
@@ -300,6 +308,44 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
     }
   };
 
+  const handleStartRename = (group: StudyGroup) => {
+    setEditingGroup(group);
+    setEditName(group.name);
+    setEditDesc(group.description || "");
+    setErrorMsg("");
+  };
+
+  const handleSaveRename = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGroup || !editName.trim()) {
+      setErrorMsg("গ্রুপের নাম ফাঁকা রাখা যাবে না।");
+      return;
+    }
+
+    setUpdatingGroup(true);
+    setErrorMsg("");
+    const res = await updateStudyGroup(editingGroup.id, editName.trim(), editDesc.trim());
+    setUpdatingGroup(false);
+
+    if (res.success && res.group) {
+      const updated = res.group;
+      setNotice(res.message);
+      setGroups((prev) =>
+        prev.map((g) => (g.id === updated.id ? { ...g, name: updated.name, description: updated.description } : g))
+      );
+      if (selectedGroup?.id === updated.id) {
+        setSelectedGroup((prev) =>
+          prev ? { ...prev, name: updated.name, description: updated.description } : null
+        );
+      }
+      setEditingGroup(null);
+      loadAmbassadorApps();
+      setTimeout(() => setNotice(""), 3500);
+    } else {
+      setErrorMsg(res.message);
+    }
+  };
+
   const handleRemoveMember = async (studentId: string, studentName: string) => {
     if (!selectedGroup) return;
     if (!window.confirm(`আপনি কি "${studentName}"-কে এই গ্রুপ থেকে রিমুভ করতে চান?`)) {
@@ -400,7 +446,20 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                       {toBengaliDigits(groupMembers.length)} জন সদস্য
                     </span>
                   </div>
-                  <h2 className="text-xl font-black text-slate-900 mt-1">{selectedGroup.name}</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <h2 className="text-xl font-black text-slate-900">{selectedGroup.name}</h2>
+                    <button
+                      type="button"
+                      onClick={() => handleStartRename(selectedGroup)}
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                      title="গ্রুপের নাম রিনেম করুন"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {selectedGroup.description && (
+                    <p className="text-xs text-slate-500 mt-0.5">{selectedGroup.description}</p>
+                  )}
                 </div>
               </div>
 
@@ -1781,6 +1840,14 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                           <BarChart2 className="w-3.5 h-3.5" /> মনিটরিং ও মেম্বার
                         </button>
                         <button
+                          type="button"
+                          onClick={() => handleStartRename(group)}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition cursor-pointer"
+                          title="গ্রুপ রিনেম / এডিট করুন"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteGroup(group.id, group.name)}
                           className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
                           title="গ্রুপ মুছুন"
@@ -1796,6 +1863,88 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
           )}
         </>
       )}
+    </div>
+  )}
+
+  {/* Rename Group Modal */}
+  {editingGroup && (
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xl max-w-md w-full space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-indigo-600" /> স্টাডি গ্রুপ রিনেম করুন
+          </h4>
+          <button
+            type="button"
+            onClick={() => setEditingGroup(null)}
+            className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+          >
+            বাতিল
+          </button>
+        </div>
+
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 space-y-1">
+          <p className="font-bold">🔒 নিরাপদ রিনেম গ্যারান্টি:</p>
+          <p className="text-emerald-700 leading-relaxed">
+            নাম পরিবর্তন করলেও গ্রুপের লিংক (ইনভাইট কোড), আগের মেম্বার, এবং অতীতের পরীক্ষার সকল রেজাল্ট অপরিবর্তিত ও সক্রিয় থাকবে।
+          </p>
+        </div>
+
+        <form onSubmit={handleSaveRename} className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              কোর্স (অপরিবর্তনীয়):
+            </label>
+            <div className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600">
+              {editingGroup.course}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              গ্রুপের নতুন নাম <span className="text-rose-500">*</span>:
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="গ্রুপের নতুন নাম লিখুন..."
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              বিবরণ বা নোট (ঐচ্ছিক):
+            </label>
+            <input
+              type="text"
+              placeholder="যেমন: সকালের ব্যাচ বা WhatsApp গ্রুপ ১"
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setEditingGroup(null)}
+              className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200"
+            >
+              বাতিল
+            </button>
+            <button
+              type="submit"
+              disabled={updatingGroup || !editName.trim()}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+            >
+              {updatingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} রিনেম সংরক্ষণ করুন
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )}
 </div>
