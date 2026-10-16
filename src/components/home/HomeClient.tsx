@@ -1198,52 +1198,6 @@ export default function HomeClient({
                 {/* আসন্ন লাইভ এক্সাম */}
                 <UpcomingExamsBox exams={examsObj} />
 
-                {/* কুইক অ্যাক্সেস: পিডিএফ শিট ও রুটিন */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  <div
-                    onClick={() => handleNavSelect("pdfs")}
-                    className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200/80 hover:border-amber-400 hover:shadow-md transition cursor-pointer flex items-center justify-between gap-3 group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-sm group-hover:scale-105 transition shrink-0">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-amber-800 transition truncate">
-                          পিডিএফ শিট ও নোটস
-                        </h4>
-                        <p className="text-xs text-slate-500 truncate">
-                          কোর্স ও বিষয়ভিত্তিক লেকচার শিট ও সমাধান
-                        </p>
-                      </div>
-                    </div>
-                    <span className="p-2 rounded-xl bg-amber-100 text-amber-700 group-hover:bg-amber-500 group-hover:text-slate-950 transition shrink-0">
-                      <ArrowRight className="w-4 h-4" />
-                    </span>
-                  </div>
-
-                  <div
-                    onClick={() => handleNavSelect("routines")}
-                    className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent border border-indigo-200/80 hover:border-indigo-400 hover:shadow-md transition cursor-pointer flex items-center justify-between gap-3 group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition shrink-0">
-                        <Calendar className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-indigo-800 transition truncate">
-                          কোর্স রুটিন সমূহ
-                        </h4>
-                        <p className="text-xs text-slate-500 truncate">
-                          সাপ্তাহিক পরীক্ষার শিডিউল ও ক্লাসের রুটিন
-                        </p>
-                      </div>
-                    </div>
-                    <span className="p-2 rounded-xl bg-indigo-100 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition shrink-0">
-                      <ArrowRight className="w-4 h-4" />
-                    </span>
-                  </div>
-                </div>
 
                 {/* পরীক্ষার ফলাফল সেকশন — কোর্স অনুযায়ী কার্ড */}
                 <div className="pt-2">
