@@ -387,3 +387,46 @@ export async function deleteCourseRoutine(
   }
 }
 
+/**
+ * সকল কোর্সের সমস্ত পিডিএফ এবং রুটিন একসাথে লোড (ড্যাশবোর্ড লাইব্রেরির জন্য)
+ */
+export async function getAllPdfsAndRoutines(): Promise<{
+  allPdfs: CoursePdfItem[];
+  allRoutines: CourseRoutineItem[];
+}> {
+  try {
+    const { data, error } = await supabase
+      .from("course_prices")
+      .select("course, details");
+
+    if (error) {
+      console.error("getAllPdfsAndRoutines error:", error);
+      return { allPdfs: [], allRoutines: [] };
+    }
+
+    const allPdfs: CoursePdfItem[] = [];
+    const allRoutines: CourseRoutineItem[] = [];
+
+    (data || []).forEach((row) => {
+      const { pdfs, routines } = parseDetailsPayload(row.details);
+      pdfs.forEach((p) => {
+        if (!p.course && row.course) p.course = row.course;
+        allPdfs.push(p);
+      });
+      routines.forEach((r) => {
+        if (!r.course && row.course) r.course = row.course;
+        allRoutines.push(r);
+      });
+    });
+
+    // Sort latest first
+    allPdfs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    allRoutines.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+    return { allPdfs, allRoutines };
+  } catch (err) {
+    console.error("getAllPdfsAndRoutines unexpected error:", err);
+    return { allPdfs: [], allRoutines: [] };
+  }
+}
+

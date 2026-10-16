@@ -16,12 +16,6 @@
   unicode-range: U+0964-0965, U+0980-09FF, U+200C-200D;
 }
 
-/* Readability knob: পুরো সাইটের বেস ফন্ট-সাইজ।
-   16px = Tailwind ডিফল্ট, 20px = বড় (বর্তমান), 22px = আরও বড়।
-   text-xs/text-sm/text-base-এর মতো সব rem-ভিত্তিক সাইজ এর সাথে বাড়ে। */
-html {
-  font-size: 20px;
-}
 
 /* Print-to-PDF: force real A4 pages so mobile browsers don't render on a
    squeezed device-width "page" — without this, the sm:/md: grids collapse,

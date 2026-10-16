@@ -279,7 +279,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
     if (attendanceData.missedMembers.length > 0) {
       msg += `⚠️ আমাদের গ্রুপের নিচের সদস্যরা এখনো পরীক্ষাটি সম্পন্ন করোনি:\n`;
       attendanceData.missedMembers.forEach((m, idx) => {
-        msg += `${toBengaliDigits(idx + 1)}. ${m.studentName} (${m.studentId})\n`;
+        msg += `${toBengaliDigits(idx + 1)}. ${m.studentName}\n`;
       });
       msg += `\n⏰ দ্রুত লিংকে গিয়ে পরীক্ষাটি শেষ করার অনুরোধ করা হচ্ছে:\n🔗 ${examUrl}\n\n`;
       msg += `📊 গ্রুপের বর্তমান উপস্থিতি: ${toBengaliDigits(attendanceData.attendanceRate)}% (${toBengaliDigits(attendanceData.attendedCount)}/${toBengaliDigits(attendanceData.totalMembers)} জন)`;
@@ -296,11 +296,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
   const filteredMembers = groupMembers.filter((m) => {
     const q = memberSearch.toLowerCase().trim();
     if (!q) return true;
-    return (
-      (m.studentName || "").toLowerCase().includes(q) ||
-      m.studentId.toLowerCase().includes(q) ||
-      (m.studentEmail || "").toLowerCase().includes(q)
-    );
+    return (m.studentName || "").toLowerCase().includes(q);
   });
 
   return (
@@ -408,7 +404,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="নাম, ফোন বা ইমেইল দিয়ে খুঁজুন..."
+                    placeholder="শিক্ষার্থীর নাম দিয়ে খুঁজুন..."
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -436,8 +432,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                         <th className="py-3 px-4">#</th>
-                        <th className="py-3 px-4">শিক্ষার্থীর নাম ও আইডি</th>
-                        <th className="py-3 px-4">ইমেইল</th>
+                        <th className="py-3 px-4">শিক্ষার্থীর নাম</th>
                         <th className="py-3 px-4 text-center">মোট পরীক্ষা দিয়েছে</th>
                         <th className="py-3 px-4">যুক্ত হওয়ার তারিখ</th>
                         <th className="py-3 px-4 text-right">অ্যাকশন</th>
@@ -451,10 +446,6 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-bold text-slate-800">{m.studentName}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">{m.studentId}</div>
-                          </td>
-                          <td className="py-3 px-4 text-slate-600 text-[11px]">
-                            {m.studentEmail || "—"}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700 border border-indigo-100">
@@ -606,7 +597,6 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                             className="bg-white border border-rose-200 text-rose-800 text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-xs flex items-center gap-1.5"
                           >
                             <span>{m.studentName}</span>
-                            <span className="text-slate-400 font-mono text-[10px]">({m.studentId})</span>
                           </span>
                         ))}
                       </div>
@@ -646,7 +636,6 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                                 </td>
                                 <td className="py-2.5 px-4">
                                   <div className="font-bold text-slate-800">{m.studentName}</div>
-                                  <div className="text-[10px] text-slate-400 font-mono">{m.studentId}</div>
                                 </td>
                                 <td className="py-2.5 px-4 text-center">
                                   <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">

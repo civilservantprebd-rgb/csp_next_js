@@ -38,7 +38,8 @@ import {
   ShieldCheck,
   Compass,
   Trophy,
-  Loader2
+  Loader2,
+  FileText
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -74,6 +75,8 @@ const StudentDashboardModal = dynamic(() => import("@/components/modals/StudentD
 const ExamDetailPopup = dynamic(() => import("@/components/modals/ExamDetailPopup").then((m) => m.ExamDetailPopup), { ssr: false });
 const QuestionBankView = dynamic(() => import("@/components/dashboard/QuestionBankView").then((m) => m.QuestionBankView), { ssr: false });
 const LeaderboardView = dynamic(() => import("@/components/dashboard/LeaderboardView").then((m) => m.LeaderboardView), { ssr: false });
+const PdfLibraryView = dynamic(() => import("@/components/dashboard/PdfLibraryView").then((m) => m.PdfLibraryView), { ssr: false });
+const RoutineLibraryView = dynamic(() => import("@/components/dashboard/RoutineLibraryView").then((m) => m.RoutineLibraryView), { ssr: false });
 const CourseClient = dynamic(() => import("@/components/course/CourseStudyView"), {
   ssr: false,
   loading: () => (
@@ -104,6 +107,8 @@ export type ActiveNavKey =
   | "practice"
   | "question_bank"
   | "courses"
+  | "pdfs"
+  | "routines"
   | "referral";
 
 export default function HomeClient({
@@ -910,6 +915,42 @@ export default function HomeClient({
                 </span>
               </button>
 
+              {/* পিডিএফ শিট */}
+              <button
+                type="button"
+                onClick={() => handleNavSelect("pdfs")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "pdfs"
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm"
+                  : "text-white hover:bg-white/5 hover:text-white"
+                  }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <FileText className="w-3.5 h-3.5" />
+                  </span>
+                  <span>পিডিএফ শিট</span>
+                </div>
+                <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "pdfs" ? "text-amber-400" : "text-slate-500"}`} />
+              </button>
+
+              {/* রুটিন */}
+              <button
+                type="button"
+                onClick={() => handleNavSelect("routines")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "routines"
+                  ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm"
+                  : "text-white hover:bg-white/5 hover:text-white"
+                  }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                    <Calendar className="w-3.5 h-3.5" />
+                  </span>
+                  <span>রুটিন</span>
+                </div>
+                <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "routines" ? "text-indigo-400" : "text-slate-500"}`} />
+              </button>
+
               {/* রেফারেল */}
               <button
                 type="button"
@@ -1019,6 +1060,8 @@ export default function HomeClient({
                   {activeNav === "leaderboard" && "লিডারবোর্ড"}
                   {activeNav === "question_bank" && "অনুশীলন"}
                   {activeNav === "courses" && (selectedCourse ? selectedCourse : "কোর্স সমূহ")}
+                  {activeNav === "pdfs" && "লেকচার ও পিডিএফ শিট"}
+                  {activeNav === "routines" && "কোর্স রুটিন সমূহ"}
                   {activeNav === "referral" && "রেফারেল ও রিওয়ার্ড"}
                 </h1>
                 {/* <p className="text-xs sm:text-sm text-slate-600 font-normal truncate hidden sm:block mt-0.5">
@@ -1154,6 +1197,53 @@ export default function HomeClient({
 
                 {/* আসন্ন লাইভ এক্সাম */}
                 <UpcomingExamsBox exams={examsObj} />
+
+                {/* কুইক অ্যাক্সেস: পিডিএফ শিট ও রুটিন */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div
+                    onClick={() => handleNavSelect("pdfs")}
+                    className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200/80 hover:border-amber-400 hover:shadow-md transition cursor-pointer flex items-center justify-between gap-3 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-sm group-hover:scale-105 transition shrink-0">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-amber-800 transition truncate">
+                          পিডিএফ শিট ও নোটস
+                        </h4>
+                        <p className="text-xs text-slate-500 truncate">
+                          কোর্স ও বিষয়ভিত্তিক লেকচার শিট ও সমাধান
+                        </p>
+                      </div>
+                    </div>
+                    <span className="p-2 rounded-xl bg-amber-100 text-amber-700 group-hover:bg-amber-500 group-hover:text-slate-950 transition shrink-0">
+                      <ArrowRight className="w-4 h-4" />
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => handleNavSelect("routines")}
+                    className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent border border-indigo-200/80 hover:border-indigo-400 hover:shadow-md transition cursor-pointer flex items-center justify-between gap-3 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition shrink-0">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-indigo-800 transition truncate">
+                          কোর্স রুটিন সমূহ
+                        </h4>
+                        <p className="text-xs text-slate-500 truncate">
+                          সাপ্তাহিক পরীক্ষার শিডিউল ও ক্লাসের রুটিন
+                        </p>
+                      </div>
+                    </div>
+                    <span className="p-2 rounded-xl bg-indigo-100 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition shrink-0">
+                      <ArrowRight className="w-4 h-4" />
+                    </span>
+                  </div>
+                </div>
 
                 {/* পরীক্ষার ফলাফল সেকশন — কোর্স অনুযায়ী কার্ড */}
                 <div className="pt-2">
@@ -1550,6 +1640,16 @@ export default function HomeClient({
                   />
                 )}
               </div>
+            )}
+
+            {/* VIEW: পিডিএফ শিট (PDF LIBRARY VIEW) */}
+            {activeNav === "pdfs" && (
+              <PdfLibraryView courses={coursesList} />
+            )}
+
+            {/* VIEW: রুটিন (ROUTINE LIBRARY VIEW) */}
+            {activeNav === "routines" && (
+              <RoutineLibraryView courses={coursesList} />
             )}
 
             {/* VIEW 10: রেফারেল (REFERRAL & REWARDS VIEW) */}
