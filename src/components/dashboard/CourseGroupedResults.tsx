@@ -307,23 +307,18 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                 onClick={() => toggleCourse(course.courseName)}
                 className="p-3.5 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer select-none group"
               >
-                <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/30 shrink-0 group-hover:scale-105 transition">
-                    <GraduationCap className="w-6 h-6 text-amber-300" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-white text-base sm:text-lg leading-tight truncate group-hover:text-amber-300 transition-colors">
+                      {course.courseName}
+                    </h3>
+                    <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                      কোর্স
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-white text-base sm:text-lg leading-tight truncate group-hover:text-amber-300 transition-colors">
-                        {course.courseName}
-                      </h3>
-                      <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                        কোর্স
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 font-normal mt-1 truncate">
-                      অংশগ্রহণকৃত পরীক্ষা: {toBengaliDigits(course.totalExamsTaken)}টি
-                    </p>
-                  </div>
+                  <p className="text-xs text-slate-300 font-normal mt-1 truncate">
+                    অংশগ্রহণকৃত পরীক্ষা: {toBengaliDigits(course.totalExamsTaken)}টি
+                  </p>
                 </div>
 
                 {/* Right: Course Overall Stats Pill + Toggle Icon */}
