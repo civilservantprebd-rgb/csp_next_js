@@ -77,6 +77,7 @@ const QuestionBankView = dynamic(() => import("@/components/dashboard/QuestionBa
 const LeaderboardView = dynamic(() => import("@/components/dashboard/LeaderboardView").then((m) => m.LeaderboardView), { ssr: false });
 const PdfLibraryView = dynamic(() => import("@/components/dashboard/PdfLibraryView").then((m) => m.PdfLibraryView), { ssr: false });
 const RoutineLibraryView = dynamic(() => import("@/components/dashboard/RoutineLibraryView").then((m) => m.RoutineLibraryView), { ssr: false });
+const AmbassadorView = dynamic(() => import("@/components/dashboard/AmbassadorView").then((m) => m.AmbassadorView), { ssr: false });
 const CourseClient = dynamic(() => import("@/components/course/CourseStudyView"), {
   ssr: false,
   loading: () => (
@@ -109,7 +110,8 @@ export type ActiveNavKey =
   | "courses"
   | "pdfs"
   | "routines"
-  | "referral";
+  | "referral"
+  | "ambassador";
 
 export default function HomeClient({
   config,
@@ -969,6 +971,24 @@ export default function HomeClient({
                   ৳৫০ অফার
                 </span>
               </button>
+
+              {/* এম্বাসেডর */}
+              <button
+                type="button"
+                onClick={() => handleNavSelect("ambassador")}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "ambassador"
+                  ? "bg-gradient-to-r from-indigo-500/25 to-violet-500/20 text-indigo-300 font-bold border border-indigo-400/40 shadow-sm"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center shadow-sm">
+                    <Award className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm sm:text-[15px]">এম্বাসেডর</span>
+                </div>
+                <ChevronRight className={`w-4 h-4 ${activeNav === "ambassador" ? "text-indigo-400" : "text-slate-500"}`} />
+              </button>
             </div>
           </div>
 
@@ -1062,6 +1082,7 @@ export default function HomeClient({
                   {activeNav === "pdfs" && "লেকচার ও পিডিএফ শিট"}
                   {activeNav === "routines" && "কোর্স রুটিন সমূহ"}
                   {activeNav === "referral" && "রেফারেল ও রিওয়ার্ড"}
+                  {activeNav === "ambassador" && "স্টাডি গ্রুপ এম্বাসেডর"}
                 </h1>
                 {/* <p className="text-xs sm:text-sm text-slate-600 font-normal truncate hidden sm:block mt-0.5">
                   {activeNav === "courses" && selectedCourse
@@ -1628,6 +1649,11 @@ export default function HomeClient({
                   <ReferralCard studentId={activePortalStudentId || studentUser?.uid || ""} />
                 </div>
               </div>
+            )}
+
+            {/* VIEW 11: এম্বাসেডর (STUDY GROUP AMBASSADOR VIEW) */}
+            {activeNav === "ambassador" && (
+              <AmbassadorView />
             )}
           </main>
 

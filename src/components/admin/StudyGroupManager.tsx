@@ -27,7 +27,10 @@ import {
   Calendar,
   TrendingUp,
   Download,
-  Printer
+  Printer,
+  ShieldCheck,
+  Building2,
+  Mail
 } from "lucide-react";
 import {
   getStudyGroups,
@@ -38,9 +41,12 @@ import {
   getExamsForGroupCourse,
   getGroupExamAttendance,
   getGroupDailyLeaderboard,
-  getGroupPeriodLeaderboard
+  getGroupPeriodLeaderboard,
+  getAllAmbassadorApplications,
+  approveAmbassadorApplication,
+  removeAmbassador
 } from "@/actions/study-group-actions";
-import { StudyGroup, StudyGroupMember, GroupExamAttendance, GroupDailyRanking } from "@/types/study-group";
+import { StudyGroup, StudyGroupMember, GroupExamAttendance, GroupDailyRanking, AmbassadorApplication } from "@/types/study-group";
 import { toBengaliDigits } from "@/lib/utils";
 
 interface StudyGroupManagerProps {
@@ -54,6 +60,11 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
   const [notice, setNotice] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Ambassador Applications State
+  const [ambassadorApps, setAmbassadorApps] = useState<AmbassadorApplication[]>([]);
+  const [loadingAmbassadors, setLoadingAmbassadors] = useState(false);
+  const [processingAppId, setProcessingAppId] = useState<string | null>(null);
 
   // New Group Form
   const [isCreating, setIsCreating] = useState(false);
@@ -77,8 +88,8 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [copiedReminder, setCopiedReminder] = useState(false);
 
-  // Period Leaderboard State
-  const [mainView, setMainView] = useState<"groups" | "leaderboard">("groups");
+  // Period Leaderboard & Main View State
+  const [mainView, setMainView] = useState<"groups" | "leaderboard" | "ambassadors">("groups");
   const getTodayBD = () => {
     const now = new Date();
     const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
@@ -98,6 +109,55 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
     const data = await getStudyGroups(courseFilter);
     setGroups(data);
     setLoading(false);
+  };
+
+  // Fetch ambassador applications
+  const loadAmbassadorApps = async () => {
+    setLoadingAmbassadors(true);
+    const apps = await getAllAmbassadorApplications();
+    setAmbassadorApps(apps);
+    setLoadingAmbassadors(false);
+  };
+
+  const handleApproveAmbassador = async (app: AmbassadorApplication) => {
+    setProcessingAppId(app.id);
+    setErrorMsg("");
+    const res = await approveAmbassadorApplication(app.id);
+    setProcessingAppId(null);
+
+    if (res.success) {
+      setNotice(res.message);
+      await loadAmbassadorApps();
+      await loadGroups();
+      if (selectedGroup && selectedGroup.id === app.groupId) {
+        const details = await getGroupDetails(selectedGroup.id);
+        setGroupMembers(details.members);
+      }
+      setTimeout(() => setNotice(""), 4000);
+    } else {
+      setErrorMsg(res.message);
+    }
+  };
+
+  const handleRemoveAmbassador = async (app: AmbassadorApplication) => {
+    const confirmText =
+      app.status === "approved"
+        ? `আপনি কি নিশ্চিত যে "${app.studentName}"-কে "${app.groupName}" গ্রুপের এম্বাসেডর পদ থেকে রিমুভ করতে চান?`
+        : `আপনি কি "${app.studentName}"-এর এম্বাসেডর আবেদনটি বাতিল করতে চান?`;
+    if (!window.confirm(confirmText)) return;
+
+    setProcessingAppId(app.id);
+    setErrorMsg("");
+    const res = await removeAmbassador(app.id);
+    setProcessingAppId(null);
+
+    if (res.success) {
+      setNotice(res.message);
+      await loadAmbassadorApps();
+      setTimeout(() => setNotice(""), 4000);
+    } else {
+      setErrorMsg(res.message);
+    }
   };
 
   const loadRankings = async (s?: string, e?: string, examKey?: string) => {
@@ -148,6 +208,7 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
 
   useEffect(() => {
     loadGroups();
+    loadAmbassadorApps();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseFilter]);
 
@@ -364,6 +425,134 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                 </button>
               </div>
             </div>
+
+            {/* Group Ambassadors Section inside Selected Group */}
+            {(() => {
+              const groupApprovedAmbassadors = ambassadorApps.filter(
+                (a) => a.groupId === selectedGroup.id && a.status === "approved"
+              );
+              const groupPendingAmbassadors = ambassadorApps.filter(
+                (a) => a.groupId === selectedGroup.id && a.status === "pending"
+              );
+              return (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                      <span className="text-xs font-bold text-slate-800">
+                        গ্রুপ এম্বাসেডর ({toBengaliDigits(groupApprovedAmbassadors.length)} জন)
+                      </span>
+                      {groupPendingAmbassadors.length > 0 && (
+                        <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full">
+                          {toBengaliDigits(groupPendingAmbassadors.length)} টি পেন্ডিং রিকোয়েস্ট
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Approved Ambassadors for this group */}
+                  {groupApprovedAmbassadors.length === 0 ? (
+                    <p className="text-[11px] text-slate-500">
+                      এই গ্রুপে এখনো কোনো এম্বাসেডর নিযুক্ত নেই।
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {groupApprovedAmbassadors.map((amb) => (
+                        <div
+                          key={amb.id}
+                          className="bg-white border border-indigo-200 rounded-xl px-3 py-2 flex items-center justify-between gap-3 shadow-2xs"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-900">{amb.studentName}</span>
+                              <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                                এম্বাসেডর
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              {amb.university} • সেশন: {amb.session} {amb.studentEmail ? `• ${amb.studentEmail}` : ""}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={processingAppId === amb.id}
+                            onClick={() => handleRemoveAmbassador(amb)}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+                            title="এম্বাসেডর পদ থেকে রিমুভ করুন"
+                          >
+                            {processingAppId === amb.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                            রিমুভ
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Pending Ambassador Requests for this group */}
+                  {groupPendingAmbassadors.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200 space-y-2">
+                      <p className="text-[11px] font-bold text-amber-800">
+                        অপেক্ষমাণ এম্বাসেডর রিকোয়েস্ট:
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        {groupPendingAmbassadors.map((req) => (
+                          <div
+                            key={req.id}
+                            className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-bold text-slate-900">{req.studentName}</span>
+                                <span className="text-[10px] text-slate-500">
+                                  {new Date(req.appliedAt).toLocaleDateString("bn-BD")}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 font-medium">
+                                🎓 {req.university} (সেশন: {req.session})
+                              </p>
+                              {req.studentEmail && (
+                                <p className="text-[10px] text-slate-500">✉️ {req.studentEmail}</p>
+                              )}
+                              <p className="text-[11px] text-slate-700 bg-white/80 p-2 rounded-lg border border-amber-100 mt-1">
+                                <span className="font-bold text-slate-500">কারণ: </span>
+                                {req.reason}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-end gap-2 pt-1">
+                              <button
+                                type="button"
+                                disabled={processingAppId === req.id}
+                                onClick={() => handleRemoveAmbassador(req)}
+                                className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                              >
+                                বাতিল
+                              </button>
+                              <button
+                                type="button"
+                                disabled={processingAppId === req.id}
+                                onClick={() => handleApproveAmbassador(req)}
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                              >
+                                {processingAppId === req.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Check className="w-3 h-3" />
+                                )}
+                                অ্যাপ্রুভ করুন
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Sub-Tabs: Members vs Exam Attendance */}
             <div className="flex border-b border-slate-200 gap-6 pt-2">
@@ -703,8 +892,8 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
               </div>
             </div>
 
-            {/* View Switcher: "গ্রুপ তালিকা" vs "🏆 দৈনিক গ্রুপ র‍্যাংকিং" */}
-            <div className="flex border-b border-slate-200 gap-6 pt-1">
+            {/* View Switcher: "গ্রুপ তালিকা" vs "🏆 দৈনিক গ্রুপ র‍্যাংকিং" vs "🎖️ এম্বাসেডর রিকোয়েস্ট ও তালিকা" */}
+            <div className="flex flex-wrap border-b border-slate-200 gap-6 pt-1">
               <button
                 type="button"
                 onClick={() => setMainView("groups")}
@@ -729,6 +918,26 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                 }`}
               >
                 <Trophy className="w-4 h-4 text-amber-500" /> লাইভ পরীক্ষা র‍্যাংকিং (শীর্ষ গ্রুপ)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMainView("ambassadors");
+                  loadAmbassadorApps();
+                }}
+                className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
+                  mainView === "ambassadors"
+                    ? "border-indigo-600 text-indigo-600"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                <span>এম্বাসেডর রিকোয়েস্ট ও তালিকা</span>
+                {ambassadorApps.filter((a) => a.status === "pending").length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
+                    {toBengaliDigits(ambassadorApps.filter((a) => a.status === "pending").length)}
+                  </span>
+                )}
               </button>
             </div>
           </div>
@@ -1144,6 +1353,256 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                 </div>
               )}
             </div>
+          ) : mainView === "ambassadors" ? (
+            /* VIEW: AMBASSADOR APPLICATIONS & APPROVED AMBASSADORS */
+            <div className="space-y-6">
+              {/* Top Info & Refresh Bar */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900">
+                      স্টাডি গ্রুপ এম্বাসেডর রিকোয়েস্ট ও তালিকা
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      অ্যাপ্রুভ করলে শিক্ষার্থী ঐ গ্রুপের এম্বাসেডর হবে এবং গ্রুপের উপস্থিতি ও র‍্যাংকিং মনিটর করতে পারবে (এক গ্রুপে একাধিক এম্বাসেডর থাকতে পারবে)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadAmbassadorApps}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto shrink-0"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${loadingAmbassadors ? "animate-spin text-indigo-600" : ""}`} />
+                  <span>রিফ্রেশ করুন</span>
+                </button>
+              </div>
+
+              {loadingAmbassadors ? (
+                <div className="py-16 bg-white rounded-3xl border border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                  <span className="text-xs font-bold">এম্বাসেডর তথ্য লোড হচ্ছে...</span>
+                </div>
+              ) : (
+                <>
+                  {/* SECTION 1: PENDING AMBASSADOR REQUESTS */}
+                  <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h5 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-500" />
+                        <span>
+                          অপেক্ষমাণ এম্বাসেডর রিকোয়েস্ট ({toBengaliDigits(
+                            ambassadorApps.filter(
+                              (a) =>
+                                a.status === "pending" &&
+                                (courseFilter === "all" || a.course === courseFilter)
+                            ).length
+                          )} টি)
+                        </span>
+                      </h5>
+                    </div>
+
+                    {ambassadorApps.filter(
+                      (a) =>
+                        a.status === "pending" &&
+                        (courseFilter === "all" || a.course === courseFilter)
+                    ).length === 0 ? (
+                      <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1.5">
+                        <CheckCircle2 className="w-7 h-7 text-slate-300 mx-auto" />
+                        <p className="text-xs font-bold text-slate-600">কোনো নতুন এম্বাসেডর রিকোয়েস্ট পেন্ডিং নেই</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {ambassadorApps
+                          .filter(
+                            (a) =>
+                              a.status === "pending" &&
+                              (courseFilter === "all" || a.course === courseFilter)
+                          )
+                          .map((req) => (
+                            <div
+                              key={req.id}
+                              className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 flex flex-col justify-between gap-4 shadow-2xs"
+                            >
+                              <div className="space-y-2.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">
+                                      {req.groupName} ({req.course})
+                                    </span>
+                                    <h6 className="text-sm font-black text-slate-900 mt-1.5">
+                                      {req.studentName}
+                                    </h6>
+                                  </div>
+                                  <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-300 shrink-0">
+                                    পেন্ডিং
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700 bg-white p-3 rounded-xl border border-amber-100">
+                                  <div className="flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                    <span className="truncate">
+                                      <strong className="text-slate-500">বিশ্ববিদ্যালয়:</strong> {req.university}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                    <span>
+                                      <strong className="text-slate-500">সেশন:</strong> {req.session}
+                                    </span>
+                                  </div>
+                                  {req.studentEmail && (
+                                    <div className="flex items-center gap-1.5 sm:col-span-2 text-[11px] text-slate-500">
+                                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                      <span className="truncate">{req.studentEmail}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="bg-white p-3 rounded-xl border border-amber-100 text-xs">
+                                  <p className="text-[10px] font-bold text-slate-400 mb-1">
+                                    কেন এম্বাসেডর হতে চায়:
+                                  </p>
+                                  <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                                    {req.reason}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-2 pt-2 border-t border-amber-200/60">
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                  আবেদনের তারিখ: {new Date(req.appliedAt).toLocaleDateString("bn-BD")}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={processingAppId === req.id}
+                                    onClick={() => handleRemoveAmbassador(req)}
+                                    className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                                  >
+                                    বাতিল করুন
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={processingAppId === req.id}
+                                    onClick={() => handleApproveAmbassador(req)}
+                                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                                  >
+                                    {processingAppId === req.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Check className="w-3.5 h-3.5" />
+                                    )}
+                                    অ্যাপ্রুভ করুন
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SECTION 2: APPROVED AMBASSADORS LIST */}
+                  <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h5 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <Award className="w-4 h-4 text-emerald-600" />
+                        <span>
+                          অনুমোদিত এম্বাসেডর তালিকা ({toBengaliDigits(
+                            ambassadorApps.filter(
+                              (a) =>
+                                a.status === "approved" &&
+                                (courseFilter === "all" || a.course === courseFilter)
+                            ).length
+                          )} জন)
+                        </span>
+                      </h5>
+                    </div>
+
+                    {ambassadorApps.filter(
+                      (a) =>
+                        a.status === "approved" &&
+                        (courseFilter === "all" || a.course === courseFilter)
+                    ).length === 0 ? (
+                      <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1.5">
+                        <ShieldCheck className="w-7 h-7 text-slate-300 mx-auto" />
+                        <p className="text-xs font-bold text-slate-600">এখনো কোনো এম্বাসেডর অনুমোদিত হয়নি</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                              <th className="py-3 px-4">#</th>
+                              <th className="py-3 px-4">এম্বাসেডরের নাম ও ইমেইল</th>
+                              <th className="py-3 px-4">বিশ্ববিদ্যালয় ও সেশন</th>
+                              <th className="py-3 px-4">স্টাডি গ্রুপ ও কোর্স</th>
+                              <th className="py-3 px-4">অ্যাপ্রুভ হওয়ার তারিখ</th>
+                              <th className="py-3 px-4 text-right">অ্যাকশন</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {ambassadorApps
+                              .filter(
+                                (a) =>
+                                  a.status === "approved" &&
+                                  (courseFilter === "all" || a.course === courseFilter)
+                              )
+                              .map((amb, idx) => (
+                                <tr key={amb.id} className="hover:bg-slate-50/70 transition">
+                                  <td className="py-3 px-4 font-bold text-slate-400">
+                                    {toBengaliDigits(idx + 1)}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="font-bold text-slate-900">{amb.studentName}</div>
+                                    {amb.studentEmail && (
+                                      <div className="text-[11px] text-slate-500">{amb.studentEmail}</div>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="font-semibold text-slate-800">{amb.university}</div>
+                                    <div className="text-[11px] text-slate-500">সেশন: {amb.session}</div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="font-bold text-indigo-700">{amb.groupName}</div>
+                                    <div className="text-[10px] text-slate-500">{amb.course}</div>
+                                  </td>
+                                  <td className="py-3 px-4 text-slate-500 text-[11px]">
+                                    {amb.approvedAt
+                                      ? new Date(amb.approvedAt).toLocaleDateString("bn-BD")
+                                      : new Date(amb.appliedAt).toLocaleDateString("bn-BD")}
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <button
+                                      type="button"
+                                      disabled={processingAppId === amb.id}
+                                      onClick={() => handleRemoveAmbassador(amb)}
+                                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer"
+                                      title="এম্বাসেডর থেকে রিমুভ করুন"
+                                    >
+                                      {processingAppId === amb.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      )}
+                                      রিমুভ করুন
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
             <>
               {/* Create Group Modal */}
@@ -1251,6 +1710,12 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {groups.map((group) => {
                 const isCopied = copiedCode === group.inviteCode;
+                const groupAmbassadors = ambassadorApps.filter(
+                  (a) => a.groupId === group.id && a.status === "approved"
+                );
+                const groupPendingReqs = ambassadorApps.filter(
+                  (a) => a.groupId === group.id && a.status === "pending"
+                );
                 return (
                   <div
                     key={group.id}
@@ -1270,6 +1735,19 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                       {group.description && (
                         <p className="text-xs text-slate-500 line-clamp-2">{group.description}</p>
                       )}
+
+                      {/* Ambassador Status Badges on Group Card */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" />
+                          এম্বাসেডর: {toBengaliDigits(groupAmbassadors.length)} জন
+                        </span>
+                        {groupPendingReqs.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                            ⏳ {toBengaliDigits(groupPendingReqs.length)} টি রিকোয়েস্ট
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Invite Link & Action Buttons */}

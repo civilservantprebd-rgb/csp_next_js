@@ -408,6 +408,7 @@ export async function getAllPdfsAndRoutines(): Promise<{
     const allRoutines: CourseRoutineItem[] = [];
 
     (data || []).forEach((row) => {
+      if (row.course === "__AMBASSADORS_DATA__") return;
       const { pdfs, routines } = parseDetailsPayload(row.details);
       pdfs.forEach((p) => {
         if (!p.course && row.course) p.course = row.course;

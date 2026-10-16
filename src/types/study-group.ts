@@ -60,3 +60,36 @@ export interface GroupPeriodRankingResponse {
   rankings: GroupDailyRanking[];
   availableLiveExams: { id: string; title: string; course: string }[];
 }
+
+export interface AmbassadorApplication {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  photoURL?: string;
+  university: string;
+  session: string;
+  reason: string;
+  groupId: string;
+  groupName: string;
+  course: string;
+  status: "pending" | "approved";
+  appliedAt: string;
+  approvedAt?: string;
+}
+
+export interface GroupPeriodMemberActivity {
+  studentId: string;
+  studentName: string;
+  examsTakenCount: number;
+  liveExamsTakenCount: number;
+  averageScore: number;
+  lastSubmittedAt?: string;
+  submissions: {
+    examKey: string;
+    examTitle: string;
+    score: number;
+    submittedAt: string;
+    isLive: boolean;
+  }[];
+}

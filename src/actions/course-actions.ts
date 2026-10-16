@@ -22,6 +22,7 @@ export async function getCoursePrices(): Promise<Record<string, CoursePrice>> {
     if (error) throw error;
     const out: Record<string, CoursePrice> = {};
     (data || []).forEach((r: any) => {
+      if (r.course === "__AMBASSADORS_DATA__") return;
       const num = (v: any): number | undefined =>
         v === null || v === undefined ? undefined : Number(v);
       out[String(r.course)] = {

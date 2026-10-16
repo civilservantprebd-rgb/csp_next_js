@@ -3,7 +3,15 @@
 import { supabase } from "@/lib/supabase";
 import { requireTeacher, getSessionUserFromCookies } from "@/lib/teacher-auth";
 import { parseBengaliDigits } from "@/lib/utils";
-import { StudyGroup, StudyGroupMember, GroupExamAttendance, GroupDailyRanking, GroupPeriodRankingResponse } from "@/types/study-group";
+import {
+  StudyGroup,
+  StudyGroupMember,
+  GroupExamAttendance,
+  GroupDailyRanking,
+  GroupPeriodRankingResponse,
+  AmbassadorApplication,
+  GroupPeriodMemberActivity
+} from "@/types/study-group";
 
 /**
  * শিক্ষক: সকল স্টাডি গ্রুপের তালিকা আনা (কোর্স অনুযায়ী ফিল্টারসহ)
@@ -147,7 +155,18 @@ export async function getGroupDetails(groupId: string): Promise<{
 }> {
   try {
     await requireTeacher();
+    return await fetchGroupDetailsCore(groupId);
+  } catch (err) {
+    console.error("getGroupDetails error:", err);
+    return { group: null, members: [] };
+  }
+}
 
+async function fetchGroupDetailsCore(groupId: string): Promise<{
+  group: StudyGroup | null;
+  members: StudyGroupMember[];
+}> {
+  try {
     const { data: groupData, error: gErr } = await supabase
       .from("study_groups")
       .select("*")
@@ -476,7 +495,18 @@ export async function getGroupExamAttendance(
 ): Promise<GroupExamAttendance | null> {
   try {
     await requireTeacher();
+    return await fetchGroupExamAttendanceCore(groupId, examKey);
+  } catch (err) {
+    console.error("getGroupExamAttendance error:", err);
+    return null;
+  }
+}
 
+async function fetchGroupExamAttendanceCore(
+  groupId: string,
+  examKey: string
+): Promise<GroupExamAttendance | null> {
+  try {
     // গ্রুপের তথ্য ও সদস্য আনা
     const { data: group } = await supabase
       .from("study_groups")
@@ -592,7 +622,7 @@ export async function getGroupExamAttendance(
       missedMembers
     };
   } catch (err) {
-    console.error("getGroupExamAttendance error:", err);
+    console.error("fetchGroupExamAttendanceCore error:", err);
     return null;
   }
 }
@@ -605,7 +635,17 @@ export async function getExamsForGroupCourse(
 ): Promise<{ id: string; title: string; course: string }[]> {
   try {
     await requireTeacher();
+    return await fetchExamsForGroupCourseCore(courseName);
+  } catch (err) {
+    console.error("getExamsForGroupCourse error:", err);
+    return [];
+  }
+}
 
+async function fetchExamsForGroupCourseCore(
+  courseName: string
+): Promise<{ id: string; title: string; course: string }[]> {
+  try {
     const cleanCourse = String(courseName || "").trim();
     let query = supabase.from("exams").select("id, title, course").order("id", { ascending: false });
 
@@ -622,7 +662,7 @@ export async function getExamsForGroupCourse(
       course: String(e.course || "")
     }));
   } catch (err) {
-    console.error("getExamsForGroupCourse error:", err);
+    console.error("fetchExamsForGroupCourseCore error:", err);
     return [];
   }
 }
@@ -638,7 +678,25 @@ export async function getGroupPeriodLeaderboard(
 ): Promise<GroupPeriodRankingResponse> {
   try {
     await requireTeacher();
+    return await fetchGroupPeriodLeaderboardCore(startDateStr, endDateStr, courseFilter, specificExamKey);
+  } catch (err) {
+    console.error("getGroupPeriodLeaderboard error:", err);
+    return {
+      startDate: startDateStr || "",
+      endDate: endDateStr || "",
+      rankings: [],
+      availableLiveExams: []
+    };
+  }
+}
 
+async function fetchGroupPeriodLeaderboardCore(
+  startDateStr?: string,
+  endDateStr?: string,
+  courseFilter?: string,
+  specificExamKey?: string
+): Promise<GroupPeriodRankingResponse> {
+  try {
     // বর্তমান বাংলাদেশ তারিখ বের করা
     const now = new Date();
     const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
@@ -927,4 +985,599 @@ export async function getGroupDailyLeaderboard(
   const res = await getGroupPeriodLeaderboard(targetDateStr, targetDateStr, courseFilter);
   return { date: res.startDate, rankings: res.rankings };
 }
+
+// ============================================================================
+// AMBASSADOR SYSTEM (অ্যাম্বাসেডর আবেদন, অনুমোদন ও মনিটরিং ড্যাশবোর্ড)
+// ============================================================================
+
+const AMBASSADOR_STORAGE_KEY = "__AMBASSADORS_DATA__";
+
+async function readAmbassadorsFromDb(): Promise<AmbassadorApplication[]> {
+  try {
+    const { data, error } = await supabase
+      .from("course_prices")
+      .select("details")
+      .eq("course", AMBASSADOR_STORAGE_KEY)
+      .maybeSingle();
+
+    if (error || !data?.details) return [];
+    const parsed = typeof data.details === "string" ? JSON.parse(data.details) : data.details;
+    if (parsed && Array.isArray(parsed.applications)) {
+      return parsed.applications;
+    }
+    return [];
+  } catch (err) {
+    console.error("readAmbassadorsFromDb error:", err);
+    return [];
+  }
+}
+
+async function writeAmbassadorsToDb(applications: AmbassadorApplication[]): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from("course_prices")
+      .upsert(
+        {
+          course: AMBASSADOR_STORAGE_KEY,
+          details: JSON.stringify({
+            type: "ambassador_system",
+            applications
+          })
+        },
+        { onConflict: "course" }
+      );
+    if (error) {
+      console.error("writeAmbassadorsToDb error:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("writeAmbassadorsToDb unexpected error:", err);
+    return false;
+  }
+}
+
+async function isApprovedAmbassadorForGroup(
+  groupId: string,
+  studentId?: string,
+  studentEmail?: string
+): Promise<boolean> {
+  const cleanId = String(studentId || "").trim();
+  const cleanEmail = String(studentEmail || "").trim().toLowerCase();
+  if (!cleanId && !cleanEmail) return false;
+
+  const list = await readAmbassadorsFromDb();
+  return list.some(
+    (app) =>
+      app.groupId === groupId &&
+      app.status === "approved" &&
+      ((cleanId && app.studentId === cleanId) ||
+        (cleanEmail && app.studentEmail?.toLowerCase() === cleanEmail))
+  );
+}
+
+/**
+ * পাবলিক / স্টুডেন্ট: অ্যাম্বাসেডর ফর্মের ড্রপডাউনের জন্য সকল স্টাডি গ্রুপের তালিকা
+ */
+export async function getPublicStudyGroupsForAmbassador(): Promise<StudyGroup[]> {
+  try {
+    const { data: groups, error } = await supabase
+      .from("study_groups")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error || !groups) return [];
+
+    const { data: memberCounts } = await supabase
+      .from("study_group_members")
+      .select("group_id");
+
+    const countMap: Record<string, number> = {};
+    (memberCounts || []).forEach((m) => {
+      countMap[m.group_id] = (countMap[m.group_id] || 0) + 1;
+    });
+
+    return groups.map((g) => ({
+      id: g.id,
+      course: g.course,
+      name: g.name,
+      inviteCode: g.invite_code,
+      description: g.description || "",
+      createdAt: g.created_at,
+      memberCount: countMap[g.id] || 0
+    }));
+  } catch (err) {
+    console.error("getPublicStudyGroupsForAmbassador error:", err);
+    return [];
+  }
+}
+
+/**
+ * স্টুডেন্ট: নিজের অ্যাম্বাসেডর আবেদনের বর্তমান অবস্থা জানা (pending / approved / null)
+ */
+export async function getMyAmbassadorStatus(
+  studentId: string,
+  studentEmail?: string
+): Promise<{ application: AmbassadorApplication | null }> {
+  try {
+    const cleanId = String(studentId || "").trim();
+    const cleanEmail = String(studentEmail || "").trim().toLowerCase();
+    if (!cleanId && !cleanEmail) return { application: null };
+
+    const list = await readAmbassadorsFromDb();
+    const found = list.find(
+      (app) =>
+        (cleanId && app.studentId === cleanId) ||
+        (cleanEmail && app.studentEmail?.toLowerCase() === cleanEmail)
+    );
+
+    if (!found) return { application: null };
+
+    // গ্রুপটি এখনো বিদ্যমান কিনা যাচাই ও সর্বশেষ নাম আপডেট
+    const { data: groupData } = await supabase
+      .from("study_groups")
+      .select("id, name, course")
+      .eq("id", found.groupId)
+      .maybeSingle();
+
+    if (groupData) {
+      found.groupName = groupData.name;
+      found.course = groupData.course;
+    }
+
+    return { application: found };
+  } catch (err) {
+    console.error("getMyAmbassadorStatus error:", err);
+    return { application: null };
+  }
+}
+
+/**
+ * স্টুডেন্ট: যেকোনো একটি স্টাডি গ্রুপের অ্যাম্বাসেডর হওয়ার জন্য আবেদন জমা দেওয়া
+ */
+export async function applyForAmbassador(payload: {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  photoURL?: string;
+  university: string;
+  session: string;
+  reason: string;
+  groupId: string;
+}): Promise<{ success: boolean; message: string; application?: AmbassadorApplication }> {
+  try {
+    const cleanId = String(payload.studentId || "").trim();
+    const cleanName = String(payload.studentName || "").trim();
+    const cleanEmail = String(payload.studentEmail || "").trim();
+    const cleanUni = String(payload.university || "").trim();
+    const cleanSession = String(payload.session || "").trim();
+    const cleanReason = String(payload.reason || "").trim();
+    const cleanGroupId = String(payload.groupId || "").trim();
+
+    if (!cleanId) {
+      return { success: false, message: "আবেদন করতে প্রথমে Google দিয়ে সাইন ইন করুন।" };
+    }
+    if (!cleanName) {
+      return { success: false, message: "আপনার নাম লিখুন।" };
+    }
+    if (!cleanUni) {
+      return { success: false, message: "আপনার বিশ্ববিদ্যালয় বা প্রতিষ্ঠানের নাম লিখুন।" };
+    }
+    if (!cleanSession) {
+      return { success: false, message: "আপনার সেশন বা বর্ষ উল্লেখ করুন।" };
+    }
+    if (!cleanGroupId) {
+      return { success: false, message: "ড্রপডাউন থেকে একটি স্টাডি গ্রুপ নির্বাচন করুন।" };
+    }
+    if (!cleanReason) {
+      return { success: false, message: "কেন আপনি অ্যাম্বাসেডর হিসেবে জয়েন করতে চান তা সংক্ষেপে লিখুন।" };
+    }
+
+    const list = await readAmbassadorsFromDb();
+
+    // ইতিমধ্যে কোনো গ্রুপে আবেদন করেছে বা অ্যাম্বাসেডর আছে কিনা যাচাই
+    const existing = list.find(
+      (app) =>
+        app.studentId === cleanId ||
+        (cleanEmail && app.studentEmail?.toLowerCase() === cleanEmail.toLowerCase())
+    );
+
+    if (existing) {
+      return {
+        success: false,
+        message: `আপনি ইতিমধ্যে "${existing.groupName}" গ্রুপের অ্যাম্বাসেডর হিসেবে ${
+          existing.status === "approved" ? "নিযুক্ত আছেন" : "আবেদন করেছেন"
+        }। অন্য কোনো গ্রুপে আবেদন করা যাবে না।`
+      };
+    }
+
+    // গ্রুপের তথ্য যাচাই
+    const { data: groupData, error: gErr } = await supabase
+      .from("study_groups")
+      .select("id, name, course")
+      .eq("id", cleanGroupId)
+      .maybeSingle();
+
+    if (gErr || !groupData) {
+      return { success: false, message: "নির্বাচিত স্টাডি গ্রুপটি পাওয়া যায়নি।" };
+    }
+
+    const newApp: AmbassadorApplication = {
+      id: `amb_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      studentId: cleanId,
+      studentName: cleanName,
+      studentEmail: cleanEmail,
+      photoURL: payload.photoURL || "",
+      university: cleanUni,
+      session: cleanSession,
+      reason: cleanReason,
+      groupId: groupData.id,
+      groupName: groupData.name,
+      course: groupData.course,
+      status: "pending",
+      appliedAt: new Date().toISOString()
+    };
+
+    const saved = await writeAmbassadorsToDb([newApp, ...list]);
+    if (!saved) {
+      return { success: false, message: "আবেদন সংরক্ষণ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।" };
+    }
+
+    return {
+      success: true,
+      message: `অভিনন্দন! "${groupData.name}" গ্রুপের অ্যাম্বাসেডর হিসেবে আপনার আবেদন সফলভাবে জমা হয়েছে ✓`,
+      application: newApp
+    };
+  } catch (err: any) {
+    console.error("applyForAmbassador error:", err);
+    return { success: false, message: err?.message || "আবেদন জমা দিতে সমস্যা হয়েছে।" };
+  }
+}
+
+/**
+ * শিক্ষক: সকল অ্যাম্বাসেডর আবেদন ও অনুমোদিত অ্যাম্বাসেডরদের তালিকা আনা
+ */
+export async function getAllAmbassadorApplications(): Promise<AmbassadorApplication[]> {
+  try {
+    await requireTeacher();
+    const list = await readAmbassadorsFromDb();
+    if (list.length === 0) return [];
+
+    const { data: groups } = await supabase.from("study_groups").select("id, name, course");
+    const groupMap = new Map<string, { name: string; course: string }>();
+    (groups || []).forEach((g) => groupMap.set(g.id, { name: g.name, course: g.course }));
+
+    return list.map((app) => {
+      const g = groupMap.get(app.groupId);
+      return {
+        ...app,
+        groupName: g?.name || app.groupName,
+        course: g?.course || app.course
+      };
+    });
+  } catch (err) {
+    console.error("getAllAmbassadorApplications error:", err);
+    return [];
+  }
+}
+
+/**
+ * শিক্ষক: অ্যাম্বাসেডর আবেদন অনুমোদন (Approve) করা
+ */
+export async function approveAmbassadorApplication(
+  applicationId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await requireTeacher();
+    const list = await readAmbassadorsFromDb();
+    const idx = list.findIndex((a) => a.id === applicationId);
+    if (idx === -1) {
+      return { success: false, message: "আবেদনটি পাওয়া যায়নি।" };
+    }
+
+    const app = list[idx];
+    app.status = "approved";
+    app.approvedAt = new Date().toISOString();
+
+    const saved = await writeAmbassadorsToDb(list);
+    if (!saved) {
+      return { success: false, message: "অনুমোদন সংরক্ষণ করতে সমস্যা হয়েছে।" };
+    }
+
+    // স্বয়ংক্রিয়ভাবে ঐ গ্রুপের সদস্য হিসেবেও যুক্ত রাখা (যদি আগে থেকে না থাকে)
+    try {
+      const { data: existingMember } = await supabase
+        .from("study_group_members")
+        .select("id")
+        .eq("group_id", app.groupId)
+        .eq("student_id", app.studentId)
+        .maybeSingle();
+
+      if (!existingMember) {
+        await supabase.from("study_group_members").insert({
+          group_id: app.groupId,
+          student_id: app.studentId,
+          student_name: app.studentName,
+          student_email: app.studentEmail || ""
+        });
+      }
+    } catch {
+      /* ignore member insert warning */
+    }
+
+    return {
+      success: true,
+      message: `${app.studentName}-কে "${app.groupName}" গ্রুপের অ্যাম্বাসেডর হিসেবে অনুমোদন দেওয়া হয়েছে ✓`
+    };
+  } catch (err) {
+    console.error("approveAmbassadorApplication error:", err);
+    return { success: false, message: "অনুমোদন করতে সমস্যা হয়েছে।" };
+  }
+}
+
+/**
+ * শিক্ষক: অ্যাম্বাসেডর রিমুভ বা আবেদন বাতিল করা
+ */
+export async function removeAmbassador(
+  applicationId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await requireTeacher();
+    const list = await readAmbassadorsFromDb();
+    const target = list.find((a) => a.id === applicationId);
+    if (!target) {
+      return { success: false, message: "অ্যাম্বাসেডর পাওয়া যায়নি।" };
+    }
+
+    const updated = list.filter((a) => a.id !== applicationId);
+    const saved = await writeAmbassadorsToDb(updated);
+    if (!saved) {
+      return { success: false, message: "রিমুভ করতে সমস্যা হয়েছে।" };
+    }
+
+    return {
+      success: true,
+      message: `${target.studentName}-কে অ্যাম্বাসেডর তালিকা থেকে সরানো হয়েছে।`
+    };
+  } catch (err) {
+    console.error("removeAmbassador error:", err);
+    return { success: false, message: "রিমুভ করতে সমস্যা হয়েছে।" };
+  }
+}
+
+/**
+ * অ্যাম্বাসেডর প্যানেল: অনুমোদিত অ্যাম্বাসেডরের জন্য নিজের গ্রুপের সম্পূর্ণ তথ্য, সদস্য, সহ-অ্যাম্বাসেডর ও পরীক্ষার তালিকা
+ */
+export async function getAmbassadorDashboardData(
+  groupId: string,
+  studentId: string,
+  studentEmail?: string
+): Promise<{
+  allowed: boolean;
+  group: StudyGroup | null;
+  members: StudyGroupMember[];
+  ambassadors: AmbassadorApplication[];
+  exams: { id: string; title: string; course: string }[];
+}> {
+  try {
+    const isAllowed = await isApprovedAmbassadorForGroup(groupId, studentId, studentEmail);
+    if (!isAllowed) {
+      return { allowed: false, group: null, members: [], ambassadors: [], exams: [] };
+    }
+
+    const { group, members } = await fetchGroupDetailsCore(groupId);
+    if (!group) {
+      return { allowed: false, group: null, members: [], ambassadors: [], exams: [] };
+    }
+
+    const exams = await fetchExamsForGroupCourseCore(group.course);
+    const allApps = await readAmbassadorsFromDb();
+    const ambassadors = allApps.filter((a) => a.groupId === groupId && a.status === "approved");
+
+    return {
+      allowed: true,
+      group,
+      members,
+      ambassadors,
+      exams
+    };
+  } catch (err) {
+    console.error("getAmbassadorDashboardData error:", err);
+    return { allowed: false, group: null, members: [], ambassadors: [], exams: [] };
+  }
+}
+
+/**
+ * অ্যাম্বাসেডর প্যানেল: নির্দিষ্ট পরীক্ষার উপস্থিতি ও ফলাফল দেখা
+ */
+export async function getAmbassadorExamAttendance(
+  groupId: string,
+  examKey: string,
+  studentId: string,
+  studentEmail?: string
+): Promise<GroupExamAttendance | null> {
+  try {
+    const isAllowed = await isApprovedAmbassadorForGroup(groupId, studentId, studentEmail);
+    if (!isAllowed) return null;
+    return await fetchGroupExamAttendanceCore(groupId, examKey);
+  } catch (err) {
+    console.error("getAmbassadorExamAttendance error:", err);
+    return null;
+  }
+}
+
+/**
+ * অ্যাম্বাসেডর প্যানেল: নির্দিষ্ট সময়ে (Date Range) গ্রুপের কে কে পরীক্ষা দিয়েছে এবং কে দেয়নি তার বিস্তারিত রিপোর্ট
+ */
+export async function getAmbassadorPeriodActivity(
+  groupId: string,
+  startDateStr: string,
+  endDateStr: string,
+  studentId: string,
+  studentEmail?: string
+): Promise<{
+  startDate: string;
+  endDate: string;
+  activeMembers: GroupPeriodMemberActivity[];
+  inactiveMembers: { studentId: string; studentName: string }[];
+}> {
+  try {
+    const isAllowed = await isApprovedAmbassadorForGroup(groupId, studentId, studentEmail);
+    if (!isAllowed) {
+      return { startDate: startDateStr, endDate: endDateStr, activeMembers: [], inactiveMembers: [] };
+    }
+
+    const now = new Date();
+    const bdTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    const todayStr = bdTime.toISOString().slice(0, 10);
+
+    let sDate = startDateStr?.trim() || todayStr;
+    let eDate = endDateStr?.trim() || sDate;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sDate)) sDate = todayStr;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(eDate)) eDate = sDate;
+    if (sDate > eDate) {
+      const tmp = sDate;
+      sDate = eDate;
+      eDate = tmp;
+    }
+
+    const startIso = new Date(`${sDate}T00:00:00+06:00`).toISOString();
+    const endIso = new Date(`${eDate}T23:59:59.999+06:00`).toISOString();
+
+    const { data: members } = await supabase
+      .from("study_group_members")
+      .select("student_id, student_name, student_email")
+      .eq("group_id", groupId);
+
+    if (!members || members.length === 0) {
+      return { startDate: sDate, endDate: eDate, activeMembers: [], inactiveMembers: [] };
+    }
+
+    const memberIds = members.map((m) => m.student_id);
+    const emails = members.map((m) => m.student_email).filter(Boolean);
+
+    let allowedFilter = `id.in.(${memberIds.join(",")})`;
+    if (emails.length > 0) {
+      allowedFilter += `,email.in.(${emails.join(",")})`;
+    }
+
+    const { data: allowedList } = await supabase
+      .from("allowed_students")
+      .select("id, email")
+      .or(allowedFilter);
+
+    const memberToPossibleIds = new Map<string, string[]>();
+    const allQueryIds = new Set<string>();
+
+    members.forEach((m) => {
+      const ids = new Set<string>([m.student_id]);
+      (allowedList || []).forEach((st) => {
+        if (st.id === m.student_id || (m.student_email && st.email?.toLowerCase() === m.student_email.toLowerCase())) {
+          ids.add(st.id);
+        }
+      });
+      memberToPossibleIds.set(m.student_id, Array.from(ids));
+      ids.forEach((id) => allQueryIds.add(id));
+    });
+
+    const { data: submissions } = await supabase
+      .from("submissions")
+      .select("student_id, exam_key, exam_title, score, submitted_at, is_live_submission")
+      .gte("submitted_at", startIso)
+      .lte("submitted_at", endIso)
+      .in("student_id", Array.from(allQueryIds))
+      .order("submitted_at", { ascending: false });
+
+    const activeMembers: GroupPeriodMemberActivity[] = [];
+    const inactiveMembers: { studentId: string; studentName: string }[] = [];
+
+    members.forEach((m) => {
+      const possibleIds = memberToPossibleIds.get(m.student_id) || [m.student_id];
+      const mSubs = (submissions || []).filter((s) => possibleIds.includes(String(s.student_id)));
+
+      if (mSubs.length > 0) {
+        let totalScore = 0;
+        let liveCount = 0;
+        const formattedSubs = mSubs.map((s) => {
+          const sc = typeof s.score === "number" ? s.score : Number(s.score) || 0;
+          totalScore += sc;
+          if (s.is_live_submission) liveCount++;
+          return {
+            examKey: String(s.exam_key || ""),
+            examTitle: String(s.exam_title || s.exam_key || "পরীক্ষা"),
+            score: sc,
+            submittedAt: String(s.submitted_at || ""),
+            isLive: Boolean(s.is_live_submission)
+          };
+        });
+
+        activeMembers.push({
+          studentId: m.student_id,
+          studentName: m.student_name || m.student_id,
+          examsTakenCount: mSubs.length,
+          liveExamsTakenCount: liveCount,
+          averageScore: Number((totalScore / mSubs.length).toFixed(1)),
+          lastSubmittedAt: formattedSubs[0]?.submittedAt,
+          submissions: formattedSubs
+        });
+      } else {
+        inactiveMembers.push({
+          studentId: m.student_id,
+          studentName: m.student_name || m.student_id
+        });
+      }
+    });
+
+    activeMembers.sort((a, b) => {
+      if (b.examsTakenCount !== a.examsTakenCount) return b.examsTakenCount - a.examsTakenCount;
+      return b.averageScore - a.averageScore;
+    });
+
+    return {
+      startDate: sDate,
+      endDate: eDate,
+      activeMembers,
+      inactiveMembers
+    };
+  } catch (err) {
+    console.error("getAmbassadorPeriodActivity error:", err);
+    return { startDate: startDateStr, endDate: endDateStr, activeMembers: [], inactiveMembers: [] };
+  }
+}
+
+/**
+ * অ্যাম্বাসেডর প্যানেল: অন্য সকল গ্রুপের সাথে র‍্যাংকিং তুলনা (Time Period Leaderboard)
+ */
+export async function getAmbassadorGroupLeaderboard(
+  groupId: string,
+  studentId: string,
+  studentEmail?: string,
+  startDateStr?: string,
+  endDateStr?: string,
+  courseFilter?: string,
+  specificExamKey?: string
+): Promise<GroupPeriodRankingResponse> {
+  try {
+    const isAllowed = await isApprovedAmbassadorForGroup(groupId, studentId, studentEmail);
+    if (!isAllowed) {
+      return {
+        startDate: startDateStr || "",
+        endDate: endDateStr || "",
+        rankings: [],
+        availableLiveExams: []
+      };
+    }
+
+    return await fetchGroupPeriodLeaderboardCore(startDateStr, endDateStr, courseFilter, specificExamKey);
+  } catch (err) {
+    console.error("getAmbassadorGroupLeaderboard error:", err);
+    return {
+      startDate: startDateStr || "",
+      endDate: endDateStr || "",
+      rankings: [],
+      availableLiveExams: []
+    };
+  }
+}
+
 
