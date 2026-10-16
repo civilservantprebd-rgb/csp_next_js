@@ -306,17 +306,22 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                 onClick={() => toggleCourse(course.courseName)}
                 className="p-3.5 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer select-none group"
               >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="min-w-0">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-full h-full bg-slate-900/90 rounded-[14px] flex items-center justify-center">
+                      <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300" />
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                      <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
                         কোর্স
                       </span>
                       <span className="text-xs text-slate-300 font-normal">
                         অংশগ্রহণকৃত পরীক্ষা: {toBengaliDigits(course.totalExamsTaken)}টি
                       </span>
                     </div>
-                    <h3 className="text-sm sm:text-base font-medium text-white truncate group-hover:text-amber-300 transition-colors">
+                    <h3 className="text-base sm:text-lg font-bold text-white truncate group-hover:text-amber-300 transition-colors">
                       {course.courseName}
                     </h3>
                   </div>
