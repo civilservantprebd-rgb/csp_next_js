@@ -1445,7 +1445,7 @@ export function AmbassadorView() {
                 ) : (
                   availableGroups.map((g) => (
                     <option key={g.id} value={g.id}>
-                      {g.name} — ({g.course}) [{toBengaliDigits(g.memberCount || 0)} জন সদস্য]
+                      {g.name} — ({g.course})
                     </option>
                   ))
                 )}

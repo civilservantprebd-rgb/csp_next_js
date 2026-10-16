@@ -1068,15 +1068,6 @@ export async function getPublicStudyGroupsForAmbassador(): Promise<StudyGroup[]>
 
     if (error || !groups) return [];
 
-    const { data: memberCounts } = await supabase
-      .from("study_group_members")
-      .select("group_id");
-
-    const countMap: Record<string, number> = {};
-    (memberCounts || []).forEach((m) => {
-      countMap[m.group_id] = (countMap[m.group_id] || 0) + 1;
-    });
-
     return groups.map((g) => ({
       id: g.id,
       course: g.course,
@@ -1084,7 +1075,7 @@ export async function getPublicStudyGroupsForAmbassador(): Promise<StudyGroup[]>
       inviteCode: g.invite_code,
       description: g.description || "",
       createdAt: g.created_at,
-      memberCount: countMap[g.id] || 0
+      memberCount: 0
     }));
   } catch (err) {
     console.error("getPublicStudyGroupsForAmbassador error:", err);

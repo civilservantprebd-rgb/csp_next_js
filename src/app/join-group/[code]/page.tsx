@@ -142,15 +142,11 @@ export default function JoinGroupPage() {
         </div>
 
         {/* Group Info Box */}
-        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center space-y-1.5">
-          {group.description && (
+        {group.description && (
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center space-y-1.5">
             <p className="text-xs text-slate-600 font-medium leading-relaxed">{group.description}</p>
-          )}
-          <div className="text-[11px] font-bold text-slate-500 flex items-center justify-center gap-2 pt-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            বর্তমান সদস্য সংখ্যা: <span className="text-indigo-600 font-black">{toBengaliDigits(group.memberCount || 0)} জন</span>
           </div>
-        </div>
+        )}
 
         {/* Success or Already Joined State */}
         {joinSuccess || alreadyJoined ? (
