@@ -702,13 +702,13 @@ export default function HomeClient({
           </div>
 
           {/* Navigation Items */}
-          <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 text-xs font-medium custom-scrollbar">
+          <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 text-sm font-medium custom-scrollbar">
             {/* GROUP: ড্যাশবোর্ড (Dashboard Group) */}
             <div className="space-y-1">
               <button
                 type="button"
                 onClick={() => setDashboardGroupOpen((prev) => !prev)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer font-medium ${activeNav === "dashboard" ||
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer font-semibold ${activeNav === "dashboard" ||
                   activeNav === "live_exams" ||
                   activeNav === "free_exams" ||
                   activeNav === "upcoming_exams" ||
@@ -717,15 +717,15 @@ export default function HomeClient({
                   activeNav === "bookmarks" ||
                   activeNav === "analytics" ||
                   activeNav === "leaderboard"
-                  ? "text-white bg-slate-800/80 border border-slate-700/60 shadow-sm"
-                  : "text-white hover:bg-slate-800/40 hover:text-white"
+                  ? "text-white bg-slate-800/90 border border-slate-700/60 shadow-sm"
+                  : "text-slate-300 hover:bg-slate-800/40 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                  <span className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <LayoutDashboard className="w-4 h-4" />
                   </span>
-                  <span className="text-[15px] font-medium tracking-wide">ড্যাশবোর্ড</span>
+                  <span className="text-[15px] sm:text-base font-bold tracking-wide">ড্যাশবোর্ড</span>
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${dashboardGroupOpen ? "rotate-0" : "-rotate-90"
@@ -735,35 +735,35 @@ export default function HomeClient({
 
               {/* Sub-items under ড্যাশবোর্ড */}
               {dashboardGroupOpen && (
-                <div className="pl-4 pr-1 pt-1 pb-1 space-y-1 border-l-2 border-slate-700/60 ml-4.5 my-1 animate-in fade-in duration-200">
+                <div className="pl-3 pr-1 pt-1.5 pb-1 space-y-1.5 border-l-2 border-slate-700/60 ml-4.5 my-1 animate-in fade-in duration-200">
                   {/* ওভারভিউ (Overview) */}
                   <button
                     type="button"
                     onClick={() => handleNavSelect("dashboard")}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all ${activeNav === "dashboard"
-                      ? "bg-indigo-600/30 text-amber-300 font-medium border border-indigo-500/40 shadow-sm"
-                      : "text-white hover:text-white hover:bg-white/5"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all ${activeNav === "dashboard"
+                      ? "bg-indigo-600/30 text-amber-300 font-bold border border-indigo-500/40 shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                    <span>ওভারভিউ</span>
+                    <span className="w-2 h-2 rounded-full bg-indigo-400 shrink-0" />
+                    <span className="text-sm sm:text-[15px]">ওভারভিউ</span>
                   </button>
 
                   {/* লাইভ এক্সাম */}
                   <button
                     type="button"
                     onClick={() => handleNavSelect("live_exams")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "live_exams"
-                      ? "bg-red-500/20 text-red-300 font-medium border border-red-500/40 shadow-sm"
-                      : "text-white hover:text-white hover:bg-white/5"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${activeNav === "live_exams"
+                      ? "bg-red-500/20 text-red-300 font-bold border border-red-500/40 shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-3.5 h-3.5 text-red-400" />
-                      <span>লাইভ এক্সাম</span>
+                    <div className="flex items-center gap-2.5">
+                      <Zap className="w-4 h-4 text-red-400" />
+                      <span className="text-sm sm:text-[15px]">লাইভ এক্সাম</span>
                     </div>
                     {liveExamKeys.length > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-medium animate-pulse">
+                      <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-xs font-bold animate-pulse">
                         {toBengaliDigits(liveExamKeys.length)}
                       </span>
                     )}
@@ -773,16 +773,16 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("free_exams")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "free_exams"
-                      ? "bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/40 shadow-sm"
-                      : "text-white hover:text-white hover:bg-white/5"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${activeNav === "free_exams"
+                      ? "bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>ফ্রী মডেল টেস্ট</span>
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-emerald-400" />
+                      <span className="text-sm sm:text-[15px]">ফ্রী মডেল টেস্ট</span>
                     </div>
-                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px]">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 text-[11px] font-bold">
                       ফ্রি
                     </span>
                   </button>
@@ -791,17 +791,17 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("upcoming_exams")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "upcoming_exams"
-                      ? "bg-rose-500/20 text-rose-300 font-medium border border-rose-500/40 shadow-sm"
-                      : "text-white hover:text-white hover:bg-white/5"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${activeNav === "upcoming_exams"
+                      ? "bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <CalendarClock className="w-3.5 h-3.5 text-rose-400" />
-                      <span>আসন্ন মডেল টেস্ট</span>
+                    <div className="flex items-center gap-2.5">
+                      <CalendarClock className="w-4 h-4 text-rose-400" />
+                      <span className="text-sm sm:text-[15px]">আসন্ন মডেল টেস্ট</span>
                     </div>
                     {upcomingExamsList.length > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-rose-950 text-rose-300 border border-rose-800 text-[10px]">
+                      <span className="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800 text-[11px] font-bold">
                         {toBengaliDigits(upcomingExamsList.length)}
                       </span>
                     )}
@@ -811,30 +811,30 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("results")}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${activeNav === "results"
-                      ? "bg-purple-600/30 text-purple-200 font-medium border border-purple-500/40 shadow-sm"
-                      : "text-white hover:text-white hover:bg-white/5"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all ${activeNav === "results"
+                      ? "bg-purple-600/30 text-purple-200 font-bold border border-purple-500/40 shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
-                    <History className="w-3.5 h-3.5 text-purple-400" />
-                    <span>ফলাফল</span>
+                    <History className="w-4 h-4 text-purple-400" />
+                    <span className="text-sm sm:text-[15px]">ফলাফল</span>
                   </button>
 
                   {/* ভুল উত্তরের খাতা */}
                   <button
                     type="button"
                     onClick={() => handleNavSelect("mistakes")}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all ${activeNav === "mistakes"
-                      ? "bg-rose-500/20 text-rose-300 font-medium border border-rose-500/40 shadow-sm"
-                      : "text-white hover:text-white hover:bg-white/5"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${activeNav === "mistakes"
+                      ? "bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <AlertOctagon className="w-3.5 h-3.5 text-rose-400" />
-                      <span>ভুল উত্তরের খাতা</span>
+                    <div className="flex items-center gap-2.5">
+                      <AlertOctagon className="w-4 h-4 text-rose-400" />
+                      <span className="text-sm sm:text-[15px]">ভুল উত্তরের খাতা</span>
                     </div>
                     {studentMistakesCount > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-rose-900/60 text-rose-200 text-[10px]">
+                      <span className="px-2 py-0.5 rounded-full bg-rose-900/60 text-rose-200 text-xs font-bold">
                         {toBengaliDigits(studentMistakesCount)}
                       </span>
                     )}
@@ -845,26 +845,26 @@ export default function HomeClient({
                   <button
                     type="button"
                     onClick={() => handleNavSelect("analytics")}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${activeNav === "analytics"
-                      ? "bg-blue-600/30 text-blue-200 font-medium border border-blue-500/40 shadow-sm"
-                      : "text-white hover:text-white hover:bg-white/5"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all ${activeNav === "analytics"
+                      ? "bg-blue-600/30 text-blue-200 font-bold border border-blue-500/40 shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
-                    <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
-                    <span>এনালাইসিস</span>
+                    <BarChart3 className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm sm:text-[15px]">এনালাইসিস</span>
                   </button>
 
                   {/* লিডারবোর্ড */}
                   <button
                     type="button"
                     onClick={() => handleNavSelect("leaderboard")}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all ${activeNav === "leaderboard"
-                      ? "bg-amber-500/20 text-amber-300 font-medium border border-amber-500/40 shadow-sm"
-                      : "text-white hover:text-white hover:bg-white/5"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all ${activeNav === "leaderboard"
+                      ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
-                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                    <span>লিডারবোর্ড</span>
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm sm:text-[15px]">লিডারবোর্ড</span>
                   </button>
                 </div>
               )}
@@ -872,45 +872,44 @@ export default function HomeClient({
 
             {/* DIVIDER & SUB-SECTION: নিচের সেকশনগুলো */}
             <div className="pt-2 border-t border-[#1f2c44] space-y-1">
-              <p className="px-3 text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-2">
+              <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                 অনুশীলন ও কোর্স
               </p>
-
 
               {/* প্রশ্ন ব্যাংক */}
               <button
                 type="button"
                 onClick={() => handleNavSelect("question_bank")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "question_bank"
-                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                  : "text-white hover:bg-white/5 hover:text-white"
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "question_bank"
+                  ? "bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40 shadow-sm"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
-                    <Layers className="w-3.5 h-3.5" />
+                  <span className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                    <Layers className="w-4 h-4" />
                   </span>
-                  <span>অনুশীলন</span>
+                  <span className="text-sm sm:text-[15px]">অনুশীলন</span>
                 </div>
-                <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "question_bank" ? "text-cyan-400" : "text-slate-500"}`} />
+                <ChevronRight className={`w-4 h-4 ${activeNav === "question_bank" ? "text-cyan-400" : "text-slate-500"}`} />
               </button>
 
               {/* কোর্স */}
               <button
                 type="button"
                 onClick={() => handleNavSelect("courses")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "courses"
-                  ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm"
-                  : "text-white hover:bg-white/5 hover:text-white"
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "courses"
+                  ? "bg-amber-400/20 text-amber-300 font-bold border border-amber-400/40 shadow-sm"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                    <BookOpen className="w-3.5 h-3.5" />
+                  <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <BookOpen className="w-4 h-4" />
                   </span>
-                  <span>কোর্স</span>
+                  <span className="text-sm sm:text-[15px]">কোর্স</span>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                <span className="text-xs px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-300 border border-amber-400/20 font-bold">
                   {toBengaliDigits(coursesList.length)}
                 </span>
               </button>
@@ -919,54 +918,54 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleNavSelect("pdfs")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "pdfs"
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm"
-                  : "text-white hover:bg-white/5 hover:text-white"
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "pdfs"
+                  ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                    <FileText className="w-3.5 h-3.5" />
+                  <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <FileText className="w-4 h-4" />
                   </span>
-                  <span>পিডিএফ শিট</span>
+                  <span className="text-sm sm:text-[15px]">পিডিএফ শিট</span>
                 </div>
-                <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "pdfs" ? "text-amber-400" : "text-slate-500"}`} />
+                <ChevronRight className={`w-4 h-4 ${activeNav === "pdfs" ? "text-amber-400" : "text-slate-500"}`} />
               </button>
 
               {/* রুটিন */}
               <button
                 type="button"
                 onClick={() => handleNavSelect("routines")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "routines"
-                  ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm"
-                  : "text-white hover:bg-white/5 hover:text-white"
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "routines"
+                  ? "bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/40 shadow-sm"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                    <Calendar className="w-3.5 h-3.5" />
+                  <span className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                    <Calendar className="w-4 h-4" />
                   </span>
-                  <span>রুটিন</span>
+                  <span className="text-sm sm:text-[15px]">রুটিন</span>
                 </div>
-                <ChevronRight className={`w-3.5 h-3.5 ${activeNav === "routines" ? "text-indigo-400" : "text-slate-500"}`} />
+                <ChevronRight className={`w-4 h-4 ${activeNav === "routines" ? "text-indigo-400" : "text-slate-500"}`} />
               </button>
 
               {/* রেফারেল */}
               <button
                 type="button"
                 onClick={() => handleNavSelect("referral")}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "referral"
-                  ? "bg-gradient-to-r from-amber-500/25 to-pink-500/20 text-amber-300 border border-amber-400/40 shadow-sm"
-                  : "text-white hover:bg-white/5 hover:text-white"
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "referral"
+                  ? "bg-gradient-to-r from-amber-500/25 to-pink-500/20 text-amber-300 font-bold border border-amber-400/40 shadow-sm"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center shadow-sm">
-                    <Gift className="w-3.5 h-3.5" />
+                  <span className="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center shadow-sm">
+                    <Gift className="w-4 h-4" />
                   </span>
-                  <span>রেফারেল</span>
+                  <span className="text-sm sm:text-[15px]">রেফারেল</span>
                 </div>
-                <span className="bg-amber-400 text-slate-950 font-medium text-[10px] px-2 py-0.5 rounded-full shadow-sm">
+                <span className="bg-amber-400 text-slate-950 font-bold text-xs px-2 py-0.5 rounded-full shadow-sm">
                   ৳৫০ অফার
                 </span>
               </button>
@@ -1048,7 +1047,7 @@ export default function HomeClient({
               </button>
 
               <div className="min-w-0">
-                <h1 className="text-base sm:text-2xl font-medium text-slate-900 leading-tight truncate">
+                <h1 className="text-lg sm:text-2xl font-bold text-slate-900 leading-tight truncate">
                   {activeNav === "dashboard" && "ওভারভিউ"}
                   {activeNav === "live_exams" && "লাইভ এক্সাম সমূহ"}
                   {activeNav === "free_exams" && "ফ্রী মডেল টেস্ট সমূহ"}
