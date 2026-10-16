@@ -307,7 +307,7 @@ export const CourseGroupedResults: React.FC<CourseGroupedResultsProps> = ({
                 onClick={() => toggleCourse(course.courseName)}
                 className="p-3.5 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer select-none group"
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 text-center flex flex-col items-center justify-center">
                   <h3 className="font-bold text-white text-base sm:text-lg leading-tight truncate group-hover:text-amber-300 transition-colors">
                     {course.courseName}
                   </h3>
