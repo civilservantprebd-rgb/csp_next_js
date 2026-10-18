@@ -306,7 +306,7 @@ export const AdminAccessManager: React.FC = () => {
               <p className="font-bold text-sm">💡 এটি কীভাবে কাজ করে?</p>
               <ul className="list-disc list-inside space-y-1 text-indigo-900/90 text-xs">
                 <li>যাকে অ্যাডমিন করতে চান, তার <strong>Google একাউন্টের ইমেইল</strong> উপরের বক্সে লিখে এক্সেস দিন।</li>
-                <li>এরপর তিনি <code>/admin</code> পেজে গিয়ে <strong>"Google দিয়ে সাইন ইন"</strong> করলেই সরাসরি পুরো শিক্ষক/অ্যাডমিন প্যানেল দেখতে পাবেন।</li>
+                <li>এরপর তিনি <code>/admin</code> পেজে গিয়ে <strong>&ldquo;Google দিয়ে সাইন ইন&rdquo;</strong> করলেই সরাসরি পুরো শিক্ষক/অ্যাডমিন প্যানেল দেখতে পাবেন।</li>
                 <li>যেকোনো সময় চাইলে আপনি এখান থেকে ১-ক্লিকেই তার এক্সেস বাতিল করে দিতে পারেন। কোনো ডিপ্লয়মেন্টের প্রয়োজন নেই।</li>
               </ul>
             </div>
