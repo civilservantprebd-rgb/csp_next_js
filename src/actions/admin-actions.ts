@@ -77,8 +77,6 @@ const DEFAULT_DATA: AppConfigData = {
   ],
   topicQuestions: [],
   exams: {},
-  teacherPass: "",
-  
   pinnedCourses: []
 };
 
@@ -179,8 +177,6 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
         const settings = settingsRes?.data || {};
         const courses = settings.courses || DEFAULT_DATA.courses;
         const topics = settings.topics || DEFAULT_DATA.topics;
-        const teacherPass = ""; // never expose the teacher pass to clients
-        
 
         const subjects = (subjectsRes?.data || []).map((s) => ({
           name: s.name,
@@ -252,8 +248,6 @@ export async function fetchAppConfig(forceRefresh = false): Promise<AppConfigDat
           topics,
           topicQuestions,
           exams,
-          teacherPass,
-          
           pinnedCourses
         };
 
@@ -342,8 +336,6 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
       const settings = settingsRes?.data || {};
       const courses = settings.courses || DEFAULT_DATA.courses;
       const topics = settings.topics || DEFAULT_DATA.topics;
-      const teacherPass = ""; // never expose the teacher pass to clients
-      
 
       const subjects = (subjectsRes?.data || []).map((s) => ({
         name: s.name,
@@ -419,8 +411,6 @@ export async function fetchAppConfigLite(): Promise<AppConfigData> {
         topics,
         topicQuestions,
         exams,
-        teacherPass,
-        
         pinnedCourses
       };
 
@@ -490,8 +480,6 @@ export async function fetchAppConfigMeta(): Promise<AppConfigData> {
       const settings = settingsRes?.data || {};
       const courses = settings.courses || DEFAULT_DATA.courses;
       const topics = settings.topics || DEFAULT_DATA.topics;
-      const teacherPass = ""; // never expose the teacher pass to clients
-      
 
       const subjects = (subjectsRes?.data || []).map((s) => ({ name: s.name, course: s.course }));
 
@@ -520,8 +508,6 @@ export async function fetchAppConfigMeta(): Promise<AppConfigData> {
         topics,
         topicQuestions: [],
         exams,
-        teacherPass,
-        
         pinnedCourses: settings.pinned_courses || DEFAULT_DATA.pinnedCourses
       };
 
@@ -701,8 +687,6 @@ export async function saveAppConfig(config: Partial<AppConfigData>): Promise<boo
     const updateData: any = {};
     if (config.courses) updateData.courses = config.courses;
     if (config.topics) updateData.topics = config.topics;
-    if (config.teacherPass) updateData.teacher_pass = config.teacherPass;
-    
     if (config.pinnedCourses) updateData.pinned_courses = config.pinnedCourses;
 
     if (Object.keys(updateData).length > 0) {

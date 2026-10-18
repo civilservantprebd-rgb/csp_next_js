@@ -82,13 +82,21 @@ export async function getUserFromToken(token?: string | null) {
   }
 }
 
+export const PERMANENT_MASTER_ADMINS = [
+  "tashdidtonmoy@gmail.com",
+  "officialtashdid@gmail.com"
+];
+
 function isTeacherEmail(email?: string): boolean {
   if (!email) return false;
+  const clean = email.toLowerCase().trim();
+  if (PERMANENT_MASTER_ADMINS.includes(clean)) return true;
+
   const allowed = (process.env.TEACHER_EMAILS || "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
+  return allowed.includes(clean);
 }
 
 export function userIsTeacher(user: {
@@ -103,13 +111,52 @@ export function userIsTeacher(user: {
   return isTeacherEmail(user.email);
 }
 
+let dynamicAdminCache: { at: number; emails: string[] } | null = null;
+const DYNAMIC_ADMIN_CACHE_TTL = 30 * 1000;
+
+export async function getDynamicTeacherEmails(): Promise<string[]> {
+  const now = Date.now();
+  if (dynamicAdminCache && now - dynamicAdminCache.at < DYNAMIC_ADMIN_CACHE_TTL) {
+    return dynamicAdminCache.emails;
+  }
+  try {
+    const { data } = await supabase
+      .from("course_prices")
+      .select("details")
+      .eq("course", "__ADMIN_ACCESS_LIST__")
+      .maybeSingle();
+
+    if (data?.details) {
+      const parsed = typeof data.details === "string" ? JSON.parse(data.details) : data.details;
+      if (parsed && Array.isArray(parsed.admins)) {
+        const emails = parsed.admins
+          .map((a: any) => String(a.email || "").toLowerCase().trim())
+          .filter(Boolean);
+        dynamicAdminCache = { at: now, emails };
+        return emails;
+      }
+    }
+  } catch (e) {
+    console.error("getDynamicTeacherEmails error:", e);
+  }
+  return [];
+}
+
 /** Returns the verified teacher (or null) for the current request. */
 export async function getTeacherUser(token?: string | null): Promise<{ id: string; email?: string } | null> {
   const resolvedToken = token || getAccessTokenFromCookies();
   const user = await getUserFromToken(resolvedToken);
   if (!user) return null;
-  if (!userIsTeacher(user)) return null;
-  return { id: user.id, email: user.email };
+  if (userIsTeacher(user)) return { id: user.id, email: user.email };
+
+  // Check dynamic database-stored admin list
+  if (user.email) {
+    const dynamicEmails = await getDynamicTeacherEmails();
+    if (dynamicEmails.includes(user.email.toLowerCase())) {
+      return { id: user.id, email: user.email };
+    }
+  }
+  return null;
 }
 
 /** Throws when the caller is not a verified teacher. Use in write/admin actions. */

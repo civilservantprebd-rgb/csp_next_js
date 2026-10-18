@@ -1009,7 +1009,7 @@ export default function HomeClient({
                   <span className="text-sm sm:text-[15px]">রেফারেল</span>
                 </div>
                 <span className="bg-violet-500 text-white font-bold text-xs px-2 py-0.5 rounded-full shadow-xs">
-                  ৳৫০ অফার
+                  অফার
                 </span>
               </button>
 

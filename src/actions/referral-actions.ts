@@ -7,6 +7,7 @@ import {
   ReferralRecord, 
   StudentReferralProfile, 
   ReferralSettings, 
+  CourseReferralConfig,
   generateReferralCodeString,
   DEFAULT_REFERRAL_SETTINGS 
 } from "@/types/referral";

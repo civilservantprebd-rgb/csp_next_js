@@ -29,6 +29,7 @@ const WhatsAppGroupManager = dynamic(() => import("@/components/admin/WhatsAppGr
 const StudyGroupManager = dynamic(() => import("@/components/admin/StudyGroupManager").then(mod => mod.StudyGroupManager), { loading: LoadingFallback });
 const AttendanceManager = dynamic(() => import("@/components/admin/AttendanceManager").then(mod => mod.AttendanceManager), { loading: LoadingFallback });
 const ReferralManager = dynamic(() => import("@/components/admin/ReferralManager").then(mod => mod.ReferralManager), { loading: LoadingFallback });
+const AdminAccessManager = dynamic(() => import("@/components/admin/AdminAccessManager").then(mod => mod.AdminAccessManager), { loading: LoadingFallback });
 const PdfManager = dynamic(() => import("@/components/admin/PdfManager").then(mod => mod.PdfManager), { loading: LoadingFallback });
 const AddCoursePdfModal = dynamic(() => import("@/components/admin/AddCoursePdfModal").then(mod => mod.AddCoursePdfModal));
 import { fetchAdminBootstrap, fetchExamForDemo, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
@@ -72,7 +73,7 @@ export default function AdminPage() {
     if (typeof window !== "undefined") {
       const t = new URLSearchParams(window.location.search).get("tab");
       const valid: AdminTabType[] = [
-        "analytics", "exams", "courses", "subjects", "students", "referrals",
+        "analytics", "exams", "courses", "subjects", "students", "referrals", "admins",
         "questions", "question_bank", "videos", "archive", "news", "whatsapp", "study_groups", "ai_question_generator", "attendance", "pdfs"
       ];
       if (t && (valid as string[]).includes(t)) return t as AdminTabType;
@@ -931,8 +932,9 @@ export default function AdminPage() {
               />
             )}
 
-            
-
+            {activeTab === "admins" && (
+              <AdminAccessManager />
+            )}
 
             </section>
           </div>

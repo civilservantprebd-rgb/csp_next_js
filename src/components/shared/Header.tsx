@@ -343,7 +343,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenStudentPortal, onOpenLeade
                   <span>রেফার ও রিওয়ার্ড</span>
                 </div>
                 <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full">
-                  ৳৫০ অফার
+                  অফার
                 </span>
               </button>
 

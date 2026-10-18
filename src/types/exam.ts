@@ -86,6 +86,5 @@ export interface AppConfigData {
   topicQuestions?: TopicQuestion[];
   exams: Record<string, Exam>;
   subAdmins?: SubAdmin[];
-  teacherPass?: string;
   pinnedCourses?: string[];
 }
