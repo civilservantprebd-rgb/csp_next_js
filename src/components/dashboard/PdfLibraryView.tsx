@@ -406,7 +406,7 @@ export function PdfLibraryView({ courses, initialCourse, onOpenEnrollModal }: Pd
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               {availableCourses.map((course) => {
                 const count = allPdfs.filter((p) => p.course === course).length;
                 const subjectsCount = new Set(
@@ -417,41 +417,50 @@ export function PdfLibraryView({ courses, initialCourse, onOpenEnrollModal }: Pd
                 return (
                   <div
                     key={course}
-                    onClick={() => handleSelectCourse(course)}
-                    className="group bg-white hover:bg-indigo-50/20 rounded-xl p-3.5 sm:p-4 border border-slate-200/90 hover:border-indigo-300 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]"
+                    className="bg-white rounded-3xl border border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-sm overflow-hidden transition-all"
                   >
-                    <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm sm:text-base group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 transition-all shrink-0 shadow-2xs">
-                        <Folder className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-indigo-600 transition leading-snug truncate">
+                    <div
+                      onClick={() => handleSelectCourse(course)}
+                      className="p-3.5 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer select-none group"
+                    >
+                      <div className="min-w-0 flex-1 text-center flex flex-col items-center justify-center">
+                        <div className="flex items-center gap-2 justify-center">
+                          <h3 className="font-bold text-white text-base sm:text-lg leading-tight truncate group-hover:text-amber-300 transition-colors">
                             {course}
-                          </h4>
+                          </h3>
                           {!courseAllowed && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0">
-                              <Lock className="w-3 h-3 text-amber-600" /> লকড
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/40 px-1.5 py-0.5 rounded shrink-0">
+                              <Lock className="w-3 h-3 text-amber-400" /> লকড
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-slate-500 font-medium">
-                            {toBengaliDigits(count)}টি পিডিএফ
-                          </span>
-                          {count > 0 && (
-                            <span className="text-xs text-indigo-600 font-medium">
-                              • {toBengaliDigits(subjectsCount)}টি বিষয়
-                            </span>
-                          )}
+                        <p className="text-xs text-slate-300 font-normal mt-1 truncate">
+                          পিডিএফ শিট: {toBengaliDigits(count)}টি {count > 0 && `• ${toBengaliDigits(subjectsCount)}টি বিষয়`}
+                        </p>
+                      </div>
+
+                      {/* Right: Course Overall Stats Pill + Toggle Icon */}
+                      <div className="flex items-center justify-between sm:justify-start gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+                        <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-sm border border-white/15 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl sm:rounded-2xl flex-1 sm:flex-initial justify-around sm:justify-start">
+                          <div className="text-left sm:text-right pr-2 border-r border-white/20">
+                            <div className="text-[10px] text-slate-300 font-medium">পিডিএফ সংখ্যা</div>
+                            <div className="text-xs sm:text-sm font-medium text-amber-300">
+                              {toBengaliDigits(count)}টি
+                            </div>
+                          </div>
+                          <div className="text-left sm:text-right">
+                            <div className="text-[10px] text-slate-300 font-medium">বিষয় সংখ্যা</div>
+                            <div className="text-xs sm:text-sm font-medium text-emerald-400">
+                              {toBengaliDigits(subjectsCount)}টি
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Chevron Indicator */}
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center text-white border border-white/15 transition shrink-0">
+                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-transform" />
                         </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-indigo-600 group-hover:text-white text-slate-400 flex items-center justify-center transition">
-                        <ChevronRight className="w-4 h-4" />
-                      </span>
                     </div>
                   </div>
                 );
@@ -536,31 +545,35 @@ export function PdfLibraryView({ courses, initialCourse, onOpenEnrollModal }: Pd
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {courseSubjects.map(({ name, count }) => (
                   <div
                     key={name}
-                    onClick={() => handleSelectSubject(name)}
-                    className="group bg-white hover:bg-indigo-50/30 rounded-xl p-3 sm:p-3.5 border border-slate-200 hover:border-indigo-300 transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs active:scale-[0.99]"
+                    className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-sm overflow-hidden transition-all"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-base shadow-2xs group-hover:bg-indigo-600 group-hover:text-white transition shrink-0">
-                        <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <div
+                      onClick={() => handleSelectSubject(name)}
+                      className="p-3.5 sm:p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between gap-3 cursor-pointer select-none group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/10 border border-white/15 text-amber-300 flex items-center justify-center font-bold text-base shadow-2xs group-hover:bg-amber-400 group-hover:text-slate-950 transition shrink-0">
+                          <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-sm sm:text-base text-white group-hover:text-amber-300 transition-colors leading-snug truncate">
+                            {name}
+                          </h4>
+                          <span className="text-xs text-slate-300 font-medium">
+                            {toBengaliDigits(count)}টি লেকচার শিট ও ফাইল
+                          </span>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-indigo-600 transition leading-snug truncate">
-                          {name}
-                        </h4>
-                        <span className="text-xs text-slate-500 font-medium">
-                          {toBengaliDigits(count)}টি ফাইল
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="w-8 h-8 rounded-xl bg-white/10 group-hover:bg-white/20 text-slate-300 group-hover:text-amber-400 flex items-center justify-center border border-white/15 transition">
+                          <ChevronRight className="w-4 h-4" />
                         </span>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-indigo-600 group-hover:text-white text-slate-400 flex items-center justify-center transition">
-                        <ChevronRight className="w-4 h-4" />
-                      </span>
                     </div>
                   </div>
                 ))}
