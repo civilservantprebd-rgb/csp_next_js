@@ -168,6 +168,27 @@ export async function requireTeacher(): Promise<{ id: string; email?: string }> 
   return teacher;
 }
 
+export function isMasterAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.toLowerCase().trim();
+  if (PERMANENT_MASTER_ADMINS.map((e) => e.toLowerCase()).includes(clean)) return true;
+
+  const allowed = (process.env.TEACHER_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(clean);
+}
+
+/** Throws when the caller is not a verified master admin. Used to protect admin delegation actions. */
+export async function requireMasterAdmin(): Promise<{ id: string; email?: string }> {
+  const teacher = await requireTeacher();
+  if (!isMasterAdminEmail(teacher.email)) {
+    throw new Error("অননুমোদিত: শুধুমাত্র মূল (Master) অ্যাডমিন নতুন অ্যাডমিন নিয়োগ বা পরিবর্তন করতে পারেন।");
+  }
+  return teacher;
+}
+
 /**
  * রুট-হ্যান্ডলারের জন্য teacher যাচাই — **Bearer টোকেন আগে, না মিললে কুকি**।
  *

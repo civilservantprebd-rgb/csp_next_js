@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { requireTeacher, PERMANENT_MASTER_ADMINS } from "@/lib/teacher-auth";
+import { requireTeacher, requireMasterAdmin, isMasterAdminEmail, PERMANENT_MASTER_ADMINS } from "@/lib/teacher-auth";
 
 const ADMIN_STORAGE_KEY = "__ADMIN_ACCESS_LIST__";
 
@@ -78,20 +78,29 @@ export async function writeDynamicAdminsToDb(admins: DynamicAdminUser[]): Promis
 export async function getAdminAccessList(): Promise<{
   envAdmins: string[];
   dynamicAdmins: DynamicAdminUser[];
+  isMasterAdmin: boolean;
+  currentEmail: string;
 }> {
-  await requireTeacher();
+  const currentTeacher = await requireTeacher();
 
   const envAdmins = getMasterAdmins();
   const dynamicAdmins = await readDynamicAdminsFromDb();
 
   return {
     envAdmins,
-    dynamicAdmins
+    dynamicAdmins,
+    isMasterAdmin: isMasterAdminEmail(currentTeacher.email),
+    currentEmail: currentTeacher.email || ""
   };
 }
 
 export async function grantAdminAccess(email: string): Promise<{ success: boolean; message: string }> {
-  const currentTeacher = await requireTeacher();
+  let currentTeacher: { id: string; email?: string };
+  try {
+    currentTeacher = await requireMasterAdmin();
+  } catch (err: any) {
+    return { success: false, message: err?.message || "অননুমোদিত: শুধুমাত্র মূল (Master) অ্যাডমিন নতুন অ্যাডমিন নিয়োগ করতে পারেন।" };
+  }
   const cleanEmail = String(email || "").trim().toLowerCase();
 
   if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
@@ -153,7 +162,11 @@ export async function grantAdminAccess(email: string): Promise<{ success: boolea
 }
 
 export async function revokeAdminAccess(email: string): Promise<{ success: boolean; message: string }> {
-  await requireTeacher();
+  try {
+    await requireMasterAdmin();
+  } catch (err: any) {
+    return { success: false, message: err?.message || "অননুমোদিত: শুধুমাত্র মূল (Master) অ্যাডমিন অ্যাডমিন এক্সেস বাতিল করতে পারেন।" };
+  }
   const cleanEmail = String(email || "").trim().toLowerCase();
 
   const masterAdmins = getMasterAdmins();

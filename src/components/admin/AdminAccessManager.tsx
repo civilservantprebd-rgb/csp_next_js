@@ -13,7 +13,8 @@ import {
   RotateCw,
   KeyRound,
   Shield,
-  Info
+  Info,
+  Lock
 } from "lucide-react";
 import {
   getAdminAccessList,
@@ -25,6 +26,8 @@ import {
 export const AdminAccessManager: React.FC = () => {
   const [envAdmins, setEnvAdmins] = useState<string[]>([]);
   const [dynamicAdmins, setDynamicAdmins] = useState<DynamicAdminUser[]>([]);
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [revokingEmail, setRevokingEmail] = useState<string | null>(null);
@@ -40,6 +43,8 @@ export const AdminAccessManager: React.FC = () => {
       const res = await getAdminAccessList();
       setEnvAdmins(res.envAdmins || []);
       setDynamicAdmins(res.dynamicAdmins || []);
+      setIsMasterAdmin(!!res.isMasterAdmin);
+      setCurrentEmail(res.currentEmail || "");
     } catch (err: any) {
       setErrorMsg(err.message || "অ্যাডমিন তালিকা লোড করতে সমস্যা হয়েছে।");
     } finally {
@@ -53,6 +58,10 @@ export const AdminAccessManager: React.FC = () => {
 
   const handleGrantAccess = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isMasterAdmin) {
+      setErrorMsg("শুধুমাত্র মূল (Master) অ্যাডমিন নতুন অ্যাডমিন নিয়োগ করতে পারেন।");
+      return;
+    }
     if (!newEmail.trim()) return;
 
     setSubmitting(true);
@@ -77,6 +86,10 @@ export const AdminAccessManager: React.FC = () => {
   };
 
   const handleRevoke = async (email: string) => {
+    if (!isMasterAdmin) {
+      setErrorMsg("শুধুমাত্র মূল (Master) অ্যাডমিন অ্যাডমিন এক্সেস বাতিল করতে পারেন।");
+      return;
+    }
     if (!window.confirm(`আপনি কি নিশ্চিত যে "${email}"-এর অ্যাডমিন প্যানেল এক্সেস বাতিল করতে চান?`)) {
       return;
     }
@@ -124,11 +137,26 @@ export const AdminAccessManager: React.FC = () => {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-base sm:text-lg font-black text-slate-900">
-              অ্যাডমিন ও শিক্ষক এক্সেস নিয়ন্ত্রণ
-            </h3>
-            <p className="text-xs text-slate-500">
-              সরাসরি ইমেইল দিয়ে যে কাউকে শিক্ষক/অ্যাডমিন এক্সেস দিন অথবা বাতিল করুন
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base sm:text-lg font-black text-slate-900">
+                অ্যাডমিন ও শিক্ষক এক্সেস নিয়ন্ত্রণ
+              </h3>
+              {!loading && (
+                isMasterAdmin ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200/80 rounded-lg text-[11px] font-bold">
+                    <KeyRound className="w-3 h-3 text-amber-600" /> মাস্টার অ্যাডমিন
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-[11px] font-medium">
+                    <Lock className="w-3 h-3 text-slate-400" /> সাধারণ অ্যাডমিন (ভিউ অনলি)
+                  </span>
+                )
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {isMasterAdmin
+                ? "সরাসরি ইমেইল দিয়ে যে কাউকে শিক্ষক/অ্যাডমিন এক্সেস দিন অথবা বাতিল করুন"
+                : "শুধুমাত্র মূল (Master) অ্যাডমিন নতুন অ্যাডমিন যুক্ত বা বাতিল করতে পারেন"}
             </p>
           </div>
         </div>
@@ -143,43 +171,59 @@ export const AdminAccessManager: React.FC = () => {
         </button>
       </div>
 
-      {/* Add New Admin Form */}
-      <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/30 rounded-3xl border border-indigo-100 p-5 sm:p-6 shadow-sm space-y-3">
-        <div className="flex items-center gap-2">
-          <UserPlus className="w-4 h-4 text-indigo-600" />
-          <h4 className="text-sm font-bold text-slate-900">
-            নতুন শিক্ষক / অ্যাডমিন যুক্ত করুন
-          </h4>
-        </div>
-        <form onSubmit={handleGrantAccess} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="relative flex-1">
-            <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="email"
-              required
-              placeholder="শিক্ষক বা অ্যাডমিনের ইমেইল এড্রেস লিখুন (যেমন: teacher@gmail.com)"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition"
-            />
+      {/* Add New Admin Form (Master Admin Only) */}
+      {isMasterAdmin ? (
+        <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/30 rounded-3xl border border-indigo-100 p-5 sm:p-6 shadow-sm space-y-3">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-indigo-600" />
+            <h4 className="text-sm font-bold text-slate-900">
+              নতুন শিক্ষক / অ্যাডমিন যুক্ত করুন
+            </h4>
           </div>
-          <button
-            type="submit"
-            disabled={submitting || !newEmail.trim()}
-            className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 shrink-0 shadow-sm cursor-pointer active:scale-[0.99]"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> এক্সেস দেওয়া হচ্ছে...
-              </>
-            ) : (
-              <>
-                <Shield className="w-4 h-4" /> এক্সেস দিন
-              </>
-            )}
-          </button>
-        </form>
-      </div>
+          <form onSubmit={handleGrantAccess} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            <div className="relative flex-1">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="email"
+                required
+                placeholder="শিক্ষক বা অ্যাডমিনের ইমেইল এড্রেস লিখুন (যেমন: teacher@gmail.com)"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={submitting || !newEmail.trim()}
+              className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 shrink-0 shadow-sm cursor-pointer active:scale-[0.99]"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> এক্সেস দেওয়া হচ্ছে...
+                </>
+              ) : (
+                <>
+                  <Shield className="w-4 h-4" /> এক্সেস দিন
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="bg-amber-50/80 rounded-3xl border border-amber-200/80 p-5 sm:p-6 shadow-xs flex items-start gap-3.5">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+            <Lock className="w-4 h-4 text-amber-700" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-bold text-amber-950">
+              নতুন অ্যাডমিন নিয়োগ সীমাবদ্ধ
+            </h4>
+            <p className="text-xs text-amber-900/80 leading-relaxed">
+              শুধুমাত্র সিস্টেমের <strong>মূল (Master) অ্যাডমিন</strong> নতুন কাউকে শিক্ষক বা অ্যাডমিন হিসেবে নিয়োগ দিতে পারেন। আপনার বর্তমান অ্যাকাউন্ট (<span className="font-semibold text-amber-950">{currentEmail || "আপনার আইডি"}</span>) সাধারণ শিক্ষক/অ্যাডমিন মোডে থাকায় নতুন অ্যাডমিন যুক্ত বা বাতিল করার সুযোগ নেই।
+            </p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-16 bg-white rounded-3xl border border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-2">
@@ -279,20 +323,26 @@ export const AdminAccessManager: React.FC = () => {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={revokingEmail === admin.email}
-                      onClick={() => handleRevoke(admin.email)}
-                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer self-end sm:self-auto shrink-0"
-                      title="অ্যাডমিন এক্সেস বাতিল করুন"
-                    >
-                      {revokingEmail === admin.email ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <UserX className="w-3.5 h-3.5" />
-                      )}
-                      <span>এক্সেস বাতিল করুন</span>
-                    </button>
+                    {isMasterAdmin ? (
+                      <button
+                        type="button"
+                        disabled={revokingEmail === admin.email}
+                        onClick={() => handleRevoke(admin.email)}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer self-end sm:self-auto shrink-0"
+                        title="অ্যাডমিন এক্সেস বাতিল করুন"
+                      >
+                        {revokingEmail === admin.email ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <UserX className="w-3.5 h-3.5" />
+                        )}
+                        <span>এক্সেস বাতিল করুন</span>
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 font-medium px-2.5 py-1 bg-slate-50 border border-slate-200/60 rounded-lg self-end sm:self-auto shrink-0">
+                        মাস্টার অ্যাডমিন দ্বারা সংরক্ষিত
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -305,9 +355,10 @@ export const AdminAccessManager: React.FC = () => {
             <div className="space-y-1.5 leading-relaxed">
               <p className="font-bold text-sm">💡 এটি কীভাবে কাজ করে?</p>
               <ul className="list-disc list-inside space-y-1 text-indigo-900/90 text-xs">
-                <li>যাকে অ্যাডমিন করতে চান, তার <strong>Google একাউন্টের ইমেইল</strong> উপরের বক্সে লিখে এক্সেস দিন।</li>
+                <li>নতুন অ্যাডমিন নিয়োগ এবং বাতিল করার ক্ষমতা শুধুমাত্র মূল (Master) অ্যাডমিনদের হাতে সংরক্ষিত।</li>
+                <li>মাস্টার অ্যাডমিন কাউকে অ্যাডমিন করতে চাইলে তার <strong>Google একাউন্টের ইমেইল</strong> বক্সে লিখে এক্সেস দেবেন।</li>
                 <li>এরপর তিনি <code>/admin</code> পেজে গিয়ে <strong>&ldquo;Google দিয়ে সাইন ইন&rdquo;</strong> করলেই সরাসরি পুরো শিক্ষক/অ্যাডমিন প্যানেল দেখতে পাবেন।</li>
-                <li>যেকোনো সময় চাইলে আপনি এখান থেকে ১-ক্লিকেই তার এক্সেস বাতিল করে দিতে পারেন। কোনো ডিপ্লয়মেন্টের প্রয়োজন নেই।</li>
+                <li>যেকোনো সময় চাইলে মাস্টার অ্যাডমিন এখান থেকে ১-ক্লিকেই তার এক্সেস বাতিল করে দিতে পারেন। কোনো ডিপ্লয়মেন্টের প্রয়োজন নেই।</li>
               </ul>
             </div>
           </div>
