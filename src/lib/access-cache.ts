@@ -18,8 +18,8 @@
  */
 
 const PREFIX = "csp_access_";
-/** denied ফলাফল কতক্ষণ ক্যাশ থাকবে (allowed লগআউট পর্যন্ত থাকে)। */
-const DENIED_TTL_MS = 5 * 60 * 1000; // ৫ মিনিট
+const ALLOWED_TTL_MS = 2 * 60 * 1000; // ২ মিনিট (এনরোলমেন্ট পরিবর্তন যেন দ্রুত কার্যকর হয়)
+const DENIED_TTL_MS = 30 * 1000; // ৩০ সেকেন্ড
 
 export interface EnrollmentSnapshot {
   allowed: boolean;
@@ -36,9 +36,8 @@ function storageKey(uid: string, email?: string): string {
 }
 
 function isFresh(snap: EnrollmentSnapshot): boolean {
-  // allowed → লগআউট পর্যন্ত বৈধ (কোনো মেয়াদ নেই); denied → ৫ মিনিট
-  if (snap.allowed) return true;
-  return Date.now() - snap.ts < DENIED_TTL_MS;
+  const ttl = snap.allowed ? ALLOWED_TTL_MS : DENIED_TTL_MS;
+  return Date.now() - snap.ts < ttl;
 }
 
 function readSnapshot(uid: string, email?: string): EnrollmentSnapshot | null {

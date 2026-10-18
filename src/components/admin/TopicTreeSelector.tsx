@@ -68,8 +68,11 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
     });
   }, [topics]);
 
-  const toggleExpand = (path: string) => {
-    setExpandedPaths((prev) => ({ ...prev, [path]: !prev[path] }));
+  const toggleExpand = (path: string, currentExpanded?: boolean) => {
+    setExpandedPaths((prev) => ({
+      ...prev,
+      [path]: currentExpanded !== undefined ? !currentExpanded : !prev[path]
+    }));
   };
 
   // Add new topic / subtopic / sub-subtopic
@@ -128,7 +131,11 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
           const isSelected =
             selectedTopicPath.trim().toLowerCase() === node.fullPath.trim().toLowerCase();
           const hasChildren = node.children && node.children.length > 0;
-          const isExpanded = expandedPaths[node.fullPath] ?? (depth === 0 || isSelected);
+          const isAncestorOfSelected = Boolean(
+            selectedTopicPath &&
+            selectedTopicPath.trim().toLowerCase().startsWith(node.fullPath.trim().toLowerCase() + " > ")
+          );
+          const isExpanded = expandedPaths[node.fullPath] ?? isAncestorOfSelected;
           const isAddingChild = addingParentPath === node.fullPath;
 
           return (
@@ -147,7 +154,7 @@ export const TopicTreeSelector: React.FC<TopicTreeSelectorProps> = ({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleExpand(node.fullPath);
+                        toggleExpand(node.fullPath, isExpanded);
                       }}
                       className={`p-0.5 rounded hover:bg-black/10 transition cursor-pointer ${
                         isSelected ? "text-white" : "text-slate-400"

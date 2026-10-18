@@ -114,19 +114,14 @@ export const PracticeHub: React.FC<PracticeHubProps> = ({ onOpenEnrollModal, ini
         // তাই একসাথে চালাই। আগে সিরিয়ালে বসত, ফলে হাব খুলতে দুটো রাউন্ড-ট্রিপ
         // পিছনে পিছনে লাগত (~৪০০ms শুধু অপেক্ষা)।
         const { checkEnrollmentCached } = await import("@/lib/access-cache");
-        const [teacher, g] = await Promise.all([
-          verifyTeacherSession(),
-          checkEnrollmentCached(u.uid, u.email)
-        ]);
-        if (teacher.ok) {
-          if (!cancelled) setPhase("hub");
-          if (!cancelled) loadTopics(u.uid, u.email || "");
-          return;
-        }
-        let allowed = g.allowed;
+        let allowed = false;
         let effId = u.uid;
         let effEmail = u.email || "";
-        if (!allowed) {
+
+        const g = await checkEnrollmentCached(u.uid, u.email);
+        if (g.allowed) {
+          allowed = true;
+        } else {
           const { getVerifiedStudent } = await import("@/lib/student-identity");
           const verified = getVerifiedStudent();
           if (verified && verified.id && verified.id !== u.uid) {

@@ -142,6 +142,32 @@ export async function verifyStudentAccess(
 
     // If verifying general enrollment access ("ALL")
     if (!targetCourse || targetCourse === "ALL") {
+      // Verify that student is enrolled in at least one active course in app_settings
+      let hasActiveCourse = false;
+      try {
+        const { data: settings } = await supabase
+          .from("app_settings")
+          .select("courses")
+          .eq("id", "main")
+          .maybeSingle();
+        const registeredCourses: string[] = settings?.courses || [];
+        const regSet = new Set(registeredCourses.map((c) => String(c).trim().toLowerCase()));
+
+        hasActiveCourse = normalizedCourses.some((c) => {
+          const lc = c.toLowerCase();
+          return lc === "all" || lc === "সকল কোর্স" || regSet.has(lc);
+        });
+      } catch {
+        hasActiveCourse = normalizedCourses.length > 0;
+      }
+
+      if (!hasActiveCourse) {
+        return {
+          allowed: false,
+          message: "আপনার কোনো সক্রিয় কোর্সে এনরোলমেন্ট নেই। অনুগ্রহ করে একটি কোর্সে এনরোল করে শিক্ষকের অনুমোদন নিন।"
+        };
+      }
+
       return {
         allowed: true,
         studentName: matchedStudent.name || "শিক্ষার্থী",

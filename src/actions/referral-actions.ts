@@ -12,14 +12,54 @@ import {
 } from "@/types/referral";
 
 import { getCoursePrices } from "@/actions/course-actions";
+import { parseBengaliDigits } from "@/lib/utils";
+
+interface ReferralMetaStore {
+  bkash_numbers: Record<string, string>;
+  payouts: Record<string, { status: "paid" | "unpaid"; paid_at?: string; note?: string }>;
+  settings?: ReferralSettings;
+}
+
+export async function getReferralMeta(): Promise<ReferralMetaStore> {
+  try {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("archived_questions")
+      .eq("id", "referral_meta")
+      .maybeSingle();
+    const raw = data?.archived_questions;
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      return {
+        bkash_numbers: (raw as any).bkash_numbers || {},
+        payouts: (raw as any).payouts || {},
+        settings: (raw as any).settings || undefined
+      };
+    }
+  } catch (err) {
+    console.error("getReferralMeta error:", err);
+  }
+  return { bkash_numbers: {}, payouts: {} };
+}
+
+export async function saveReferralMeta(meta: ReferralMetaStore): Promise<void> {
+  try {
+    await supabase.from("app_settings").upsert({
+      id: "referral_meta",
+      teacher_pass: "referral_metadata_store",
+      archived_questions: meta,
+      updated_at: getTrueDate().toISOString()
+    });
+  } catch (err) {
+    console.error("saveReferralMeta error:", err);
+  }
+}
 
 let cachedReferralSettings: ReferralSettings | null = null;
 let lastSettingsFetch = 0;
 const SETTINGS_CACHE_TTL = 30000; // 30s cache
 
 /**
- * রেফারেল সেটিংস নিয়ে আসে (ক্যাশ সহ)।
- * Supabase-এর app_settings টেবিল (id="main") এর referral_settings কলাম অথবা ইন-মেমোরি/ফলব্যাক থেকে আনা হয়।
+ * রেফারেল সেটিংস নিয়ে আসে (ক্যাশ ও ডেটাবেজ পারসিস্টেন্স সহ)।
  */
 export async function getReferralSettings(): Promise<ReferralSettings> {
   const now = Date.now();
@@ -28,13 +68,27 @@ export async function getReferralSettings(): Promise<ReferralSettings> {
   }
 
   try {
-    const { data, error } = await supabase
+    // ১. প্রথমে সুরক্ষিত referral_meta স্টোর চেক করি (১০০% পারসিস্টেন্ট)
+    const meta = await getReferralMeta();
+    if (meta.settings && typeof meta.settings === "object") {
+      const merged: ReferralSettings = {
+        ...DEFAULT_REFERRAL_SETTINGS,
+        ...meta.settings,
+        courseConfigs: meta.settings.courseConfigs || {}
+      };
+      cachedReferralSettings = merged;
+      lastSettingsFetch = now;
+      return merged;
+    }
+
+    // ২. বিকল্প হিসেবে app_settings কলাম চেক
+    const { data } = await supabase
       .from("app_settings")
       .select("referral_settings")
       .eq("id", "main")
       .maybeSingle();
 
-    if (!error && data?.referral_settings) {
+    if (data?.referral_settings) {
       const parsed = typeof data.referral_settings === "string" 
         ? JSON.parse(data.referral_settings) 
         : data.referral_settings;
@@ -74,32 +128,57 @@ export async function saveReferralSettings(
       }
     };
 
-    // ডেটাবেজে সংরক্ষণের চেষ্টা (app_settings - referral_settings কলাম)
-    const { error } = await supabase
-      .from("app_settings")
-      .update({ referral_settings: updated })
-      .eq("id", "main");
+    // ১. referral_meta-এ সংরক্ষণ (যা ১০০% নিশ্চিতভাবে ডেটাবেজে পারসিস্ট করে)
+    const meta = await getReferralMeta();
+    meta.settings = updated;
+    await saveReferralMeta(meta);
 
-    if (error) {
-      // যদি কলাম না থাকে বা এরর হয়, তাহলে চেষ্টা করি পুরো app_settings অবজেক্টে সেভ করার
-      console.warn("Direct update on referral_settings failed, checking fallback:", error.message);
-      // ক্যাশ সবসময় আপডেট করে রাখি যাতে বর্তমান সেশনে কাজ করে
-      cachedReferralSettings = updated;
-      lastSettingsFetch = Date.now();
-      return { 
-        success: true, 
-        message: "সেটিংস আপডেট হয়েছে (মেমোরি/লোকাল স্টেটে সক্রিয়)।" 
-      };
+    // ২. কলাম থাকলে সরাসরি কলামেও আপডেট
+    try {
+      await supabase
+        .from("app_settings")
+        .update({ referral_settings: updated })
+        .eq("id", "main");
+    } catch {
+      // ignore
     }
 
     cachedReferralSettings = updated;
     lastSettingsFetch = Date.now();
 
-    return { success: true, message: "রেফারেল কমিশন ও ডিসকাউন্ট সফলভাবে সংরক্ষিত হয়েছে!" };
+    return { success: true, message: "রেফারেল কমিশন ও ডিসকাউন্ট পার্সেন্টেজ সফলভাবে সংরক্ষিত হয়েছে!" };
   } catch (err: any) {
     console.error("saveReferralSettings error:", err);
     return { success: false, message: err?.message || "সেটিংস সংরক্ষণ করা যায়নি।" };
   }
+}
+
+/**
+ * কোনো নির্দিষ্ট কোর্সের কনফিগারেশন বের করার হেল্পার
+ */
+function getCourseReferralConfig(
+  settings: ReferralSettings,
+  courseName: string
+): CourseReferralConfig {
+  const defReward = settings.defaultRewardPercent ?? 10;
+  const defDiscount = settings.defaultDiscountPercent ?? 10;
+  if (!courseName) {
+    return { rewardPercent: defReward, discountPercent: defDiscount };
+  }
+
+  const direct = settings.courseConfigs?.[courseName];
+  if (direct && typeof direct.rewardPercent === "number") {
+    return direct;
+  }
+
+  const norm = courseName.trim().toLowerCase();
+  for (const [k, v] of Object.entries(settings.courseConfigs || {})) {
+    if (k.trim().toLowerCase() === norm && typeof v?.rewardPercent === "number") {
+      return v;
+    }
+  }
+
+  return { rewardPercent: defReward, discountPercent: defDiscount };
 }
 
 /**
@@ -209,15 +288,32 @@ export async function validateReferralCode(
 
     const referrerName = referrer?.name || "সহপাঠী";
 
-    // কোর্স অনুযায়ী % ডিসকাউন্ট হিসাব
-    const courseConfig = courseName ? settings.courseConfigs[courseName] : undefined;
-    const discountPercent = courseConfig?.discountPercent ?? settings.defaultDiscountPercent ?? 10;
+    // কোর্স অনুযায়ী প্রকৃত % ডিসকাউন্ট হিসাব
+    const prices = await getCoursePrices();
+    const coursesList = courseName 
+      ? courseName.split(",").map((c) => c.trim()).filter(Boolean) 
+      : [];
 
     let discount = 0;
-    if (coursePrice && coursePrice > 0) {
-      discount = Math.round((coursePrice * discountPercent) / 100);
+    let discountPercent = settings.defaultDiscountPercent ?? 10;
+
+    if (coursesList.length > 0) {
+      let sumDiscount = 0;
+      let sumPrice = 0;
+      for (const c of coursesList) {
+        const cConfig = getCourseReferralConfig(settings, c);
+        const pInfo = prices[c];
+        const p = pInfo ? (pInfo.offerPrice ?? pInfo.price ?? 500) : 500;
+        sumPrice += p;
+        sumDiscount += Math.round((p * cConfig.discountPercent) / 100);
+      }
+      discount = sumDiscount;
+      discountPercent = sumPrice > 0 ? Math.round((sumDiscount / sumPrice) * 100) : discountPercent;
+    } else if (coursePrice && coursePrice > 0) {
+      const cConfig = getCourseReferralConfig(settings, "");
+      discount = Math.round((coursePrice * cConfig.discountPercent) / 100);
+      discountPercent = cConfig.discountPercent;
     } else {
-      // যদি দাম না আসে, তবে ডিফল্ট ফ্ল্যাট ডিসকাউন্ট
       discount = settings.refereeDiscount || 50;
     }
 
@@ -236,6 +332,109 @@ export async function validateReferralCode(
 }
 
 /**
+ * শিক্ষার্থীর বিকাশ নাম্বার সংরক্ষণ বা আপডেট করা (রিওয়ার্ড পাওয়ার জন্য)।
+ */
+export async function saveStudentBkashNumber(
+  studentId: string,
+  bkashNumber: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cleanId = String(studentId || "").trim();
+    if (!cleanId) return { success: false, message: "স্টুডেন্ট আইডি প্রয়োজন।" };
+
+    if (!(await sessionOwnsStudent(cleanId))) {
+      return { success: false, message: "অননুমোদিত অনুরোধ।" };
+    }
+
+    const cleanNum = parseBengaliDigits(String(bkashNumber || "")).trim().replace(/[^0-9]/g, "");
+    if (!cleanNum || cleanNum.length !== 11 || !cleanNum.startsWith("01")) {
+      return { success: false, message: "সঠিক ১১ ডিজিটের বিকাশ নাম্বার লিখুন (যেমন: 017XXXXXXXX)।" };
+    }
+
+    const meta = await getReferralMeta();
+    meta.bkash_numbers[cleanId] = cleanNum;
+    await saveReferralMeta(meta);
+
+    // ডেটাবেজ কলাম থাকলে আপডেট
+    try {
+      await supabase
+        .from("referral_records")
+        .update({ referrer_bkash: cleanNum })
+        .eq("referrer_id", cleanId);
+    } catch {
+      // কলাম না থাকলে মেটাতেই সুরক্ষিত
+    }
+
+    return { success: true, message: "আপনার বিকাশ নাম্বার সফলভাবে সংরক্ষিত হয়েছে!" };
+  } catch (err: any) {
+    console.error("saveStudentBkashNumber error:", err);
+    return { success: false, message: err?.message || "বিকাশ নাম্বার সেভ করা যায়নি।" };
+  }
+}
+
+/**
+ * শিক্ষার্থীর সংরক্ষিত বিকাশ নাম্বার পাওয়া।
+ */
+export async function getStudentBkashNumber(studentId: string): Promise<string> {
+  try {
+    const cleanId = String(studentId || "").trim();
+    if (!cleanId) return "";
+    const meta = await getReferralMeta();
+    return meta.bkash_numbers[cleanId] || "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * শিক্ষক কর্তৃক রেফারেলের টাকা পরিশোধের স্ট্যাটাস মার্ক করা ('paid' বা 'unpaid')।
+ */
+export async function markReferralPayout(
+  recordId: string,
+  paymentStatus: "paid" | "unpaid",
+  note?: string
+): Promise<{ success: boolean; message: string; paidAt?: string }> {
+  try {
+    await requireTeacher();
+
+    const cleanId = String(recordId || "").trim();
+    if (!cleanId) return { success: false, message: "রেকর্ড আইডি পাওয়া যায়নি।" };
+
+    const paidAt = paymentStatus === "paid" ? getTrueDate().toISOString() : undefined;
+    const meta = await getReferralMeta();
+    meta.payouts[cleanId] = {
+      status: paymentStatus,
+      paid_at: paidAt,
+      note: note || (paymentStatus === "paid" ? "বিকাশ পেমেন্ট সম্পন্ন" : "")
+    };
+    await saveReferralMeta(meta);
+
+    // ডেটাবেজ টেবিলে কলাম থাকলে আপডেট
+    try {
+      await supabase
+        .from("referral_records")
+        .update({
+          payment_status: paymentStatus,
+          paid_at: paidAt || null,
+          payment_note: note || null
+        })
+        .eq("id", cleanId);
+    } catch {
+      // ignore
+    }
+
+    return {
+      success: true,
+      message: paymentStatus === "paid" ? "টাকা পরিশোধ সফলভাবে মার্ক করা হয়েছে!" : "পরিশোধ স্ট্যাটাস বাতিল (বাকি) করা হয়েছে।",
+      paidAt
+    };
+  } catch (err: any) {
+    console.error("markReferralPayout error:", err);
+    return { success: false, message: err?.message || "পেমেন্ট স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে।" };
+  }
+}
+
+/**
  * যখন কোনো শিক্ষার্থী রেফারেল কোড দিয়ে এনরোল রিকোয়েস্ট সাবমিট করে:
  * রেফারেল রেকর্ড তৈরি/রেকর্ড করা। কোর্স-ভিত্তিক রিওয়ার্ড % অনুযায়ী রেফারার বোনাস হিসাব করা হয়।
  */
@@ -244,6 +443,7 @@ export async function trackReferralSubmission(payload: {
   referredUserId: string;
   referredUserName: string;
   referredUserEmail?: string;
+  referredUserBkash?: string;
   course: string;
 }): Promise<boolean> {
   try {
@@ -257,6 +457,17 @@ export async function trackReferralSubmission(payload: {
     // নিজেকে নিজে রেফার করা নিষিদ্ধ
     if (val.referrerId === payload.referredUserId) {
       return false;
+    }
+
+    const cleanReferredBkash = payload.referredUserBkash
+      ? parseBengaliDigits(payload.referredUserBkash).trim().replace(/[^0-9]/g, "")
+      : "";
+
+    // বিকাশ নাম্বার সংরক্ষণ
+    const meta = await getReferralMeta();
+    if (cleanReferredBkash) {
+      meta.bkash_numbers[payload.referredUserId] = cleanReferredBkash;
+      await saveReferralMeta(meta);
     }
 
     const { data: existingRef } = await supabase
@@ -281,16 +492,20 @@ export async function trackReferralSubmission(payload: {
     const settings = await getReferralSettings();
     const prices = await getCoursePrices();
     
-    // কোর্সের দাম বের করি (একাধিক কোর্স কমা দিয়ে থাকতে পারে, প্রথমটি বা সবগুলোর সমষ্টি)
-    const targetCourse = payload.course.split(",")[0].trim();
-    const pInfo = prices[targetCourse];
-    const actualPrice = pInfo ? (pInfo.offerPrice ?? pInfo.price ?? 500) : 500;
+    // কোর্সের দাম অনুযায়ী কমিশন হিসাব (একাধিক কোর্স থাকলে প্রতিটির শতকরা হিসেব যোগ হয়)
+    const courseList = payload.course.split(",").map(c => c.trim()).filter(Boolean);
+    let totalReward = 0;
+    for (const c of courseList) {
+      const pInfo = prices[c];
+      const actualPrice = pInfo ? (pInfo.offerPrice ?? pInfo.price ?? 500) : 500;
+      const cConfig = getCourseReferralConfig(settings, c);
+      totalReward += Math.round((actualPrice * cConfig.rewardPercent) / 100);
+    }
+    const computedReward = totalReward || (settings.rewardPerReferral || 50);
 
-    const courseConfig = settings.courseConfigs[targetCourse];
-    const rewardPercent = courseConfig?.rewardPercent ?? settings.defaultRewardPercent ?? 10;
-    const computedReward = Math.round((actualPrice * rewardPercent) / 100) || (settings.rewardPerReferral || 50);
+    const refBkash = meta.bkash_numbers[val.referrerId] || "";
 
-    await supabase.from("referral_records").insert({
+    const insertPayload: Record<string, any> = {
       referrer_id: val.referrerId,
       referrer_name: refUser?.name || val.referrerName || "রেফারার",
       referrer_email: refUser?.email || "",
@@ -302,7 +517,18 @@ export async function trackReferralSubmission(payload: {
       status: "pending",
       reward_amount: computedReward,
       created_at: getTrueDate().toISOString()
-    });
+    };
+
+    if (refBkash) insertPayload.referrer_bkash = refBkash;
+    if (cleanReferredBkash) insertPayload.referred_user_bkash = cleanReferredBkash;
+
+    const { error } = await supabase.from("referral_records").insert(insertPayload);
+    if (error) {
+      // যদি কলাম না থাকে, বেসিক ফিল্ড দিয়ে সেভ করি
+      delete insertPayload.referrer_bkash;
+      delete insertPayload.referred_user_bkash;
+      await supabase.from("referral_records").insert(insertPayload);
+    }
 
     return true;
   } catch (err) {
@@ -359,6 +585,7 @@ export async function getStudentReferralProfile(
 
     // ১. রেফারেল কোড
     const { referralCode } = await getOrCreateStudentReferralCode(cleanId);
+    const meta = await getReferralMeta();
 
     // ২. রেফারেল রেকর্ডসমূহ
     const { data: rows } = await supabase
@@ -367,21 +594,30 @@ export async function getStudentReferralProfile(
       .eq("referrer_id", cleanId)
       .order("created_at", { ascending: false });
 
-    const records: ReferralRecord[] = (rows || []).map((r) => ({
-      id: r.id,
-      referrerId: r.referrer_id,
-      referrerName: r.referrer_name,
-      referrerEmail: r.referrer_email,
-      referredUserId: r.referred_user_id,
-      referredUserName: r.referred_user_name,
-      referredUserEmail: r.referred_user_email,
-      referralCode: r.referral_code,
-      course: r.course,
-      status: r.status as "pending" | "completed",
-      rewardAmount: Number(r.reward_amount || DEFAULT_REFERRAL_SETTINGS.rewardPerReferral),
-      createdAt: r.created_at,
-      completedAt: r.completed_at
-    }));
+    const records: ReferralRecord[] = (rows || []).map((r) => {
+      const payout = meta.payouts[r.id];
+      const pStatus: "unpaid" | "paid" = (payout?.status === "paid" || r.payment_status === "paid") ? "paid" : "unpaid";
+      return {
+        id: r.id,
+        referrerId: r.referrer_id,
+        referrerName: r.referrer_name,
+        referrerEmail: r.referrer_email,
+        referrerBkash: meta.bkash_numbers[r.referrer_id] || r.referrer_bkash || "",
+        referredUserId: r.referred_user_id,
+        referredUserName: r.referred_user_name,
+        referredUserEmail: r.referred_user_email,
+        referredUserBkash: meta.bkash_numbers[r.referred_user_id] || r.referred_user_bkash || "",
+        referralCode: r.referral_code,
+        course: r.course,
+        status: r.status as "pending" | "completed",
+        rewardAmount: Number(r.reward_amount || DEFAULT_REFERRAL_SETTINGS.rewardPerReferral),
+        paymentStatus: pStatus,
+        paidAt: payout?.paid_at || r.paid_at,
+        paymentNote: payout?.note || r.payment_note,
+        createdAt: r.created_at,
+        completedAt: r.completed_at
+      };
+    });
 
     const totalReferrals = records.length;
     const completedReferrals = records.filter((r) => r.status === "completed").length;
@@ -390,12 +626,21 @@ export async function getStudentReferralProfile(
       .filter((r) => r.status === "completed")
       .reduce((sum, r) => sum + r.rewardAmount, 0);
 
+    const paidEarnings = records
+      .filter((r) => r.status === "completed" && r.paymentStatus === "paid")
+      .reduce((sum, r) => sum + r.rewardAmount, 0);
+
+    const unpaidEarnings = totalEarnings - paidEarnings;
+
     return {
       referralCode,
       totalReferrals,
       completedReferrals,
       pendingReferrals,
       totalEarnings,
+      paidEarnings,
+      unpaidEarnings,
+      bkashNumber: meta.bkash_numbers[cleanId] || "",
       referrals: records
     };
   } catch (err) {
@@ -410,34 +655,45 @@ export async function getStudentReferralProfile(
 export async function getAllReferralRecordsForAdmin(): Promise<{
   records: ReferralRecord[];
   totalEarningsIssued: number;
+  totalPaidAmount: number;
+  totalUnpaidAmount: number;
   completedCount: number;
   pendingCount: number;
 }> {
   try {
     await requireTeacher();
 
-    const { data: rows, error } = await supabase
-      .from("referral_records")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [rowsRes, meta] = await Promise.all([
+      supabase.from("referral_records").select("*").order("created_at", { ascending: false }),
+      getReferralMeta()
+    ]);
 
-    if (error) throw error;
+    const rows = rowsRes.data || [];
 
-    const records: ReferralRecord[] = (rows || []).map((r) => ({
-      id: r.id,
-      referrerId: r.referrer_id,
-      referrerName: r.referrer_name,
-      referrerEmail: r.referrer_email,
-      referredUserId: r.referred_user_id,
-      referredUserName: r.referred_user_name,
-      referredUserEmail: r.referred_user_email,
-      referralCode: r.referral_code,
-      course: r.course,
-      status: r.status as "pending" | "completed",
-      rewardAmount: Number(r.reward_amount || DEFAULT_REFERRAL_SETTINGS.rewardPerReferral),
-      createdAt: r.created_at,
-      completedAt: r.completed_at
-    }));
+    const records: ReferralRecord[] = rows.map((r: any) => {
+      const payout = meta.payouts[r.id];
+      const pStatus: "unpaid" | "paid" = (payout?.status === "paid" || r.payment_status === "paid") ? "paid" : "unpaid";
+      return {
+        id: r.id,
+        referrerId: r.referrer_id,
+        referrerName: r.referrer_name,
+        referrerEmail: r.referrer_email,
+        referrerBkash: meta.bkash_numbers[r.referrer_id] || r.referrer_bkash || "",
+        referredUserId: r.referred_user_id,
+        referredUserName: r.referred_user_name,
+        referredUserEmail: r.referred_user_email,
+        referredUserBkash: meta.bkash_numbers[r.referred_user_id] || r.referred_user_bkash || "",
+        referralCode: r.referral_code,
+        course: r.course,
+        status: r.status as "pending" | "completed",
+        rewardAmount: Number(r.reward_amount || DEFAULT_REFERRAL_SETTINGS.rewardPerReferral),
+        paymentStatus: pStatus,
+        paidAt: payout?.paid_at || r.paid_at,
+        paymentNote: payout?.note || r.payment_note,
+        createdAt: r.created_at,
+        completedAt: r.completed_at
+      };
+    });
 
     const completedCount = records.filter((r) => r.status === "completed").length;
     const pendingCount = records.filter((r) => r.status === "pending").length;
@@ -445,9 +701,17 @@ export async function getAllReferralRecordsForAdmin(): Promise<{
       .filter((r) => r.status === "completed")
       .reduce((sum, r) => sum + r.rewardAmount, 0);
 
+    const totalPaidAmount = records
+      .filter((r) => r.status === "completed" && r.paymentStatus === "paid")
+      .reduce((sum, r) => sum + r.rewardAmount, 0);
+
+    const totalUnpaidAmount = totalEarningsIssued - totalPaidAmount;
+
     return {
       records,
       totalEarningsIssued,
+      totalPaidAmount,
+      totalUnpaidAmount,
       completedCount,
       pendingCount
     };
@@ -456,8 +720,12 @@ export async function getAllReferralRecordsForAdmin(): Promise<{
     return {
       records: [],
       totalEarningsIssued: 0,
+      totalPaidAmount: 0,
+      totalUnpaidAmount: 0,
       completedCount: 0,
       pendingCount: 0
     };
   }
 }
+
+

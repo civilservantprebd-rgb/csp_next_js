@@ -1,6 +1,6 @@
 export interface CoursePdfItem {
   id: string;
-  examId: string;
+  examId?: string;
   course: string;
   subject: string;
   title: string;

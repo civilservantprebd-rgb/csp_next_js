@@ -14,13 +14,20 @@ import {
   Save, 
   Sparkles,
   Sliders,
-  DollarSign
+  DollarSign,
+  Smartphone,
+  Copy,
+  Check,
+  Wallet,
+  RotateCcw
 } from "lucide-react";
 import { 
   getAllReferralRecordsForAdmin, 
   getReferralSettings, 
-  saveReferralSettings 
+  saveReferralSettings,
+  markReferralPayout 
 } from "@/actions/referral-actions";
+import { getCoursePrices, CoursePrice } from "@/actions/course-actions";
 import { 
   ReferralRecord, 
   ReferralSettings, 
@@ -36,31 +43,44 @@ interface ReferralManagerProps {
 export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }) => {
   const [records, setRecords] = useState<ReferralRecord[]>([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [totalPaidAmount, setTotalPaidAmount] = useState(0);
+  const [totalUnpaidAmount, setTotalUnpaidAmount] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "pending">("all");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "unpaid" | "paid" | "pending">("all");
+
+  // Payout marking & copy states
+  const [updatingPayoutId, setUpdatingPayoutId] = useState<string | null>(null);
+  const [copiedBkash, setCopiedBkash] = useState<string | null>(null);
 
   // সেটিংস স্টেট
   const [settings, setSettings] = useState<ReferralSettings>(DEFAULT_REFERRAL_SETTINGS);
+  const [coursePrices, setCoursePrices] = useState<Record<string, CoursePrice>>({});
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<"settings" | "records">("settings");
+  const [activeTab, setActiveTab] = useState<"records" | "settings">("records");
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [data, fetchedSettings] = await Promise.all([
+      const [data, fetchedSettings, prices] = await Promise.all([
         getAllReferralRecordsForAdmin(),
-        getReferralSettings()
+        getReferralSettings(),
+        getCoursePrices()
       ]);
       setRecords(data.records);
       setTotalEarnings(data.totalEarningsIssued);
+      setTotalPaidAmount(data.totalPaidAmount);
+      setTotalUnpaidAmount(data.totalUnpaidAmount);
       setCompletedCount(data.completedCount);
       setPendingCount(data.pendingCount);
       if (fetchedSettings) {
         setSettings(fetchedSettings);
+      }
+      if (prices) {
+        setCoursePrices(prices);
       }
     } catch (err) {
       console.error("Load admin referrals error:", err);
@@ -72,6 +92,53 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleCopyBkash = async (num: string) => {
+    if (!num) return;
+    try {
+      await navigator.clipboard.writeText(num);
+      setCopiedBkash(num);
+      setTimeout(() => setCopiedBkash(null), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  const handleTogglePayout = async (record: ReferralRecord) => {
+    const nextStatus: "paid" | "unpaid" = record.paymentStatus === "paid" ? "unpaid" : "paid";
+    setUpdatingPayoutId(record.id);
+    try {
+      const res = await markReferralPayout(record.id, nextStatus);
+      if (res.success) {
+        // Optimistic local state update
+        setRecords((prev) =>
+          prev.map((r) =>
+            r.id === record.id
+              ? {
+                  ...r,
+                  paymentStatus: nextStatus,
+                  paidAt: nextStatus === "paid" ? new Date().toISOString() : undefined,
+                }
+              : r
+          )
+        );
+
+        if (nextStatus === "paid") {
+          setTotalPaidAmount((prev) => prev + record.rewardAmount);
+          setTotalUnpaidAmount((prev) => Math.max(0, prev - record.rewardAmount));
+        } else {
+          setTotalPaidAmount((prev) => Math.max(0, prev - record.rewardAmount));
+          setTotalUnpaidAmount((prev) => prev + record.rewardAmount);
+        }
+      } else {
+        alert(res.message);
+      }
+    } catch (err: any) {
+      alert("পেমেন্ট আপডেট করতে ব্যর্থ হয়েছে: " + (err?.message || ""));
+    } finally {
+      setUpdatingPayoutId(null);
+    }
+  };
 
   const handleSaveSettings = async () => {
     setSavingSettings(true);
@@ -114,28 +181,40 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
     });
   };
 
+  const unpaidCount = records.filter((r) => r.status === "completed" && r.paymentStatus === "unpaid").length;
+  const paidCount = records.filter((r) => r.status === "completed" && r.paymentStatus === "paid").length;
+
   const filteredRecords = records.filter((r) => {
     const q = search.toLowerCase();
     const matchesSearch =
       r.referrerName?.toLowerCase().includes(q) ||
       r.referrerEmail?.toLowerCase().includes(q) ||
+      r.referrerBkash?.toLowerCase().includes(q) ||
       r.referredUserName?.toLowerCase().includes(q) ||
       r.referredUserEmail?.toLowerCase().includes(q) ||
+      r.referredUserBkash?.toLowerCase().includes(q) ||
       r.referralCode?.toLowerCase().includes(q) ||
       r.course?.toLowerCase().includes(q);
 
     if (!matchesSearch) return false;
-    if (statusFilter === "completed") return r.status === "completed";
-    if (statusFilter === "pending") return r.status === "pending";
+    if (paymentFilter === "unpaid") return r.status === "completed" && r.paymentStatus === "unpaid";
+    if (paymentFilter === "paid") return r.status === "completed" && r.paymentStatus === "paid";
+    if (paymentFilter === "pending") return r.status === "pending";
     return true;
   });
 
-  // অনন্য কোর্সের তালিকা তৈরি (যদি props-এ না থাকে তবে রেকর্ড থেকে বের করা)
-  const displayCourses = Array.from(new Set([
-    ...courses,
-    ...Object.keys(settings.courseConfigs || {}),
-    ...records.map(r => r.course)
-  ])).filter(Boolean);
+  // অনন্য কোর্সের তালিকা তৈরি (আলাদা আলাদা কোর্স নাম নিশ্চিত করা)
+  const allKnownCourses = new Set<string>();
+  (courses || []).forEach((c) => c && allKnownCourses.add(c.trim()));
+  Object.keys(settings.courseConfigs || {}).forEach((c) => c && allKnownCourses.add(c.trim()));
+  records.forEach((r) => {
+    (r.course || "").split(",").forEach((c) => {
+      const clean = c.trim();
+      if (clean) allKnownCourses.add(clean);
+    });
+  });
+  Object.keys(coursePrices || {}).forEach((c) => c && allKnownCourses.add(c.trim()));
+  const displayCourses = Array.from(allKnownCourses).filter(Boolean);
 
   return (
     <div className="space-y-6 font-bengali">
@@ -147,10 +226,10 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
           </div>
           <div>
             <h2 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-              রেফারেল ও কোর্স কমিশন ব্যবস্থাপনা
+              রেফারেল ও বিকাশ পেমেন্ট ব্যবস্থাপনা
             </h2>
             <p className="text-xs text-indigo-200 mt-0.5">
-              কোর্স-ভিত্তিক রেফারার রিওয়ার্ড %, শিক্ষার্থী ছাড় % নির্ধারণ এবং রেফারেল ট্র্যাকিং রিপোর্ট
+              রেফারেল বিকাশ নাম্বার পর্যবেক্ষণ, রিওয়ার্ড পেমেন্ট মার্কিং এবং কমিশন পার্সেন্টেজ কনফিগারেশন
             </p>
           </div>
         </div>
@@ -168,31 +247,66 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* Metrics Row - 5 Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <span className="text-xs font-semibold text-slate-500">মোট রেফারেল রিকোয়েস্ট</span>
-          <p className="text-2xl font-black text-slate-800 mt-1">
+          <span className="text-xs font-semibold text-slate-500">মোট রেফারেল</span>
+          <p className="text-xl sm:text-2xl font-black text-slate-800 mt-1">
             {toBengaliDigits(records.length)}
           </p>
+          <span className="text-[10px] text-slate-400">সফল: {toBengaliDigits(completedCount)} | পেন্ডিং: {toBengaliDigits(pendingCount)}</span>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <span className="text-xs font-semibold text-emerald-600">অনুমোদিত (সফল)</span>
-          <p className="text-2xl font-black text-emerald-600 mt-1">
-            {toBengaliDigits(completedCount)}
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <span className="text-xs font-semibold text-amber-600">অপেক্ষমান (Pending)</span>
-          <p className="text-2xl font-black text-amber-600 mt-1">
-            {toBengaliDigits(pendingCount)}
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <span className="text-xs font-semibold text-indigo-600">মোট অর্জিত রিওয়ার্ড</span>
-          <p className="text-2xl font-black text-indigo-700 mt-1">
+
+        <div className="bg-white rounded-2xl border border-indigo-200 bg-indigo-50/30 p-4 shadow-sm">
+          <span className="text-xs font-semibold text-indigo-700">মোট অর্জিত কমিশন</span>
+          <p className="text-xl sm:text-2xl font-black text-indigo-700 mt-1">
             ৳{toBengaliDigits(totalEarnings)}
           </p>
+          <span className="text-[10px] text-indigo-500 font-medium">শিক্ষার্থীদের প্রদেয় মোট</span>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-emerald-800">পরিশোধ করা হয়েছে</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
+            ৳{toBengaliDigits(totalPaidAmount)}
+          </p>
+          <span className="text-[10px] text-emerald-700 font-medium">{toBengaliDigits(paidCount)} জনের পেমেন্ট সম্পন্ন</span>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-amber-800">পরিশোধ বাকি (বকেয়া)</span>
+            {unpaidCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">
+                {toBengaliDigits(unpaidCount)}
+              </span>
+            )}
+          </div>
+          <p className="text-xl sm:text-2xl font-black text-amber-600 mt-1">
+            ৳{toBengaliDigits(totalUnpaidAmount)}
+          </p>
+          <span className="text-[10px] text-amber-700 font-medium">বিকাশে পাঠাতে হবে</span>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-purple-200 bg-purple-50/30 p-4 shadow-sm col-span-2 sm:col-span-1">
+          <span className="text-xs font-semibold text-purple-700">সিস্টেম স্ট্যাটাস</span>
+          <p className="text-lg font-black text-purple-800 mt-1 flex items-center gap-1.5">
+            {settings.enabled ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-700">সক্রিয়</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-4 h-4 text-rose-500" />
+                <span className="text-rose-600">বন্ধ আছে</span>
+              </>
+            )}
+          </p>
+          <span className="text-[10px] text-purple-600">ডিফল্ট রেট: {settings.defaultRewardPercent}%</span>
         </div>
       </div>
 
@@ -200,8 +314,20 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
           type="button"
+          onClick={() => setActiveTab("records")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === "records"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+              : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span>রেফারেল ও বিকাশ পেমেন্ট তালিকা ({toBengaliDigits(records.length)})</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("settings")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
             activeTab === "settings"
               ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
               : "bg-slate-100 hover:bg-slate-200 text-slate-700"
@@ -210,21 +336,255 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
           <Sliders className="w-4 h-4" />
           <span>কোর্স-ভিত্তিক পার্সেন্টেজ (%) কনফিগারেশন</span>
         </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("records")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeTab === "records"
-              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
-              : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>রেফারেল হিস্ট্রি ও ট্র্যাকিং তালিকা ({toBengaliDigits(records.length)})</span>
-        </button>
       </div>
 
-      {/* Tab 1: Course-wise Referral % Configuration */}
+      {/* Tab 1: Referral Records & Payout Marking */}
+      {activeTab === "records" && (
+        <div className="space-y-4">
+          {/* Filters & Search */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="relative w-full md:w-80">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="নাম, বিকাশ নাম্বার, কোড বা কোর্স খুঁজুন..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+              <button
+                type="button"
+                onClick={() => setPaymentFilter("all")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
+                  paymentFilter === "all"
+                    ? "bg-slate-800 text-white"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+              >
+                সকল ({toBengaliDigits(records.length)})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentFilter("unpaid")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
+                  paymentFilter === "unpaid"
+                    ? "bg-amber-600 text-white"
+                    : "bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200"
+                }`}
+              >
+                পরিশোধ বাকি ({toBengaliDigits(unpaidCount)})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentFilter("paid")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
+                  paymentFilter === "paid"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200"
+                }`}
+              >
+                পরিশোধিত ({toBengaliDigits(paidCount)})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentFilter("pending")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
+                  paymentFilter === "pending"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-900"
+                }`}
+              >
+                এনরোল অপেক্ষমান ({toBengaliDigits(pendingCount)})
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {loading ? (
+              <div className="py-12 text-center text-xs text-slate-500">
+                রেফারেল ডেটা লোড হচ্ছে...
+              </div>
+            ) : filteredRecords.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                কোনো রেফারেল রেকর্ড পাওয়া যায়নি।
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">রেফারার ও বিকাশ নাম্বার</th>
+                      <th className="py-3 px-4">রেফারেল কোড</th>
+                      <th className="py-3 px-4">নতুন শিক্ষার্থী (বন্ধু)</th>
+                      <th className="py-3 px-4">কোর্স</th>
+                      <th className="py-3 px-4">কমিশন রিওয়ার্ড</th>
+                      <th className="py-3 px-4">পেমেন্ট স্ট্যাটাস</th>
+                      <th className="py-3 px-4 text-center">অ্যাকশন (টাকা দেওয়া হয়েছে)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredRecords.map((r) => {
+                      const isPaid = r.paymentStatus === "paid";
+                      const isUpdating = updatingPayoutId === r.id;
+                      const hasBkash = Boolean(r.referrerBkash);
+
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-50/80 transition">
+                          {/* Referrer & bKash */}
+                          <td className="py-3 px-4">
+                            <p className="font-bold text-slate-800">{r.referrerName || "অজ্ঞাত শিক্ষার্থী"}</p>
+                            <p className="text-[11px] text-slate-400">{r.referrerEmail || r.referrerId}</p>
+                            {hasBkash ? (
+                              <div className="mt-1 flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 bg-pink-50 text-pink-700 border border-pink-200 px-2 py-0.5 rounded-md font-mono text-[11px] font-bold">
+                                  <Smartphone className="w-3 h-3 text-pink-600" /> {r.referrerBkash}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyBkash(r.referrerBkash!)}
+                                  title="বিকাশ নাম্বার কপি করুন"
+                                  className="p-1 hover:bg-slate-200 rounded text-slate-600 transition cursor-pointer"
+                                >
+                                  {copiedBkash === r.referrerBkash ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5 text-slate-500" />
+                                  )}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic mt-0.5 block">
+                                বিকাশ নাম্বার দেওয়া নেই
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Referral Code */}
+                          <td className="py-3 px-4">
+                            <span className="font-mono font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">
+                              {r.referralCode}
+                            </span>
+                          </td>
+
+                          {/* Referred Student */}
+                          <td className="py-3 px-4">
+                            <p className="font-bold text-slate-800">{r.referredUserName}</p>
+                            <p className="text-[11px] text-slate-400">{r.referredUserEmail || r.referredUserId}</p>
+                            {r.referredUserBkash && (
+                              <div className="mt-1 flex items-center gap-1 text-[10px] text-slate-600">
+                                <span className="text-slate-400">বন্ধু বিকাশ:</span>
+                                <span className="font-mono font-bold text-pink-700">{r.referredUserBkash}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyBkash(r.referredUserBkash!)}
+                                  className="p-0.5 hover:bg-slate-200 rounded"
+                                >
+                                  {copiedBkash === r.referredUserBkash ? (
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3 h-3 text-slate-500" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Course & Date */}
+                          <td className="py-3 px-4">
+                            <span className="font-semibold text-slate-700">{r.course}</span>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {formatBangladeshClock(r.createdAt)}
+                            </p>
+                          </td>
+
+                          {/* Reward Amount */}
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-base text-emerald-700">
+                              ৳{toBengaliDigits(r.rewardAmount)}
+                            </span>
+                          </td>
+
+                          {/* Payment Status */}
+                          <td className="py-3 px-4">
+                            {r.status === "completed" ? (
+                              isPaid ? (
+                                <div>
+                                  <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full font-bold text-[10px]">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> টাকা দেওয়া হয়েছে
+                                  </span>
+                                  {r.paidAt && (
+                                    <p className="text-[9px] text-slate-400 mt-1">
+                                      {formatBangladeshClock(r.paidAt)}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-full font-bold text-[10px]">
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" /> পরিশোধ বাকি
+                                </span>
+                              )
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1 rounded-full font-bold text-[10px]">
+                                এনরোল অপেক্ষমান
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Actions: Mark Paid / Unpaid */}
+                          <td className="py-3 px-4 text-center">
+                            {r.status === "completed" ? (
+                              isPaid ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePayout(r)}
+                                  disabled={isUpdating}
+                                  title="পরিশোধ বাতিল করে বাকি হিসেবে চিহ্নিত করুন"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                                >
+                                  {isUpdating ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="w-3 h-3" />
+                                  )}
+                                  <span>পরিশোধ বাতিল</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePayout(r)}
+                                  disabled={isUpdating}
+                                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm shadow-emerald-600/30 cursor-pointer disabled:opacity-50 active:scale-95"
+                                >
+                                  {isUpdating ? (
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Check className="w-3.5 h-3.5" />
+                                  )}
+                                  <span>টাকা দেওয়া হয়েছে</span>
+                                </button>
+                              )
+                            ) : (
+                              <span className="text-[11px] text-slate-400">
+                                অনুমোদন দিন
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 2: Course-wise Referral % Configuration */}
       {activeTab === "settings" && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -339,9 +699,14 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
 
           {/* Course-Wise Table */}
           <div className="space-y-3">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-              কোর্স-ভিত্তিক পার্সেন্টেজ তালিকা
-            </h4>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                কোর্স-ভিত্তিক পার্সেন্টেজ ও টাকার সঠিক হিসাব
+              </h4>
+              <span className="text-[11px] text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+                প্রকৃত কোর্স ফি অনুযায়ী কমিশন ও ছাড়ের আসল টাকার অংক স্বয়ংক্রিয়ভাবে হিসাব হচ্ছে
+              </span>
+            </div>
 
             {displayCourses.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-2xl">
@@ -353,9 +718,10 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
                   <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
                       <th className="py-3 px-4">কোর্সের নাম</th>
-                      <th className="py-3 px-4 w-44">রেফারার রিওয়ার্ড %</th>
-                      <th className="py-3 px-4 w-44">বন্ধু/শিক্ষার্থী ছাড় %</th>
-                      <th className="py-3 px-4 text-slate-500">উদাহরণ (৳১,০০০ কোর্সের জন্য)</th>
+                      <th className="py-3 px-4 w-32">কোর্স ফি (মূল্য)</th>
+                      <th className="py-3 px-4 w-36">রেফারার রিওয়ার্ড %</th>
+                      <th className="py-3 px-4 w-36">শিক্ষার্থী ছাড় %</th>
+                      <th className="py-3 px-4">প্রকৃত টাকার হিসাব (ফলাফল)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -364,8 +730,13 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
                         rewardPercent: settings.defaultRewardPercent ?? 10,
                         discountPercent: settings.defaultDiscountPercent ?? 10
                       };
-                      const rewardAmountEx = Math.round((1000 * cfg.rewardPercent) / 100);
-                      const discountAmountEx = Math.round((1000 * cfg.discountPercent) / 100);
+                      const p = coursePrices[cName];
+                      const actualFee = p ? (p.offerPrice ?? p.price ?? 500) : 500;
+                      const hasDiscountPrice = Boolean(p?.offerPrice && p?.price && p.offerPrice !== p.price);
+
+                      const rewardAmount = Math.round((actualFee * (cfg.rewardPercent || 0)) / 100);
+                      const discountAmount = Math.round((actualFee * (cfg.discountPercent || 0)) / 100);
+                      const studentPays = Math.max(0, actualFee - discountAmount);
 
                       return (
                         <tr key={cName} className="hover:bg-slate-50/70 transition">
@@ -373,38 +744,67 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
                             {cName}
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="relative w-32">
+                            {hasDiscountPrice ? (
+                              <div>
+                                <span className="line-through text-slate-400 text-[10px] mr-1.5">
+                                  ৳{toBengaliDigits(p!.price!)}
+                                </span>
+                                <span className="font-black text-slate-900 text-xs">
+                                  ৳{toBengaliDigits(actualFee)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="font-black text-slate-900 text-xs">
+                                ৳{toBengaliDigits(actualFee)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="relative w-28">
                               <input
                                 type="number"
                                 min="0"
                                 max="100"
                                 value={cfg.rewardPercent}
-                                onChange={(e) =>
-                                  handleUpdateCourseConfig(cName, "rewardPercent", Number(e.target.value))
-                                }
-                                className="w-full pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-emerald-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? 0 : Number(e.target.value);
+                                  handleUpdateCourseConfig(cName, "rewardPercent", val);
+                                }}
+                                className="w-full pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-emerald-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
                               />
                               <span className="absolute right-2.5 top-2 text-[11px] text-slate-400 font-bold">%</span>
                             </div>
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="relative w-32">
+                            <div className="relative w-28">
                               <input
                                 type="number"
                                 min="0"
                                 max="100"
                                 value={cfg.discountPercent}
-                                onChange={(e) =>
-                                  handleUpdateCourseConfig(cName, "discountPercent", Number(e.target.value))
-                                }
-                                className="w-full pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-indigo-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? 0 : Number(e.target.value);
+                                  handleUpdateCourseConfig(cName, "discountPercent", val);
+                                }}
+                                className="w-full pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-indigo-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                               />
                               <span className="absolute right-2.5 top-2 text-[11px] text-slate-400 font-bold">%</span>
                             </div>
                           </td>
-                          <td className="py-3.5 px-4 text-slate-600 text-[11px]">
-                            রেফারার পাবে: <span className="font-bold text-emerald-600">৳{rewardAmountEx}</span> | 
-                            শিক্ষার্থী ছাড়: <span className="font-bold text-indigo-600">৳{discountAmountEx}</span>
+                          <td className="py-3.5 px-4 text-xs">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <span className="text-emerald-700 font-bold">
+                                রেফারার পাবে: ৳{toBengaliDigits(rewardAmount)}
+                              </span>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-indigo-700 font-bold">
+                                শিক্ষার্থী ছাড়: -৳{toBengaliDigits(discountAmount)}
+                              </span>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-slate-600 font-medium">
+                                শিক্ষার্থী ফি দেবে: <strong className="text-slate-900 font-black">৳{toBengaliDigits(studentPays)}</strong>
+                              </span>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -429,129 +829,6 @@ export const ReferralManager: React.FC<ReferralManagerProps> = ({ courses = [] }
               )}
               <span>সব পরিবর্তন সংরক্ষণ করুন</span>
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: Referral History Records */}
-      {activeTab === "records" && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="শিক্ষার্থী, কোড বা কোর্স খুঁজুন..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => setStatusFilter("all")}
-                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  statusFilter === "all"
-                    ? "bg-slate-800 text-white"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                }`}
-              >
-                সকল ({toBengaliDigits(records.length)})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("completed")}
-                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  statusFilter === "completed"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800"
-                }`}
-              >
-                অনুমোদিত ({toBengaliDigits(completedCount)})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("pending")}
-                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  statusFilter === "pending"
-                    ? "bg-amber-600 text-white"
-                    : "bg-amber-50 hover:bg-amber-100 text-amber-800"
-                }`}
-              >
-                পেন্ডিং ({toBengaliDigits(pendingCount)})
-              </button>
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            {loading ? (
-              <div className="py-12 text-center text-xs text-slate-500">
-                রেফারেল ডেটা লোড হচ্ছে...
-              </div>
-            ) : filteredRecords.length === 0 ? (
-              <div className="py-12 text-center text-xs text-slate-400">
-                কোনো রেফারেল রেকর্ড পাওয়া যায়নি।
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
-                    <tr>
-                      <th className="py-3 px-4">রেফারার শিক্ষার্থী</th>
-                      <th className="py-3 px-4">রেফারেল কোড</th>
-                      <th className="py-3 px-4">নতুন শিক্ষার্থী (বন্ধু)</th>
-                      <th className="py-3 px-4">কোর্স</th>
-                      <th className="py-3 px-4">স্ট্যাটাস</th>
-                      <th className="py-3 px-4">রিওয়ার্ড অ্যামাউন্ট</th>
-                      <th className="py-3 px-4">তারিখ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredRecords.map((r) => (
-                      <tr key={r.id} className="hover:bg-slate-50/80 transition">
-                        <td className="py-3 px-4">
-                          <p className="font-bold text-slate-800">{r.referrerName || "অজ্ঞাত"}</p>
-                          <p className="text-[11px] text-slate-400">{r.referrerEmail || r.referrerId}</p>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-mono font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">
-                            {r.referralCode}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <p className="font-bold text-slate-800">{r.referredUserName}</p>
-                          <p className="text-[11px] text-slate-400">{r.referredUserEmail || r.referredUserId}</p>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-semibold text-slate-700">{r.course}</span>
-                        </td>
-                        <td className="py-3 px-4">
-                          {r.status === "completed" ? (
-                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                              <CheckCircle2 className="w-3 h-3" /> সফল এনরোল
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                              <Clock className="w-3 h-3" /> অপেক্ষমান
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-emerald-700">
-                          ৳{toBengaliDigits(r.rewardAmount)}
-                        </td>
-                        <td className="py-3 px-4 text-slate-500 text-[11px]">
-                          {formatBangladeshClock(r.createdAt)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         </div>
       )}

@@ -24,7 +24,8 @@ import {
   LogIn,
   Loader2,
   UserX,
-  Send
+  Send,
+  Phone
 } from "lucide-react";
 import {
   getPublicStudyGroupsForAmbassador,
@@ -56,6 +57,7 @@ export function AmbassadorView() {
 
   // Application Form State
   const [fullName, setFullName] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [university, setUniversity] = useState("");
   const [session, setSession] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState("");
@@ -261,8 +263,24 @@ export function AmbassadorView() {
     setFormError("");
     setFormNotice("");
 
+    const banglaToEnglishMap: Record<string, string> = {
+      "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4",
+      "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9"
+    };
+    const rawWhatsapp = String(whatsapp || "").replace(/[০-৯]/g, (d) => banglaToEnglishMap[d] || d);
+    let cleanWhatsapp = rawWhatsapp.replace(/[^0-9]/g, "").trim();
+    if (cleanWhatsapp.startsWith("880")) cleanWhatsapp = cleanWhatsapp.slice(2);
+
     if (!fullName.trim()) {
       setFormError("আপনার পূর্ণ নাম লিখুন।");
+      return;
+    }
+    if (!cleanWhatsapp) {
+      setFormError("আপনার WhatsApp নাম্বার লিখুন।");
+      return;
+    }
+    if (!/^01[3-9]\d{8}$/.test(cleanWhatsapp)) {
+      setFormError("সঠিক ১১ ডিজিটের WhatsApp নাম্বার লিখুন (যেমন: 017xxxxxxxx)।");
       return;
     }
     if (!university.trim()) {
@@ -288,6 +306,7 @@ export function AmbassadorView() {
       studentName: fullName.trim(),
       studentEmail: studentUser.email || "",
       photoURL: studentUser.photoURL,
+      whatsapp: cleanWhatsapp,
       university: university.trim(),
       session: session.trim(),
       reason: reason.trim(),
@@ -432,6 +451,14 @@ export function AmbassadorView() {
               <span className="text-slate-500 font-semibold">আবেদনকারীর নাম:</span>
               <span className="font-bold text-slate-800">{myApplication.studentName}</span>
             </div>
+            {myApplication.whatsapp && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-200/80 pb-2.5">
+                <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-emerald-600" /> WhatsApp নাম্বার:
+                </span>
+                <span className="font-bold text-emerald-800">{myApplication.whatsapp}</span>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-200/80 pb-2.5">
               <span className="text-slate-500 font-semibold">বিশ্ববিদ্যালয় / প্রতিষ্ঠান:</span>
               <span className="font-bold text-slate-800">{myApplication.university}</span>
@@ -1643,11 +1670,30 @@ export function AmbassadorView() {
             </div>
           </div>
 
-          {/* 2. University & 3. Session */}
+          {/* 2. WhatsApp Number */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              ২. আপনার WhatsApp নাম্বার <span className="text-rose-500">*</span>
+              <span className="ml-2 text-[10px] font-normal text-slate-500">(গ্রুপ সমন্বয় ও দ্রুত যোগাযোগের জন্য)</span>
+            </label>
+            <div className="relative">
+              <Phone className="w-4 h-4 text-emerald-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="tel"
+                required
+                placeholder="যেমন: 017xxxxxxxx"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition"
+              />
+            </div>
+          </div>
+
+          {/* 3. University & 4. Session */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                ২. বিশ্ববিদ্যালয় / শিক্ষা প্রতিষ্ঠান <span className="text-rose-500">*</span>
+                ৩. বিশ্ববিদ্যালয় / শিক্ষা প্রতিষ্ঠান <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1664,7 +1710,7 @@ export function AmbassadorView() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                ৩. সেশন / বর্ষ <span className="text-rose-500">*</span>
+                ৪. সেশন / বর্ষ <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1680,10 +1726,10 @@ export function AmbassadorView() {
             </div>
           </div>
 
-          {/* 4. Study Group Dropdown */}
+          {/* 5. Study Group Dropdown */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              ৪. যে স্টাডি গ্রুপের অ্যাম্বাসেডর হতে চান তা নির্বাচন করুন <span className="text-rose-500">*</span>
+              ৫. যে স্টাডি গ্রুপের অ্যাম্বাসেডর হতে চান তা নির্বাচন করুন <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <BookOpen className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1709,10 +1755,10 @@ export function AmbassadorView() {
             </p>
           </div>
 
-          {/* 5. Why do you want to join */}
+          {/* 6. Why do you want to join */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              ৫. কেন আপনি অ্যাম্বাসেডর হিসেবে জয়েন করতে চান? <span className="text-rose-500">*</span>
+              ৬. কেন আপনি অ্যাম্বাসেডর হিসেবে জয়েন করতে চান? <span className="text-rose-500">*</span>
             </label>
             <textarea
               required

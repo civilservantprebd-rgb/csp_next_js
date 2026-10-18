@@ -31,7 +31,9 @@ import {
   ShieldCheck,
   Building2,
   Mail,
-  Pencil
+  Pencil,
+  Phone,
+  MessageCircle
 } from "lucide-react";
 import {
   getStudyGroups,
@@ -531,6 +533,20 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                             <p className="text-[10px] text-slate-500 mt-0.5">
                               {amb.university} • সেশন: {amb.session} {amb.studentEmail ? `• ${amb.studentEmail}` : ""}
                             </p>
+                            {amb.whatsapp && (
+                              <div className="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-emerald-700">
+                                <Phone className="w-3 h-3 text-emerald-600" />
+                                <span>{amb.whatsapp}</span>
+                                <a
+                                  href={`https://wa.me/880${amb.whatsapp.replace(/^0/, "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-emerald-700 hover:text-emerald-800 underline ml-1 font-medium"
+                                >
+                                  WhatsApp
+                                </a>
+                              </div>
+                            )}
                           </div>
                           <button
                             type="button"
@@ -575,6 +591,20 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                               </p>
                               {req.studentEmail && (
                                 <p className="text-[10px] text-slate-500">✉️ {req.studentEmail}</p>
+                              )}
+                              {req.whatsapp && (
+                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50/80 px-2 py-1 rounded-lg border border-emerald-200/60 w-fit">
+                                  <Phone className="w-3 h-3 text-emerald-600" />
+                                  <span>{req.whatsapp}</span>
+                                  <a
+                                    href={`https://wa.me/880${req.whatsapp.replace(/^0/, "")}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-1.5 py-0.5 rounded transition"
+                                  >
+                                    WhatsApp
+                                  </a>
+                                </div>
                               )}
                               <p className="text-[11px] text-slate-700 bg-white/80 p-2 rounded-lg border border-amber-100 mt-1">
                                 <span className="font-bold text-slate-500">কারণ: </span>
@@ -1520,6 +1550,22 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                                       <span className="truncate">{req.studentEmail}</span>
                                     </div>
                                   )}
+                                  {req.whatsapp && (
+                                    <div className="flex items-center justify-between gap-1.5 sm:col-span-2 bg-emerald-50/80 border border-emerald-200/80 p-2 rounded-lg text-emerald-900 font-bold">
+                                      <div className="flex items-center gap-1.5">
+                                        <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                        <span>WhatsApp: {req.whatsapp}</span>
+                                      </div>
+                                      <a
+                                        href={`https://wa.me/880${req.whatsapp.replace(/^0/, "")}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg transition shadow-xs"
+                                      >
+                                        <MessageCircle className="w-3 h-3" /> মেসেজ দিন
+                                      </a>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="bg-white p-3 rounded-xl border border-amber-100 text-xs">
@@ -1621,6 +1667,22 @@ export const StudyGroupManager: React.FC<StudyGroupManagerProps> = ({ courses })
                                     <div className="font-bold text-slate-900">{amb.studentName}</div>
                                     {amb.studentEmail && (
                                       <div className="text-[11px] text-slate-500">{amb.studentEmail}</div>
+                                    )}
+                                    {amb.whatsapp && (
+                                      <div className="flex items-center gap-1.5 mt-1">
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                                          <Phone className="w-3 h-3 text-emerald-600" />
+                                          {amb.whatsapp}
+                                        </span>
+                                        <a
+                                          href={`https://wa.me/880${amb.whatsapp.replace(/^0/, "")}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-[10px] text-emerald-700 hover:text-emerald-800 underline font-medium"
+                                        >
+                                          WhatsApp
+                                        </a>
+                                      </div>
                                     )}
                                   </td>
                                   <td className="py-3 px-4">

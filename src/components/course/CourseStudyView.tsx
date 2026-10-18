@@ -43,7 +43,8 @@ import {
   MessageCircle,
   Calendar,
   Sparkles,
-  Info
+  Info,
+  X
 } from "lucide-react";
 
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
@@ -1117,87 +1118,137 @@ export default function CourseClient({
                         </span>
                       </div>
 
-                      {/* বিষয় ফিল্টার চিপ (যদি একাধিক বিষয় থাকে) */}
-                      {pdfSubjects.length > 1 && (
-                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setPdfSubjectFilter("ALL")}
-                            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer border ${
-                              pdfSubjectFilter === "ALL"
-                                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                            }`}
-                          >
-                            সব বিষয় ({toBengaliDigits(coursePdfs.length)})
-                          </button>
-                          {pdfSubjects.map((subj) => {
-                            const count = coursePdfs.filter((p) => (p.subject || "সাধারণ") === subj).length;
-                            return (
+                      {videoResult?.allowed ? (
+                        <>
+                          {/* বিষয় ফিল্টার চিপ (যদি একাধিক বিষয় থাকে) */}
+                          {pdfSubjects.length > 1 && (
+                            <div className="flex flex-wrap gap-1 sm:gap-1.5">
                               <button
-                                key={subj}
                                 type="button"
-                                onClick={() => setPdfSubjectFilter(subj)}
+                                onClick={() => setPdfSubjectFilter("ALL")}
                                 className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer border ${
-                                  pdfSubjectFilter === subj
+                                  pdfSubjectFilter === "ALL"
                                     ? "bg-amber-600 text-white border-amber-600 shadow-xs"
                                     : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
                                 }`}
                               >
-                                {subj} ({toBengaliDigits(count)})
+                                সব বিষয় ({toBengaliDigits(coursePdfs.length)})
                               </button>
-                            );
-                          })}
+                              {pdfSubjects.map((subj) => {
+                                const count = coursePdfs.filter((p) => (p.subject || "সাধারণ") === subj).length;
+                                return (
+                                  <button
+                                    key={subj}
+                                    type="button"
+                                    onClick={() => setPdfSubjectFilter(subj)}
+                                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer border ${
+                                      pdfSubjectFilter === subj
+                                        ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                        : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                                    }`}
+                                  >
+                                    {subj} ({toBengaliDigits(count)})
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* পিডিএফ ফাইল তালিকা */}
+                          <div className="space-y-2.5">
+                            {filteredPdfs.length === 0 ? (
+                              <p className="text-xs text-slate-400 text-center py-6">
+                                এই বিষয়ে কোনো পিডিএফ ফাইল পাওয়া যায়নি।
+                              </p>
+                            ) : (
+                              filteredPdfs.map((pdf, idx) => (
+                                <div
+                                  key={pdf.id || `${pdf.examId}_${idx}`}
+                                  onClick={() => window.open(pdf.driveLink, "_blank", "noopener,noreferrer")}
+                                  className="group p-3 sm:p-4 rounded-2xl border border-slate-200 hover:border-emerald-400 bg-white hover:bg-emerald-50/20 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer shadow-xs active:scale-[0.99]"
+                                >
+                                  <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
+                                    <span className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                                      <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    </span>
+                                    <div className="min-w-0 space-y-1">
+                                      <h4 className="font-black text-sm text-slate-900 group-hover:text-emerald-900 transition leading-snug">
+                                        {pdf.title}
+                                      </h4>
+                                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs">
+                                        {pdf.subject && (
+                                          <span className="inline-flex items-center gap-1 font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md text-[11px] sm:text-xs">
+                                            {pdf.subject}
+                                          </span>
+                                        )}
+                                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-[11px] sm:text-xs">
+                                          Google Drive
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <a
+                                    href={pdf.driveLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm shadow-emerald-600/20 active:scale-[0.98] cursor-pointer shrink-0 w-full sm:w-auto"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" /> ড্রাইভ ওপেন করুন
+                                  </a>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        /* এনরোল না থাকলে পিডিএফ লকড কার্ড */
+                        <div className="bg-gradient-to-br from-slate-50 to-amber-50 border border-amber-200 rounded-2xl p-5 sm:p-6 flex flex-col items-center text-center gap-3">
+                          {hasGoogleUser ? (
+                            <>
+                              <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center">
+                                <Lock className="w-6 h-6 text-amber-600" />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="font-black text-slate-900 text-sm sm:text-base">এই কোর্সের পিডিএফ শিটগুলো লক করা আছে</p>
+                                <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                                  {videoResult?.message || "শুধুমাত্র যারা এই কোর্সটি কিনেছেন (এনরোল্ড) তারাই লেকচার ও পরীক্ষার পিডিএফ দেখতে পারবেন। কোর্স কিনলে শিক্ষকের অনুমোদনের পর সকল শিট আনলক হয়ে যাবে।"}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => setEnrollOpen(true)}
+                                className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                              >
+                                <ShoppingCart className="w-4 h-4" /> কোর্স কিনুন (Enroll Now)
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center">
+                                <Lock className="w-6 h-6 text-amber-600" />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="font-black text-slate-900 text-sm sm:text-base">এনরোল্ড স্টুডেন্টরাই পিডিএফ শিট দেখতে পারবেন</p>
+                                <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                                  কোর্স কিনে শিক্ষকের অনুমোদন পেলে Google লগইন করলেই সব পিডিএফ শিট আনলক হয়ে যাবে।{" "}
+                                  <button onClick={() => setEnrollOpen(true)} className="underline font-bold text-amber-700 cursor-pointer">
+                                    আগে কোর্স কিনুন
+                                  </button>
+                                  ।
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => loginWithGoogle(undefined, `/course/${encodeURIComponent(courseName)}`)}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm transition shadow-md cursor-pointer"
+                              >
+                                <LogIn className="w-4 h-4" /> Google দিয়ে লগইন করুন
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
-
-                      {/* পিডিএফ ফাইল তালিকা */}
-                      <div className="space-y-2.5">
-                        {filteredPdfs.length === 0 ? (
-                          <p className="text-xs text-slate-400 text-center py-6">
-                            এই বিষয়ে কোনো পিডিএফ ফাইল পাওয়া যায়নি।
-                          </p>
-                        ) : (
-                          filteredPdfs.map((pdf, idx) => (
-                            <div
-                              key={pdf.id || `${pdf.examId}_${idx}`}
-                              onClick={() => window.open(pdf.driveLink, "_blank", "noopener,noreferrer")}
-                              className="group p-3 sm:p-4 rounded-2xl border border-slate-200 hover:border-amber-400 bg-white hover:bg-amber-50/20 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer shadow-xs active:scale-[0.99]"
-                            >
-                              <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
-                                <span className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
-                                  <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                                </span>
-                                <div className="min-w-0 space-y-1">
-                                  <h4 className="font-black text-sm text-slate-900 group-hover:text-amber-900 transition leading-snug">
-                                    {pdf.title}
-                                  </h4>
-                                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs">
-                                    {pdf.subject && (
-                                      <span className="inline-flex items-center gap-1 font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md text-[11px] sm:text-xs">
-                                        {pdf.subject}
-                                      </span>
-                                    )}
-                                    <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[11px] sm:text-xs">
-                                      Google Drive
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <a
-                                href={pdf.driveLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-sm active:scale-[0.98] cursor-pointer shrink-0 w-full sm:w-auto"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" /> ড্রাইভ ওপেন করুন
-                              </a>
-                            </div>
-                          ))
-                        )}
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1239,6 +1290,8 @@ export default function CourseClient({
         initialCourse={courseName}
         onClose={() => setEnrollOpen(false)}
       />
+
+
     </>
   );
 }

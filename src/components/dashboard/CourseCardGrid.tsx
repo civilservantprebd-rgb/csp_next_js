@@ -95,9 +95,9 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
               {/* Course header — সব কার্ডে সমান উচ্চতা (নাম ৩ লাইন পর্যন্ত পুরো) */}
               <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white p-4 sm:p-5">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-400 p-0.5 shadow-md shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-400 to-violet-400 p-0.5 shadow-md shrink-0 group-hover:scale-105 transition-transform">
                     <div className="w-full h-full bg-slate-900/90 rounded-[14px] flex items-center justify-center">
-                      <GraduationCap className="w-6 h-6 text-amber-300" />
+                      <GraduationCap className="w-6 h-6 text-white" />
                     </div>
                   </div>
                   <div className="min-w-0 flex-1">
@@ -106,7 +106,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                         {courseName}
                       </h4>
                       {pinnedCourses.includes(courseName) && (
-                        <span className="inline-flex items-center gap-0.5 bg-amber-400 text-slate-950 text-xs font-black px-1.5 py-0.5 rounded-md shrink-0">
+                        <span className="inline-flex items-center gap-0.5 bg-indigo-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shrink-0">
                           <Pin className="w-3 h-3" /> পিন
                         </span>
                       )}
@@ -119,7 +119,7 @@ export const CourseCardGrid: React.FC<CourseCardGridProps> = ({
                   <div className="flex flex-wrap items-center gap-2 mt-2.5">
                     {p?.plannedExams !== undefined && (
                       <span className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-2.5 py-1 rounded-lg text-xs font-bold">
-                        <FileText className="w-3.5 h-3.5 text-amber-300" /> পরীক্ষা {toBengaliDigits(p.plannedExams)}
+                        <FileText className="w-3.5 h-3.5 text-indigo-200" /> পরীক্ষা {toBengaliDigits(p.plannedExams)}
                       </span>
                     )}
                     {p?.plannedVideos !== undefined && (

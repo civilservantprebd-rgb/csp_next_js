@@ -3,13 +3,18 @@ export interface ReferralRecord {
   referrerId: string; // student uid who referred
   referrerName?: string;
   referrerEmail?: string;
+  referrerBkash?: string; // রেফারারের বিকাশ নাম্বার
   referredUserId: string; // new student uid
   referredUserName: string;
   referredUserEmail?: string;
+  referredUserBkash?: string; // যে রেফারেল ব্যবহার করল তার বিকাশ নাম্বার
   referralCode: string;
   course: string;
   status: "pending" | "completed"; // pending = enrolled/submitted, completed = approved
   rewardAmount: number; // e.g. 50 tk or bonus points
+  paymentStatus: "unpaid" | "paid"; // টাকা প্রদান করা হয়েছে কিনা
+  paidAt?: string; // টাকা প্রদানের তারিখ
+  paymentNote?: string; // পেমেন্ট নোট
   createdAt: string;
   completedAt?: string;
 }
@@ -20,6 +25,9 @@ export interface StudentReferralProfile {
   completedReferrals: number;
   pendingReferrals: number;
   totalEarnings: number;
+  paidEarnings: number; // ইতিমধ্যে পরিশোধিত টাকা
+  unpaidEarnings: number; // এখনো বাকি টাকা
+  bkashNumber?: string; // স্টুডেন্টের সংরক্ষিত বিকাশ নাম্বার
   referrals: ReferralRecord[];
 }
 

@@ -35,3 +35,10 @@ yarn-error.log*
 /android/local.properties
 /android/.idea/
 *.apk
+
+# scratch / helper scripts
+fix_*.js
+test.js
+update_font.js
+use_anek_bangla.js
+

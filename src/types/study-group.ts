@@ -67,6 +67,7 @@ export interface AmbassadorApplication {
   studentName: string;
   studentEmail: string;
   photoURL?: string;
+  whatsapp?: string;
   university: string;
   session: string;
   reason: string;

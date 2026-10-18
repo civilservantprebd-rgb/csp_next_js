@@ -52,25 +52,13 @@ export const SelfPracticeCard: React.FC<SelfPracticeCardProps> = ({ config, onOp
         .catch(() => {
           // topic list is decorative — the card still renders
         });
-      // শিক্ষক/অ্যাডমিন — এনরোলমেন্ট ছাড়াই পুরো ব্যাংকে প্রবেশ
-      verifyTeacherSession()
-        .then((t) => {
-          if (t.ok) {
-            setEnrolled(true);
-            return;
-          }
-          // ফাস্ট-পাথ: প্রথমবার সার্ভারে চেক → ক্যাশ; পরের বার localStorage থেকেই
-          return import("@/lib/access-cache")
-            .then(({ checkEnrollmentCached }) =>
-              checkEnrollmentCached(localUser.uid, localUser.email)
-                .then((res) => setEnrolled(res.allowed))
-                .catch(() => {
-                  // Never leave the UI stuck on "যাচাই হচ্ছে..." — treat a failed
-                  // check as not-enrolled so the enroll CTA shows instead.
-                  setEnrolled(false);
-                })
-            );
-        })
+      // শিক্ষার্থী যেকোনো একটি সক্রিয় কোর্সে এনরোল্ড কিনা যাচাই
+      import("@/lib/access-cache")
+        .then(({ checkEnrollmentCached }) =>
+          checkEnrollmentCached(localUser.uid, localUser.email)
+            .then((res) => setEnrolled(res.allowed))
+            .catch(() => setEnrolled(false))
+        )
         .catch(() => setEnrolled(false));
     });
   }, []);

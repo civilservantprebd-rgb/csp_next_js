@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Share2, Users, Gift, Copy, Check, Sparkles, TrendingUp, Clock, AlertCircle } from "lucide-react";
-import { getStudentReferralProfile } from "@/actions/referral-actions";
+import { Share2, Users, Gift, Copy, Check, Sparkles, Smartphone, CheckCircle2, Clock } from "lucide-react";
+import { getStudentReferralProfile, saveStudentBkashNumber } from "@/actions/referral-actions";
 import { StudentReferralProfile } from "@/types/referral";
 import { toBengaliDigits, formatBangladeshClock } from "@/lib/utils";
 
@@ -16,6 +16,11 @@ export const ReferralCard: React.FC<ReferralCardProps> = ({ studentId }) => {
   const [copied, setCopied] = useState(false);
   const [shareSupported, setShareSupported] = useState(false);
 
+  // bKash number management state
+  const [bkashNumber, setBkashNumber] = useState("");
+  const [savingBkash, setSavingBkash] = useState(false);
+  const [bkashMsg, setBkashMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
   useEffect(() => {
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       setShareSupported(true);
@@ -26,7 +31,12 @@ export const ReferralCard: React.FC<ReferralCardProps> = ({ studentId }) => {
     let isMounted = true;
     getStudentReferralProfile(studentId)
       .then((data) => {
-        if (isMounted) setProfile(data);
+        if (isMounted) {
+          setProfile(data);
+          if (data?.bkashNumber) {
+            setBkashNumber(data.bkashNumber);
+          }
+        }
       })
       .catch((err) => console.error("Referral fetch error:", err))
       .finally(() => {
@@ -68,6 +78,31 @@ export const ReferralCard: React.FC<ReferralCardProps> = ({ studentId }) => {
       }
     } else {
       handleCopyCode();
+    }
+  };
+
+  const handleSaveBkash = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBkashMsg(null);
+    if (!bkashNumber.trim()) {
+      setBkashMsg({ text: "দয়া করে বিকাশ নাম্বার লিখুন।", type: "error" });
+      return;
+    }
+    setSavingBkash(true);
+    try {
+      const res = await saveStudentBkashNumber(studentId, bkashNumber);
+      if (res.success) {
+        setBkashMsg({ text: res.message, type: "success" });
+        if (profile) {
+          setProfile({ ...profile, bkashNumber: bkashNumber.trim() });
+        }
+      } else {
+        setBkashMsg({ text: res.message, type: "error" });
+      }
+    } catch {
+      setBkashMsg({ text: "বিকাশ নাম্বার সেভ করা সম্ভব হয়নি।", type: "error" });
+    } finally {
+      setSavingBkash(false);
     }
   };
 
@@ -142,24 +177,75 @@ export const ReferralCard: React.FC<ReferralCardProps> = ({ studentId }) => {
         </div>
       </div>
 
-      {/* Referral Stats Counters */}
-      <div className="mt-5 grid grid-cols-3 gap-2.5 sm:gap-4 text-center">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-3 sm:p-4">
-          <p className="text-[11px] sm:text-xs text-indigo-200 font-medium">মোট রেফারেল</p>
-          <p className="text-lg sm:text-2xl font-black text-white mt-1">
-            {profile ? toBengaliDigits(profile.totalReferrals) : "০"}
+      {/* bKash Number Setting Card */}
+      <div className="mt-4 bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-indigo-950/40 border border-pink-500/20 rounded-2xl p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center shrink-0 mt-0.5">
+              <Smartphone className="w-4 h-4 text-pink-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm font-bold text-white">টাকা পাওয়ার বিকাশ নাম্বার:</span>
+                <span className="text-[10px] bg-pink-500/20 text-pink-300 font-bold px-2 py-0.5 rounded-full border border-pink-500/30">
+                  bKash Personal
+                </span>
+              </div>
+              <p className="text-[11px] text-pink-200/80 mt-0.5">
+                আপনার রেফারেল রিওয়ার্ড শিক্ষক এই বিকাশ নাম্বারে পাঠিয়ে দিবেন।
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveBkash} className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              type="tel"
+              placeholder="017xxxxxxxx"
+              value={bkashNumber}
+              onChange={(e) => setBkashNumber(e.target.value)}
+              className="bg-slate-950/80 border border-pink-400/30 text-white placeholder-slate-500 text-xs sm:text-sm px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 flex-1 sm:w-44 font-mono"
+            />
+            <button
+              type="submit"
+              disabled={savingBkash}
+              className="px-3.5 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold transition shadow-md shadow-pink-600/30 disabled:opacity-50 shrink-0 cursor-pointer active:scale-95"
+            >
+              {savingBkash ? "সেভ হচ্ছে..." : "সংরক্ষণ"}
+            </button>
+          </form>
+        </div>
+
+        {bkashMsg && (
+          <p className={`mt-2 text-[11px] font-bold ${bkashMsg.type === "success" ? "text-emerald-400" : "text-rose-400"}`}>
+            {bkashMsg.text}
+          </p>
+        )}
+      </div>
+
+      {/* Referral Stats Counters - 4 Columns */}
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-center">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+          <p className="text-[11px] text-indigo-200 font-medium">মোট রেফারেল</p>
+          <p className="text-base sm:text-xl font-black text-white mt-0.5">
+            {profile ? toBengaliDigits(profile.totalReferrals) : "০"}টি
           </p>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-3 sm:p-4">
-          <p className="text-[11px] sm:text-xs text-emerald-300 font-medium">সফল এনরোল</p>
-          <p className="text-lg sm:text-2xl font-black text-emerald-400 mt-1">
-            {profile ? toBengaliDigits(profile.completedReferrals) : "০"}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+          <p className="text-[11px] text-emerald-300 font-medium">সফল এনরোল</p>
+          <p className="text-base sm:text-xl font-black text-emerald-400 mt-0.5">
+            {profile ? toBengaliDigits(profile.completedReferrals) : "০"}টি
           </p>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-3 sm:p-4">
-          <p className="text-[11px] sm:text-xs text-amber-300 font-medium">অর্জিত রিওয়ার্ড</p>
-          <p className="text-lg sm:text-2xl font-black text-amber-400 mt-1">
-            ৳{profile ? toBengaliDigits(profile.totalEarnings) : "০"}
+        <div className="bg-white/5 border border-emerald-500/20 bg-emerald-950/20 rounded-2xl p-3">
+          <p className="text-[11px] text-emerald-300 font-medium">পরিশোধিত (পেয়েছেন)</p>
+          <p className="text-base sm:text-xl font-black text-emerald-400 mt-0.5">
+            ৳{profile ? toBengaliDigits(profile.paidEarnings) : "০"}
+          </p>
+        </div>
+        <div className="bg-white/5 border border-amber-500/20 bg-amber-950/20 rounded-2xl p-3">
+          <p className="text-[11px] text-amber-300 font-medium">পরিশোধ বাকি (বকেয়া)</p>
+          <p className="text-base sm:text-xl font-black text-amber-400 mt-0.5">
+            ৳{profile ? toBengaliDigits(profile.unpaidEarnings) : "০"}
           </p>
         </div>
       </div>
@@ -170,34 +256,44 @@ export const ReferralCard: React.FC<ReferralCardProps> = ({ studentId }) => {
           <h4 className="text-xs font-bold text-indigo-200 mb-3 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" /> রেফারেলকৃত সহপাঠীদের তালিকা ({toBengaliDigits(profile.referrals.length)})
           </h4>
-          <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-            {profile.referrals.map((ref) => (
-              <div
-                key={ref.id}
-                className="bg-slate-950/40 border border-white/5 rounded-xl p-3 flex items-center justify-between gap-2 text-xs"
-              >
-                <div className="min-w-0">
-                  <p className="font-bold text-white truncate">{ref.referredUserName}</p>
-                  <p className="text-[11px] text-indigo-300 truncate">
-                    কোর্স: {ref.course} | {formatBangladeshClock(ref.createdAt)}
-                  </p>
+          <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+            {profile.referrals.map((ref) => {
+              const isPaid = ref.paymentStatus === "paid";
+              return (
+                <div
+                  key={ref.id}
+                  className="bg-slate-950/40 border border-white/5 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                >
+                  <div className="min-w-0">
+                    <p className="font-bold text-white truncate">{ref.referredUserName}</p>
+                    <p className="text-[11px] text-indigo-300 truncate">
+                      কোর্স: {ref.course} | {formatBangladeshClock(ref.createdAt)}
+                    </p>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    {ref.status === "completed" ? (
+                      isPaid ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" /> বিকাশে পরিশোধিত (+৳{toBengaliDigits(ref.rewardAmount)})
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          <Clock className="w-3 h-3 text-amber-400" /> পরিশোধ অপেক্ষমান (+৳{toBengaliDigits(ref.rewardAmount)})
+                        </span>
+                      )
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                        এনরোল অপেক্ষমান
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="shrink-0 flex items-center gap-2">
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                      ref.status === "completed"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                        : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                    }`}
-                  >
-                    {ref.status === "completed" ? "✓ সফল (+৳৫০)" : "অপেক্ষমান"}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
     </div>
   );
 };
+

@@ -1198,6 +1198,7 @@ export async function applyForAmbassador(payload: {
   studentName: string;
   studentEmail: string;
   photoURL?: string;
+  whatsapp?: string;
   university: string;
   session: string;
   reason: string;
@@ -1212,11 +1213,28 @@ export async function applyForAmbassador(payload: {
     const cleanReason = String(payload.reason || "").trim();
     const cleanGroupId = String(payload.groupId || "").trim();
 
+    // Bengali to English digits converter
+    const banglaToEnglishMap: Record<string, string> = {
+      "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4",
+      "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9"
+    };
+    const rawWhatsapp = String(payload.whatsapp || "").replace(/[০-৯]/g, (d) => banglaToEnglishMap[d] || d);
+    let cleanWhatsapp = rawWhatsapp.replace(/[^0-9]/g, "").trim();
+    if (cleanWhatsapp.startsWith("880")) {
+      cleanWhatsapp = cleanWhatsapp.slice(2);
+    }
+
     if (!cleanId) {
       return { success: false, message: "আবেদন করতে প্রথমে Google দিয়ে সাইন ইন করুন।" };
     }
     if (!cleanName) {
       return { success: false, message: "আপনার নাম লিখুন।" };
+    }
+    if (!cleanWhatsapp) {
+      return { success: false, message: "আপনার WhatsApp নাম্বার লিখুন।" };
+    }
+    if (!/^01[3-9]\d{8}$/.test(cleanWhatsapp)) {
+      return { success: false, message: "সঠিক ১১ ডিজিটের WhatsApp নাম্বার লিখুন (যেমন: 017xxxxxxxx)।" };
     }
     if (!cleanUni) {
       return { success: false, message: "আপনার বিশ্ববিদ্যালয় বা প্রতিষ্ঠানের নাম লিখুন।" };
@@ -1266,6 +1284,7 @@ export async function applyForAmbassador(payload: {
       studentName: cleanName,
       studentEmail: cleanEmail,
       photoURL: payload.photoURL || "",
+      whatsapp: cleanWhatsapp,
       university: cleanUni,
       session: cleanSession,
       reason: cleanReason,

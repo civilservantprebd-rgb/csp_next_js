@@ -29,6 +29,8 @@ const WhatsAppGroupManager = dynamic(() => import("@/components/admin/WhatsAppGr
 const StudyGroupManager = dynamic(() => import("@/components/admin/StudyGroupManager").then(mod => mod.StudyGroupManager), { loading: LoadingFallback });
 const AttendanceManager = dynamic(() => import("@/components/admin/AttendanceManager").then(mod => mod.AttendanceManager), { loading: LoadingFallback });
 const ReferralManager = dynamic(() => import("@/components/admin/ReferralManager").then(mod => mod.ReferralManager), { loading: LoadingFallback });
+const PdfManager = dynamic(() => import("@/components/admin/PdfManager").then(mod => mod.PdfManager), { loading: LoadingFallback });
+const AddCoursePdfModal = dynamic(() => import("@/components/admin/AddCoursePdfModal").then(mod => mod.AddCoursePdfModal));
 import { fetchAdminBootstrap, fetchExamForDemo, saveAppConfig, deleteTopicQuestion } from "@/actions/admin-actions";
 import { supabase } from "@/lib/supabase";
 import { AppConfigData, Exam, QuestionItem, TopicQuestion } from "@/types/exam";
@@ -71,7 +73,7 @@ export default function AdminPage() {
       const t = new URLSearchParams(window.location.search).get("tab");
       const valid: AdminTabType[] = [
         "analytics", "exams", "courses", "subjects", "students", "referrals",
-        "questions", "question_bank", "videos", "archive", "news", "whatsapp", "study_groups", "ai_question_generator", "attendance"
+        "questions", "question_bank", "videos", "archive", "news", "whatsapp", "study_groups", "ai_question_generator", "attendance", "pdfs"
       ];
       if (t && (valid as string[]).includes(t)) return t as AdminTabType;
     }
@@ -81,6 +83,8 @@ export default function AdminPage() {
   const [teacherUser, setTeacherUser] = useState<{ email: string } | null>(null);
   // অথেনটিকেশন গেট: যাচাই চলছে → লগইন ল্যান্ডিং → প্যানেল
   const [authState, setAuthState] = useState<"checking" | "login" | "panel">("checking");
+  const [isAddPdfModalOpen, setIsAddPdfModalOpen] = useState(false);
+  const [pdfRefreshKey, setPdfRefreshKey] = useState(0);
 
   // Sub-forms state
   const [newCourseName, setNewCourseName] = useState("");
@@ -371,13 +375,26 @@ export default function AdminPage() {
     const nameVal = editSubjectName.trim();
     if (!nameVal) return;
 
-    const nextSubjects = [...config.subjects];
-    nextSubjects[idx] = {
-      name: nameVal,
-      course: editSubjectCourse
-    };
+    const oldSub = config.subjects[idx];
+    const oldName = oldSub?.name;
+    const oldCourse = oldSub?.course;
 
-    await saveAppConfig({ subjects: nextSubjects });
+    if (oldName && oldCourse && (oldName !== nameVal || oldCourse !== editSubjectCourse)) {
+      const { renameSubject } = await import("@/actions/admin-actions");
+      const res = await renameSubject(oldCourse, oldName, nameVal);
+      if (!res.success) {
+        alert(res.message || "সাবজেক্ট রিনেম করতে সমস্যা হয়েছে।");
+        return;
+      }
+    } else {
+      const nextSubjects = [...config.subjects];
+      nextSubjects[idx] = {
+        name: nameVal,
+        course: editSubjectCourse
+      };
+      await saveAppConfig({ subjects: nextSubjects });
+    }
+
     setEditingSubjectIdx(null);
     refreshAdminData();
     alert("সাবজেক্ট সফলভাবে আপডেট করা হয়েছে।");
@@ -543,6 +560,16 @@ export default function AdminPage() {
                   </p>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAddPdfModalOpen(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white border border-amber-600 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="নতুন কোর্স পিডিএফ যোগ করুন"
+              >
+                <FileText className="w-3.5 h-3.5" /> <span className="hidden sm:inline">পিডিএফ যোগ করুন</span>
+                <span className="sm:hidden">+ পিডিএফ</span>
+              </button>
 
               <button
                 onClick={handleLogout}
@@ -896,6 +923,14 @@ export default function AdminPage() {
               />
             )}
 
+            {activeTab === "pdfs" && (
+              <PdfManager
+                key={pdfRefreshKey}
+                courses={config.courses || []}
+                subjects={config.subjects || []}
+              />
+            )}
+
             
 
 
@@ -911,6 +946,21 @@ export default function AdminPage() {
           topics={config?.topics || []}
           onClose={() => setBulkTopicName(null)}
           onSuccess={refreshAdminData}
+        />
+      )}
+
+      {isAddPdfModalOpen && (
+        <AddCoursePdfModal
+          isOpen={true}
+          onClose={() => setIsAddPdfModalOpen(false)}
+          courses={config?.courses || []}
+          subjects={config?.subjects || []}
+          onSaved={() => {
+            setIsAddPdfModalOpen(false);
+            setActiveTab("pdfs");
+            setPdfRefreshKey((k) => k + 1);
+            refreshAdminData();
+          }}
         />
       )}
     </>

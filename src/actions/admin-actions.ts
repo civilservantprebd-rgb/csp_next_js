@@ -870,11 +870,41 @@ export async function renameCourse(
       .eq("original_course", oldV);
     if (tqErr) throw tqErr;
 
-    // 6. course_prices (টেবিল না থাকলে কিছু হবে না)
+    // 6. course_prices: কোর্স নাম আপডেট করার পাশাপাশি details এর ভেতরে থাকা pdfs এবং routines-এর course প্রোপার্টিও নতুন নামে আপডেট করা
     try {
-      await supabase.from("course_prices").update({ course: newV }).eq("course", oldV);
-    } catch {
-      // ignore missing table
+      const { data: cpRow } = await supabase
+        .from("course_prices")
+        .select("details")
+        .eq("course", oldV)
+        .maybeSingle();
+
+      if (cpRow) {
+        let detailsObj: any = {};
+        try {
+          detailsObj = typeof cpRow.details === "string" ? JSON.parse(cpRow.details) : cpRow.details;
+        } catch {}
+
+        if (detailsObj && typeof detailsObj === "object") {
+          if (Array.isArray(detailsObj.pdfs)) {
+            detailsObj.pdfs = detailsObj.pdfs.map((p: any) => ({ ...p, course: newV }));
+          }
+          if (Array.isArray(detailsObj.routines)) {
+            detailsObj.routines = detailsObj.routines.map((r: any) => ({ ...r, course: newV }));
+          }
+        }
+
+        await supabase
+          .from("course_prices")
+          .update({
+            course: newV,
+            details: JSON.stringify(detailsObj)
+          })
+          .eq("course", oldV);
+      } else {
+        await supabase.from("course_prices").update({ course: newV }).eq("course", oldV);
+      }
+    } catch (err) {
+      console.warn("course_prices update on renameCourse warning:", err);
     }
 
     // 7. allowed_students: Update enrolled students to the new course name
@@ -912,6 +942,90 @@ export async function renameCourse(
   } catch (err) {
     console.error("Rename course error:", err);
     return { success: false, message: "কোর্স রিনেম করতে সমস্যা হয়েছে।" };
+  }
+}
+
+/**
+ * সাবজেক্ট রিনেম করা: সাবজেক্ট টেবিল, এক্সাম, প্রশ্নব্যাংক এবং কোর্স পিডিএফ-এর সাবজেক্ট ফিল্ড একসাথে আপডেট
+ */
+export async function renameSubject(
+  course: string,
+  oldSubjectName: string,
+  newSubjectName: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    await requireTeacher();
+    const cleanCourse = String(course || "").trim();
+    const oldName = String(oldSubjectName || "").trim();
+    const newName = String(newSubjectName || "").trim();
+
+    if (!cleanCourse || !oldName || !newName || oldName === newName) {
+      return { success: false, message: "কোর্স ও সাবজেক্টের নাম সঠিকভাবে প্রদান করুন।" };
+    }
+
+    // 1. Update subjects table
+    const { error: subjErr } = await supabase
+      .from("subjects")
+      .update({ name: newName })
+      .eq("course", cleanCourse)
+      .eq("name", oldName);
+    if (subjErr) console.warn("renameSubject subjects table warning:", subjErr);
+
+    // 2. Update exams table
+    const { error: examErr } = await supabase
+      .from("exams")
+      .update({ subject: newName })
+      .eq("course", cleanCourse)
+      .eq("subject", oldName);
+    if (examErr) console.warn("renameSubject exams table warning:", examErr);
+
+    // 3. Update question_bank
+    const { error: qbErr } = await supabase
+      .from("question_bank")
+      .update({ subject: newName })
+      .eq("course", cleanCourse)
+      .eq("subject", oldName);
+    if (qbErr) console.warn("renameSubject question_bank warning:", qbErr);
+
+    // 4. Update PDFs in course_prices
+    try {
+      const { data: row } = await supabase
+        .from("course_prices")
+        .select("details")
+        .eq("course", cleanCourse)
+        .maybeSingle();
+
+      if (row) {
+        let detailsObj: any = {};
+        try {
+          detailsObj = typeof row.details === "string" ? JSON.parse(row.details) : row.details;
+        } catch {}
+
+        if (detailsObj && Array.isArray(detailsObj.pdfs)) {
+          detailsObj.pdfs = detailsObj.pdfs.map((p: any) => {
+            if (p.subject === oldName) {
+              return { ...p, subject: newName };
+            }
+            return p;
+          });
+
+          await supabase
+            .from("course_prices")
+            .update({
+              details: JSON.stringify(detailsObj)
+            })
+            .eq("course", cleanCourse);
+        }
+      }
+    } catch (err) {
+      console.warn("renameSubject course_prices pdfs warning:", err);
+    }
+
+    invalidateConfigCache();
+    return { success: true, message: "সাবজেক্ট সফলভাবে আপডেট করা হয়েছে।" };
+  } catch (err: any) {
+    console.error("renameSubject error:", err);
+    return { success: false, message: err?.message || "সার্ভার ত্রুটি।" };
   }
 }
 

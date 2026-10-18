@@ -66,6 +66,7 @@ import { CourseGroupedResults } from "@/components/dashboard/CourseGroupedResult
 import { getStudentMistakes, getStudentBookmarks } from "@/lib/mistake-bookmark-store";
 import { getStudentSubmissions } from "@/actions/student-actions";
 import type { DailyNewsItem } from "@/actions/news-actions";
+import { preloadPdfsAndRoutines } from "@/lib/pdf-routine-store";
 
 // Lazy-load modals
 const EnrollModal = dynamic(() => import("@/components/modals/EnrollModal").then((m) => m.EnrollModal), { ssr: false });
@@ -129,6 +130,10 @@ export default function HomeClient({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarHidden, setDesktopSidebarHidden] = useState(false);
 
+  const [visitedPdfs, setVisitedPdfs] = useState(false);
+  const [visitedRoutines, setVisitedRoutines] = useState(false);
+  const [visitedQuestionBank, setVisitedQuestionBank] = useState(false);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("aarohon_desktop_sidebar_hidden");
@@ -136,7 +141,43 @@ export default function HomeClient({
         setDesktopSidebarHidden(true);
       }
     }
+    // Preload PDFs and Routines in background for instant opening
+    preloadPdfsAndRoutines();
+
+    // Background preload practice topics for instant 0ms opening
+    const timer = setTimeout(() => {
+      const u = getLocalStudentUser();
+      if (u) {
+        import("@/actions/practice-actions")
+          .then(({ getPracticeTopics }) => {
+            getPracticeTopics(u.uid, u.email)
+              .then((t) => {
+                if (t && t.length > 0) {
+                  try {
+                    localStorage.setItem(
+                      "csp_qbank_topics_" + (u.uid || u.email),
+                      JSON.stringify({
+                        list: t.map((x) => ({ name: x.name, count: x.count })),
+                        ts: Date.now()
+                      })
+                    );
+                  } catch {}
+                }
+              })
+              .catch(() => {});
+          })
+          .catch(() => {});
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (activeNav === "pdfs") setVisitedPdfs(true);
+    if (activeNav === "routines") setVisitedRoutines(true);
+    if (activeNav === "question_bank") setVisitedQuestionBank(true);
+  }, [activeNav]);
 
   const toggleDesktopSidebar = () => {
     setDesktopSidebarHidden((prev) => {
@@ -637,11 +678,11 @@ export default function HomeClient({
   if (gate === "loading") {
     return (
       <div className="min-h-screen bg-[#0f172a] text-white font-bengali flex flex-col items-center justify-center gap-4">
-        <span className="bg-gradient-to-tr from-amber-400 to-indigo-500 p-2.5 rounded-2xl shadow-xl shadow-black/40">
-          <GraduationCap className="w-8 h-8 text-slate-950" />
+        <span className="bg-gradient-to-tr from-indigo-500 to-violet-600 p-2.5 rounded-2xl shadow-xl shadow-black/40">
+          <GraduationCap className="w-8 h-8 text-white" />
         </span>
         <p className="text-sm font-bold text-indigo-100">আরোহণ লোড হচ্ছে...</p>
-        <span className="w-8 h-8 rounded-full border-4 border-indigo-500/30 border-t-amber-400 animate-spin" />
+        <span className="w-8 h-8 rounded-full border-4 border-indigo-500/30 border-t-indigo-400 animate-spin" />
       </div>
     );
   }
@@ -669,11 +710,11 @@ export default function HomeClient({
           {/* Logo & Brand Name */}
           <div className="h-16 px-5 border-b border-[#1f2c44] flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3 group">
-              <span className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 via-amber-300 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-400/20 group-hover:scale-105 transition-transform duration-200">
-                <GraduationCap className="w-5 h-5 text-slate-950" />
+              <span className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-600/30 group-hover:scale-105 transition-transform duration-200">
+                <GraduationCap className="w-5 h-5 text-white" />
               </span>
               <div className="flex flex-col">
-                <span className="text-xl font-medium tracking-wide text-white group-hover:text-amber-300 transition-colors">
+                <span className="text-xl font-medium tracking-wide text-white group-hover:text-indigo-200 transition-colors">
                   আরোহণ
                 </span>
                 <span className="text-[10px] text-slate-400 -mt-1 font-semibold tracking-wider uppercase">
@@ -743,7 +784,7 @@ export default function HomeClient({
                     type="button"
                     onClick={() => handleNavSelect("dashboard")}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all ${activeNav === "dashboard"
-                      ? "bg-indigo-600/30 text-amber-300 font-bold border border-indigo-500/40 shadow-sm"
+                      ? "bg-indigo-600/25 text-white font-bold border border-indigo-500/35 shadow-xs"
                       : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
@@ -861,7 +902,7 @@ export default function HomeClient({
                     type="button"
                     onClick={() => handleNavSelect("leaderboard")}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all ${activeNav === "leaderboard"
-                      ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm"
+                      ? "bg-amber-500/15 text-amber-200 font-bold border border-amber-500/30 shadow-xs"
                       : "text-slate-300 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                   >
@@ -883,17 +924,17 @@ export default function HomeClient({
                 type="button"
                 onClick={() => handleNavSelect("question_bank")}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "question_bank"
-                  ? "bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40 shadow-sm"
+                  ? "bg-indigo-600/25 text-white font-bold border border-indigo-500/35 shadow-xs"
                   : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                  <span className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <Layers className="w-4 h-4" />
                   </span>
                   <span className="text-sm sm:text-[15px]">অনুশীলন</span>
                 </div>
-                <ChevronRight className={`w-4 h-4 ${activeNav === "question_bank" ? "text-cyan-400" : "text-slate-500"}`} />
+                <ChevronRight className={`w-4 h-4 ${activeNav === "question_bank" ? "text-indigo-400" : "text-slate-500"}`} />
               </button>
 
               {/* কোর্স */}
@@ -901,17 +942,17 @@ export default function HomeClient({
                 type="button"
                 onClick={() => handleNavSelect("courses")}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "courses"
-                  ? "bg-amber-400/20 text-amber-300 font-bold border border-amber-400/40 shadow-sm"
+                  ? "bg-indigo-600/25 text-white font-bold border border-indigo-500/35 shadow-xs"
                   : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <span className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <BookOpen className="w-4 h-4" />
                   </span>
                   <span className="text-sm sm:text-[15px]">কোর্স</span>
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-300 border border-amber-400/20 font-bold">
+                <span className="text-xs px-2 py-0.5 rounded-md bg-white/10 text-slate-300 border border-white/10 font-bold">
                   {toBengaliDigits(coursesList.length)}
                 </span>
               </button>
@@ -921,17 +962,17 @@ export default function HomeClient({
                 type="button"
                 onClick={() => handleNavSelect("pdfs")}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "pdfs"
-                  ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm"
+                  ? "bg-indigo-600/25 text-white font-bold border border-indigo-500/35 shadow-xs"
                   : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <span className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <FileText className="w-4 h-4" />
                   </span>
                   <span className="text-sm sm:text-[15px]">পিডিএফ শিট</span>
                 </div>
-                <ChevronRight className={`w-4 h-4 ${activeNav === "pdfs" ? "text-amber-400" : "text-slate-500"}`} />
+                <ChevronRight className={`w-4 h-4 ${activeNav === "pdfs" ? "text-indigo-400" : "text-slate-500"}`} />
               </button>
 
               {/* রুটিন */}
@@ -957,17 +998,17 @@ export default function HomeClient({
                 type="button"
                 onClick={() => handleNavSelect("referral")}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-left font-medium ${activeNav === "referral"
-                  ? "bg-gradient-to-r from-amber-500/25 to-pink-500/20 text-amber-300 font-bold border border-amber-400/40 shadow-sm"
+                  ? "bg-gradient-to-r from-violet-500/20 to-purple-500/20 text-violet-200 font-bold border border-violet-400/30 shadow-xs"
                   : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center shadow-sm">
+                  <span className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-500 to-indigo-500 text-white flex items-center justify-center shadow-xs">
                     <Gift className="w-4 h-4" />
                   </span>
                   <span className="text-sm sm:text-[15px]">রেফারেল</span>
                 </div>
-                <span className="bg-amber-400 text-slate-950 font-bold text-xs px-2 py-0.5 rounded-full shadow-sm">
+                <span className="bg-violet-500 text-white font-bold text-xs px-2 py-0.5 rounded-full shadow-xs">
                   ৳৫০ অফার
                 </span>
               </button>
@@ -1023,7 +1064,7 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={handleLandingLogin}
-                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-medium text-xs flex items-center justify-center gap-2 shadow-md transition cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 transition cursor-pointer"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Google দিয়ে লগইন</span>
@@ -1108,7 +1149,7 @@ export default function HomeClient({
               <button
                 type="button"
                 onClick={() => handleOpenEnrollModal()}
-                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-[11px] sm:text-xs font-medium transition shadow-xs cursor-pointer active:scale-95 shrink-0"
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-medium transition shadow-xs shadow-indigo-600/20 cursor-pointer active:scale-95 shrink-0"
               >
                 <span>এনরোল করুন</span>
               </button>
@@ -1179,7 +1220,7 @@ export default function HomeClient({
               {/* Student avatar badge */}
               {studentUser && (
                 <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 text-amber-300 flex items-center justify-center font-bold text-xs ring-2 ring-amber-400/30">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-medium text-xs ring-2 ring-indigo-500/20">
                     {studentUser.photoURL ? (
                       <Image src={studentUser.photoURL} alt="Avatar" width={32} height={32} className="w-full h-full rounded-full object-cover" />
                     ) : (
@@ -1561,8 +1602,8 @@ export default function HomeClient({
             )}
 
             {/* VIEW: প্রশ্নব্যাংক (QUESTION BANK VIEW) */}
-            {activeNav === "question_bank" && (
-              <div className="space-y-5 animate-in fade-in duration-200">
+            {visitedQuestionBank && (
+              <div className={activeNav === "question_bank" ? "space-y-5 animate-in fade-in duration-200" : "hidden"}>
                 <QuestionBankView onOpenEnrollModal={handleOpenEnrollModal} />
               </div>
             )}
@@ -1617,13 +1658,17 @@ export default function HomeClient({
             )}
 
             {/* VIEW: পিডিএফ শিট (PDF LIBRARY VIEW) */}
-            {activeNav === "pdfs" && (
-              <PdfLibraryView courses={coursesList} />
+            {visitedPdfs && (
+              <div className={activeNav === "pdfs" ? "block" : "hidden"}>
+                <PdfLibraryView courses={coursesList} onOpenEnrollModal={handleOpenEnrollModal} />
+              </div>
             )}
 
             {/* VIEW: রুটিন (ROUTINE LIBRARY VIEW) */}
-            {activeNav === "routines" && (
-              <RoutineLibraryView courses={coursesList} />
+            {visitedRoutines && (
+              <div className={activeNav === "routines" ? "block" : "hidden"}>
+                <RoutineLibraryView courses={coursesList} />
+              </div>
             )}
 
             {/* VIEW 10: রেফারেল (REFERRAL & REWARDS VIEW) */}
@@ -1707,11 +1752,11 @@ export default function HomeClient({
               type="button"
               onClick={() => handleNavSelect("question_bank")}
               className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${activeNav === "question_bank"
-                ? "text-cyan-600 font-bold"
+                ? "text-indigo-600 font-bold"
                 : "text-slate-500 hover:text-slate-800 font-medium"
                 }`}
             >
-              <div className={`p-1 rounded-xl transition-all ${activeNav === "question_bank" ? "bg-cyan-50 text-cyan-600" : ""}`}>
+              <div className={`p-1 rounded-xl transition-all ${activeNav === "question_bank" ? "bg-indigo-50 text-indigo-600" : ""}`}>
                 <Layers className="w-5 h-5" />
               </div>
               <span className="text-[10px] leading-tight mt-0.5">অনুশীলন</span>
@@ -1728,11 +1773,11 @@ export default function HomeClient({
                 }
               }}
               className={`flex flex-col items-center justify-center flex-1 py-1 transition-all rounded-xl active:scale-95 ${activeNav === "courses"
-                ? "text-amber-600 font-bold"
+                ? "text-indigo-600 font-bold"
                 : "text-slate-500 hover:text-slate-800 font-medium"
                 }`}
             >
-              <div className={`p-1 rounded-xl transition-all ${activeNav === "courses" ? "bg-amber-50 text-amber-600" : ""}`}>
+              <div className={`p-1 rounded-xl transition-all ${activeNav === "courses" ? "bg-indigo-50 text-indigo-600" : ""}`}>
                 <BookOpen className="w-5 h-5" />
               </div>
               <span className="text-[10px] leading-tight mt-0.5">কোর্স</span>

@@ -14,6 +14,7 @@ export async function submitEnrollRequest(payload: {
   trxId: string;
   amount?: string;
   coupon?: string;
+  bkashNumber?: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
     // SECURITY: enrollment requests grant paid-course access after teacher
@@ -137,6 +138,7 @@ export async function submitEnrollRequest(payload: {
           referredUserId: sessionUser.id,
           referredUserName: payload.name.trim(),
           referredUserEmail: String(sessionUser.email || cleanEmail || ""),
+          referredUserBkash: payload.bkashNumber ? String(payload.bkashNumber).trim() : undefined,
           course: courseStr
         });
       } catch (refErr) {

@@ -27,9 +27,6 @@ import {
 } from "lucide-react";
 import { toBengaliDigits, compareExamsByStartTime, formatBangladeshDate, formatBangladeshClock } from "@/lib/utils";
 import { MathText } from "@/lib/MathText";
-import { ExamPdfModal } from "./ExamPdfModal";
-import { CoursePdfItem } from "@/types/pdf";
-import { getAllCoursePdfsMap } from "@/actions/pdf-actions";
 
 /** প্রিভিউ/এডিটে দরকারি আকার: প্রশ্ন + (শিক্ষক-গেটেড) সঠিক উত্তর ও ব্যাখ্যা */
 type LoadedQuestion = QuestionItem & { correct?: number; exp?: string };
@@ -78,14 +75,6 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
 
   // ---- প্রিভিউ মোডাল (এক্সাম রেডি করার পর শিক্ষক নিজে দেখেন) ----
   const [previewKey, setPreviewKey] = useState<string | null>(null);
-
-  // ---- পিডিএফ মোডাল ও এক্সাম পিডিএফ ম্যাপ ----
-  const [pdfModalExam, setPdfModalExam] = useState<Exam | null>(null);
-  const [pdfsMap, setPdfsMap] = useState<Record<string, CoursePdfItem>>({});
-
-  useEffect(() => {
-    getAllCoursePdfsMap().then((m) => setPdfsMap(m || {})).catch(() => {});
-  }, []);
 
   // ---- কোর্স-ভিত্তিক তালিকা: কোন কোর্সের গ্রুপ সংকুচিত আছে ----
   // ডিফল্টে সক্রিয় পরীক্ষার কোর্স ছাড়া বাকি সব সংকুচিত (কোর্সে ট্যাপ করলে খোলে)
@@ -625,11 +614,6 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                                 )}
                                 {/* দেওয়া হয়েছে কি না — এক নজরে */}
                                 {renderTakenBadge(k, ex)}
-                                {pdfsMap[k] && (
-                                  <span className="text-xs bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                                    <FileText className="w-3 h-3 text-amber-600" /> পিডিএফ যুক্ত
-                                  </span>
-                                )}
                               </div>
                               <p className="text-sm text-slate-500">
                                 কোর্স: {ex.course} | সাবজেক্ট: {ex.subject} | প্রশ্ন: {toBengaliDigits(questionCountOf(k, ex))} |
@@ -672,33 +656,15 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
                                 </button>
                               )}
 
-                              {/* পিডিএফ বাটন — গুগল ড্রাইভ লিংক আপলোড ও টাইটেল */}
-                              <button
-                                type="button"
-                                onClick={() => setPdfModalExam(ex)}
-                                disabled={isLoading}
-                                className={`text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm ${
-                                  pdfsMap[k]
-                                    ? "bg-amber-600 hover:bg-amber-700 text-white border border-amber-600"
-                                    : "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
-                                }`}
-                                title="পিডিএফ ও গুগল ড্রাইভ লিংক যুক্ত বা এডিট করুন"
-                              >
-                                <FileText className="w-3 h-3" /> পিডিএফ
-                                {pdfsMap[k] && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" />
-                                )}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setPreviewKey(k)}
-                                disabled={isLoading}
-                                className="bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
-                                title="প্রশ্ন ও বিন্যাস দেখুন (শিক্ষার্থীর মতো) — প্রকাশের আগে যাচাই করুন"
-                              >
-                                <Eye className="w-3 h-3" /> প্রিভিউ
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewKey(k)}
+                                  disabled={isLoading}
+                                  className="bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 text-sm font-bold px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-sm"
+                                  title="প্রশ্ন ও বিন্যাস দেখুন (শিক্ষার্থীর মতো) — প্রকাশের আগে যাচাই করুন"
+                                >
+                                  <Eye className="w-3 h-3" /> প্রিভিউ
+                                </button>
                               <button
                                 type="button"
                                 onClick={() => window.open(`/exam/${encodeURIComponent(k)}?demo=1`, "_blank")}
@@ -1073,27 +1039,6 @@ export const ExamManager: React.FC<ExamManagerProps> = ({
         </div>
       )}
 
-      {/* Exam PDF Modal — গুগল ড্রাইভ লিংক আপলোড ও টাইটেল */}
-      {pdfModalExam && (
-        <ExamPdfModal
-          isOpen={!!pdfModalExam}
-          exam={pdfModalExam}
-          initialPdf={pdfsMap[pdfModalExam.id]}
-          onClose={() => setPdfModalExam(null)}
-          onSaved={(savedPdf) => {
-            setPdfsMap((prev) => ({ ...prev, [savedPdf.examId]: savedPdf }));
-            setPdfModalExam(null);
-          }}
-          onDeleted={(examId) => {
-            setPdfsMap((prev) => {
-              const next = { ...prev };
-              delete next[examId];
-              return next;
-            });
-            setPdfModalExam(null);
-          }}
-        />
-      )}
     </div>
   );
 };

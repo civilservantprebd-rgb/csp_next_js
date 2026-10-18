@@ -49,6 +49,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="bn">
+      <head>
+        <link rel="preconnect" href="https://drive.google.com" />
+        <link rel="dns-prefetch" href="https://drive.google.com" />
+        <link rel="preconnect" href="https://docs.google.com" />
+        <link rel="dns-prefetch" href="https://docs.google.com" />
+      </head>
       <body className="bg-slate-50 text-slate-800 min-h-screen flex flex-col overflow-x-hidden antialiased font-bengali">
         {/* ক্লিকের সাথে সাথে সাড়া — নেভিগেশন/সার্ভার-কল চলাকালীন অ্যানিমেটেড বার */}
         <TopLoadingBar />

@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, UserPlus, CheckCircle2, ShieldCheck, ArrowRight, Sparkles, LogIn, Hash, Ticket } from "lucide-react";
+import { X, UserPlus, CheckCircle2, ShieldCheck, ArrowRight, Sparkles, LogIn, Hash, Ticket, Smartphone } from "lucide-react";
 import { submitEnrollRequest } from "@/actions/enroll-actions";
 import { getCoursePrices } from "@/actions/course-actions";
-import { validateReferralCode } from "@/actions/referral-actions";
+import { validateReferralCode, getStudentBkashNumber } from "@/actions/referral-actions";
 import { getLocalStudentUser, loginWithGoogle, StudentUser } from "@/lib/student-auth";
 
 interface EnrollModalProps {
@@ -29,6 +29,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
   const [name, setName] = useState("");
   const [trxId, setTrxId] = useState("");
   const [coupon, setCoupon] = useState("");
+  const [bkashNumber, setBkashNumber] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
   const [couponSuccessMsg, setCouponSuccessMsg] = useState("");
   const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -43,6 +44,9 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
       setStudentUser(user);
       if (user) {
         setName(user.name);
+        getStudentBkashNumber(user.uid).then((saved) => {
+          if (saved) setBkashNumber(saved);
+        }).catch(() => {});
       }
       getCoursePrices().then(setPrices).catch(console.error);
 
@@ -78,6 +82,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
     setErrorMsg("");
     setCouponSuccessMsg("");
     setDiscountAmount(0);
+    setBkashNumber("");
     onClose();
   };
 
@@ -169,6 +174,7 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
       trxId,
       amount: totalAmount > 0 ? String(totalAmount) : undefined,
       coupon,
+      bkashNumber: bkashNumber.trim() || undefined,
     });
 
     setIsLoading(false);
@@ -465,6 +471,32 @@ export const EnrollModal: React.FC<EnrollModalProps> = ({
                         </p>
                       )}
                     </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-700 ml-1">
+                        আপনার বিকাশ নাম্বার <span className="text-[10px] font-normal text-slate-500">(ক্যাশব্যাক / রিওয়ার্ডের জন্য)</span>
+                      </label>
+                      <span className="text-[10px] font-semibold text-pink-600 bg-pink-50 border border-pink-100 px-2 py-0.5 rounded-full">
+                        bKash
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                        <Smartphone className="h-4 w-4 text-pink-500" />
+                      </div>
+                      <input
+                        type="tel"
+                        placeholder="যেমন: 017xxxxxxxx (ঐচ্ছিক)"
+                        value={bkashNumber}
+                        onChange={(e) => setBkashNumber(e.target.value)}
+                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-xs sm:text-sm bg-slate-50/50 hover:bg-white focus:bg-white transition-all shadow-sm"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 ml-1 leading-tight">
+                      রেফারেল রিওয়ার্ড বা ক্যাশব্যাক টাকা পেতে আপনার পার্সোনাল বিকাশ নাম্বার দিন।
+                    </p>
                   </div>
 
                   {subtotal > 0 && (

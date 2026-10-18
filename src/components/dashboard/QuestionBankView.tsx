@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { getPracticeTopics, getQuestionBankTopicQuestions } from "@/actions/practice-actions";
 import { verifyTeacherSession } from "@/actions/admin-actions";
 import { getLocalStudentUser, loginWithGoogle } from "@/lib/student-auth";
+import { getCachedEnrollment } from "@/lib/access-cache";
 import { toBengaliDigits } from "@/lib/utils";
 import { MathText } from "@/lib/MathText";
 import { buildTopicGroupTree, colorFor, pruneEmptyNodes, TopicIcon, type HubNode } from "@/lib/topic-group";
@@ -63,9 +64,9 @@ const FILTER_LABELS: { id: BankFilter; label: string }[] = [
 const optLabels = ["ক", "খ", "গ", "ঘ"];
 
 const TOPICS_CACHE_PREFIX = "csp_qbank_topics_";
-const TOPICS_CACHE_TTL_MS = 90 * 1000;
+const TOPICS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes fresh cache
 
-function readTopicsCache(uid: string): TopicEntry[] | null {
+export function readTopicsCache(uid: string): TopicEntry[] | null {
   if (typeof window === "undefined" || !uid) return null;
   try {
     const raw = localStorage.getItem(TOPICS_CACHE_PREFIX + uid);
@@ -79,7 +80,7 @@ function readTopicsCache(uid: string): TopicEntry[] | null {
   }
 }
 
-function writeTopicsCache(uid: string, list: TopicEntry[]): void {
+export function writeTopicsCache(uid: string, list: TopicEntry[]): void {
   if (typeof window === "undefined" || !uid) return;
   try {
     localStorage.setItem(TOPICS_CACHE_PREFIX + uid, JSON.stringify({ list, ts: Date.now() }));
@@ -94,14 +95,26 @@ interface QuestionBankViewProps {
 
 export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnrollModal }) => {
   const router = useRouter();
-  const [user, setUser] = useState<{ uid: string; name: string; email?: string } | null>(null);
-  const [entries, setEntries] = useState<TopicEntry[]>([]);
-  const [enrolled, setEnrolled] = useState<boolean | null>(null);
+
+  // Immediate synchronous cache check for 0ms initial render
+  const initialLocalUser = typeof window !== "undefined" ? getLocalStudentUser() : null;
+  const initialEnrollSnap = typeof window !== "undefined" && initialLocalUser
+    ? getCachedEnrollment(initialLocalUser.uid, initialLocalUser.email)
+    : null;
+  const initialEnrolled = initialEnrollSnap ? initialEnrollSnap.allowed : null;
+  const initialCache = initialLocalUser && initialEnrolled === true
+    ? readTopicsCache(initialLocalUser.uid || initialLocalUser.email)
+    : null;
+  const hasInitialCache = !!(initialCache && initialCache.length > 0 && initialEnrolled === true);
+
+  const [user, setUser] = useState<{ uid: string; name: string; email?: string } | null>(initialLocalUser);
+  const [entries, setEntries] = useState<TopicEntry[]>(initialCache || []);
+  const [enrolled, setEnrolled] = useState<boolean | null>(initialEnrolled);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [topicsLoaded, setTopicsLoaded] = useState(false);
-  const [accessId, setAccessId] = useState("");
-  const [accessEmail, setAccessEmail] = useState("");
+  const [topicsLoaded, setTopicsLoaded] = useState(hasInitialCache);
+  const [accessId, setAccessId] = useState(() => initialLocalUser?.uid || "");
+  const [accessEmail, setAccessEmail] = useState(() => initialLocalUser?.email || "");
   const [questionCache, setQuestionCache] = useState<Record<string, { qs: BankQ[]; total: number }>>({});
 
   // রিডিং স্টেট
@@ -176,65 +189,75 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
   useEffect(() => {
     const u = getLocalStudentUser();
     setUser(u);
-    if (!u) return;
+    if (!u) {
+      setEnrolled(false);
+      return;
+    }
 
     (async () => {
       try {
-        const cached = readTopicsCache(u.uid || u.email);
-        if (cached && cached.length > 0) {
-          setEntries(cached);
-          setEnrolled(true);
-        }
-
-        const teacher = await verifyTeacherSession();
+        const { checkEnrollmentCached } = await import("@/lib/access-cache");
+        let allowed = false;
         let effId = u.uid;
         let effEmail = u.email;
-        if (!teacher.ok) {
-          const { checkEnrollmentCached } = await import("@/lib/access-cache");
-          let allowed = false;
-          const g = await checkEnrollmentCached(u.uid, u.email);
-          if (g.allowed) {
-            allowed = true;
-          } else {
-            const { getVerifiedStudent } = await import("@/lib/student-identity");
-            const verified = getVerifiedStudent();
-            if (verified && verified.id && verified.id !== u.uid) {
-              const alt = await checkEnrollmentCached(verified.id, verified.email);
-              if (alt.allowed) {
-                allowed = true;
-                effId = verified.id;
-                effEmail = verified.email || "";
-              }
+
+        const g = await checkEnrollmentCached(u.uid, u.email);
+        if (g.allowed) {
+          allowed = true;
+        } else {
+          const { getVerifiedStudent } = await import("@/lib/student-identity");
+          const verified = getVerifiedStudent();
+          if (verified && verified.id && verified.id !== u.uid) {
+            const alt = await checkEnrollmentCached(verified.id, verified.email);
+            if (alt.allowed) {
+              allowed = true;
+              effId = verified.id;
+              effEmail = verified.email || "";
             }
           }
-          setEnrolled(allowed);
-          if (!allowed) return;
-        } else {
-          setEnrolled(true);
         }
+
+        setEnrolled(allowed);
+        if (!allowed) {
+          setEntries([]);
+          setTopicsLoaded(true);
+          return;
+        }
+
         setAccessId(effId);
         setAccessEmail(effEmail || "");
 
+        // If enrolled, populate cached topics immediately if available
+        const cached = readTopicsCache(effId || effEmail || u.uid);
+        if (cached && cached.length > 0) {
+          setEntries(cached);
+          setTopicsLoaded(true);
+        }
+
         void syncStudentReads(effId || u.uid).catch(() => {});
 
-        const t = await getPracticeTopics(effId, effEmail);
-        const mapped = (t || []).map((x: { name: string; count: number }) => ({
-          name: x.name,
-          count: x.count
-        }));
-        setEntries(mapped);
-        setTopicsLoaded(true);
-        if (mapped.length > 0) {
-          writeTopicsCache(effId || effEmail, mapped);
+        const t = await getPracticeTopics(effId || u.uid, effEmail || u.email);
+        if (t && t.length > 0) {
+          const mapped = t.map((x: { name: string; count: number }) => ({
+            name: x.name,
+            count: x.count
+          }));
+          setEntries(mapped);
+          setTopicsLoaded(true);
+          writeTopicsCache(effId || effEmail || u.uid, mapped);
+        } else if (!hasInitialCache) {
+          setTopicsLoaded(true);
         }
       } catch {
-        setLoadError("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
+        if (!hasInitialCache) {
+          setLoadError("সার্ভার থেকে তথ্য লোড করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।");
+        }
       }
     })();
   }, []);
 
   const openTopic = async (value: string, label: string) => {
-    if (!user) return;
+    if (!user || enrolled !== true) return;
     
     if (questionCache[value]) {
       setQuestions(questionCache[value].qs);
@@ -301,7 +324,7 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
   };
 
   const loadMoreQuestions = async () => {
-    if (!user || isLoadingMore) return;
+    if (!user || enrolled !== true || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
       const nextPage = currentPage + 1;
@@ -357,7 +380,7 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
   };
 
   const openCollection = async (kind: "bookmarks" | "reads") => {
-    if (!user) return;
+    if (!user || enrolled !== true) return;
     const id = storeId || user.uid;
     setBusy(true);
     setLoadError("");
@@ -409,7 +432,7 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({ onOpenEnroll
       return;
     }
     setActiveGroupPath(node.fullPath);
-    if (node.children.length > 0) expandBranch(node);
+    setExpandedPaths({});
     setTimeout(() => {
       detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);

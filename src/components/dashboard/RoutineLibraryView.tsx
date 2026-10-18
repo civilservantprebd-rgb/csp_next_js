@@ -2,8 +2,13 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { CourseRoutineItem } from "@/types/pdf";
-import { getAllPdfsAndRoutines } from "@/actions/pdf-actions";
 import { toBengaliDigits, formatBangladeshDate } from "@/lib/utils";
+import {
+  getCachedPdfRoutineData,
+  fetchPdfsAndRoutines,
+  subscribePdfRoutineStore,
+  optimizeDriveUrl,
+} from "@/lib/pdf-routine-store";
 import {
   Calendar,
   Search,
@@ -25,8 +30,10 @@ interface RoutineLibraryViewProps {
 }
 
 export function RoutineLibraryView({ courses, initialCourse }: RoutineLibraryViewProps) {
-  const [allRoutines, setAllRoutines] = useState<CourseRoutineItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Read cache immediately for 0ms initial render
+  const initialCache = getCachedPdfRoutineData();
+  const [allRoutines, setAllRoutines] = useState<CourseRoutineItem[]>(initialCache?.allRoutines || []);
+  const [loading, setLoading] = useState(!initialCache || initialCache.allRoutines.length === 0);
 
   // Drilldown state:
   // Level 1: Course list (selectedCourse = null)
@@ -36,22 +43,34 @@ export function RoutineLibraryView({ courses, initialCourse }: RoutineLibraryVie
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    getAllPdfsAndRoutines()
+    const cached = getCachedPdfRoutineData();
+    if (!cached || cached.allRoutines.length === 0) {
+      setLoading(true);
+    }
+
+    fetchPdfsAndRoutines()
       .then((res) => {
         if (alive) {
           setAllRoutines(res.allRoutines || []);
+          setLoading(false);
         }
       })
       .catch((err) => {
         console.error("Failed to load routines:", err);
-      })
-      .finally(() => {
         if (alive) setLoading(false);
       });
 
+    // Subscribe to background store updates
+    const unsubscribe = subscribePdfRoutineStore((data) => {
+      if (alive) {
+        setAllRoutines(data.allRoutines || []);
+        setLoading(false);
+      }
+    });
+
     return () => {
       alive = false;
+      unsubscribe();
     };
   }, []);
 
@@ -143,7 +162,7 @@ export function RoutineLibraryView({ courses, initialCourse }: RoutineLibraryVie
                 {globalSearchResults.map((routine, idx) => (
                   <div
                     key={routine.id || `${routine.course}_${idx}`}
-                    onClick={() => window.open(routine.driveLink, "_blank", "noopener,noreferrer")}
+                    onClick={() => window.open(optimizeDriveUrl(routine.driveLink), "_blank", "noopener,noreferrer")}
                     className="group p-3.5 rounded-2xl border border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/20 transition flex flex-col justify-between gap-3 cursor-pointer shadow-xs hover:shadow-sm"
                   >
                     <div className="flex items-start gap-3 min-w-0">
@@ -172,13 +191,13 @@ export function RoutineLibraryView({ courses, initialCourse }: RoutineLibraryVie
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">গুগল ড্রাইভ ভিউয়ার</span>
                       <a
-                        href={routine.driveLink}
+                        href={optimizeDriveUrl(routine.driveLink)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-2xs"
+                        className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs shadow-emerald-600/20 active:scale-95 cursor-pointer shrink-0"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" /> ওপেন করুন
+                        <ExternalLink className="w-3.5 h-3.5" /> ড্রাইভ ওপেন করুন
                       </a>
                     </div>
                   </div>
@@ -340,7 +359,7 @@ export function RoutineLibraryView({ courses, initialCourse }: RoutineLibraryVie
                     </div>
 
                     <div
-                      onClick={() => window.open(latestRoutine.driveLink, "_blank", "noopener,noreferrer")}
+                      onClick={() => window.open(optimizeDriveUrl(latestRoutine.driveLink), "_blank", "noopener,noreferrer")}
                       className="group bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 rounded-3xl border-2 border-indigo-300 hover:border-indigo-500 p-4 sm:p-5 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
                       <div className="flex items-start gap-3.5 min-w-0">
@@ -369,7 +388,7 @@ export function RoutineLibraryView({ courses, initialCourse }: RoutineLibraryVie
                       </div>
 
                       <a
-                        href={latestRoutine.driveLink}
+                        href={optimizeDriveUrl(latestRoutine.driveLink)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
@@ -394,7 +413,7 @@ export function RoutineLibraryView({ courses, initialCourse }: RoutineLibraryVie
                       {previousRoutines.map((routine, idx) => (
                         <div
                           key={routine.id || `${routine.course}_${idx}`}
-                          onClick={() => window.open(routine.driveLink, "_blank", "noopener,noreferrer")}
+                          onClick={() => window.open(optimizeDriveUrl(routine.driveLink), "_blank", "noopener,noreferrer")}
                           className="group p-3.5 rounded-2xl border border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/20 transition flex flex-col justify-between gap-3 cursor-pointer shadow-xs hover:shadow-sm active:scale-[0.99]"
                         >
                           <div className="flex items-start gap-3 min-w-0">
@@ -418,13 +437,13 @@ export function RoutineLibraryView({ courses, initialCourse }: RoutineLibraryVie
                               ড্রাইভ শিডিউল ভিউয়ার
                             </span>
                             <a
-                              href={routine.driveLink}
+                              href={optimizeDriveUrl(routine.driveLink)}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-2xs active:scale-[0.98] cursor-pointer shrink-0"
+                              className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs shadow-emerald-600/20 active:scale-[0.98] cursor-pointer shrink-0"
                             >
-                              <ExternalLink className="w-3.5 h-3.5" /> ওপেন করুন
+                              <ExternalLink className="w-3.5 h-3.5" /> ড্রাইভ ওপেন করুন
                             </a>
                           </div>
                         </div>

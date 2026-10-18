@@ -26,9 +26,10 @@ import { resolveStudyIdentity } from "@/lib/student-session";
  * ও প্র্যাকটিস অ্যাক্সেসযোগ্য — কোর্স-স্কোপ ফিল্টার নেই।
  */
 
-// টপিক-তালিকার ছোট মেমো-ক্যাশ (প্রতি সার্ভার instance-এ; ৯০ সেকেন্ড)
-const PRACTICE_TOPICS_TTL_MS = 90 * 1000;
+// টপিক-তালিকার সার্ভার মেমো-ক্যাশ (প্রতি সার্ভার instance-এ; ১০ মিনিট)
+const PRACTICE_TOPICS_TTL_MS = 10 * 60 * 1000;
 const practiceTopicsCache = new Map<string, { at: number; data: TopicOption[] }>();
+let inFlightTopicsPromise: Promise<TopicOption[]> | null = null;
 
 // প্র্যাকটিস-পুলের ছোট মেমো-ক্যাশ: একই টপিকে ("আবার শুরু" বা পুনরায় ঢুকলে)
 // ডাটাবেস আবার স্ক্যান না করে সাথে সাথে প্রশ্ন দেয়। কী-তে **resolved** স্টুডেন্ট
@@ -61,123 +62,116 @@ export async function getPracticeTopics(studentId?: string, email?: string): Pro
     // SECURITY: ক্লায়েন্টের পাঠানো id/email কোনো পরিচয় নয়। যাচাইকৃত সেশন আগে;
     // সেশন না থাকলে م্যানুয়াল fallback-এ id **ও** email দুটোই একই রোস্টার-সারিতে
     // মিলতে হবে (lib/student-session.ts)।
+    const identity = await resolveStudyIdentity(studentId, email);
+    if (!identity) return [];
+    const { verifyStudentAccess } = await import("@/actions/student-actions");
+    const access = await verifyStudentAccess(identity.id, "ALL", identity.email);
+    if (!access.allowed) return [];
+
     const isTeacher = await isTeacherSession();
-    const identity = isTeacher ? null : await resolveStudyIdentity(studentId, email);
 
-    if (!isTeacher) {
-      if (!identity) return [];
-      const { verifyStudentAccess } = await import("@/actions/student-actions");
-      const access = await verifyStudentAccess(identity.id, "ALL", identity.email);
-      if (!access.allowed) return [];
-    }
-
-    // PERF: ক্যাশ-কী resolved পরিচয় দিয়ে — ক্লায়েন্টের ইনপুট দিয়ে নয়, যাতে একজন
-    // দর্শক অন্য কারও এন্ট্রি তৈরি বা পড়তে না পারে।
-    const cacheKey = isTeacher ? "teacher" : `${identity!.id}|${norm(identity!.email || "")}`;
+    const cacheKey = isTeacher ? "teacher" : "student_shared";
     const cached = practiceTopicsCache.get(cacheKey);
     if (cached && Date.now() - cached.at < PRACTICE_TOPICS_TTL_MS) {
       return cached.data;
     }
 
-    // PERF: তিনটি স্বাধীন কোয়েরি একসাথে (আগে সিরিয়াল ছিল)।
-    // ⚠️ `.limit(5000)` কাজ করে না — PostgREST সার্ভার-সাইডে **১০০০ সারিতে** কেটে
-    // দেয়, আর বাকিগুলো নীরবে বাদ পড়ে। টেবিল বড় হওয়ার পর টপিক-তালিকা ও প্রশ্ন-
-    // সংখ্যা কম দেখাত। তাই এখন পৃষ্ঠা-পৃষ্ঠা (`fetchAllRows`)।
-    // প্রথমে count বের করি প্যারালাল ফেচের জন্য
-    const [{ count: tqCount }, { count: linkCount }] = await Promise.all([
-      supabase.from("topic_questions").select("*", { count: "exact", head: true }),
-      supabase.from("exam_questions_link").select("*", { count: "exact", head: true })
-    ]);
+    if (inFlightTopicsPromise) {
+      return await inFlightTopicsPromise;
+    }
 
-    const { fetchAllRowsParallel } = await import("@/lib/fetch-all");
+    inFlightTopicsPromise = (async () => {
+      try {
+        // PERF: তিনটি স্বাধীন কোয়েরি একসাথে (আগে সিরিয়াল ছিল)।
+        const [{ count: tqCount }, { count: linkCount }] = await Promise.all([
+          supabase.from("topic_questions").select("*", { count: "exact", head: true }),
+          supabase.from("exam_questions_link").select("*", { count: "exact", head: true })
+        ]);
 
-    const [settingsRes, topicQuestionsRows, linksRows] = await Promise.all([
-      supabase.from("app_settings").select("topics").eq("id", "main").maybeSingle(),
-      fetchAllRowsParallel<any>(tqCount || 0, (from, to) =>
-        supabase
-          .from("topic_questions")
-          .select("topic, q, exam_key")
-          .order("created_at", { ascending: true })
-          .order("id", { ascending: true })
-          .range(from, to)
-      ),
-      fetchAllRowsParallel<any>(linkCount || 0, (from, to) =>
-        supabase
-          .from("exam_questions_link")
-          .select("exam_id, question_bank(id, topic, q)")
-          .order("exam_id", { ascending: true })
-          .order("question_id", { ascending: true })
-          .range(from, to)
-      )
-    ]);
-    // নিচের ব্যবহারগুলো (`topicQuestionsRes.data`, `linksRes.data`) অপরিবর্তিত রাখতে
-    // পুরোনো আকারেই মুড়ে দিই।
-    const topicQuestionsRes = { data: topicQuestionsRows };
-    const linksRes = { data: linksRows };
+        const { fetchAllRowsParallel } = await import("@/lib/fetch-all");
 
-    // SECURITY: প্রশ্ন-পর্যায়ের উত্তর-লক (lib/answer-lock.ts)। আগের exam-key-ভিত্তিক
-    // লকের চেয়ে শক্তিশালী — যে প্রশ্ন লাইভ পরীক্ষায় ব্যবহৃত হচ্ছে, সেটি অন্য কোনো
-    // রিলিজ-হয়ে-যাওয়া পরীক্ষাতেও থাকলেও এখন আর দেখানো হয় না।
-    const lock = isTeacher ? null : await loadAnswerLockState();
+        const [settingsRes, topicQuestionsRows, linksRows] = await Promise.all([
+          supabase.from("app_settings").select("topics").eq("id", "main").maybeSingle(),
+          fetchAllRowsParallel<any>(tqCount || 0, (from, to) =>
+            supabase
+              .from("topic_questions")
+              .select("topic, q, exam_key")
+              .order("created_at", { ascending: true })
+              .order("id", { ascending: true })
+              .range(from, to)
+          ),
+          fetchAllRowsParallel<any>(linkCount || 0, (from, to) =>
+            supabase
+              .from("exam_questions_link")
+              .select("exam_id, question_bank(id, topic, q)")
+              .order("exam_id", { ascending: true })
+              .order("question_id", { ascending: true })
+              .range(from, to)
+          )
+        ]);
 
-    // শিক্ষক → সব। স্টুডেন্ট → সব (কোর্স-নির্বিশেষে) কিন্তু লাইভ-লকড প্রশ্ন বাদ।
-    // যে exam আর নেই (ডিলিট করা) তার মিরর করা প্রশ্নগুলো আর্কাইভ — সেগুলো লক হয় না,
-    // নাহলে সেই টপিকগুলো শিক্ষার্থীর কাছে চিরতরে হারিয়ে যায়।
-    const canSee = (text: string | null | undefined, examKey: string | null | undefined): boolean => {
-      if (!lock) return true;
-      return !isQuestionLocked(lock, { examKey, text });
-    };
+        const topicQuestionsRes = { data: topicQuestionsRows };
+        const linksRes = { data: linksRows };
 
-    const topicCountMap = new Map<string, number>();
+        // SECURITY: প্রশ্ন-পর্যায়ের উত্তর-লক (lib/answer-lock.ts)
+        const lock = isTeacher ? null : await loadAnswerLockState();
 
-    // 1. Registered topic list in app_settings (উপরের Promise.all-এ একসাথে আনা)
-    const registered: string[] = settingsRes.data?.topics || [];
-    registered.forEach((t) => {
-      const trimmed = String(t || "").trim();
-      if (trimmed && !topicCountMap.has(trimmed)) topicCountMap.set(trimmed, 0);
-    });
+        const canSee = (text: string | null | undefined, examKey: string | null | undefined): boolean => {
+          if (!lock) return true;
+          return !isQuestionLocked(lock, { examKey, text });
+        };
 
-    // 2. Count from permanent topicQuestions repository (visible rows only)
-    //    PERF: unbounded select নয় — বড় DB-তে স্ক্যান সীমিত (৫০০০); উপরে
-    //    একসাথে আনা হয়েছে (আর আলাদা রাউন্ড-ট্রিপ নেই)
-    const topicQuestions = topicQuestionsRes.data;
-    const mirroredKeys = new Set<string>();
-    (topicQuestions || []).forEach((tq: any) => {
-      const t = String(tq.topic || "").trim();
-      mirroredKeys.add(`${norm(tq.q)}___${norm(t)}`);
-      if (t && !topicCountMap.has(t)) topicCountMap.set(t, 0);
-      if (t && canSee(tq.q, tq.exam_key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
-    });
+        const topicCountMap = new Map<string, number>();
 
-    // 3. Count exam-linked questions (excluding already-mirrored), visible only
-    //    PERF: unbounded select নয় — সীমিত (৫০০০); উপরে একসাথে আনা হয়েছে
-    const links = linksRes.data;
+        // 1. Registered topic list in app_settings
+        const registered: string[] = settingsRes.data?.topics || [];
+        registered.forEach((t) => {
+          const trimmed = String(t || "").trim();
+          if (trimmed && !topicCountMap.has(trimmed)) topicCountMap.set(trimmed, 0);
+        });
 
-    (links || []).forEach((link: any) => {
-      const rawQ = link.question_bank;
-      const qb = Array.isArray(rawQ) ? rawQ[0] : rawQ;
-      const q = qb?.q;
-      const t = String(qb?.topic || "").trim();
-      if (t && q) {
-        if (!topicCountMap.has(t)) topicCountMap.set(t, 0);
-        if (canSee(q, link.exam_id)) {
-          const key = `${norm(q)}___${norm(t)}`;
-          if (!mirroredKeys.has(key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
-        }
+        // 2. Count from permanent topicQuestions repository
+        const topicQuestions = topicQuestionsRes.data;
+        const mirroredKeys = new Set<string>();
+        (topicQuestions || []).forEach((tq: any) => {
+          const t = String(tq.topic || "").trim();
+          mirroredKeys.add(`${norm(tq.q)}___${norm(t)}`);
+          if (t && !topicCountMap.has(t)) topicCountMap.set(t, 0);
+          if (t && canSee(tq.q, tq.exam_key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+        });
+
+        // 3. Count exam-linked questions
+        const links = linksRes.data;
+        (links || []).forEach((link: any) => {
+          const rawQ = link.question_bank;
+          const qb = Array.isArray(rawQ) ? rawQ[0] : rawQ;
+          const q = qb?.q;
+          const t = String(qb?.topic || "").trim();
+          if (t && q) {
+            if (!topicCountMap.has(t)) topicCountMap.set(t, 0);
+            if (canSee(q, link.exam_id)) {
+              const key = `${norm(q)}___${norm(t)}`;
+              if (!mirroredKeys.has(key)) topicCountMap.set(t, (topicCountMap.get(t) || 0) + 1);
+            }
+          }
+        });
+
+        const result: TopicOption[] = [];
+        topicCountMap.forEach((count, name) => {
+          result.push({ name, count });
+        });
+        const sorted = result.sort((a, b) =>
+          b.count !== a.count ? b.count - a.count : a.name.localeCompare(b.name, "bn")
+        );
+
+        practiceTopicsCache.set(cacheKey, { at: Date.now(), data: sorted });
+        return sorted;
+      } finally {
+        inFlightTopicsPromise = null;
       }
-    });
+    })();
 
-    const result: TopicOption[] = [];
-    topicCountMap.forEach((count, name) => {
-      // নিবন্ধিত সব টপিকই দেখানো হয় (০-কাউন্টও) — যাতে কেউ কোনো টপিক "হারিয়ে" না ফেলে
-      result.push({ name, count });
-    });
-    const sorted = result.sort((a, b) =>
-      b.count !== a.count ? b.count - a.count : a.name.localeCompare(b.name, "bn")
-    );
-    // PERF: পরের ভিজিটে সাথে সাথে দিতে ছোট cache-এ রাখি
-    practiceTopicsCache.set(cacheKey, { at: Date.now(), data: sorted });
-    return sorted;
+    return await inFlightTopicsPromise;
   } catch (err) {
     console.error("Get practice topics error:", err);
     return [];
@@ -199,19 +193,16 @@ export async function getPracticeQuestions(
     // না থাকলে id+email দুটোই একই রোস্টার-সারিতে মিলতে হবে। আগে যে কেউ একজন
     // এনরোল্ড ছাত্রের ফোন নম্বর জানলেই লগইন ছাড়া পুরো পেইড ব্যাংক (উত্তর ও
     // ব্যাখ্যা সহ, count=0 মানে "সব") বের করে নিতে পারত।
+    const identity = await resolveStudyIdentity(studentId, email);
+    if (!identity) return [];
+    const { verifyStudentAccess } = await import("@/actions/student-actions");
+    const accessRes = await verifyStudentAccess(identity.id, "ALL", identity.email);
+    if (!accessRes.allowed) return [];
+    // রোস্টারের canonical আইডি — submission/notebook এটাই ব্যবহার করে।
+    const ownerId = accessRes.normalizedId || identity.id;
+
     const { isTeacherSession } = await import("@/lib/teacher-auth");
     const isTeacher = await isTeacherSession();
-    const identity = isTeacher ? null : await resolveStudyIdentity(studentId, email);
-
-    let ownerId = "";
-    if (!isTeacher) {
-      if (!identity) return [];
-      const { verifyStudentAccess } = await import("@/actions/student-actions");
-      const accessRes = await verifyStudentAccess(identity.id, "ALL", identity.email);
-      if (!accessRes.allowed) return [];
-      // রোস্টারের canonical আইডি — submission/notebook এটাই ব্যবহার করে।
-      ownerId = accessRes.normalizedId || identity.id;
-    }
 
     // count = 0 → "সব প্রশ্ন" (unlimited)। প্রশ্নব্যাংক রিডিং-এ সব প্রশ্ন দেখানোর
     // জন্য page.tsx ০ পাঠায়; বাকি কলাররা (কুইজ ১০/১৫/৫০) আগের মতোই সীমিত থাকে।
