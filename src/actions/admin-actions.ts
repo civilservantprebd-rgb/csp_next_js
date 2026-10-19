@@ -1781,13 +1781,35 @@ export async function toggleExamResultPublish(examKey: string, publish: boolean)
       if (publish && solutions && Array.isArray(row.answers)) {
         let correct = 0;
         let incorrect = 0;
-        row.answers.forEach((ans: number | null, idx: number) => {
-          const sol = solutions[idx];
-          if (ans !== null && ans !== -1 && sol) {
-            if (ans === sol.correct) correct++;
-            else incorrect++;
-          }
-        });
+        const isNewFormat =
+          row.answers.length > 0 &&
+          typeof row.answers[0] === "object" &&
+          row.answers[0] !== null &&
+          "qid" in row.answers[0];
+
+        if (isNewFormat) {
+          const answerMap = new Map<string, number>();
+          row.answers.forEach((a: any) => {
+            if (a && typeof a === "object" && "qid" in a) {
+              answerMap.set(a.qid, Number(a.ans));
+            }
+          });
+          solutions.forEach((sol: any) => {
+            const ans = sol.id != null && answerMap.has(sol.id) ? answerMap.get(sol.id) : -1;
+            if (ans !== undefined && ans !== -1 && sol) {
+              if (ans === sol.correct) correct++;
+              else incorrect++;
+            }
+          });
+        } else {
+          row.answers.forEach((ans: any, idx: number) => {
+            const sol = solutions[idx];
+            if (ans !== null && ans !== -1 && ans !== undefined && sol) {
+              if (Number(ans) === sol.correct) correct++;
+              else incorrect++;
+            }
+          });
+        }
         const score = Math.max(0, correct - incorrect * 0.5);
         batchUpdates.push(
           (async () => {
